@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meter Log">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Meter Log</title>
+<style>
+  :root{
+    --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+    --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+    --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+    --r:14px; --tap:60px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--surface); color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:17px; line-height:1.35; padding:env(safe-area-inset-top) 14px 32px;
+    max-width:520px; margin:0 auto; -webkit-text-size-adjust:100%;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+  /* top bar */
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 2px 16px;position:sticky;top:0;background:var(--surface);z-index:5}
+  .pill{flex:1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+        padding:9px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+  .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+  .gear{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:20px;cursor:pointer}
+
+  h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+     font-weight:700;margin:18px 2px 8px}
+
+  /* segmented status — the one bold element */
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+  .seg button{height:72px;border:2px solid var(--line);border-radius:var(--r);background:var(--panel);
+     font-size:19px;font-weight:800;letter-spacing:.01em;cursor:pointer;color:var(--ink-soft);
+     transition:transform .06s ease}
+  .seg button:active{transform:scale(.98)}
+  .seg button.on-install{border-color:var(--install);color:#fff;background:var(--install)}
+  .seg button.on-uti{border-color:var(--uti);color:#fff;background:var(--uti)}
+
+  label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin:14px 2px 6px}
+  input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:12px;
+     padding:0 14px;font-size:18px;background:var(--panel);color:var(--ink);font-family:inherit}
+  input.mono,select.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.02em}
+  textarea{padding:12px 14px;min-height:84px;line-height:1.4;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+  .hide{display:none !important}
+  .loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
+
+  /* buttons */
+  .primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--amber);
+     color:#1a1300;font-size:20px;font-weight:800;cursor:pointer;box-shadow:var(--shadow)}
+  .primary:active{background:var(--amber-press)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .ghost{height:56px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
+     color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+     background:var(--ink);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;
+     box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:20;max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* settings + downtime sheets */
+  .sheet{position:fixed;inset:0;background:rgba(19,23,28,.45);display:flex;align-items:flex-end;
+     justify-content:center;z-index:30}
+  .sheet .card{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;
+     padding:20px 16px 28px;max-height:90vh;overflow:auto}
+  .card h2{margin:2px 2px 4px;font-size:18px}
+  .card p{margin:0 2px 14px;color:var(--ink-soft);font-size:14px}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+  <div class="bar">
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
+    <button class="gear" id="openSettings" aria-label="Settings">⚙︎</button>
+  </div>
+
+  <h1>Log a stop</h1>
+  <div class="seg" role="group" aria-label="Status">
+    <button id="btnInstall" class="on-install">INSTALLED</button>
+    <button id="btnUti">UTI</button>
+  </div>
+
+  <!-- INSTALLED fields -->
+  <div id="installFields">
+    <label for="read">Meter read</label>
+    <input id="read" class="mono" inputmode="numeric" placeholder="3950">
+    <label for="newJ">New J#</label>
+    <input id="newJ" class="mono" placeholder="J4729753" autocapitalize="characters">
+  </div>
+
+  <!-- UTI fields -->
+  <div id="utiFields" class="hide">
+    <label for="utiReason">Reason</label>
+    <select id="utiReason" class="mono">
+      <option>Meter Error</option><option>No Access</option>
+      <option>Wrong Meter</option><option>Other</option>
+    </select>
+    <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
+    <textarea id="utiOther" class="hide" placeholder="Describe it"></textarea>
+    <label for="oldJ">Old J# (save it)</label>
+    <input id="oldJ" class="mono" placeholder="J4700000" autocapitalize="characters">
+  </div>
+
+  <label for="wo">Work order #</label>
+  <input id="wo" class="mono" inputmode="numeric" placeholder="573054">
+  <label for="unit">Unit</label>
+  <input id="unit" class="mono" placeholder="C20-5">
+  <label for="addr">Address / landmark <span style="font-weight:500">(optional)</span></label>
+  <input id="addr" placeholder="Horse Island">
+  <div class="loc" id="locText">Location: not captured yet</div>
+
+  <button class="primary" id="logStop">Log stop</button>
+
+  <div class="row2">
+    <button class="ghost" id="openDowntime">Add downtime</button>
+    <button class="ghost" id="endDay">End of day</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Settings sheet -->
+  <div class="sheet hide" id="settingsSheet">
+    <div class="card">
+      <h2>Settings</h2>
+      <p>Stored on this device only. Each person sets their own name; everything goes to the same sheet.</p>
+      <label for="cfgName">Your name</label>
+      <input id="cfgName" placeholder="Quincy" autocapitalize="words">
+      <label for="cfgUrl">Web App URL</label>
+      <input id="cfgUrl" class="mono" placeholder="https://script.google.com/.../exec">
+      <label for="cfgToken">Token</label>
+      <input id="cfgToken" class="mono" placeholder="shared token">
+      <button class="primary" id="saveSettings">Save</button>
+    </div>
+  </div>
+
+  <!-- Downtime sheet -->
+  <div class="sheet hide" id="downtimeSheet">
+    <div class="card">
+      <h2>Add downtime</h2>
+      <p>Pick a reason, log the minutes. Pair it to a work order if it relates to one.</p>
+      <label for="dtCat">Reason</label>
+      <select id="dtCat" class="mono">
+        <option value="NEXT_GEN">Next Gen</option>
+        <option value="CELL_SIGNAL">Cell Signal</option>
+        <option value="BAD_WEATHER">Bad Weather</option>
+        <option value="WAREHOUSE">Warehouse</option>
+        <option value="TOOLS_MATERIAL">Tools / Material</option>
+        <option value="DISPATCH">Dispatch</option>
+        <option value="TRUCK_ISSUES">Truck Issues</option>
+        <option value="ASSIST">Assist</option>
+        <option value="URGENT_EER">Urgent / EER</option>
+        <option value="OTHER">Other</option>
+      </select>
+      <label for="dtNote" id="dtNoteLabel" class="hide">What happened?</label>
+      <textarea id="dtNote" class="hide" placeholder="Describe it"></textarea>
+      <label for="dtMin">Minutes</label>
+      <input id="dtMin" class="mono" inputmode="numeric" placeholder="15">
+      <label for="dtWo">Work order # <span style="font-weight:500">(optional)</span></label>
+      <input id="dtWo" class="mono" inputmode="numeric" placeholder="573054">
+      <button class="primary" id="saveDowntime">Log downtime</button>
+    </div>
+  </div>
+
+<script>
+// ── tiny storage that survives a sandbox preview (falls back to memory) ──────
+const store = (() => {
+  let mem = {};
+  try { localStorage.setItem('__t','1'); localStorage.removeItem('__t');
+        return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v) }; }
+  catch { return { get:k=>mem[k]??null, set:(k,v)=>{mem[k]=String(v)} }; }
+})();
+
+const $ = id => document.getElementById(id);
+const cfg = () => ({ name:store.get('name')||'', url:store.get('url')||'', token:store.get('token')||'' });
+
+// ── offline queue ────────────────────────────────────────────────────────
+const QKEY = 'queue';
+const queue = () => JSON.parse(store.get(QKEY) || '[]');
+const setQueue = q => store.set(QKEY, JSON.stringify(q));
+
+function enqueue(payload){ const q = queue(); q.push(payload); setQueue(q); paint(); flush(); }
+
+async function flush(){
+  const c = cfg(); if(!c.url || !navigator.onLine) { paint(); return; }
+  let q = queue();
+  while(q.length){
+    try{
+      await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+                           body: JSON.stringify(q[0]) });   // text/plain dodges CORS preflight
+      q.shift(); setQueue(q);
+    } catch { break; }   // still no real connection — keep the rest
+  }
+  paint();
+}
+
+function paint(){
+  const n = queue().length, p = $('status'), t = $('statusText');
+  p.classList.remove('wait','off');
+  if(!navigator.onLine){ p.classList.add('off'); t.textContent = n ? n+' waiting — offline' : 'Offline'; }
+  else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
+  else t.textContent = 'All synced';
+}
+
+// ── status toggle ────────────────────────────────────────────────────────
+let status = 'INSTALLED';
+$('btnInstall').onclick = () => setStatus('INSTALLED');
+$('btnUti').onclick      = () => setStatus('UTI');
+function setStatus(s){
+  status = s;
+  $('btnInstall').className = s==='INSTALLED' ? 'on-install' : '';
+  $('btnUti').className      = s==='UTI'      ? 'on-uti'     : '';
+  $('installFields').classList.toggle('hide', s!=='INSTALLED');
+  $('utiFields').classList.toggle('hide', s!=='UTI');
+}
+$('utiReason').onchange = e => {
+  const other = e.target.value === 'Other';
+  $('utiOther').classList.toggle('hide', !other);
+  $('utiOtherLabel').classList.toggle('hide', !other);
+};
+
+// ── location ────────────────────────────────────────────────────────────
+let coords = { lat:null, lng:null };
+function getLocation(){
+  if(!navigator.geolocation) return;
+  $('locText').textContent = 'Location: getting…';
+  navigator.geolocation.getCurrentPosition(
+    p => { coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
+           $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`; },
+    () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; },
+    { enableHighAccuracy:true, timeout:8000 });
+}
+getLocation();
+
+// ── log a stop ────────────────────────────────────────────────────────────
+$('logStop').onclick = () => {
+  const c = cfg();
+  if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
+  if(!$('wo').value.trim()){ toast('Work order # is required'); return; }
+
+  const base = {
+    token:c.token, action:'addStop', installer:c.name,
+    timestamp:new Date().toISOString(),
+    workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
+    address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status
+  };
+  if(status==='INSTALLED'){
+    Object.assign(base, {
+      meterRead: $('read').value.trim()===''? null : Number($('read').value.trim()),
+      newJNumber: $('newJ').value.trim(), oldJNumber:null, utiReason:null });
+  } else {
+    const reason = $('utiReason').value;
+    Object.assign(base, {
+      meterRead:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(),
+      utiReason: reason==='Other' ? ('Other: '+$('utiOther').value.trim()) : reason });
+  }
+  enqueue(base);
+  toast(status==='INSTALLED' ? 'Install logged ✓' : 'UTI logged ✓');
+  ['read','newJ','wo','unit','addr','oldJ','utiOther'].forEach(id => $(id).value='');
+  getLocation();
+};
+
+// ── downtime ────────────────────────────────────────────────────────────
+$('openDowntime').onclick = () => openSheet('downtimeSheet');
+$('dtCat').onchange = e => {
+  const other = e.target.value==='OTHER';
+  $('dtNote').classList.toggle('hide', !other);
+  $('dtNoteLabel').classList.toggle('hide', !other);
+};
+$('saveDowntime').onclick = () => {
+  const c = cfg();
+  if(!$('dtMin').value.trim()){ toast('Minutes required'); return; }
+  if($('dtCat').value==='OTHER' && !$('dtNote').value.trim()){ toast('Describe what happened'); return; }
+  enqueue({ token:c.token, action:'addDowntime', installer:c.name,
+            timestamp:new Date().toISOString(), category:$('dtCat').value,
+            minutes:Number($('dtMin').value.trim()), workOrderId:$('dtWo').value.trim(),
+            note:$('dtNote').value.trim() });
+  toast('Downtime logged ✓');
+  $('dtMin').value=''; $('dtWo').value=''; $('dtNote').value='';
+  closeSheets();
+};
+
+// ── end of day ────────────────────────────────────────────────────────────
+$('endDay').onclick = async () => {
+  const c = cfg(); if(!c.url){ openSheet('settingsSheet'); return; }
+  await flush();
+  if(queue().length){ toast('Still some unsynced — try when online'); return; }
+  try{
+    const res = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name }) });
+    const data = await res.json(); const s = data.summary;
+    toast(s ? `Installed ${s.installed} · UTI ${s.uti} · ${s.downtimeTotalMin} min down`
+            : 'Day closed ✓');
+  } catch { toast('Could not reach the sheet'); }
+};
+
+// ── settings + sheets plumbing ──────────────────────────────────────────────
+function openSheet(id){
+  if(id==='settingsSheet'){ const c=cfg(); $('cfgName').value=c.name; $('cfgUrl').value=c.url; $('cfgToken').value=c.token; }
+  $(id).classList.remove('hide');
+}
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
+document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
+$('openSettings').onclick = () => openSheet('settingsSheet');
+$('saveSettings').onclick = () => {
+  store.set('name',$('cfgName').value.trim()); store.set('url',$('cfgUrl').value.trim());
+  store.set('token',$('cfgToken').value.trim()); closeSheets(); toast('Saved'); paint();
+};
+
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+window.addEventListener('online', flush);
+window.addEventListener('offline', paint);
+// also try to sync whenever the app comes back to the foreground
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
+window.addEventListener('focus', flush);
+paint();
+if(!cfg().url) setTimeout(()=>openSheet('settingsSheet'), 400);
+
+// Register the service worker so the app opens even with no signal.
+// This only takes effect once the page is served over HTTPS (GitHub Pages,
+// Netlify, Cloudflare Pages, etc.). Opened as a local file or over plain
+// http it simply does nothing — the offline save-and-sync queue still works
+// as long as the app is already open.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
