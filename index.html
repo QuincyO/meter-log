@@ -57,6 +57,11 @@
   input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
   .hide{display:none !important}
   .loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
+  .locrow{display:flex;align-items:center;gap:10px;margin-top:6px}
+  .locrow .loc{flex:1;margin:0}
+  .locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;
+     background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;flex:none}
+  .locbtn:active{transform:scale(.98)} .locbtn:disabled{opacity:.5}
 
   /* buttons */
   .primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--amber);
@@ -138,7 +143,10 @@
   <input id="unit" class="mono">
   <label for="addr">Address / landmark <span style="font-weight:500">(auto-fills from GPS · editable)</span></label>
   <input id="addr">
-  <div class="loc" id="locText">Location: not captured yet</div>
+  <div class="locrow">
+    <div class="loc" id="locText">Location: not captured yet</div>
+    <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
+  </div>
 
   <button class="primary" id="logStop">Log stop</button>
 
@@ -285,32 +293,50 @@ $('utiReason').onchange = e => {
 
 // ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
-function getLocation(){
-  if(!navigator.geolocation) return;
+
+// force = true when the Refresh button is tapped: re-read GPS and overwrite the
+// address even if one is already there. Auto calls (on load / after a stop)
+// pass nothing, so they only fill the address when it's still empty.
+function getLocation(force){
+  if(!navigator.geolocation){ $('locText').textContent = 'Location: no GPS on this device'; return; }
+  const btn = $('refreshLoc'); if(btn) btn.disabled = true;
   $('locText').textContent = 'Location: getting…';
   navigator.geolocation.getCurrentPosition(
-    p => { coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
-           $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`;
-           fetchAddress(coords.lat, coords.lng); },
-    () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; },
+    async p => {
+      coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
+      $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`;
+      await fetchAddress(coords.lat, coords.lng, force);
+      if(btn) btn.disabled = false;
+    },
+    () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; if(btn) btn.disabled = false; },
     { enableHighAccuracy:true, timeout:8000 });
 }
-// Best-effort reverse geocode through the spine. Fills the address only when
-// it's still empty (never clobbers what you typed). Offline or no result →
-// leave it for manual entry. The field stays editable either way.
-async function fetchAddress(lat, lng){
+// Best-effort reverse geocode through the spine. In auto mode it fills the
+// address only when it's still empty (never clobbers what you typed); with
+// force it always replaces it. Offline or no result → leave it for manual
+// entry. The field stays editable either way.
+async function fetchAddress(lat, lng, force){
   const c = cfg();
-  if(!c.url || !c.token || !navigator.onLine) return;
-  if($('addr').value.trim()) return;
+  if(!c.url || !c.token || !navigator.onLine){
+    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · offline — enter address manually`;
+    return;
+  }
+  if(!force && $('addr').value.trim()) return;
   try{
     const u = `${c.url}?token=${enc(c.token)}&action=geocode&lat=${lat}&lng=${lng}`;
     const d = await (await fetch(u)).json();
-    if(d.ok && d.address && !$('addr').value.trim()){
+    if(d.ok && d.address && (force || !$('addr').value.trim())){
       $('addr').value = d.address;
       $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
+    } else if(force && !(d.ok && d.address)){
+      $('locText').textContent = `Location: ${lat}, ${lng} · no address found — enter manually`;
     }
-  } catch { /* manual entry */ }
+  } catch {
+    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · couldn’t fetch address`;
+  }
 }
+
+$('refreshLoc').onclick = () => getLocation(true);
 getLocation();
 
 // ── log a stop ────────────────────────────────────────────────────────────
