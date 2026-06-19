@@ -112,6 +112,7 @@
   .tbl td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
   .tbl tr[data-i]{cursor:pointer}
   .tbl tr[data-i]:active{background:#EEF1F5}
+  .tbl td.nowrap{white-space:nowrap}
 
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
@@ -715,12 +716,37 @@ $('openToday').onclick = async () => {
   } catch { $('todayTally').textContent=''; $('todayTable').innerHTML='<p class="muted">Couldn’t load — check the connection.</p>'; }
 };
 
-function readNote(s){
-  if(s.status==='UTI') return esc(s.utiReason) || 'UTI';
+const CAT_LABEL = {
+  NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
+  WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
+  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other'
+};
+const catLabel = c => CAT_LABEL[c] || c || 'Other';
+
+// Meter-read cell: the read (+ received for solar) for an install; the reason
+// for a UTI (coloured so UTIs stand out); "no read" for an unreadable install.
+function readCell(s){
+  if(s.status==='UTI') return `<span class="tag-uti">${esc(s.utiReason)||'UTI'}</span>`;
   if(s.meterRead || s.meterRead===0){
     return esc(s.meterRead) + ((s.meterReadReceived||s.meterReadReceived===0) ? (' / '+esc(s.meterReadReceived)) : '');
   }
-  return s.noReadReason ? 'no read' : '—';
+  return s.noReadReason ? '<span style="color:var(--ink-soft)">no read</span>' : '—';
+}
+
+// Downtime booked against this WO#, summed per category: "20 Tools/Material".
+// (Downtime logged without a work order isn't attributed to a row, but still
+// counts in the day total shown above.)
+function dtForWO(wo, downtime){
+  const w = String(wo==null?'':wo).trim();
+  if(!w) return '';
+  const byCat = {};
+  (downtime||[]).forEach(d => {
+    if(String(d.workOrderId==null?'':d.workOrderId).trim() === w){
+      const cat = d.category || 'OTHER';
+      byCat[cat] = (byCat[cat]||0) + (Number(d.minutes)||0);
+    }
+  });
+  return Object.keys(byCat).map(cat => `${byCat[cat]} ${catLabel(cat)}`).join(', ');
 }
 
 function renderToday(stops, downtime){
@@ -738,13 +764,16 @@ function renderToday(stops, downtime){
   if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
 
   let html = '<div class="tblwrap"><table class="tbl"><thead><tr>'
-           + '<th>WO#</th><th>Address</th><th>Read / note</th><th>St</th></tr></thead><tbody>';
+           + '<th>WO#</th><th>Address</th><th>New J#</th><th>Meter read</th><th>Downtime (min)</th>'
+           + '</tr></thead><tbody>';
   editable.forEach((s, i) => {
+    const dt = dtForWO(s.workOrderId, downtime);
     html += `<tr data-i="${i}">`
-          + `<td class="mono">${esc(s.workOrderId)||'—'}</td>`
+          + `<td class="mono nowrap">${esc(s.workOrderId)||'—'}</td>`
           + `<td>${esc(locLabel(s))||'—'}</td>`
-          + `<td>${readNote(s)}</td>`
-          + `<td><b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${s.status==='UTI'?'UTI':'INST'}</b></td>`
+          + `<td class="mono nowrap">${esc(s.newJNumber)||'—'}</td>`
+          + `<td>${readCell(s)}</td>`
+          + `<td>${dt || '—'}</td>`
           + `</tr>`;
   });
   html += '</tbody></table></div>';
