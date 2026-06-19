@@ -559,10 +559,20 @@ $('saveDowntime').onclick = () => {
   closeSheets();
 };
 
+// Location label for tables/summaries: the address, with the unit folded in
+// front when both exist (e.g. "14-1 Long Rd"). Per the rule, a unit only shows
+// when it's paired with an address.
+function locLabel(s){
+  const unit = String(s.unit==null?'':s.unit).trim();
+  const addr = String(s.address==null?'':s.address).trim();
+  if(!addr) return '';
+  return unit ? (unit + ' ' + addr) : addr;
+}
+
 // ── editable stop card (shared by Look up + End of day) ────────────────────
 function summaryHTML(s){
   return `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
-       + `<span class="sc-meta">${esc(s.unit)||'no unit'} · `
+       + `<span class="sc-meta">${esc(locLabel(s))||'no address'} · `
        + `<b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
        + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
@@ -728,11 +738,11 @@ function renderToday(stops, downtime){
   if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
 
   let html = '<div class="tblwrap"><table class="tbl"><thead><tr>'
-           + '<th>WO#</th><th>J#</th><th>Read / note</th><th>St</th></tr></thead><tbody>';
+           + '<th>WO#</th><th>Address</th><th>Read / note</th><th>St</th></tr></thead><tbody>';
   editable.forEach((s, i) => {
     html += `<tr data-i="${i}">`
           + `<td class="mono">${esc(s.workOrderId)||'—'}</td>`
-          + `<td class="mono">${esc(s.newJNumber||s.oldJNumber)||'—'}</td>`
+          + `<td>${esc(locLabel(s))||'—'}</td>`
           + `<td>${readNote(s)}</td>`
           + `<td><b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${s.status==='UTI'?'UTI':'INST'}</b></td>`
           + `</tr>`;
