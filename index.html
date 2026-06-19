@@ -98,9 +98,9 @@
   <!-- INSTALLED fields -->
   <div id="installFields">
     <label for="read">Meter read</label>
-    <input id="read" class="mono" inputmode="numeric" placeholder="3950">
+    <input id="read" class="mono" inputmode="numeric">
     <label for="newJ">New J#</label>
-    <input id="newJ" class="mono" placeholder="J4729753" autocapitalize="characters">
+    <input id="newJ" class="mono" autocapitalize="characters">
   </div>
 
   <!-- UTI fields -->
@@ -111,20 +111,22 @@
       <option>Wrong Meter</option><option>Other</option>
     </select>
     <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
-    <textarea id="utiOther" class="hide" placeholder="Describe it"></textarea>
+    <textarea id="utiOther" class="hide"></textarea>
     <label for="oldJ">Old J# (save it)</label>
-    <input id="oldJ" class="mono" placeholder="J4700000" autocapitalize="characters">
+    <input id="oldJ" class="mono" autocapitalize="characters">
   </div>
 
   <label for="wo">Work order #</label>
-  <input id="wo" class="mono" inputmode="numeric" placeholder="573054">
+  <input id="wo" class="mono" inputmode="numeric">
   <label for="unit">Unit</label>
-  <input id="unit" class="mono" placeholder="C20-5">
+  <input id="unit" class="mono">
   <label for="addr">Address / landmark <span style="font-weight:500">(optional)</span></label>
-  <input id="addr" placeholder="Horse Island">
+  <input id="addr">
   <div class="loc" id="locText">Location: not captured yet</div>
 
   <button class="primary" id="logStop">Log stop</button>
+
+  <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Mark spot done · GPS only</button>
 
   <div class="row2">
     <button class="ghost" id="openDowntime">Add downtime</button>
@@ -139,11 +141,11 @@
       <h2>Settings</h2>
       <p>Stored on this device only. Each person sets their own name; everything goes to the same sheet.</p>
       <label for="cfgName">Your name</label>
-      <input id="cfgName" placeholder="Quincy" autocapitalize="words">
+      <input id="cfgName" autocapitalize="words">
       <label for="cfgUrl">Web App URL</label>
-      <input id="cfgUrl" class="mono" placeholder="https://script.google.com/.../exec">
+      <input id="cfgUrl" class="mono">
       <label for="cfgToken">Token</label>
-      <input id="cfgToken" class="mono" placeholder="shared token">
+      <input id="cfgToken" class="mono">
       <button class="primary" id="saveSettings">Save</button>
     </div>
   </div>
@@ -167,11 +169,11 @@
         <option value="OTHER">Other</option>
       </select>
       <label for="dtNote" id="dtNoteLabel" class="hide">What happened?</label>
-      <textarea id="dtNote" class="hide" placeholder="Describe it"></textarea>
+      <textarea id="dtNote" class="hide"></textarea>
       <label for="dtMin">Minutes</label>
-      <input id="dtMin" class="mono" inputmode="numeric" placeholder="15">
+      <input id="dtMin" class="mono" inputmode="numeric">
       <label for="dtWo">Work order # <span style="font-weight:500">(optional)</span></label>
-      <input id="dtWo" class="mono" inputmode="numeric" placeholder="573054">
+      <input id="dtWo" class="mono" inputmode="numeric">
       <button class="primary" id="saveDowntime">Log downtime</button>
     </div>
   </div>
@@ -272,6 +274,26 @@ $('logStop').onclick = () => {
   toast(status==='INSTALLED' ? 'Install logged ✓' : 'UTI logged ✓');
   ['read','newJ','wo','unit','addr','oldJ','utiOther'].forEach(id => $(id).value='');
   getLocation();
+};
+
+// ── mark spot done (GPS only) ───────────────────────────────────────────
+// One tap: capture coordinates and log a "meter's already here" marker.
+// No work order / read / J#. Status DONE keeps it out of the install + UTI
+// counts (it may not be your work), and it feeds the map's "already done?"
+// check. Goes through the same offline queue, so it works with no signal.
+$('markDone').onclick = () => {
+  const c = cfg();
+  if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
+  if(!navigator.geolocation){ toast('No GPS on this device'); return; }
+  toast('Getting location…');
+  navigator.geolocation.getCurrentPosition(
+    p => { enqueue({ token:c.token, action:'addStop', installer:c.name,
+                     timestamp:new Date().toISOString(),
+                     lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6),
+                     status:'DONE' });
+           toast('Spot marked done ✓'); },
+    () => toast('Couldn’t get GPS — try again'),
+    { enableHighAccuracy:true, timeout:8000 });
 };
 
 // ── downtime ────────────────────────────────────────────────────────────
