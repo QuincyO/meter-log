@@ -71,13 +71,29 @@
      box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:20;max-width:90vw}
   .toast.show{transform:translateX(-50%) translateY(0)}
 
-  /* settings + downtime sheets */
+  /* settings + downtime + lookup + end-of-day sheets */
   .sheet{position:fixed;inset:0;background:rgba(19,23,28,.45);display:flex;align-items:flex-end;
      justify-content:center;z-index:30}
   .sheet .card{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;
      padding:20px 16px 28px;max-height:90vh;overflow:auto}
   .card h2{margin:2px 2px 4px;font-size:18px}
   .card p{margin:0 2px 14px;color:var(--ink-soft);font-size:14px}
+  .muted{color:var(--ink-soft);font-size:14px;margin:8px 2px}
+
+  /* editable stop cards (shared by lookup + end of day) */
+  .stopcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+     padding:12px;margin:10px 0;box-shadow:var(--shadow)}
+  .sc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .sc-sum strong{font-size:16px}
+  .sc-meta{display:block;font-size:13px;color:var(--ink-soft);margin-top:3px}
+  .tag-ok{color:var(--install)} .tag-uti{color:var(--uti)}
+  .mini{min-height:40px;height:40px;padding:0 16px;border:2px solid var(--line);border-radius:10px;
+     background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;flex:none}
+  .sc-edit{margin-top:4px}
+  .sc-edit label{margin-top:12px}
+  .sc-save{height:54px;margin-top:16px}
+
+  .eod-tally{font-weight:800;font-size:16px;margin:2px 2px 6px}
 
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
@@ -120,7 +136,7 @@
   <input id="wo" class="mono" inputmode="numeric">
   <label for="unit">Unit</label>
   <input id="unit" class="mono">
-  <label for="addr">Address / landmark <span style="font-weight:500">(optional)</span></label>
+  <label for="addr">Address / landmark <span style="font-weight:500">(auto-fills from GPS · editable)</span></label>
   <input id="addr">
   <div class="loc" id="locText">Location: not captured yet</div>
 
@@ -132,6 +148,8 @@
     <button class="ghost" id="openDowntime">Add downtime</button>
     <button class="ghost" id="endDay">End of day</button>
   </div>
+
+  <button class="ghost" id="openLookup" style="width:100%;margin-top:12px">Look up a stop · WO# / J#</button>
 
   <div class="toast" id="toast"></div>
 
@@ -178,6 +196,31 @@
     </div>
   </div>
 
+  <!-- Look up sheet -->
+  <div class="sheet hide" id="lookupSheet">
+    <div class="card">
+      <h2>Look up a stop</h2>
+      <p>Enter a work order # or J# to pull everything logged for it. Tap Edit on a result to fix it.</p>
+      <label for="lookupQ">Work order # or J#</label>
+      <input id="lookupQ" class="mono" autocapitalize="characters">
+      <button class="primary" id="doLookup" style="margin-top:14px">Search</button>
+      <div id="lookupResults" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <!-- End of day sheet -->
+  <div class="sheet hide" id="eodSheet">
+    <div class="card">
+      <h2>End of day</h2>
+      <p>Review today’s stops, fix anything that’s off, add a note, then finish.</p>
+      <div class="eod-tally" id="eodTally">Loading…</div>
+      <div id="eodList"></div>
+      <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
+      <textarea id="eodNotes" placeholder="Anything else to add to today’s log…"></textarea>
+      <button class="primary" id="finishDay" style="margin-top:16px">Finish day</button>
+    </div>
+  </div>
+
 <script>
 // ── tiny storage that survives a sandbox preview (falls back to memory) ──────
 const store = (() => {
@@ -187,8 +230,13 @@ const store = (() => {
   catch { return { get:k=>mem[k]??null, set:(k,v)=>{mem[k]=String(v)} }; }
 })();
 
-const $ = id => document.getElementById(id);
+const $   = id => document.getElementById(id);
+const enc = encodeURIComponent;
 const cfg = () => ({ name:store.get('name')||'', url:store.get('url')||'', token:store.get('token')||'' });
+
+// escape helpers for building result cards from stored values
+const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const attr = v => String(v??'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
 
 // ── offline queue ────────────────────────────────────────────────────────
 const QKEY = 'queue';
@@ -235,16 +283,33 @@ $('utiReason').onchange = e => {
   $('utiOtherLabel').classList.toggle('hide', !other);
 };
 
-// ── location ────────────────────────────────────────────────────────────
+// ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
 function getLocation(){
   if(!navigator.geolocation) return;
   $('locText').textContent = 'Location: getting…';
   navigator.geolocation.getCurrentPosition(
     p => { coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
-           $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`; },
+           $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`;
+           fetchAddress(coords.lat, coords.lng); },
     () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; },
     { enableHighAccuracy:true, timeout:8000 });
+}
+// Best-effort reverse geocode through the spine. Fills the address only when
+// it's still empty (never clobbers what you typed). Offline or no result →
+// leave it for manual entry. The field stays editable either way.
+async function fetchAddress(lat, lng){
+  const c = cfg();
+  if(!c.url || !c.token || !navigator.onLine) return;
+  if($('addr').value.trim()) return;
+  try{
+    const u = `${c.url}?token=${enc(c.token)}&action=geocode&lat=${lat}&lng=${lng}`;
+    const d = await (await fetch(u)).json();
+    if(d.ok && d.address && !$('addr').value.trim()){
+      $('addr').value = d.address;
+      $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
+    }
+  } catch { /* manual entry */ }
 }
 getLocation();
 
@@ -316,16 +381,130 @@ $('saveDowntime').onclick = () => {
   closeSheets();
 };
 
-// ── end of day ────────────────────────────────────────────────────────────
+// ── editable stop card (shared by Look up + End of day) ────────────────────
+function summaryHTML(s){
+  return `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
+       + `<span class="sc-meta">${esc(s.unit)||'no unit'} · `
+       + `<b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${esc(s.status)||'—'}</b>`
+       + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
+       + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}</span>`;
+}
+function makeStopCard(s){
+  const card = document.createElement('div');
+  card.className = 'stopcard';
+  card.innerHTML = `
+    <div class="sc-head">
+      <div class="sc-sum">${summaryHTML(s)}</div>
+      <button class="mini" data-act="toggle">Edit</button>
+    </div>
+    <div class="sc-edit hide">
+      <label>Work order #</label><input class="mono" data-f="wo" value="${attr(s.workOrderId)}">
+      <label>Unit</label><input class="mono" data-f="unit" value="${attr(s.unit)}">
+      <label>Address</label><input data-f="addr" value="${attr(s.address)}">
+      <label>Status</label>
+      <select class="mono" data-f="status">
+        <option ${s.status==='INSTALLED'?'selected':''}>INSTALLED</option>
+        <option ${s.status==='UTI'?'selected':''}>UTI</option>
+      </select>
+      <label>New J#</label><input class="mono" data-f="newJ" value="${attr(s.newJNumber)}">
+      <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
+      <label>Meter read</label><input class="mono" inputmode="numeric" data-f="read" value="${attr(s.meterRead)}">
+      <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
+      <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
+      <button class="primary sc-save" data-act="save">Save changes</button>
+    </div>`;
+
+  const editBlock = card.querySelector('.sc-edit');
+  const toggleBtn = card.querySelector('[data-act="toggle"]');
+  toggleBtn.onclick = () => {
+    editBlock.classList.toggle('hide');
+    toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
+  };
+
+  card.querySelector('[data-act="save"]').onclick = async () => {
+    const c = cfg();
+    if(!c.url || !c.token){ toast('Add your URL first'); return; }
+    const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
+    const payload = {
+      token:c.token, action:'updateStop', id:s.id,
+      workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
+      status:g('status'), newJNumber:g('newJ'), oldJNumber:g('oldJ'),
+      meterRead: g('read')===''? null : Number(g('read')),
+      utiReason:g('utiReason'), notes:g('notes')
+    };
+    try{
+      const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+                                            body: JSON.stringify(payload) })).json();
+      if(d.ok){
+        Object.assign(s, payload);
+        card.querySelector('.sc-sum').innerHTML = summaryHTML(s);
+        editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
+        toast('Saved ✓');
+      } else toast(d.error || 'Save failed');
+    } catch { toast('Could not save — need a connection'); }
+  };
+  return card;
+}
+
+// ── look up ────────────────────────────────────────────────────────────────
+$('openLookup').onclick = () => { $('lookupQ').value=''; $('lookupResults').innerHTML=''; openSheet('lookupSheet'); };
+$('doLookup').onclick = async () => {
+  const c = cfg();
+  if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
+  const q = $('lookupQ').value.trim();
+  if(!q){ toast('Enter a WO# or J#'); return; }
+  $('lookupResults').innerHTML = '<p class="muted">Searching…</p>';
+  try{
+    // send the query as both — the spine matches WO# OR J#, so either kind finds it
+    const u = `${c.url}?token=${enc(c.token)}&action=lookup&wo=${enc(q)}&j=${enc(q)}`;
+    const d = await (await fetch(u)).json();
+    const box = $('lookupResults'); box.innerHTML='';
+    const matches = d.matches || [];
+    if(!matches.length){ box.innerHTML = '<p class="muted">No match found.</p>'; return; }
+    matches.forEach(s => box.appendChild(makeStopCard(s)));
+  } catch { $('lookupResults').innerHTML = '<p class="muted">Couldn’t search — check the connection.</p>'; }
+};
+
+// ── end of day: review, edit, then finish ──────────────────────────────────
 $('endDay').onclick = async () => {
-  const c = cfg(); if(!c.url){ openSheet('settingsSheet'); return; }
+  const c = cfg();
+  if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
   await flush();
   if(queue().length){ toast('Still some unsynced — try when online'); return; }
+  $('eodNotes').value=''; $('eodTally').textContent='Loading today’s stops…'; $('eodList').innerHTML='';
+  openSheet('eodSheet');
   try{
-    const res = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name }) });
-    const data = await res.json(); const s = data.summary;
-    toast(s ? `Installed ${s.installed} · UTI ${s.uti} · ${s.downtimeTotalMin} min down`
+    const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
+    const d = await (await fetch(u)).json();
+    renderEod(d.stops || [], d.downtime || []);
+  } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
+};
+
+function renderEod(stops, downtime){
+  const editable  = stops.filter(s => s.status==='INSTALLED' || s.status==='UTI');
+  const installed = stops.filter(s => s.status==='INSTALLED').length;
+  const uti       = stops.filter(s => s.status==='UTI').length;
+  const done      = stops.filter(s => s.status==='DONE').length;
+  const dtMin     = downtime.reduce((a,d)=>a+(Number(d.minutes)||0),0);
+
+  $('eodTally').textContent =
+    `Installed ${installed} · UTI ${uti} · Downtime ${dtMin} min`
+    + (done ? ` · ${done} done-marker${done>1?'s':''}` : '');
+
+  const list = $('eodList'); list.innerHTML='';
+  if(!editable.length){ list.innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
+  editable.forEach(s => list.appendChild(makeStopCard(s)));
+}
+
+$('finishDay').onclick = async () => {
+  const c = cfg();
+  try{
+    const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name,
+                             notes:$('eodNotes').value.trim() }) })).json();
+    const s = d.summary;
+    closeSheets();
+    toast(s ? `Day closed · ${s.installed} in · ${s.uti} UTI · ${s.downtimeTotalMin} min down`
             : 'Day closed ✓');
   } catch { toast('Could not reach the sheet'); }
 };
