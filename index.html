@@ -62,6 +62,12 @@
   .locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;
      background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;flex:none}
   .locbtn:active{transform:scale(.98)} .locbtn:disabled{opacity:.5}
+  .scanrow{display:flex;gap:10px;align-items:stretch}
+  .scanrow input{flex:1}
+  .scanbtn{flex:none;min-height:var(--tap);height:var(--tap);padding:0 16px;border:2px solid var(--line);
+     border-radius:12px;background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+  .scanbtn:active{transform:scale(.98)}
+  .toggle-on{border-color:var(--amber) !important;background:#FFF7E8 !important;color:var(--amber-press) !important}
 
   /* buttons */
   .primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--amber);
@@ -118,8 +124,30 @@
 
   <!-- INSTALLED fields -->
   <div id="installFields">
-    <label for="read">Meter read</label>
-    <input id="read" class="mono" inputmode="numeric">
+    <div id="readWrap">
+      <label for="read">Meter read</label>
+      <input id="read" class="mono" inputmode="numeric">
+    </div>
+
+    <button class="ghost" id="noReadToggle" type="button" style="width:100%;margin-top:12px">Meter unreadable? Save old J# instead</button>
+
+    <div id="noReadFields" class="hide">
+      <label for="nrReason">Why no read?</label>
+      <select id="nrReason" class="mono">
+        <option>Missing segments</option>
+        <option>Display blank / dead</option>
+        <option>Glass fogged / obstructed</option>
+        <option>Other</option>
+      </select>
+      <label for="nrOther" id="nrOtherLabel" class="hide">What happened?</label>
+      <textarea id="nrOther" class="hide"></textarea>
+      <label for="nrOldJ">Old J# (scan or type)</label>
+      <div class="scanrow">
+        <input id="nrOldJ" class="mono" autocapitalize="characters">
+        <button class="scanbtn" id="scanNrOldJ" type="button">Scan</button>
+      </div>
+    </div>
+
     <label for="newJ">New J#</label>
     <input id="newJ" class="mono" autocapitalize="characters">
   </div>
@@ -133,8 +161,11 @@
     </select>
     <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
     <textarea id="utiOther" class="hide"></textarea>
-    <label for="oldJ">Old J# (save it)</label>
-    <input id="oldJ" class="mono" autocapitalize="characters">
+    <label for="oldJ">Old J# (scan or type)</label>
+    <div class="scanrow">
+      <input id="oldJ" class="mono" autocapitalize="characters">
+      <button class="scanbtn" id="scanOldJ" type="button">Scan</button>
+    </div>
   </div>
 
   <label for="wo">Work order #</label>
@@ -229,6 +260,17 @@
     </div>
   </div>
 
+  <!-- Scan sheet -->
+  <div class="sheet hide" id="scanSheet">
+    <div class="card" style="padding:0;overflow:hidden">
+      <video id="scanVideo" playsinline muted style="width:100%;display:block;background:#000"></video>
+      <div style="padding:14px 16px 22px">
+        <p class="muted" style="margin:0 2px 12px">Point the camera at the meter’s J# barcode — it fills in on its own.</p>
+        <button class="ghost" id="cancelScan" type="button" style="width:100%">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 // ── tiny storage that survives a sandbox preview (falls back to memory) ──────
 const store = (() => {
@@ -245,6 +287,19 @@ const cfg = () => ({ name:store.get('name')||'', url:store.get('url')||'', token
 // escape helpers for building result cards from stored values
 const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const attr = v => String(v??'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
+
+// Capture-time stamp, Toronto local, readable + sortable: "2026-06-19 10:58:04".
+// (Pinned to the same zone the spine uses, so the date logic stays consistent
+// regardless of the device's own time zone.)
+function stamp(){
+  const p = {};
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone:'America/Toronto', hourCycle:'h23',
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).formatToParts(new Date()).forEach(x => p[x.type] = x.value);
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+}
 
 // ── offline queue ────────────────────────────────────────────────────────
 const QKEY = 'queue';
@@ -284,11 +339,34 @@ function setStatus(s){
   $('btnUti').className      = s==='UTI'      ? 'on-uti'     : '';
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
+  setNoRead(false);
 }
 $('utiReason').onchange = e => {
   const other = e.target.value === 'Other';
   $('utiOther').classList.toggle('hide', !other);
   $('utiOtherLabel').classList.toggle('hide', !other);
+};
+
+// ── meter unreadable → save the old J# instead of a read ───────────────────
+// Primary case: the display has missing segments, so the consumption can't be
+// read, but the J# nameplate is fine. We skip the read, capture the old J#
+// (scan or type), and tag why. It still counts as an install.
+let noRead = false;
+$('noReadToggle').onclick = () => setNoRead(!noRead);
+function setNoRead(on){
+  noRead = on;
+  $('noReadToggle').classList.toggle('toggle-on', on);
+  $('noReadToggle').textContent = on
+    ? 'Meter unreadable ✓ — read skipped, old J# saved'
+    : 'Meter unreadable? Save old J# instead';
+  $('readWrap').classList.toggle('hide', on);
+  $('noReadFields').classList.toggle('hide', !on);
+  if(on) $('read').value='';
+}
+$('nrReason').onchange = e => {
+  const other = e.target.value === 'Other';
+  $('nrOther').classList.toggle('hide', !other);
+  $('nrOtherLabel').classList.toggle('hide', !other);
 };
 
 // ── location + auto address ───────────────────────────────────────────────
@@ -344,26 +422,35 @@ $('logStop').onclick = () => {
   const c = cfg();
   if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
   if(!$('wo').value.trim()){ toast('Work order # is required'); return; }
+  if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
 
   const base = {
     token:c.token, action:'addStop', installer:c.name,
-    timestamp:new Date().toISOString(),
+    timestamp:stamp(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status
   };
-  if(status==='INSTALLED'){
+  if(status==='INSTALLED' && noRead){
+    const r = $('nrReason').value;
+    Object.assign(base, {
+      meterRead:null, newJNumber:$('newJ').value.trim(),
+      oldJNumber:$('nrOldJ').value.trim(),
+      noReadReason: r==='Other' ? ('Other: '+$('nrOther').value.trim()) : r,
+      utiReason:null });
+  } else if(status==='INSTALLED'){
     Object.assign(base, {
       meterRead: $('read').value.trim()===''? null : Number($('read').value.trim()),
-      newJNumber: $('newJ').value.trim(), oldJNumber:null, utiReason:null });
+      newJNumber: $('newJ').value.trim(), oldJNumber:null, noReadReason:null, utiReason:null });
   } else {
     const reason = $('utiReason').value;
     Object.assign(base, {
-      meterRead:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(),
+      meterRead:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(), noReadReason:null,
       utiReason: reason==='Other' ? ('Other: '+$('utiOther').value.trim()) : reason });
   }
   enqueue(base);
-  toast(status==='INSTALLED' ? 'Install logged ✓' : 'UTI logged ✓');
-  ['read','newJ','wo','unit','addr','oldJ','utiOther'].forEach(id => $(id).value='');
+  toast(status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') : 'UTI logged ✓');
+  ['read','newJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther'].forEach(id => $(id).value='');
+  setNoRead(false);
   getLocation();
 };
 
@@ -379,7 +466,7 @@ $('markDone').onclick = () => {
   toast('Getting location…');
   navigator.geolocation.getCurrentPosition(
     p => { enqueue({ token:c.token, action:'addStop', installer:c.name,
-                     timestamp:new Date().toISOString(),
+                     timestamp:stamp(),
                      lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6),
                      status:'DONE' });
            toast('Spot marked done ✓'); },
@@ -399,7 +486,7 @@ $('saveDowntime').onclick = () => {
   if(!$('dtMin').value.trim()){ toast('Minutes required'); return; }
   if($('dtCat').value==='OTHER' && !$('dtNote').value.trim()){ toast('Describe what happened'); return; }
   enqueue({ token:c.token, action:'addDowntime', installer:c.name,
-            timestamp:new Date().toISOString(), category:$('dtCat').value,
+            timestamp:stamp(), category:$('dtCat').value,
             minutes:Number($('dtMin').value.trim()), workOrderId:$('dtWo').value.trim(),
             note:$('dtNote').value.trim() });
   toast('Downtime logged ✓');
@@ -535,12 +622,50 @@ $('finishDay').onclick = async () => {
   } catch { toast('Could not reach the sheet'); }
 };
 
+// ── barcode scanner (fills a target field, e.g. the old J#) ───────────────
+// Uses the built-in BarcodeDetector where the browser supports it (Android
+// Chrome today). Where it's unavailable, it says so and you type the J#.
+let scanStream = null, scanTimer = null, scanTargetId = null, barcodeDetector = null;
+const scanSupported = () => ('BarcodeDetector' in window) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+
+async function startScan(targetId){
+  if(!scanSupported()){ toast('Scanning needs Android Chrome — type the J# instead'); return; }
+  scanTargetId = targetId;
+  $('scanSheet').classList.remove('hide');
+  try{
+    if(!barcodeDetector) barcodeDetector = new BarcodeDetector();
+    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    const v = $('scanVideo'); v.srcObject = scanStream; await v.play();
+    scanLoop();
+  } catch { stopScan(); toast('Camera blocked — allow it, or type the J#'); }
+}
+async function scanLoop(){
+  if(!scanStream || !barcodeDetector) return;
+  try{
+    const codes = await barcodeDetector.detect($('scanVideo'));
+    if(codes && codes.length){
+      const val = String(codes[0].rawValue || '').trim().toUpperCase();
+      if(val){ if(scanTargetId) $(scanTargetId).value = val; stopScan(); toast('Scanned ✓'); return; }
+    }
+  } catch {}
+  scanTimer = setTimeout(scanLoop, 250);
+}
+function releaseScan(){
+  if(scanTimer){ clearTimeout(scanTimer); scanTimer = null; }
+  if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const v = $('scanVideo'); if(v) v.srcObject = null;
+}
+function stopScan(){ releaseScan(); $('scanSheet').classList.add('hide'); }
+$('scanNrOldJ').onclick = () => startScan('nrOldJ');
+$('scanOldJ').onclick   = () => startScan('oldJ');
+$('cancelScan').onclick = () => stopScan();
+
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
   if(id==='settingsSheet'){ const c=cfg(); $('cfgName').value=c.name; $('cfgUrl').value=c.url; $('cfgToken').value=c.token; }
   $(id).classList.remove('hide');
 }
-function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); releaseScan(); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 $('openSettings').onclick = () => openSheet('settingsSheet');
 $('saveSettings').onclick = () => {
