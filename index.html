@@ -105,6 +105,13 @@
   .sc-save{height:54px;margin-top:16px}
 
   .eod-tally{font-weight:800;font-size:16px;margin:2px 2px 6px}
+  .tblwrap{overflow-x:auto;margin:6px 0 2px}
+  .tbl{width:100%;border-collapse:collapse;font-size:14px}
+  .tbl th{text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);
+     font-weight:700;padding:6px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+  .tbl td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .tbl tr[data-i]{cursor:pointer}
+  .tbl tr[data-i]:active{background:#EEF1F5}
 
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
@@ -122,15 +129,26 @@
     <button id="btnUti">UTI</button>
   </div>
 
+  <label for="wo">Work order #</label>
+  <input id="wo" class="mono" inputmode="numeric">
+
   <!-- INSTALLED fields -->
   <div id="installFields">
+    <label for="newJ">New J#</label>
+    <input id="newJ" class="mono" autocapitalize="characters">
+
     <div id="readWrap">
-      <label for="read">Meter read</label>
+      <label for="read" id="readLabel">Meter read</label>
       <input id="read" class="mono" inputmode="numeric">
+
+      <button class="ghost" id="solarToggle" type="button" style="width:100%;margin-top:12px">Solar meter — add a second read</button>
+      <div id="receivedWrap" class="hide">
+        <label for="readRecv">Received read</label>
+        <input id="readRecv" class="mono" inputmode="numeric">
+      </div>
     </div>
 
     <button class="ghost" id="noReadToggle" type="button" style="width:100%;margin-top:12px">Meter unreadable? Save old J# instead</button>
-
     <div id="noReadFields" class="hide">
       <label for="nrReason">Why no read?</label>
       <select id="nrReason" class="mono">
@@ -147,17 +165,33 @@
         <button class="scanbtn" id="scanNrOldJ" type="button">Scan</button>
       </div>
     </div>
-
-    <label for="newJ">New J#</label>
-    <input id="newJ" class="mono" autocapitalize="characters">
   </div>
 
   <!-- UTI fields -->
   <div id="utiFields" class="hide">
     <label for="utiReason">Reason</label>
     <select id="utiReason" class="mono">
-      <option>Meter Error</option><option>No Access</option>
-      <option>Wrong Meter</option><option>Other</option>
+      <option>Appointment Needed</option>
+      <option>Bad Road</option>
+      <option>Breaker Before Meter</option>
+      <option>Could Not Locate</option>
+      <option>Customer Delay/Change</option>
+      <option>Denied Access</option>
+      <option>Device Not Listed</option>
+      <option>Gas - Natural too close</option>
+      <option>Gas - Propane too close</option>
+      <option>Incorrect/Missing Info</option>
+      <option>Inside Meter - Need Appointment</option>
+      <option>Key Required</option>
+      <option>Meter Removed/Disconnected</option>
+      <option>No Access</option>
+      <option>No Power</option>
+      <option>Schedule Change</option>
+      <option>Theft/Tamper/Vandalism</option>
+      <option>Unsafe Conditions</option>
+      <option>Water Access</option>
+      <option>Wrong Meter</option>
+      <option>Other</option>
     </select>
     <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
     <textarea id="utiOther" class="hide"></textarea>
@@ -168,8 +202,6 @@
     </div>
   </div>
 
-  <label for="wo">Work order #</label>
-  <input id="wo" class="mono" inputmode="numeric">
   <label for="unit">Unit</label>
   <input id="unit" class="mono">
   <label for="addr">Address / landmark <span style="font-weight:500">(auto-fills from GPS · editable)</span></label>
@@ -179,16 +211,22 @@
     <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
   </div>
 
+  <label for="stopNotes">Notes <span style="font-weight:500">(optional)</span></label>
+  <textarea id="stopNotes" placeholder="Anything worth noting on this stop…"></textarea>
+
   <button class="primary" id="logStop">Log stop</button>
 
-  <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Mark spot done · GPS only</button>
+  <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Already installed here · mark spot</button>
 
   <div class="row2">
     <button class="ghost" id="openDowntime">Add downtime</button>
     <button class="ghost" id="endDay">End of day</button>
   </div>
 
-  <button class="ghost" id="openLookup" style="width:100%;margin-top:12px">Look up a stop · WO# / J#</button>
+  <div class="row2">
+    <button class="ghost" id="openToday">Today’s orders</button>
+    <button class="ghost" id="openLookup">Look up · WO# / J#</button>
+  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -257,6 +295,17 @@
       <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
       <textarea id="eodNotes" placeholder="Anything else to add to today’s log…"></textarea>
       <button class="primary" id="finishDay" style="margin-top:16px">Finish day</button>
+    </div>
+  </div>
+
+  <!-- Today sheet -->
+  <div class="sheet hide" id="todaySheet">
+    <div class="card">
+      <h2>Today’s orders</h2>
+      <p>A quick look at what’s logged today. Tap a row to view or fix it.</p>
+      <div class="eod-tally" id="todayTally">Loading…</div>
+      <div id="todayTable"></div>
+      <div id="todayEdit"></div>
     </div>
   </div>
 
@@ -339,7 +388,7 @@ function setStatus(s){
   $('btnUti').className      = s==='UTI'      ? 'on-uti'     : '';
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
-  setNoRead(false);
+  setNoRead(false); setSolar(false);
 }
 $('utiReason').onchange = e => {
   const other = e.target.value === 'Other';
@@ -368,6 +417,18 @@ $('nrReason').onchange = e => {
   $('nrOther').classList.toggle('hide', !other);
   $('nrOtherLabel').classList.toggle('hide', !other);
 };
+
+// ── solar meter → two reads (delivered + received) ─────────────────────────
+let solar = false;
+$('solarToggle').onclick = () => setSolar(!solar);
+function setSolar(on){
+  solar = on;
+  $('solarToggle').classList.toggle('toggle-on', on);
+  $('solarToggle').textContent = on ? 'Solar ✓ — delivered + received' : 'Solar meter — add a second read';
+  $('readLabel').textContent = on ? 'Delivered read' : 'Meter read';
+  $('receivedWrap').classList.toggle('hide', !on);
+  if(!on) $('readRecv').value='';
+}
 
 // ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
@@ -424,41 +485,45 @@ $('logStop').onclick = () => {
   if(!$('wo').value.trim()){ toast('Work order # is required'); return; }
   if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
 
+  const num = v => v.trim()==='' ? null : Number(v.trim());
   const base = {
     token:c.token, action:'addStop', installer:c.name,
     timestamp:stamp(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
-    address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status
+    address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status,
+    notes:$('stopNotes').value.trim()
   };
   if(status==='INSTALLED' && noRead){
     const r = $('nrReason').value;
     Object.assign(base, {
-      meterRead:null, newJNumber:$('newJ').value.trim(),
+      meterRead:null, meterReadReceived:null, newJNumber:$('newJ').value.trim(),
       oldJNumber:$('nrOldJ').value.trim(),
       noReadReason: r==='Other' ? ('Other: '+$('nrOther').value.trim()) : r,
       utiReason:null });
   } else if(status==='INSTALLED'){
     Object.assign(base, {
-      meterRead: $('read').value.trim()===''? null : Number($('read').value.trim()),
+      meterRead: num($('read').value),
+      meterReadReceived: solar ? num($('readRecv').value) : null,
       newJNumber: $('newJ').value.trim(), oldJNumber:null, noReadReason:null, utiReason:null });
   } else {
     const reason = $('utiReason').value;
     Object.assign(base, {
-      meterRead:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(), noReadReason:null,
+      meterRead:null, meterReadReceived:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(), noReadReason:null,
       utiReason: reason==='Other' ? ('Other: '+$('utiOther').value.trim()) : reason });
   }
   enqueue(base);
   toast(status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') : 'UTI logged ✓');
-  ['read','newJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther'].forEach(id => $(id).value='');
-  setNoRead(false);
+  ['read','readRecv','newJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','stopNotes'].forEach(id => $(id).value='');
+  setNoRead(false); setSolar(false);
   getLocation();
 };
 
 // ── mark spot done (GPS only) ───────────────────────────────────────────
-// One tap: capture coordinates and log a "meter's already here" marker.
-// No work order / read / J#. Status DONE keeps it out of the install + UTI
-// counts (it may not be your work), and it feeds the map's "already done?"
-// check. Goes through the same offline queue, so it works with no signal.
+// One tap: capture coordinates and log a "meter's already installed here by
+// someone else" marker. No work order / read / J#. Status DONE keeps it out of
+// the install + UTI counts (it isn't your work), and it feeds the map's
+// "already done?" check. Goes through the same offline queue, so no signal is
+// fine.
 $('markDone').onclick = () => {
   const c = cfg();
   if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
@@ -469,7 +534,7 @@ $('markDone').onclick = () => {
                      timestamp:stamp(),
                      lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6),
                      status:'DONE' });
-           toast('Spot marked done ✓'); },
+           toast('Marked — already installed ✓'); },
     () => toast('Couldn’t get GPS — try again'),
     { enableHighAccuracy:true, timeout:8000 });
 };
@@ -500,9 +565,10 @@ function summaryHTML(s){
        + `<span class="sc-meta">${esc(s.unit)||'no unit'} · `
        + `<b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
-       + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}</span>`;
+       + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
+       + `${(s.meterReadReceived||s.meterReadReceived===0)?(' / '+esc(s.meterReadReceived)):''}</span>`;
 }
-function makeStopCard(s){
+function makeStopCard(s, onSaved){
   const card = document.createElement('div');
   card.className = 'stopcard';
   card.innerHTML = `
@@ -522,6 +588,7 @@ function makeStopCard(s){
       <label>New J#</label><input class="mono" data-f="newJ" value="${attr(s.newJNumber)}">
       <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
       <label>Meter read</label><input class="mono" inputmode="numeric" data-f="read" value="${attr(s.meterRead)}">
+      <label>Received read (solar)</label><input class="mono" inputmode="numeric" data-f="readRecv" value="${attr(s.meterReadReceived)}">
       <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary sc-save" data-act="save">Save changes</button>
@@ -543,6 +610,7 @@ function makeStopCard(s){
       workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
       status:g('status'), newJNumber:g('newJ'), oldJNumber:g('oldJ'),
       meterRead: g('read')===''? null : Number(g('read')),
+      meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
       utiReason:g('utiReason'), notes:g('notes')
     };
     try{
@@ -553,6 +621,7 @@ function makeStopCard(s){
         card.querySelector('.sc-sum').innerHTML = summaryHTML(s);
         editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
         toast('Saved ✓');
+        if(typeof onSaved === 'function') onSaved();
       } else toast(d.error || 'Save failed');
     } catch { toast('Could not save — need a connection'); }
   };
@@ -602,7 +671,7 @@ function renderEod(stops, downtime){
 
   $('eodTally').textContent =
     `Installed ${installed} · UTI ${uti} · Downtime ${dtMin} min`
-    + (done ? ` · ${done} done-marker${done>1?'s':''}` : '');
+    + (done ? ` · ${done} already-installed` : '');
 
   const list = $('eodList'); list.innerHTML='';
   if(!editable.length){ list.innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
@@ -621,6 +690,65 @@ $('finishDay').onclick = async () => {
             : 'Day closed ✓');
   } catch { toast('Could not reach the sheet'); }
 };
+
+// ── today's orders: a quick table of what's logged today ───────────────────
+$('openToday').onclick = async () => {
+  const c = cfg();
+  if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
+  await flush();
+  $('todayTally').textContent = 'Loading…'; $('todayTable').innerHTML=''; $('todayEdit').innerHTML='';
+  openSheet('todaySheet');
+  try{
+    const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
+    const d = await (await fetch(u)).json();
+    renderToday(d.stops || [], d.downtime || []);
+  } catch { $('todayTally').textContent=''; $('todayTable').innerHTML='<p class="muted">Couldn’t load — check the connection.</p>'; }
+};
+
+function readNote(s){
+  if(s.status==='UTI') return esc(s.utiReason) || 'UTI';
+  if(s.meterRead || s.meterRead===0){
+    return esc(s.meterRead) + ((s.meterReadReceived||s.meterReadReceived===0) ? (' / '+esc(s.meterReadReceived)) : '');
+  }
+  return s.noReadReason ? 'no read' : '—';
+}
+
+function renderToday(stops, downtime){
+  const editable  = stops.filter(s => s.status==='INSTALLED' || s.status==='UTI');
+  const installed = stops.filter(s => s.status==='INSTALLED').length;
+  const uti       = stops.filter(s => s.status==='UTI').length;
+  const done      = stops.filter(s => s.status==='DONE').length;
+  const dtMin     = (downtime||[]).reduce((a,d)=>a+(Number(d.minutes)||0),0);
+
+  $('todayTally').textContent =
+    `Installed ${installed} · UTI ${uti} · Downtime ${dtMin} min`
+    + (done ? ` · ${done} already-installed` : '');
+
+  $('todayEdit').innerHTML='';
+  if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
+
+  let html = '<div class="tblwrap"><table class="tbl"><thead><tr>'
+           + '<th>WO#</th><th>J#</th><th>Read / note</th><th>St</th></tr></thead><tbody>';
+  editable.forEach((s, i) => {
+    html += `<tr data-i="${i}">`
+          + `<td class="mono">${esc(s.workOrderId)||'—'}</td>`
+          + `<td class="mono">${esc(s.newJNumber||s.oldJNumber)||'—'}</td>`
+          + `<td>${readNote(s)}</td>`
+          + `<td><b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${s.status==='UTI'?'UTI':'INST'}</b></td>`
+          + `</tr>`;
+  });
+  html += '</tbody></table></div>';
+  $('todayTable').innerHTML = html;
+
+  $('todayTable').querySelectorAll('tr[data-i]').forEach(tr => {
+    tr.onclick = () => {
+      const s = editable[+tr.dataset.i];
+      const box = $('todayEdit'); box.innerHTML='';
+      box.appendChild(makeStopCard(s, () => renderToday(stops, downtime)));
+      box.scrollIntoView({ behavior:'smooth', block:'start' });
+    };
+  });
+}
 
 // ── barcode scanner (fills a target field, e.g. the old J#) ───────────────
 // Uses the built-in BarcodeDetector where the browser supports it (Android
