@@ -234,14 +234,10 @@
   <!-- Settings sheet -->
   <div class="sheet hide" id="settingsSheet">
     <div class="card">
-      <h2>Settings</h2>
-      <p>Stored on this device only. Each person sets their own name; everything goes to the same sheet.</p>
+      <h2>Your name</h2>
+      <p>Type your name once — it tags everything you log. Stored on this device only; everyone’s logs go to the same sheet.</p>
       <label for="cfgName">Your name</label>
       <input id="cfgName" autocapitalize="words">
-      <label for="cfgUrl">Web App URL</label>
-      <input id="cfgUrl" class="mono">
-      <label for="cfgToken">Token</label>
-      <input id="cfgToken" class="mono">
       <button class="primary" id="saveSettings">Save</button>
     </div>
   </div>
@@ -290,7 +286,7 @@
   <div class="sheet hide" id="eodSheet">
     <div class="card">
       <h2>End of day</h2>
-      <p>Review today’s stops, fix anything that’s off, add a note, then finish.</p>
+      <p>Review today’s stops, fix anything that’s off, add a note, then finalize.</p>
       <div class="eod-tally" id="eodTally">Loading…</div>
       <div id="eodList"></div>
       <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
@@ -332,7 +328,13 @@ const store = (() => {
 
 const $   = id => document.getElementById(id);
 const enc = encodeURIComponent;
-const cfg = () => ({ name:store.get('name')||'', url:store.get('url')||'', token:store.get('token')||'' });
+
+// ── Config ───────────────────────────────────────────────────────────────
+// Paste your deployed Web App /exec URL here once. The token matches Code.gs.
+// After this, the only thing each person sets is their name.
+const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
+const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
+const cfg = () => ({ name:store.get('name')||'', url:WEB_APP_URL, token:SHARED_TOKEN });
 
 // escape helpers for building result cards from stored values
 const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -482,7 +484,7 @@ getLocation();
 // ── log a stop ────────────────────────────────────────────────────────────
 $('logStop').onclick = () => {
   const c = cfg();
-  if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
+  if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   if(!$('wo').value.trim()){ toast('Work order # is required'); return; }
   if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
 
@@ -527,7 +529,7 @@ $('logStop').onclick = () => {
 // fine.
 $('markDone').onclick = () => {
   const c = cfg();
-  if(!c.name || !c.url || !c.token){ openSheet('settingsSheet'); toast('Add your name + URL first'); return; }
+  if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   if(!navigator.geolocation){ toast('No GPS on this device'); return; }
   toast('Getting location…');
   navigator.geolocation.getCurrentPosition(
@@ -829,15 +831,16 @@ $('cancelScan').onclick = () => stopScan();
 
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
-  if(id==='settingsSheet'){ const c=cfg(); $('cfgName').value=c.name; $('cfgUrl').value=c.url; $('cfgToken').value=c.token; }
+  if(id==='settingsSheet'){ $('cfgName').value = store.get('name')||''; }
   $(id).classList.remove('hide');
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); releaseScan(); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 $('openSettings').onclick = () => openSheet('settingsSheet');
 $('saveSettings').onclick = () => {
-  store.set('name',$('cfgName').value.trim()); store.set('url',$('cfgUrl').value.trim());
-  store.set('token',$('cfgToken').value.trim()); closeSheets(); toast('Saved'); paint();
+  const name = $('cfgName').value.trim();
+  if(!name){ toast('Please enter your name'); return; }
+  store.set('name', name); closeSheets(); toast('Saved'); paint();
 };
 
 let toastTimer;
@@ -850,7 +853,7 @@ window.addEventListener('offline', paint);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
 window.addEventListener('focus', flush);
 paint();
-if(!cfg().url) setTimeout(()=>openSheet('settingsSheet'), 400);
+if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.
 // This only takes effect once the page is served over HTTPS (GitHub Pages,
