@@ -6,9 +6,6 @@
 <meta name="theme-color" content="#13171C">
 <title>Meter Log — Map &amp; Analytics</title>
 
-<!-- Leaflet (map) + Chart.js (analytics), both from public CDNs. This page is a
-     connected viewer — it fetches from your Sheet — so CDN libraries are fine
-     here, unlike the field form which has to work offline. -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root{
@@ -28,43 +25,45 @@
   }
   .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
-  /* top bar */
   .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;
        background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow);z-index:600;flex:none}
   .brand{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--ink);margin-right:auto;white-space:nowrap}
   .viewsel,.f-sel{height:42px;border:2px solid var(--line);border-radius:10px;background:var(--surface);
        color:var(--ink);font-size:15px;font-weight:700;padding:0 12px;font-family:inherit;cursor:pointer}
-  .gear{width:42px;height:42px;border:0;border-radius:10px;background:var(--surface);box-shadow:var(--shadow);
-       font-size:18px;cursor:pointer;flex:none}
   .pillstat{font-size:13px;color:var(--ink-soft);font-weight:600;white-space:nowrap}
 
-  /* filter bar (map view) */
   .filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;
        background:var(--panel);border-bottom:1px solid var(--line);z-index:500;flex:none}
-  .searchwrap{display:flex;gap:8px;flex:1;min-width:220px}
+  .searchwrap{display:flex;gap:8px;flex:1;min-width:200px}
   .searchwrap input{flex:1;height:42px;border:2px solid var(--line);border-radius:10px;padding:0 12px;
        font-size:15px;background:var(--surface);color:var(--ink)}
-  .searchwrap input:focus,.f-sel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+  .searchwrap input:focus,.f-sel:focus,.f-date:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
   .btn{height:42px;padding:0 16px;border:0;border-radius:10px;background:var(--amber);color:#1a1300;
        font-size:15px;font-weight:800;cursor:pointer}
   .btn:active{background:var(--amber-press)}
+  .daterange{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .f-date{height:42px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);
+       font-size:14px;font-weight:600;padding:0 10px;font-family:inherit}
+  .daterange .sep{color:var(--ink-soft)}
+  .preset{height:42px;padding:0 12px;border:2px solid var(--line);border-radius:10px;background:var(--surface);
+       color:var(--ink-soft);font-size:13px;font-weight:700;cursor:pointer}
+  .preset:active{transform:scale(.97)} .preset.on{border-color:var(--amber);color:var(--amber-press)}
   .chips{display:flex;gap:6px}
   .chip{display:flex;align-items:center;gap:7px;height:42px;padding:0 13px;border:2px solid var(--line);
        border-radius:10px;background:var(--surface);font-size:14px;font-weight:700;color:var(--ink-soft);cursor:pointer;user-select:none}
   .chip .sw{width:11px;height:11px;border-radius:50%;flex:none}
-  .chip.on{color:var(--ink);border-color:currentColor}
-  .chip.on.c-install{border-color:var(--install)} .chip.on.c-uti{border-color:var(--uti)} .chip.on.c-done{border-color:var(--done)}
+  .chip.on.c-install{border-color:var(--install);color:var(--ink)}
+  .chip.on.c-uti{border-color:var(--uti);color:var(--ink)}
+  .chip.on.c-done{border-color:var(--done);color:var(--ink)}
   .chip.off{opacity:.45}
   .sw-install{background:var(--install)} .sw-uti{background:var(--uti)} .sw-done{background:var(--done)}
 
-  /* views */
-  .view{flex:1;min-height:0;display:none}
-  .view.on{display:block}
+  .view{flex:1;min-height:0;display:none} .view.on{display:block}
   #map{width:100%;height:100%}
 
-  /* analytics */
   #analytics{overflow:auto;padding:18px 16px 40px}
   .wrap{max-width:1000px;margin:0 auto}
+  .note{background:#FFF7E8;border:1px solid #F1D79A;color:#7A5B00;border-radius:12px;padding:11px 13px;font-size:14px;margin-bottom:16px}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
   .tile .n{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
@@ -75,33 +74,22 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
   .card h3{margin:0 0 12px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}
   .chartbox{position:relative;height:240px}
+  .chartbox .blank{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:14px;text-align:center;padding:0 10px}
   table.byinst{width:100%;border-collapse:collapse;font-size:15px}
   table.byinst th{text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);
        font-weight:700;padding:7px 8px;border-bottom:2px solid var(--line)}
   table.byinst td{padding:10px 8px;border-bottom:1px solid var(--line)}
   table.byinst td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
-  .empty{color:var(--ink-soft);text-align:center;padding:40px 16px;font-size:15px}
+  .empty{color:var(--ink-soft);text-align:center;padding:30px 16px;font-size:15px}
 
-  /* popups */
   .leaflet-popup-content{margin:12px 14px;font-family:inherit;font-size:14px;line-height:1.45}
   .pop-wo{font-size:16px;font-weight:800}
   .pop-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;margin-left:6px;vertical-align:1px}
-  .pop-row{margin-top:5px;color:var(--ink)}
-  .pop-row .lab{color:var(--ink-soft);font-weight:600}
+  .pop-row{margin-top:5px;color:var(--ink)} .pop-row .lab{color:var(--ink-soft);font-weight:600}
 
-  /* settings sheet */
-  .sheet{position:fixed;inset:0;background:rgba(19,23,28,.45);display:flex;align-items:center;justify-content:center;z-index:1200}
-  .sheet.hide{display:none}
-  .sheet .card2{background:var(--surface);width:100%;max-width:460px;border-radius:18px;padding:20px 18px 24px;margin:14px}
-  .card2 h2{margin:0 0 4px;font-size:18px}
-  .card2 p{margin:0 0 14px;color:var(--ink-soft);font-size:14px}
-  .card2 label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin:12px 2px 6px}
-  .card2 input{width:100%;height:50px;border:2px solid var(--line);border-radius:10px;padding:0 12px;font-size:16px;background:var(--panel);color:var(--ink)}
-  .card2 .btn{width:100%;height:54px;margin-top:18px;font-size:16px}
   .legend{position:absolute;right:12px;bottom:24px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
        padding:9px 11px;box-shadow:var(--shadow);font-size:13px;font-weight:600;z-index:500}
-  .legend .lrow{display:flex;align-items:center;gap:7px;margin:3px 0}
-  .legend .sw{width:11px;height:11px;border-radius:50%}
+  .legend .lrow{display:flex;align-items:center;gap:7px;margin:3px 0} .legend .sw{width:11px;height:11px;border-radius:50%}
 
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
      background:var(--ink);color:#fff;padding:13px 18px;border-radius:12px;font-weight:700;
@@ -119,10 +107,8 @@
       <option value="map">Map</option>
       <option value="analytics">Analytics</option>
     </select>
-    <button class="gear" id="openSettings" aria-label="Settings">⚙︎</button>
   </div>
 
-  <!-- filter bar only shows for the map view -->
   <div class="filters" id="filterBar">
     <div class="searchwrap">
       <input id="search" class="mono" placeholder="Find WO# or J#…" autocapitalize="characters">
@@ -131,6 +117,14 @@
     <select class="f-sel" id="installerSel" aria-label="Installer">
       <option value="">All installers</option>
     </select>
+    <div class="daterange">
+      <input type="date" class="f-date" id="fromDate" aria-label="From date">
+      <span class="sep">→</span>
+      <input type="date" class="f-date" id="toDate" aria-label="To date">
+      <button class="preset" data-days="6">7d</button>
+      <button class="preset" data-days="29">30d</button>
+      <button class="preset on" data-days="all">All</button>
+    </div>
     <div class="chips" id="statusChips">
       <span class="chip on c-install" data-st="INSTALLED"><span class="sw sw-install"></span>Installed</span>
       <span class="chip on c-uti" data-st="UTI"><span class="sw sw-uti"></span>UTI</span>
@@ -141,7 +135,7 @@
   <!-- MAP VIEW -->
   <div class="view on" id="mapView">
     <div id="map"></div>
-    <div class="legend" id="legend">
+    <div class="legend">
       <div class="lrow"><span class="sw sw-install"></span>Installed</div>
       <div class="lrow"><span class="sw sw-uti"></span>UTI</div>
       <div class="lrow"><span class="sw sw-done"></span>Already installed</div>
@@ -151,25 +145,14 @@
   <!-- ANALYTICS VIEW -->
   <div class="view" id="analytics">
     <div class="wrap">
+      <div id="trkNote"></div>
       <div class="tiles" id="tiles"></div>
       <div class="cards">
-        <div class="card"><h3>Installs vs UTI by day</h3><div class="chartbox"><canvas id="chDay"></canvas></div></div>
-        <div class="card"><h3>UTI reasons</h3><div class="chartbox"><canvas id="chReason"></canvas></div></div>
+        <div class="card"><h3>Installs vs UTI by day</h3><div class="chartbox"><canvas id="chDay"></canvas><div class="blank" id="blankDay"></div></div></div>
+        <div class="card"><h3>Downtime by category (min)</h3><div class="chartbox"><canvas id="chDown"></canvas><div class="blank" id="blankDown"></div></div></div>
+        <div class="card"><h3>UTI reasons</h3><div class="chartbox"><canvas id="chReason"></canvas><div class="blank" id="blankReason"></div></div></div>
+        <div class="card"><h3>By installer</h3><div id="byInst"></div></div>
       </div>
-      <div class="card" style="margin-top:14px"><h3>By installer</h3><div id="byInst"></div></div>
-    </div>
-  </div>
-
-  <!-- Settings -->
-  <div class="sheet hide" id="settingsSheet">
-    <div class="card2">
-      <h2>Connect</h2>
-      <p>Same Web App URL and token as your logging form. Stored on this device only. If this page sits in the same place as your form, it picks these up on its own.</p>
-      <label for="cfgUrl">Web App URL</label>
-      <input id="cfgUrl" class="mono">
-      <label for="cfgToken">Token</label>
-      <input id="cfgToken" class="mono">
-      <button class="btn" id="saveSettings">Save &amp; load</button>
     </div>
   </div>
 
@@ -178,67 +161,79 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
-// ── tiny storage, shared with the form when on the same origin ─────────────
-const store = (() => {
-  let mem = {};
-  try { localStorage.setItem('__t','1'); localStorage.removeItem('__t');
-        return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v) }; }
-  catch { return { get:k=>mem[k]??null, set:(k,v)=>{mem[k]=String(v)} }; }
-})();
+// ── Config ─────────────────────────────────────────────────────────────────
+// Paste your deployed Web App /exec URL here once, then commit the file. After
+// that the page just loads — no token/URL to enter. (The token sits in the
+// page, so anyone who opens it can read it; that's the trade for skipping a
+// login. Keeping the repo private is a reasonable extra step.)
+const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
+const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
+const cfg = () => ({ url: WEB_APP_URL, token: SHARED_TOKEN });
+
 const $   = id => document.getElementById(id);
 const enc = encodeURIComponent;
-const cfg = () => ({ url:store.get('url')||'', token:store.get('token')||'' });
+const esc = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', DONE:'#8A94A6' };
+const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
+  ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
+  ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
-let ALL = [];                                   // every stop from the sheet
-let state = { installer:'', statuses:{ INSTALLED:true, UTI:true, DONE:true } };
-let map, markersLayer, highlightLayer, chDay, chReason;
+let ALL = [], TRK = [];
+let state = { installer:'', from:'', to:'', statuses:{ INSTALLED:true, UTI:true, DONE:true } };
+let map, markersLayer, highlightLayer, chDay, chDown, chReason;
 
 // ── helpers shared with the form's logic ──────────────────────────────────
-const esc = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-// address with unit folded in front, only when there's an address (your rule)
 function locLabel(s){
   const unit=(s.unit==null?'':String(s.unit)).trim();
   const addr=(s.address==null?'':String(s.address)).trim();
   if(!addr) return '';
   return unit ? (unit+' '+addr) : addr;
 }
-// timestamp → Toronto calendar date, matching the spine (handles both the
-// form's "yyyy-MM-dd HH:mm:ss" and any ISO …Z the sheet may hand back)
-function dateKey(ts){
+function dateKey(ts){   // → Toronto calendar date, matching the spine
   const s = String(ts);
   if(/T.*(Z|[+\-]\d\d:?\d\d)$/.test(s)){
     const d = new Date(s);
-    if(!isNaN(d)){
-      const p={}; new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'})
-        .formatToParts(d).forEach(x=>p[x.type]=x.value);
-      return `${p.year}-${p.month}-${p.day}`;
-    }
+    if(!isNaN(d)) return fmtTO(d);
   }
   return s.slice(0,10);
 }
+function fmtTO(d){
+  const p={}; new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'})
+    .formatToParts(d).forEach(x=>p[x.type]=x.value);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+function torontoToday(){ return fmtTO(new Date()); }
+function daysAgo(n){ const d=new Date(); d.setDate(d.getDate()-n); return fmtTO(d); }
 const norm = v => String(v==null?'':v).trim().toUpperCase();
 const hasCoords = s => s.lat!=null && s.lng!=null && !isNaN(s.lat) && !isNaN(s.lng);
+const trkNum = v => Number(v)||0;
+const inRange = k => (!state.from || k>=state.from) && (!state.to || k<=state.to);
+const instMatch = name => !state.installer || String(name||'').trim()===state.installer;
 
-// ── load from the sheet ────────────────────────────────────────────────────
+// ── load ────────────────────────────────────────────────────────────────────
 async function load(){
+  if(WEB_APP_URL === 'PASTE_YOUR_EXEC_URL_HERE'){
+    $('pillstat').textContent = 'Set your URL';
+    toast('Open map.html and paste your /exec URL into WEB_APP_URL near the top.');
+    return;
+  }
   const c = cfg();
-  if(!c.url || !c.token){ openSettings(); return; }
   $('pillstat').textContent = 'Loading…';
   try{
-    const u = `${c.url}?token=${enc(c.token)}&action=pins`;
-    const d = await (await fetch(u)).json();
-    if(!d.ok){ $('pillstat').textContent=''; toast(d.error || 'Could not load'); return; }
-    ALL = (d.pins||[]).map(s => ({ ...s,
-      lat: (s.lat===''||s.lat==null)?null:Number(s.lat),
-      lng: (s.lng===''||s.lng==null)?null:Number(s.lng) }));
+    const [pd, td] = await Promise.all([
+      fetch(`${c.url}?token=${enc(c.token)}&action=pins`).then(r=>r.json()),
+      fetch(`${c.url}?token=${enc(c.token)}&action=tracker`).then(r=>r.json())
+    ]);
+    ALL = (pd.pins||[]).map(s => ({ ...s,
+      lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
+      lng:(s.lng===''||s.lng==null)?null:Number(s.lng) }));
+    TRK = td.tracker || [];
     buildInstallerOptions();
     drawMarkers(true);
     renderAnalytics();
     updatePill();
-  } catch { $('pillstat').textContent=''; toast('Couldn’t reach the sheet — check the URL and token.'); }
+  } catch { $('pillstat').textContent=''; toast('Couldn’t reach the sheet — check WEB_APP_URL and that the deployment is current.'); }
 }
-
 function updatePill(){
   const located = ALL.filter(hasCoords).length;
   $('pillstat').textContent = `${ALL.length} stops · ${located} mapped`;
@@ -246,173 +241,176 @@ function updatePill(){
 
 // ── filtering ──────────────────────────────────────────────────────────────
 function forMap(){
-  return ALL.filter(s => hasCoords(s)
-    && (!state.installer || String(s.installer||'').trim()===state.installer)
-    && state.statuses[s.status]);
+  return ALL.filter(s => hasCoords(s) && instMatch(s.installer)
+    && state.statuses[s.status] && inRange(dateKey(s.timestamp)));
 }
-function forAnalytics(){   // installer filter only — status breakdown needs all kinds
-  return ALL.filter(s => !state.installer || String(s.installer||'').trim()===state.installer);
-}
+function pinsInScope(){ return ALL.filter(s => instMatch(s.installer) && inRange(dateKey(s.timestamp))); }
+function trkInScope(){ return TRK.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))); }
 
 // ── map ─────────────────────────────────────────────────────────────────────
 function initMap(){
-  map = L.map('map', { zoomControl:true }).setView([44.5,-79.5], 7);   // southern Ontario default
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom:19, attribution:'© OpenStreetMap'
-  }).addTo(map);
+  map = L.map('map', { zoomControl:true }).setView([44.5,-79.5], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 }
 function popupHTML(s){
-  const color = COLORS[s.status] || COLORS.DONE;
-  const loc = locLabel(s);
+  const color = COLORS[s.status] || COLORS.DONE, loc = locLabel(s);
   let read = '';
   if(s.status==='UTI') read = s.utiReason ? `<div class="pop-row"><span class="lab">Reason:</span> ${esc(s.utiReason)}</div>` : '';
   else if(s.meterRead || s.meterRead===0) read = `<div class="pop-row"><span class="lab">Read:</span> ${esc(s.meterRead)}</div>`;
   else if(s.status==='INSTALLED') read = `<div class="pop-row"><span class="lab">Read:</span> no read</div>`;
   const j = s.newJNumber ? `<div class="pop-row"><span class="lab">J#:</span> <span class="mono">${esc(s.newJNumber)}</span></div>` : '';
   return `<div class="pop-wo">WO ${esc(s.workOrderId)||'—'}<span class="pop-badge" style="background:${color}">${esc(s.status)}</span></div>`
-       + (loc ? `<div class="pop-row">${esc(loc)}</div>` : '')
-       + j + read
+       + (loc ? `<div class="pop-row">${esc(loc)}</div>` : '') + j + read
        + `<div class="pop-row"><span class="lab">By:</span> ${esc(s.installer)||'—'} · ${esc(dateKey(s.timestamp))}</div>`;
 }
 function drawMarkers(fit){
-  if(!map){ initMap(); }
+  if(!map) initMap();
   markersLayer.clearLayers();
   if(highlightLayer){ map.removeLayer(highlightLayer); highlightLayer=null; }
-  const list = forMap(), pts = [];
-  list.forEach(s => {
-    const m = L.circleMarker([s.lat, s.lng], {
-      radius:8, color:'#fff', weight:2, fillColor:(COLORS[s.status]||COLORS.DONE), fillOpacity:.95
-    }).bindPopup(popupHTML(s));
-    m.addTo(markersLayer);
+  const pts = [];
+  forMap().forEach(s => {
+    L.circleMarker([s.lat, s.lng], { radius:8, color:'#fff', weight:2, fillColor:(COLORS[s.status]||COLORS.DONE), fillOpacity:.95 })
+      .bindPopup(popupHTML(s)).addTo(markersLayer);
     pts.push([s.lat, s.lng]);
   });
   if(fit && pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.25));
 }
 
-// ── search: locate a WO# or J# on the map ──────────────────────────────────
+// ── search ───────────────────────────────────────────────────────────────────
 function doSearch(){
   const q = norm($('search').value);
   if(!q){ toast('Type a WO# or J#'); return; }
-  const matches = ALL.filter(s =>
-    norm(s.workOrderId)===q || norm(s.newJNumber)===q || norm(s.oldJNumber)===q);
+  const matches = ALL.filter(s => norm(s.workOrderId)===q || norm(s.newJNumber)===q || norm(s.oldJNumber)===q);
   if(!matches.length){ toast('No match for that WO# or J#'); return; }
 
-  // show everything so a filtered-out match still appears, then locate it
+  // clear every filter so a match is never hidden, then locate it
   state.statuses = { INSTALLED:true, UTI:true, DONE:true };
-  state.installer = '';
-  syncControls();
-  drawMarkers(false);
+  state.installer = ''; state.from=''; state.to='';
+  syncControls(); drawMarkers(false); renderAnalytics();
 
   const located = matches.filter(hasCoords);
   if(!located.length){ toast('Found it, but no GPS location was saved for that stop'); return; }
-
   const pts = located.map(s => [s.lat, s.lng]);
   if(highlightLayer) map.removeLayer(highlightLayer);
-  highlightLayer = L.layerGroup(
-    located.map(s => L.circleMarker([s.lat,s.lng], { radius:16, color:'#F59E0B', weight:3, fill:false }))
-  ).addTo(map);
-
-  if(pts.length===1){ map.setView(pts[0], 16); }
-  else { map.fitBounds(L.latLngBounds(pts).pad(0.3)); }
-  // open the first match's popup
-  const first = located[0];
-  L.popup().setLatLng([first.lat, first.lng]).setContent(popupHTML(first)).openOn(map);
+  highlightLayer = L.layerGroup(located.map(s => L.circleMarker([s.lat,s.lng], { radius:16, color:'#F59E0B', weight:3, fill:false }))).addTo(map);
+  if(pts.length===1) map.setView(pts[0], 16); else map.fitBounds(L.latLngBounds(pts).pad(0.3));
+  const f = located[0];
+  L.popup().setLatLng([f.lat, f.lng]).setContent(popupHTML(f)).openOn(map);
   toast(located.length===1 ? 'Found it' : `${located.length} matches highlighted`);
 }
 
-// ── analytics ───────────────────────────────────────────────────────────────
+// ── analytics (Tracker for trends/downtime, stops for UTI reasons) ─────────────
 function renderAnalytics(){
-  const list = forAnalytics();
-  const work = list.filter(s => s.status==='INSTALLED' || s.status==='UTI');
-  const installed = work.filter(s => s.status==='INSTALLED').length;
-  const uti = work.filter(s => s.status==='UTI').length;
-  const done = list.filter(s => s.status==='DONE').length;
-  const rate = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
+  const trk = trkInScope(), pins = pinsInScope();
 
+  $('trkNote').innerHTML = trk.length ? '' :
+    '<div class="note">Trends come from your end-of-day totals — none in this range yet. Finish a day in the form to fill them in.</div>';
+
+  const installed = trk.reduce((a,r)=>a+trkNum(r.installed),0);
+  const uti       = trk.reduce((a,r)=>a+trkNum(r.uti),0);
+  const down      = trk.reduce((a,r)=>a+trkNum(r.downtimeTotalMin),0);
+  const rate      = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
   $('tiles').innerHTML =
-      tile(installed, 'Installed', 't-install')
-    + tile(uti, 'UTI', 't-uti')
-    + tile(rate+'%', 'Install rate', '')
-    + tile(done, 'Already installed', '');
+      tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
+    + tile(rate+'%','Install rate','') + tile(down,'Downtime min','');
 
-  // by day (stacked installed + uti)
-  const days = {};
-  work.forEach(s => { const k=dateKey(s.timestamp); (days[k]=days[k]||{i:0,u:0})[s.status==='INSTALLED'?'i':'u']++; });
-  const dayKeys = Object.keys(days).sort();
-  chDay = remakeChart(chDay, $('chDay'), {
+  // installs vs UTI by day
+  const byDay = {};
+  trk.forEach(r => { const k=dateKey(r.date); (byDay[k]=byDay[k]||{i:0,u:0}); byDay[k].i+=trkNum(r.installed); byDay[k].u+=trkNum(r.uti); });
+  const dayKeys = Object.keys(byDay).sort();
+  blank('blankDay', dayKeys.length ? '' : 'No finalized days in this range.');
+  chDay = remake(chDay, $('chDay'), dayKeys.length && {
     type:'bar',
     data:{ labels:dayKeys, datasets:[
-      { label:'Installed', data:dayKeys.map(k=>days[k].i), backgroundColor:COLORS.INSTALLED },
-      { label:'UTI',       data:dayKeys.map(k=>days[k].u), backgroundColor:COLORS.UTI } ]},
+      { label:'Installed', data:dayKeys.map(k=>byDay[k].i), backgroundColor:COLORS.INSTALLED },
+      { label:'UTI',       data:dayKeys.map(k=>byDay[k].u), backgroundColor:COLORS.UTI } ]},
     options:{ responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, beginAtZero:true, ticks:{precision:0} } },
+      scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, beginAtZero:true, ticks:{precision:0}} },
       plugins:{ legend:{ position:'bottom' } } }
   });
 
-  // UTI reasons (horizontal bar)
+  // downtime by category
+  const catSum = {}; CATCOLS.forEach(([k])=>catSum[k]=0);
+  trk.forEach(r => CATCOLS.forEach(([k])=> catSum[k]+=trkNum(r[k])));
+  const catPairs = CATCOLS.map(([k,lab])=>[lab,catSum[k]]).filter(p=>p[1]>0).sort((a,b)=>b[1]-a[1]);
+  blank('blankDown', catPairs.length ? '' : 'No downtime logged in this range.');
+  chDown = remake(chDown, $('chDown'), catPairs.length && {
+    type:'bar',
+    data:{ labels:catPairs.map(p=>p[0]), datasets:[{ data:catPairs.map(p=>p[1]), backgroundColor:'#3C7DD9' }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:false} } }, plugins:{ legend:{ display:false } } }
+  });
+
+  // UTI reasons (from the stops — Tracker doesn't carry reasons)
   const reasons = {};
-  work.filter(s=>s.status==='UTI').forEach(s => { const r=(s.utiReason||'—'); reasons[r]=(reasons[r]||0)+1; });
+  pins.filter(s=>s.status==='UTI').forEach(s => { const r=s.utiReason||'—'; reasons[r]=(reasons[r]||0)+1; });
   const rPairs = Object.entries(reasons).sort((a,b)=>b[1]-a[1]);
-  chReason = remakeChart(chReason, $('chReason'), {
+  blank('blankReason', rPairs.length ? '' : 'No UTIs in this range.');
+  chReason = remake(chReason, $('chReason'), rPairs.length && {
     type:'bar',
     data:{ labels:rPairs.map(p=>p[0]), datasets:[{ data:rPairs.map(p=>p[1]), backgroundColor:COLORS.UTI }] },
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:false} } },
-      plugins:{ legend:{ display:false } } }
+      scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:false} } }, plugins:{ legend:{ display:false } } }
   });
 
   // by installer
   const byI = {};
-  work.forEach(s => { const n=(s.installer||'—'); (byI[n]=byI[n]||{i:0,u:0})[s.status==='INSTALLED'?'i':'u']++; });
+  trk.forEach(r => { const n=(r.installer||'—'); (byI[n]=byI[n]||{i:0,u:0,d:0}); byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin); });
   const names = Object.keys(byI).sort();
-  if(!names.length){ $('byInst').innerHTML = '<div class="empty">No installs or UTIs yet.</div>'; }
+  if(!names.length){ $('byInst').innerHTML = '<div class="empty">No end-of-day totals in this range.</div>'; }
   else{
-    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th></tr></thead><tbody>';
-    names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td></tr>`);
+    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th><th class="num">Downtime</th></tr></thead><tbody>';
+    names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td><td class="num">${byI[n].d}</td></tr>`);
     $('byInst').innerHTML = h + '</tbody></table>';
   }
 }
-function tile(n, k, cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }
-function remakeChart(inst, canvas, conf){ if(inst) inst.destroy(); return new Chart(canvas, conf); }
+function tile(n,k,cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }
+function blank(id,msg){ const el=$(id); el.textContent=msg; el.style.display = msg ? 'flex' : 'none'; }
+function remake(inst, canvas, conf){ if(inst){ inst.destroy(); } return conf ? new Chart(canvas, conf) : null; }
 
 // ── controls ────────────────────────────────────────────────────────────────
 function buildInstallerOptions(){
-  const names = [...new Set(ALL.map(s => String(s.installer||'').trim()).filter(Boolean))].sort();
-  const sel = $('installerSel');
-  sel.innerHTML = '<option value="">All installers</option>' + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const set = new Set();
+  ALL.forEach(s=>{ const n=String(s.installer||'').trim(); if(n) set.add(n); });
+  TRK.forEach(r=>{ const n=String(r.installer||'').trim(); if(n) set.add(n); });
+  $('installerSel').innerHTML = '<option value="">All installers</option>'
+    + [...set].sort().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
 }
 function syncControls(){
   $('installerSel').value = state.installer;
+  $('fromDate').value = state.from; $('toDate').value = state.to;
   document.querySelectorAll('#statusChips .chip').forEach(ch => {
     const on = state.statuses[ch.dataset.st];
     ch.classList.toggle('on', on); ch.classList.toggle('off', !on);
   });
+  document.querySelectorAll('.preset').forEach(p => p.classList.toggle('on', presetMatches(p)));
 }
-$('installerSel').onchange = e => { state.installer = e.target.value; drawMarkers(true); renderAnalytics(); };
+function presetMatches(p){
+  if(p.dataset.days==='all') return !state.from && !state.to;
+  return state.to===torontoToday() && state.from===daysAgo(Number(p.dataset.days));
+}
+
+$('installerSel').onchange = e => { state.installer=e.target.value; drawMarkers(true); renderAnalytics(); };
 document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
+document.querySelectorAll('.preset').forEach(b => b.onclick = () => {
+  if(b.dataset.days==='all'){ state.from=''; state.to=''; }
+  else { state.to=torontoToday(); state.from=daysAgo(Number(b.dataset.days)); }
+  syncControls(); drawMarkers(true); renderAnalytics();
+});
+$('fromDate').onchange = e => { state.from=e.target.value; syncControls(); drawMarkers(true); renderAnalytics(); };
+$('toDate').onchange   = e => { state.to=e.target.value;   syncControls(); drawMarkers(true); renderAnalytics(); };
 $('searchBtn').onclick = doSearch;
 $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
 
-// view switch — show/hide, and tell Leaflet to recalc once its box is visible
 $('viewSel').onchange = e => {
-  const map_on = e.target.value==='map';
-  $('mapView').classList.toggle('on', map_on);
-  $('analytics').classList.toggle('on', !map_on);
-  $('filterBar').style.display = map_on ? '' : 'none';
-  if(map_on && map) setTimeout(()=>map.invalidateSize(), 60);
+  const mapOn = e.target.value==='map';
+  $('mapView').classList.toggle('on', mapOn);
+  $('analytics').classList.toggle('on', !mapOn);
+  if(mapOn && map) setTimeout(()=>map.invalidateSize(), 60);
   else renderAnalytics();
-};
-
-// ── settings ────────────────────────────────────────────────────────────────
-function openSettings(){ const c=cfg(); $('cfgUrl').value=c.url; $('cfgToken').value=c.token; $('settingsSheet').classList.remove('hide'); }
-$('openSettings').onclick = openSettings;
-$('settingsSheet').addEventListener('click', e => { if(e.target===$('settingsSheet')) $('settingsSheet').classList.add('hide'); });
-$('saveSettings').onclick = () => {
-  store.set('url', $('cfgUrl').value.trim()); store.set('token', $('cfgToken').value.trim());
-  $('settingsSheet').classList.add('hide'); load();
 };
 
 let toastTimer;
