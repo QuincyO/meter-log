@@ -674,8 +674,10 @@ $('endDay').onclick = async () => {
     renderEod(d.stops || [], d.downtime || []);
   } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
 };
+  
 
 function renderEod(stops, downtime){
+  eodData = { stops, downtime };
   const editable  = stops.filter(s => s.status==='INSTALLED' || s.status==='UTI');
   const installed = stops.filter(s => s.status==='INSTALLED').length;
   const uti       = stops.filter(s => s.status==='UTI').length;
@@ -691,18 +693,59 @@ function renderEod(stops, downtime){
   editable.forEach(s => list.appendChild(makeStopCard(s)));
 }
 
+let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
+
 $('finishDay').onclick = async () => {
   const c = cfg();
+  let weather = '';
+  const withCoord = (eodData.stops||[]).find(s =>
+    s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
+  if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
   try{
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name,
-                             notes:$('eodNotes').value.trim() }) })).json();
-    const s = d.summary;
+                             notes:$('eodNotes').value.trim(), weather }) })).json();
     closeSheets();
-    toast(s ? `Day closed · ${s.installed} in · ${s.uti} UTI · ${s.downtimeTotalMin} min down`
-            : 'Day closed ✓');
+    if (d.pdf && d.pdf.base64) {
+      downloadBase64Pdf(d.pdf.base64, d.pdf.name);
+      toast('Day closed ✓ · PDF downloaded');
+    } else {
+      toast(d.pdf && d.pdf.error ? ('Day closed · PDF failed') : 'Day closed ✓');
+    }
   } catch { toast('Could not reach the sheet'); }
 };
+
+// weather (Open-Meteo, keyless) ------------------------------------------------
+const WMO = {0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Rime fog',
+  51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',56:'Freezing drizzle',57:'Freezing drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',
+  71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',
+  82:'Heavy showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Thunderstorm w/ hail'};
+function wmoText(c){ return WMO[c] || 'Weather'; }
+function compass(d){ if(d==null||isNaN(d)) return ''; return ['N','NE','E','SE','S','SW','W','NW'][Math.round(((d%360)/45))%8]; }
+async function fetchWeather(lat,lng){
+  try{
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+            + `&current=weather_code,wind_speed_10m,wind_direction_10m,temperature_2m`
+            + `&wind_speed_unit=kmh&timezone=America%2FToronto`;
+    const c = (await (await fetch(u)).json()).current; if(!c) return '';
+    const parts = [ wmoText(c.weather_code) ];
+    if (c.wind_speed_10m!=null) parts.push((compass(c.wind_direction_10m)+' ').trimStart() + Math.round(c.wind_speed_10m) + ' km/h');
+    if (c.temperature_2m!=null) parts.push(Math.round(c.temperature_2m) + '°C');
+    return parts.join(' · ');
+  } catch { return ''; }
+}
+// download the PDF the spine returns
+function downloadBase64Pdf(b64, name){
+  try{
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    const a = document.createElement('a'); a.href=url; a.download=name||'DailyLog.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  } catch { toast('PDF ready, but download was blocked — it’s also in Drive'); }
+}
 
 // ── today's orders: a quick table of what's logged today ───────────────────
 $('openToday').onclick = async () => {
