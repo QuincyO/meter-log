@@ -31,6 +31,10 @@
   .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
   .backlink{font-size:13px;font-weight:700;color:var(--ink-soft);text-decoration:none;
             padding:8px 12px;border-radius:10px;background:var(--panel);box-shadow:var(--shadow)}
+  .navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+          border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+          font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+  .navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
 
   h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
      font-weight:700;margin:26px 2px 4px}
@@ -122,7 +126,12 @@
   <div class="bar">
     <div class="title">Crew &amp; Boat Teams</div>
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
-    <a class="backlink" href="index.html">← Log</a>
+    <select class="navsel" id="navSel" aria-label="Go to view">
+      <option value="log">Log</option>
+      <option value="map">Map</option>
+      <option value="analytics">Analytics</option>
+      <option value="teams" selected>Crew &amp; Teams</option>
+    </select>
   </div>
 
   <!-- ── Crew ─────────────────────────────────────────────────────────── -->
@@ -490,6 +499,16 @@ function teamCard(t){
   setOpen(!t.id);   // new boats open for editing; saved boats start collapsed
   return card;
 }
+
+// top-bar navigation — Log / Map / Analytics live in the other two pages
+$('navSel').onchange = e => {
+  const v = e.target.value;
+  if(v==='log')       window.location.href = 'index.html';
+  else if(v==='map')  window.location.href = 'map.html';
+  else if(v==='analytics') window.location.href = 'map.html#analytics';
+};
+// reset the dropdown if the page is restored from the back/forward cache
+window.addEventListener('pageshow', () => { $('navSel').value = 'teams'; });
 
 $('newTeam').onclick = () => {
   const blank = { id:'', boatNumber:'', boatName:'', captainName:'', subName:'', memberLetters:{} };

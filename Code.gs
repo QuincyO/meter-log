@@ -539,17 +539,11 @@ function saveEmployee(b) {
   if (!first || !last) return { ok: false, error: 'first and last name required' };
   const active = b.active === false ? false : true;
 
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
-  const data = sh.getDataRange().getValues();
-  const hCol = data[0].indexOf('hNumber');
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][hCol]).trim() === h) {
-      sh.getRange(i + 1, 1, 1, EMPLOYEES_HEADERS.length).setValues([[h, first, last, active]]);
-      return { ok: true, hNumber: h, updated: true };
-    }
-  }
-  sh.appendRow([h, first, last, active]);
-  return { ok: true, hNumber: h, created: true };
+  const r = upsertByHeader('Employees', 'hNumber', h,
+    { hNumber: h, firstName: first, lastName: last, active: active });
+  const res = { ok: true, hNumber: h };
+  res[r.created ? 'created' : 'updated'] = true;
+  return res;
 }
 
 /** Remove a crew member and scrub them out of any team rosters / captaincies. */
@@ -572,10 +566,6 @@ function deleteEmployee(b) {
 /** Create a boat, or update one in place when its id is supplied. memberLetters
  *  is stored as a JSON map of employee number → team letter ({"H100":"A"}). */
 function saveTeam(b) {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
-  const data = sh.getDataRange().getValues();
-  const idCol = data[0].indexOf('id');
-
   const memberLetters = normalizeLetters(parseMemberLetters(b.memberLetters));
   const captainName   = String(b.captainName == null ? '' : b.captainName).trim();
   const subName       = String(b.subName == null ? '' : b.subName).trim();
@@ -584,26 +574,18 @@ function saveTeam(b) {
   ensureName('Captains', captainName);
   ensureName('Subs', subName);
 
-  const out = [
-    '',
-    String(b.boatNumber == null ? '' : b.boatNumber).trim(),
-    String(b.boatName == null ? '' : b.boatName).trim(),
-    captainName, subName, JSON.stringify(memberLetters)
-  ];
-
-  if (b.id) {
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][idCol]) === String(b.id)) {
-        out[0] = String(b.id);
-        sh.getRange(i + 1, 1, 1, TEAMS_HEADERS.length).setValues([out]);
-        return { ok: true, id: b.id, updated: true };
-      }
-    }
-  }
-  const id = newId();
-  out[0] = id;
-  sh.appendRow(out);
-  return { ok: true, id: id, created: true };
+  const id = b.id ? String(b.id) : newId();
+  const r = upsertByHeader('Teams', 'id', b.id ? id : null, {
+    id: id,
+    boatNumber:    String(b.boatNumber == null ? '' : b.boatNumber).trim(),
+    boatName:      String(b.boatName == null ? '' : b.boatName).trim(),
+    captainName:   captainName,
+    subName:       subName,
+    memberLetters: JSON.stringify(memberLetters)
+  });
+  const res = { ok: true, id: id };
+  res[r.created ? 'created' : 'updated'] = true;
+  return res;
 }
 
 function deleteTeam(b) {
@@ -737,6 +719,32 @@ function rows(tabName) {
     headers.forEach((h, i) => o[h] = row[i]);
     return o;
   });
+}
+
+/** Write a record keyed by header NAME, not column position, so a reordered
+ *  sheet can't scramble data (rows() already reads by name; this keeps writes
+ *  symmetric). `fields` is a {header: value} map. The row whose keyField cell
+ *  equals keyValue is overwritten in place — cells whose header isn't in
+ *  `fields` keep their current value; if no match (or keyValue is blank/null) a
+ *  new row is appended with only the named cells filled. Returns {created}. */
+function upsertByHeader(tabName, keyField, keyValue, fields) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const build = existing => headers.map((h, j) =>
+    (h in fields) ? fields[h] : (existing ? existing[j] : ''));
+
+  const keyCol = headers.indexOf(keyField);
+  if (keyCol !== -1 && keyValue !== '' && keyValue != null) {
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][keyCol]).trim() === String(keyValue).trim()) {
+        sh.getRange(i + 1, 1, 1, headers.length).setValues([build(data[i])]);
+        return { created: false };
+      }
+    }
+  }
+  sh.appendRow(build(null));
+  return { created: true };
 }
 
 function haversine(lat1, lon1, lat2, lon2) {

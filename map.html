@@ -427,6 +427,12 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('sho
 // go
 initMap();
 load();
+
+// deep-link: map.html#analytics opens the analytics view (used by the teams nav)
+if(location.hash === '#analytics'){
+  $('viewSel').value = 'analytics';
+  $('viewSel').dispatchEvent(new Event('change'));
+}
 </script>
 </body>
 </html>
