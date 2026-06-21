@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, three tabs: `Stops`, `Downtime`, `Tracker`. This is the truth.
+One spreadsheet, seven tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -78,7 +78,8 @@ and works even with no signal (queued up on the phone).
   │ index.html          │ ── POST JSON ──▶   │ doPost              │     │ Stops     │
   │ web form / PWA       │                    │   addStop           │ ──▶ │ Downtime  │
   │ • offline queue      │                    │   addDowntime       │     │ Tracker   │
-  │ • person = name only │                    │   updateStop        │     └────┬─────┘
+  │ • person = H# (self- │                    │   updateStop        │     └────┬─────┘
+  │   registration)      │                    │                     │          │
   └────────────────────┘                    │   endOfDay          │          │
                                               │                     │          │ read via
   ┌────────────────────┐                    │ doGet               │          │ connector
@@ -93,7 +94,8 @@ and works even with no signal (queued up on the phone).
 ```
 
 **Write actions (POST):** `addStop`, `addDowntime`, `updateStop`, `endOfDay`,
-`saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`.
+`saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
+`saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
@@ -168,26 +170,46 @@ are a display label only.
 | `lastName`  | string  | display label                                      |
 | `active`    | boolean | soft-delete / hide from pickers (defaults to true) |
 
-### Team  (one row per boat team → tab "Teams")
-A boat team, managed from `teams.html`. `memberHs` references the installers by
-their H number (a JSON array). The **captain is *not* an employee** — captains
-move between boats and aren't keyed on an H number, so `captainName` is just a
-free-text first name and the captain is **not** one of the members.
-| field         | type            | notes                                         |
-|---------------|-----------------|-----------------------------------------------|
-| `id`          | string          | unique (timestamp + random)                   |
-| `identifier`  | string          | the A / B / C / D… team letter                |
-| `boatName`    | string          |                                               |
-| `boatNumber`  | string          |                                               |
-| `captainName` | string          | the captain's first name (free text, no H#)   |
-| `memberHs`    | JSON string     | array of installer H numbers (no captain)     |
+### Team  (one row per boat → tab "Teams")
+A boat, managed from `teams.html`. `memberLetters` is a JSON map keying each
+installer's H number to their team letter (e.g. `{"H100":"A","H200":"A","H300":"B"}`).
+People sharing the same letter are partners — Boat 11 members with letter A form
+team **11A**, letter B → **11B**, etc. The **captain and sub are *not* employees** —
+they move between boats, have no H number, and are stored as free-text names.
+| field           | type        | notes                                               |
+|-----------------|-------------|-----------------------------------------------------|
+| `id`            | string      | unique (timestamp + random)                         |
+| `boatNumber`    | string      | e.g. "11"                                           |
+| `boatName`      | string      | e.g. "Sea Ray"                                      |
+| `captainName`   | string      | the captain's first name (free text, no H#)         |
+| `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
+| `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their
-`installerId` (H number). The spine finds their team and fills the daily log's
-header — **Partner** (the rest of the crew on the boat), **Captain** (the
-free-text name), **Boat Team** (the A/B/C… letter), and **Boat Name** (with its
-number) — so those boxes are no longer hand-written. Installers who entered a
-name manually (no H number) still log fine; their team boxes just stay blank.
+`installerId` (H number). The spine finds their boat row, reads `memberLetters`,
+and fills the daily log header:
+- **Boat Team** = boat number + *their own* letter (e.g. `11A`)
+- **Partner** = crew members on the same boat who share their letter
+- **Captain** / **Sub** = the boat's free-text captain and sub names
+- **Boat Name** = the boat name from the team row
+
+PDF is named `FirstNameLastName_Date_DailyLog.pdf` where the name comes from the
+Employees tab lookup on the installer's H number. Installers with no H number
+still log fine; their team boxes stay blank.
+
+### Captain name list  (→ tab "Captains")
+A deduplicated list of captain first names. `saveTeam` always calls `ensureName`
+so any name typed in a team card is remembered automatically. Used to populate
+the captain dropdown on boat cards in `teams.html`.
+| field  | type   |
+|--------|--------|
+| `name` | string |
+
+### Sub name list  (→ tab "Subs")
+Same pattern as Captains, for sub/subforeman names.
+| field  | type   |
+|--------|--------|
+| `name` | string |
 
 ---
 
@@ -223,8 +245,10 @@ name manually (no H number) still log fine; their team boxes just stay blank.
 - **No page-level login** on the viewer — a deliberate trade for "open the link
   and it works." The token sits in the page source, so anyone who opens either
   page can read it. Keeping the repo private is a sensible extra step.
-- **Identity = the free-text name** each installer types once on the form. Good
-  enough for a small crew; see the limits below for what changes at scale.
+- **Identity = self-registration** (first name, last name, H number) on first
+  open of `index.html`. The form enqueues a `saveEmployee` call through the
+  offline queue, so the employee record is created even with no signal at
+  registration time. Good enough for a small crew; see the limits below.
 
 ---
 
@@ -240,11 +264,13 @@ name manually (no H number) still log fine; their team boxes just stay blank.
 4. **Map + analytics viewer** — host `map.html`, paste the same `/exec` URL.
    *(Done.)*
 5. **Crew + boat teams** — host `teams.html` (same `/exec` URL + token). After
-   pasting the v3 `Code.gs`, **redeploy** the Web App and **re-run
-   `setupSheets()`** once to add the `Employees` and `Teams` tabs (it leaves the
-   existing tabs untouched). Add the crew, build the teams, and each installer
-   re-opens Settings to pick their name. *(No template rebuild needed — the
-   daily-log header boxes already existed; v3 only maps values into them.)*
+   pasting the current `Code.gs`, **redeploy** the Web App and **re-run
+   `setupSheets()`** once to add the `Employees`, `Teams`, `Captains`, and `Subs`
+   tabs (it leaves existing tabs untouched). If a `Teams` tab already exists from
+   an older schema, **delete it first** — the column order changed. Add the crew,
+   build the boat cards (assign letters to members), and each installer fills out
+   the self-registration form on first open. *(No template rebuild needed — the
+   daily-log header boxes already existed; the spine only maps values into them.)*
 6. **Later (parked):** a WordPress showcase site, optional GPS-based downtime
    auto-detection, and the scale-up work in the next section.
 
