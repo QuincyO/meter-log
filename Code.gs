@@ -526,7 +526,9 @@ function teamsList() {
     boatName:      String(r.boatName == null ? '' : r.boatName).trim(),
     captainName:   String(r.captainName == null ? '' : r.captainName).trim(),
     subName:       String(r.subName == null ? '' : r.subName).trim(),
-    memberLetters: normalizeLetters(parseMemberLetters(r.memberLetters))
+    memberLetters: normalizeLetters(parseMemberLetters(
+      (r.memberLetters != null && r.memberLetters !== '') ? r.memberLetters : r.memberHs
+    ))
   })).filter(t => t.id);
 }
 
@@ -563,9 +565,25 @@ function deleteEmployee(b) {
   return { ok: false, error: 'employee number not found' };
 }
 
+/** Adds a 'memberLetters' column to the Teams sheet if the sheet was created
+ *  under the old schema (which had 'memberHs' instead). Safe to call on every
+ *  save — it's a no-op once the column exists. */
+function ensureMemberLettersColumn() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
+  if (!sh) return;
+  const lastCol = sh.getLastColumn();
+  if (lastCol === 0) return;
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  if (headers.indexOf('memberLetters') === -1) {
+    const cell = sh.getRange(1, lastCol + 1);
+    cell.setValue('memberLetters').setFontWeight('bold');
+  }
+}
+
 /** Create a boat, or update one in place when its id is supplied. memberLetters
  *  is stored as a JSON map of employee number → team letter ({"H100":"A"}). */
 function saveTeam(b) {
+  ensureMemberLettersColumn();
   const memberLetters = normalizeLetters(parseMemberLetters(b.memberLetters));
   const captainName   = String(b.captainName == null ? '' : b.captainName).trim();
   const subName       = String(b.subName == null ? '' : b.subName).trim();
@@ -653,8 +671,8 @@ function parseMemberLetters(v) {
   if (s.charAt(0) === '{') {
     try { const o = JSON.parse(s); if (o && typeof o === 'object') return o; } catch (e) {}
   }
-  if (s.charAt(0) === '[') {   // legacy memberHs array → keep them, letterless
-    try { const a = JSON.parse(s); if (Array.isArray(a)) { const o = {}; a.forEach(h => o[String(h).trim()] = ''); return o; } } catch (e) {}
+  if (s.charAt(0) === '[') {   // legacy memberHs array → assign default letter 'A' so members survive migration
+    try { const a = JSON.parse(s); if (Array.isArray(a)) { const o = {}; a.forEach(h => { const hh = String(h).trim(); if (hh) o[hh] = 'A'; }); return o; } } catch (e) {}
   }
   return {};
 }
