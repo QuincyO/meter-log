@@ -63,11 +63,15 @@ const TRACKER_HEADERS = [
 // two people with the same name never collide. firstName/lastName are the
 // display label; hNumber is the identity.
 const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active'];
-// Boat teams: memberHs holds the installers' employee numbers (a JSON array of
-// H numbers). captainName is a free-text first name — captains aren't employees
-// and move between boats, so they're not keyed on an H number or counted as
-// crew members. identifier is the A/B/C… label.
-const TEAMS_HEADERS = ['id','identifier','boatName','boatNumber','captainName','memberHs'];
+// Boat teams: a boat (boatNumber, e.g. "11") can carry several teams, each a
+// letter (teamLetter A/B/…) — so a team's identifier is boatNumber+teamLetter
+// ("11A", "11B"). memberHs holds the installers' employee numbers (JSON array).
+// captainName + subName are free-text names (captains/subs aren't employees and
+// move between boats); they're saved to the Captains/Subs lists for quick reuse.
+const TEAMS_HEADERS = ['id','boatNumber','boatName','teamLetter','captainName','subName','memberHs'];
+// Quick-pick name lists that feed the team form's captain / sub dropdowns.
+const CAPTAINS_HEADERS = ['name'];
+const SUBS_HEADERS     = ['name'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -84,7 +88,7 @@ const BODY_ROWS    = 18;   // printed blank rows, like the paper form
 // if you move a box there, update its anchor here.
 const ANCHORS = {
   name:'B1', partner:'B2', captain:'B3',           // crew, auto-filled from the boat team
-  boatTeam:'D1', boatName:'D2', date:'D3',
+  boatTeam:'D1', boatName:'D2', date:'D3', sub:'D4',
   weather:'G2'
 };
 
@@ -165,7 +169,8 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.name,    s.installer);
     put(ANCHORS.partner, s.partner  || '');   // other crew on the boat team
     put(ANCHORS.captain, s.captain  || '');
-    put(ANCHORS.boatTeam,s.boatTeam || '');    // the A/B/C… identifier
+    put(ANCHORS.sub,     s.sub      || '');
+    put(ANCHORS.boatTeam,s.boatTeam || '');    // boat number + team letter, e.g. "11A"
     put(ANCHORS.boatName,s.boatName || '');
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather, s.weather  || '');
@@ -197,7 +202,9 @@ function buildDailyLogPdf(s) {
     copy.getRange(footerRow, 5).setValue('Delays:  ' + downtimeSummary(s.downtime));
     SpreadsheetApp.flush();
 
-    const name = 'DailyLog_' + String(s.installer||'').replace(/[^A-Za-z0-9]+/g,'_') + '_' + s.date + '.pdf';
+    // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
+    const who  = String(s.installer||'').replace(/[^A-Za-z0-9]+/g,'') || 'Installer';
+    const name = who + '_' + s.date + '_DailyLog.pdf';
     const blob = exportSheetPdf(ss.getId(), copy.getSheetId(), name);
     const file = getOrCreateFolder(PDF_FOLDER).createFile(blob);
     return { base64: Utilities.base64Encode(blob.getBytes()), url: file.getUrl(), name: name };
@@ -254,6 +261,8 @@ function setupSheets() {
   ensureTab(ss, 'Tracker', TRACKER_HEADERS);
   ensureTab(ss, 'Employees', EMPLOYEES_HEADERS);
   ensureTab(ss, 'Teams', TEAMS_HEADERS);
+  ensureTab(ss, 'Captains', CAPTAINS_HEADERS);
+  ensureTab(ss, 'Subs', SUBS_HEADERS);
   setupDailyLogTemplate();
 }
 
@@ -289,6 +298,10 @@ function doPost(e) {
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
       case 'deleteTeam':     return json(deleteTeam(body));
+      case 'saveCaptain':    return json(saveName('Captains', body.name));
+      case 'deleteCaptain':  return json(deleteName('Captains', body.name));
+      case 'saveSub':        return json(saveName('Subs', body.name));
+      case 'deleteSub':      return json(deleteName('Subs', body.name));
       default:               return json({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -437,7 +450,8 @@ function endOfDay(b) {
 
   const summary = { date, installer, installed, uti, downtimeTotalMin: total,
     byCategory: byCat, notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
-    partner: hdr.partner, captain: hdr.captain, boatTeam: hdr.boatTeam, boatName: hdr.boatName,
+    partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
+    boatTeam: hdr.boatTeam, boatName: hdr.boatName,
     team: team ? team.id : null };
 
   // Tracker row is already written, so a PDF hiccup can't block closing the day.
@@ -449,7 +463,50 @@ function endOfDay(b) {
 /** The whole crew + every team, in one call. teams.html and the installer's
  *  name picker both read this. */
 function roster() {
-  return { ok: true, employees: employeesList(), teams: teamsList() };
+  return { ok: true, employees: employeesList(), teams: teamsList(),
+           captains: namesList('Captains'), subs: namesList('Subs') };
+}
+
+/** The de-duplicated names from a quick-pick list tab (Captains / Subs). */
+function namesList(tab) {
+  const seen = {}, out = [];
+  rows(tab).forEach(r => {
+    const n = String(r.name == null ? '' : r.name).trim();
+    if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = true; out.push(n); }
+  });
+  return out;
+}
+/** Add a name to a quick-pick list if it isn't there yet (case-insensitive). */
+function ensureName(tab, name) {
+  name = String(name == null ? '' : name).trim();
+  if (!name) return;
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+  const data = sh.getDataRange().getValues();
+  const col = data[0].indexOf('name');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][col]).trim().toLowerCase() === name.toLowerCase()) return;
+  }
+  sh.appendRow([name]);
+}
+function saveName(tab, name) {
+  name = String(name == null ? '' : name).trim();
+  if (!name) return { ok: false, error: 'name required' };
+  ensureName(tab, name);
+  return { ok: true, name: name };
+}
+function deleteName(tab, name) {
+  name = String(name == null ? '' : name).trim();
+  if (!name) return { ok: false, error: 'name required' };
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+  const data = sh.getDataRange().getValues();
+  const col = data[0].indexOf('name');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][col]).trim().toLowerCase() === name.toLowerCase()) {
+      sh.deleteRow(i + 1);
+      return { ok: true, name: name, deleted: true };
+    }
+  }
+  return { ok: false, error: 'name not found' };
 }
 
 function employeesList() {
@@ -463,11 +520,12 @@ function employeesList() {
 
 function teamsList() {
   return rows('Teams').map(r => ({
-    id:         String(r.id == null ? '' : r.id),
-    identifier: String(r.identifier == null ? '' : r.identifier).trim(),
-    boatName:   String(r.boatName == null ? '' : r.boatName).trim(),
+    id:          String(r.id == null ? '' : r.id),
     boatNumber:  String(r.boatNumber == null ? '' : r.boatNumber).trim(),
+    boatName:    String(r.boatName == null ? '' : r.boatName).trim(),
+    teamLetter:  String(r.teamLetter == null ? '' : r.teamLetter).trim(),
     captainName: String(r.captainName == null ? '' : r.captainName).trim(),
+    subName:     String(r.subName == null ? '' : r.subName).trim(),
     memberHs:    parseMembers(r.memberHs)
   })).filter(t => t.id);
 }
@@ -520,12 +578,18 @@ function saveTeam(b) {
 
   const members     = parseMembers(b.memberHs);
   const captainName = String(b.captainName == null ? '' : b.captainName).trim();
+  const subName     = String(b.subName == null ? '' : b.subName).trim();
+
+  // Remember any new captain / sub names so they're in next time's dropdowns.
+  ensureName('Captains', captainName);
+  ensureName('Subs', subName);
 
   const out = [
-    '', String(b.identifier == null ? '' : b.identifier).trim(),
-    String(b.boatName == null ? '' : b.boatName).trim(),
+    '',
     String(b.boatNumber == null ? '' : b.boatNumber).trim(),
-    captainName, JSON.stringify(members)
+    String(b.boatName == null ? '' : b.boatName).trim(),
+    String(b.teamLetter == null ? '' : b.teamLetter).trim().toUpperCase(),
+    captainName, subName, JSON.stringify(members)
   ];
 
   if (b.id) {
@@ -583,18 +647,18 @@ function teamForEmployee(h) {
   return teamsList().filter(t => t.memberHs.indexOf(h) >= 0)[0] || null;
 }
 /** The header block the daily log auto-fills for this installer's boat team:
- *  partner = the rest of the crew on the boat (not you); captain (a free-text
- *  first name — captains aren't employees and move between boats); the A/B/C…
- *  identifier; and boat name with its number folded in. */
+ *  partner = the rest of the crew on the boat (not you); captain + sub (free-text
+ *  names from the saved lists); boatTeam = boat number + team letter ("11A");
+ *  and the boat name. */
 function teamHeader(team, selfH) {
-  if (!team) return { partner: '', captain: '', boatTeam: '', boatName: '' };
+  if (!team) return { partner: '', captain: '', sub: '', boatTeam: '', boatName: '' };
   selfH = String(selfH || '').trim();
   const partners = team.memberHs
     .filter(h => h !== selfH)
     .map(nameOfH).filter(Boolean);
-  const boatName = team.boatName + (team.boatNumber ? (' #' + team.boatNumber) : '');
-  return { partner: partners.join(', '), captain: team.captainName,
-           boatTeam: team.identifier, boatName: boatName };
+  return { partner: partners.join(', '), captain: team.captainName, sub: team.subName,
+           boatTeam: (team.boatNumber + team.teamLetter),   // e.g. "11A"
+           boatName: team.boatName };
 }
 
 /** Parse a stored member list — JSON array preferred, comma/space-separated

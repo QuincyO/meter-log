@@ -73,6 +73,17 @@
   .crewrow .x{min-height:46px;height:46px;width:46px;padding:0;font-size:18px}
   .empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
 
+  /* captain / sub saved-name lists */
+  .namerow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;
+           border:1px solid var(--line);border-radius:9px;background:var(--surface);margin:6px 0;font-weight:600}
+  .namerow .x{height:34px;width:34px;min-height:0;font-size:14px;padding:0}
+  .addname{display:flex;gap:8px;margin-top:8px}
+  .addname input{min-height:46px}
+  .addname .x{height:46px;min-height:46px;width:auto;padding:0 16px}
+  .colhead{font-size:15px;font-weight:800;margin:2px 2px 8px}
+  /* "add new…" box under a captain/sub dropdown */
+  .newname{margin-top:8px}
+
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
      background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
      box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
@@ -108,13 +119,29 @@
     </div>
   </div>
 
+  <!-- ── Captains & Subforemen ────────────────────────────────────────── -->
+  <h1>Captains &amp; Subforemen</h1>
+  <p class="sub">Saved names for the dropdowns on each team. Add them here, or just type a new one on a team and it’s remembered for next time.</p>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <div class="colhead">Captains</div>
+        <div id="captainList"></div>
+        <div class="addname"><input id="newCaptain" placeholder="Add a captain…" autocapitalize="words"><button class="btn primary x" id="addCaptain">Add</button></div>
+      </div>
+      <div>
+        <div class="colhead">Subforemen</div>
+        <div id="subList"></div>
+        <div class="addname"><input id="newSub" placeholder="Add a sub…" autocapitalize="words"><button class="btn primary x" id="addSub">Add</button></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Teams ────────────────────────────────────────────────────────── -->
   <h1>Boat Teams</h1>
-  <p class="sub">Each team has an identifier (A, B, C…), a boat, a captain, and its crew. These auto-fill the daily log when a team member ends their day.</p>
+  <p class="sub">A boat can carry several teams — Boat 11 with teams A and B reads as 11A and 11B. Each team has a captain, a sub, and its crew, which auto-fill the daily log when a member ends their day.</p>
   <div id="teamList"></div>
   <button class="btn full" id="newTeam" style="margin-top:6px">+ New team</button>
-  <!-- captains already used elsewhere, offered as suggestions when typing -->
-  <datalist id="captainNames"></datalist>
 
   <div class="toast" id="toast"></div>
 
@@ -128,7 +155,7 @@ const attr = v => String(v??'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot
 const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 
-let state = { employees:[], teams:[] };
+let state = { employees:[], teams:[], captains:[], subs:[] };
 
 let toastTimer;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
@@ -154,8 +181,10 @@ async function load(){
     if(!d.ok) throw new Error(d.error||'load failed');
     state.employees = (d.employees||[]);
     state.teams     = (d.teams||[]);
+    state.captains  = (d.captains||[]);
+    state.subs      = (d.subs||[]);
     setStatus('ok','Synced');
-    renderCrew(); renderTeams();
+    renderCrew(); renderCaptainsSubs(); renderTeams();
   } catch(e){
     setStatus('off','Offline — can’t load');
     toast('Couldn’t load crew — check the connection');
@@ -214,40 +243,72 @@ $('addEmp').onclick = async () => {
   } catch(err){ toast(err.message); }
 };
 
-// ── Teams ────────────────────────────────────────────────────────────────
-// Captain names already in use, so typing one on another boat can be picked
-// from the dropdown — captains move between boats, so the same name recurs.
-function refreshCaptainNames(){
-  const names = [...new Set(state.teams.map(t => (t.captainName||'').trim()).filter(Boolean))].sort();
-  $('captainNames').innerHTML = names.map(n => `<option value="${attr(n)}">`).join('');
+// ── Captains & Subforemen (saved name lists) ───────────────────────────────
+function renderCaptainsSubs(){
+  renderNameList('captainList', state.captains, 'captain');
+  renderNameList('subList',     state.subs,     'sub');
 }
+function renderNameList(boxId, names, role){
+  const box = $(boxId);
+  if(!names.length){ box.innerHTML = '<div class="empty" style="padding:6px 2px">None yet.</div>'; return; }
+  box.innerHTML = names.slice().sort((a,b)=>a.localeCompare(b)).map(n =>
+    `<div class="namerow"><span>${esc(n)}</span><button class="btn danger x" data-n="${attr(n)}" title="Remove">✕</button></div>`).join('');
+  box.querySelectorAll('button[data-n]').forEach(b => b.onclick = async () => {
+    if(!confirm(`Remove “${b.dataset.n}” from the ${role==='captain'?'captains':'subs'} list?`)) return;
+    try{ await post({ action: role==='captain'?'deleteCaptain':'deleteSub', name:b.dataset.n }); toast('Removed ✓'); await load(); }
+    catch(err){ toast(err.message); }
+  });
+}
+async function addName(inputId, action){
+  const n = $(inputId).value.trim();
+  if(!n){ toast('Type a name first'); return; }
+  try{ await post({ action, name:n }); $(inputId).value=''; toast('Added ✓'); await load(); }
+  catch(err){ toast(err.message); }
+}
+$('addCaptain').onclick = () => addName('newCaptain', 'saveCaptain');
+$('addSub').onclick     = () => addName('newSub', 'saveSub');
+
+// ── Teams ────────────────────────────────────────────────────────────────
+// A team's identifier is its boat number + team letter, e.g. "11A".
+const teamId = t => ((t.boatNumber||'') + (t.teamLetter||'')) || '—';
 
 function renderTeams(){
-  refreshCaptainNames();
   const box = $('teamList');
   if(!state.teams.length){ box.innerHTML = '<div class="empty" style="padding:4px 2px 10px">No teams yet — tap “New team”.</div>'; return; }
   box.innerHTML = '';
   state.teams.slice()
-    .sort((a,b)=>(a.identifier||'').localeCompare(b.identifier||''))
+    .sort((a,b)=> teamId(a).localeCompare(teamId(b), undefined, {numeric:true}))
     .forEach(t => box.appendChild(teamCard(t)));
+}
+
+// A <select> of saved names (captains or subs) with an "add new…" escape hatch.
+function nameSelect(role, current, names){
+  const inList = names.some(n => n.toLowerCase() === (current||'').toLowerCase());
+  const opts = ['<option value="">— none —</option>']
+    .concat(names.slice().sort((a,b)=>a.localeCompare(b))
+      .map(n => `<option value="${attr(n)}" ${n.toLowerCase()===(current||'').toLowerCase()?'selected':''}>${esc(n)}</option>`));
+  if(current && !inList) opts.push(`<option value="${attr(current)}" selected>${esc(current)}</option>`);
+  opts.push('<option value="__new__">➕ Add new…</option>');
+  return `<select data-role="${role}Sel">${opts.join('')}</select>`
+       + `<input data-role="${role}New" class="newname hide" placeholder="New ${role==='captain'?'captain':'sub'} name" autocapitalize="words">`;
 }
 
 // A team card, editable in place. `t.id===''` marks an unsaved new team.
 function teamCard(t){
   const card = document.createElement('div');
   card.className = 'card';
-  const title = t.id
-    ? `Team ${esc(t.identifier)||'—'}${t.boatName?(' · '+esc(t.boatName)):''}`
-    : 'New team';
+  const title = t.id ? `Team ${esc(teamId(t))}${t.boatName?(' · '+esc(t.boatName)):''}` : 'New team';
   card.innerHTML = `
     <div class="head"><strong>${title}</strong></div>
     <div class="grid3">
-      <div><label>Team identifier</label><input data-f="identifier" class="mono" maxlength="3" value="${attr(t.identifier)}" placeholder="A"></div>
-      <div><label>Boat name</label><input data-f="boatName" value="${attr(t.boatName)}" placeholder="e.g. Sea Ray"></div>
-      <div><label>Boat number</label><input data-f="boatNumber" class="mono" value="${attr(t.boatNumber)}" placeholder="e.g. 12"></div>
+      <div><label>Boat number</label><input data-f="boatNumber" class="mono" value="${attr(t.boatNumber)}" placeholder="e.g. 11"></div>
+      <div><label>Team letter</label><input data-f="teamLetter" class="mono" maxlength="2" value="${attr(t.teamLetter)}" placeholder="A"></div>
+      <div><label>Boat name <span style="font-weight:500;color:var(--ink-soft)">(optional)</span></label><input data-f="boatName" value="${attr(t.boatName)}" placeholder="e.g. Sea Ray"></div>
     </div>
-    <label>Captain <span style="font-weight:500;color:var(--ink-soft)">(first name — captains aren’t crew)</span></label>
-    <input data-f="captainName" list="captainNames" value="${attr(t.captainName)}" placeholder="e.g. Dave" autocapitalize="words">
+    <div class="grid2">
+      <div><label>Captain</label>${nameSelect('captain', t.captainName, state.captains)}</div>
+      <div><label>Sub / subforeman</label>${nameSelect('sub', t.subName, state.subs)}</div>
+    </div>
     <label>Members</label>
     <div class="members" data-role="members"></div>
     ${state.employees.length ? '' : '<div class="empty">Add crew above first, then pick members here.</div>'}
@@ -256,12 +317,27 @@ function teamCard(t){
       <button class="btn danger" data-act="del">Delete</button>
     </div>`;
 
+  // captain / sub dropdowns — reveal the text box when "Add new…" is chosen
+  ['captain','sub'].forEach(role => {
+    const sel = card.querySelector(`[data-role="${role}Sel"]`);
+    const inp = card.querySelector(`[data-role="${role}New"]`);
+    sel.onchange = () => {
+      const isNew = sel.value === '__new__';
+      inp.classList.toggle('hide', !isNew);
+      if(isNew) inp.focus();
+    };
+  });
+  const resolveName = role => {
+    const sel = card.querySelector(`[data-role="${role}Sel"]`);
+    const inp = card.querySelector(`[data-role="${role}New"]`);
+    return (sel.value === '__new__' ? inp.value : sel.value).trim();
+  };
+
   const membersBox = card.querySelector('[data-role="members"]');
   const selected = new Set(t.memberHs || []);
   const byName = (a,b) => (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName);
 
-  // member checkboxes — the installers on this boat. The captain is separate
-  // (a free-text name above), so they don't appear here.
+  // member checkboxes — the installers on this team. Captains/subs are separate.
   state.employees.slice().sort(byName).forEach(e => {
     const lab = document.createElement('label');
     lab.className = 'chk' + (selected.has(e.hNumber)?' on':'');
@@ -278,18 +354,18 @@ function teamCard(t){
   card.querySelector('[data-act="save"]').onclick = async () => {
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
     const memberHs = [...selected];
-    if(!g('identifier')){ toast('Team identifier (A, B, C…) required'); return; }
+    if(!g('boatNumber')){ toast('Boat number required'); return; }
     try{
       await post({ action:'saveTeam', id:t.id||undefined,
-        identifier:g('identifier'), boatName:g('boatName'), boatNumber:g('boatNumber'),
-        captainName:g('captainName'), memberHs });
+        boatNumber:g('boatNumber'), teamLetter:g('teamLetter'), boatName:g('boatName'),
+        captainName:resolveName('captain'), subName:resolveName('sub'), memberHs });
       toast('Team saved ✓'); await load();
     } catch(err){ toast(err.message); }
   };
 
   card.querySelector('[data-act="del"]').onclick = async () => {
     if(!t.id){ card.remove(); return; }           // discard an unsaved card
-    if(!confirm(`Delete Team ${t.identifier||''}? This removes the team, not the crew.`)) return;
+    if(!confirm(`Delete Team ${teamId(t)}? This removes the team, not the crew.`)) return;
     try{ await post({ action:'deleteTeam', id:t.id }); toast('Team deleted ✓'); await load(); }
     catch(err){ toast(err.message); }
   };
@@ -298,7 +374,7 @@ function teamCard(t){
 }
 
 $('newTeam').onclick = () => {
-  const blank = { id:'', identifier:'', boatName:'', boatNumber:'', captainName:'', memberHs:[] };
+  const blank = { id:'', boatNumber:'', teamLetter:'', boatName:'', captainName:'', subName:'', memberHs:[] };
   const card = teamCard(blank);
   $('teamList').appendChild(card);
   card.scrollIntoView({ behavior:'smooth', block:'center' });
