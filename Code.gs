@@ -63,12 +63,13 @@ const TRACKER_HEADERS = [
 // two people with the same name never collide. firstName/lastName are the
 // display label; hNumber is the identity.
 const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active'];
-// Boat teams: a boat (boatNumber, e.g. "11") can carry several teams, each a
-// letter (teamLetter A/B/…) — so a team's identifier is boatNumber+teamLetter
-// ("11A", "11B"). memberHs holds the installers' employee numbers (JSON array).
-// captainName + subName are free-text names (captains/subs aren't employees and
-// move between boats); they're saved to the Captains/Subs lists for quick reuse.
-const TEAMS_HEADERS = ['id','boatNumber','boatName','teamLetter','captainName','subName','memberHs'];
+// One row per BOAT (boatNumber, e.g. "11"). Each crew member on the boat is
+// assigned a letter in memberLetters — a JSON map {hNumber: "A"} — and people
+// who share a letter are partners, so member H100→"A" on boat 11 reads as team
+// "11A". captainName + subName are free-text names shared across the whole boat
+// (captains/subs aren't employees and move between boats); they're saved to the
+// Captains/Subs lists for quick reuse.
+const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','memberLetters'];
 // Quick-pick name lists that feed the team form's captain / sub dropdowns.
 const CAPTAINS_HEADERS = ['name'];
 const SUBS_HEADERS     = ['name'];
@@ -520,13 +521,12 @@ function employeesList() {
 
 function teamsList() {
   return rows('Teams').map(r => ({
-    id:          String(r.id == null ? '' : r.id),
-    boatNumber:  String(r.boatNumber == null ? '' : r.boatNumber).trim(),
-    boatName:    String(r.boatName == null ? '' : r.boatName).trim(),
-    teamLetter:  String(r.teamLetter == null ? '' : r.teamLetter).trim(),
-    captainName: String(r.captainName == null ? '' : r.captainName).trim(),
-    subName:     String(r.subName == null ? '' : r.subName).trim(),
-    memberHs:    parseMembers(r.memberHs)
+    id:            String(r.id == null ? '' : r.id),
+    boatNumber:    String(r.boatNumber == null ? '' : r.boatNumber).trim(),
+    boatName:      String(r.boatName == null ? '' : r.boatName).trim(),
+    captainName:   String(r.captainName == null ? '' : r.captainName).trim(),
+    subName:       String(r.subName == null ? '' : r.subName).trim(),
+    memberLetters: normalizeLetters(parseMemberLetters(r.memberLetters))
   })).filter(t => t.id);
 }
 
@@ -569,16 +569,16 @@ function deleteEmployee(b) {
   return { ok: false, error: 'employee number not found' };
 }
 
-/** Create a team, or update one in place when its id is supplied. memberHs is
- *  stored as a JSON array of employee numbers (captain included). */
+/** Create a boat, or update one in place when its id is supplied. memberLetters
+ *  is stored as a JSON map of employee number → team letter ({"H100":"A"}). */
 function saveTeam(b) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
   const data = sh.getDataRange().getValues();
   const idCol = data[0].indexOf('id');
 
-  const members     = parseMembers(b.memberHs);
-  const captainName = String(b.captainName == null ? '' : b.captainName).trim();
-  const subName     = String(b.subName == null ? '' : b.subName).trim();
+  const memberLetters = normalizeLetters(parseMemberLetters(b.memberLetters));
+  const captainName   = String(b.captainName == null ? '' : b.captainName).trim();
+  const subName       = String(b.subName == null ? '' : b.subName).trim();
 
   // Remember any new captain / sub names so they're in next time's dropdowns.
   ensureName('Captains', captainName);
@@ -588,8 +588,7 @@ function saveTeam(b) {
     '',
     String(b.boatNumber == null ? '' : b.boatNumber).trim(),
     String(b.boatName == null ? '' : b.boatName).trim(),
-    String(b.teamLetter == null ? '' : b.teamLetter).trim().toUpperCase(),
-    captainName, subName, JSON.stringify(members)
+    captainName, subName, JSON.stringify(memberLetters)
   ];
 
   if (b.id) {
@@ -621,18 +620,18 @@ function deleteTeam(b) {
   return { ok: false, error: 'id not found' };
 }
 
-/** Strip a departed employee out of every team's member roster. Captains
- *  aren't employees, so the captain slot is left alone. */
+/** Strip a departed employee off every boat. Captains/subs aren't employees,
+ *  so those slots are left alone. */
 function removeEmployeeFromTeams(h) {
   h = String(h).trim();
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
   const data = sh.getDataRange().getValues();
-  const memCol = data[0].indexOf('memberHs');
+  const memCol = data[0].indexOf('memberLetters');
   for (let i = 1; i < data.length; i++) {
-    const orig = parseMembers(data[i][memCol]);
-    const members = orig.filter(x => x !== h);
-    if (members.length !== orig.length) {
-      sh.getRange(i + 1, memCol + 1).setValue(JSON.stringify(members));
+    const obj = parseMemberLetters(data[i][memCol]);
+    if (h in obj) {
+      delete obj[h];
+      sh.getRange(i + 1, memCol + 1).setValue(JSON.stringify(obj));
       SpreadsheetApp.flush();
     }
   }
@@ -644,33 +643,47 @@ function employeeByH(h) { h = String(h).trim(); return employeesList().filter(e 
 function nameOfH(h) { return fullName(employeeByH(h)); }
 function teamForEmployee(h) {
   h = String(h).trim();
-  return teamsList().filter(t => t.memberHs.indexOf(h) >= 0)[0] || null;
+  return teamsList().filter(t => h in t.memberLetters)[0] || null;
 }
-/** The header block the daily log auto-fills for this installer's boat team:
- *  partner = the rest of the crew on the boat (not you); captain + sub (free-text
- *  names from the saved lists); boatTeam = boat number + team letter ("11A");
- *  and the boat name. */
+/** The header block the daily log auto-fills for this installer's boat:
+ *  partner = the others on the boat who share this installer's letter; captain +
+ *  sub (free-text names, shared across the boat); boatTeam = boat number + the
+ *  installer's letter ("11A"); and the boat name. */
 function teamHeader(team, selfH) {
   if (!team) return { partner: '', captain: '', sub: '', boatTeam: '', boatName: '' };
   selfH = String(selfH || '').trim();
-  const partners = team.memberHs
-    .filter(h => h !== selfH)
+  const letter = team.memberLetters[selfH] || '';
+  const partners = Object.keys(team.memberLetters)
+    .filter(h => h !== selfH && letter && team.memberLetters[h] === letter)
     .map(nameOfH).filter(Boolean);
   return { partner: partners.join(', '), captain: team.captainName, sub: team.subName,
-           boatTeam: (team.boatNumber + team.teamLetter),   // e.g. "11A"
+           boatTeam: (team.boatNumber + letter),   // e.g. "11A"
            boatName: team.boatName };
 }
 
-/** Parse a stored member list — JSON array preferred, comma/space-separated
- *  tolerated — into an array of trimmed employee numbers. */
-function parseMembers(v) {
-  if (v == null || v === '') return [];
-  if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
+/** Parse a stored member→letter map (JSON object {hNumber:"A"}) into an object.
+ *  Tolerates a blank cell or a legacy JSON array of H numbers (those members
+ *  come back with no letter assigned). */
+function parseMemberLetters(v) {
+  if (v == null || v === '') return {};
+  if (typeof v === 'object' && !Array.isArray(v)) return v;
   const s = String(v).trim();
-  if (s.charAt(0) === '[') {
-    try { const a = JSON.parse(s); if (Array.isArray(a)) return a.map(x => String(x).trim()).filter(Boolean); } catch (e) {}
+  if (s.charAt(0) === '{') {
+    try { const o = JSON.parse(s); if (o && typeof o === 'object') return o; } catch (e) {}
   }
-  return s.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
+  if (s.charAt(0) === '[') {   // legacy memberHs array → keep them, letterless
+    try { const a = JSON.parse(s); if (Array.isArray(a)) { const o = {}; a.forEach(h => o[String(h).trim()] = ''); return o; } } catch (e) {}
+  }
+  return {};
+}
+/** Trim/upper-case the letters and drop any blank H number or blank letter. */
+function normalizeLetters(obj) {
+  const out = {};
+  Object.keys(obj || {}).forEach(h => {
+    const hh = String(h).trim(), L = String(obj[h] == null ? '' : obj[h]).trim().toUpperCase();
+    if (hh && L) out[hh] = L;
+  });
+  return out;
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────
