@@ -235,15 +235,13 @@
   <div class="sheet hide" id="settingsSheet">
     <div class="card">
       <h2>Who are you?</h2>
-      <p>Pick yourself from the crew list once — it tags everything you log to your employee number and auto-fills your boat team on the daily sheet. Stored on this device only.</p>
-      <label for="cfgEmployee">Your name</label>
-      <select id="cfgEmployee" class="mono"><option value="">Loading crew…</option></select>
-      <details id="cfgManualWrap" style="margin-top:14px">
-        <summary class="muted" style="cursor:pointer">Not in the list / offline? Enter a name manually</summary>
-        <label for="cfgName">Your name</label>
-        <input id="cfgName" autocapitalize="words">
-        <p class="muted" style="margin:6px 2px 0">A manual name still logs stops, but the boat-team auto-fill needs you picked from the list above.</p>
-      </details>
+      <p>Enter your name and employee number once. It tags everything you log and adds you to the crew so you can be put on a boat team. Stored on this device only.</p>
+      <label for="cfgFirst">First name</label>
+      <input id="cfgFirst" autocapitalize="words">
+      <label for="cfgLast">Last name</label>
+      <input id="cfgLast" autocapitalize="words">
+      <label for="cfgH">Employee # (H)</label>
+      <input id="cfgH" class="mono" autocapitalize="characters">
       <button class="primary" id="saveSettings">Save</button>
     </div>
   </div>
@@ -878,61 +876,32 @@ $('scanNrOldJ').onclick = () => startScan('nrOldJ');
 $('scanOldJ').onclick   = () => startScan('oldJ');
 $('cancelScan').onclick = () => stopScan();
 
-// ── crew list (for the "who are you?" picker) ───────────────────────────────
-// Pulled from the spine's roster. Cached for the session; the picker still
-// works offline if it was loaded once, and the manual-name fallback covers a
-// cold offline start.
-let _employees = null;
-async function loadEmployees(force){
-  const c = cfg();
-  if(_employees && !force) return _employees;
-  if(!c.url || !c.token || !navigator.onLine) return _employees || [];
-  try{
-    const d = await (await fetch(`${c.url}?token=${enc(c.token)}&action=roster`)).json();
-    _employees = (d.employees||[]).filter(e => e.active !== false);
-    return _employees;
-  } catch { return _employees || []; }
-}
-async function fillEmployeeSelect(){
-  const sel = $('cfgEmployee'); if(!sel) return;
-  const curH = store.get('hNumber')||'';
-  sel.innerHTML = '<option value="">Loading crew…</option>';
-  const list = await loadEmployees();
-  if(!list.length){
-    sel.innerHTML = '<option value="">— crew list unavailable —</option>';
-    if($('cfgManualWrap')) $('cfgManualWrap').open = true;   // nudge to the manual fallback
-    return;
-  }
-  const opts = ['<option value="">— select your name —</option>'].concat(
-    list.slice().sort((a,b)=>(a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
-      .map(e => `<option value="${attr(e.hNumber)}" ${e.hNumber===curH?'selected':''}>`
-              + `${esc(e.lastName)}, ${esc(e.firstName)} (${esc(e.hNumber)})</option>`));
-  sel.innerHTML = opts.join('');
-}
-
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
-  if(id==='settingsSheet'){ $('cfgName').value = store.get('name')||''; fillEmployeeSelect(); }
+  if(id==='settingsSheet'){
+    $('cfgFirst').value = store.get('firstName')||'';
+    $('cfgLast').value  = store.get('lastName')||'';
+    $('cfgH').value     = store.get('hNumber')||'';
+  }
   $(id).classList.remove('hide');
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); releaseScan(); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 $('openSettings').onclick = () => openSheet('settingsSheet');
 $('saveSettings').onclick = () => {
-  const h = $('cfgEmployee').value;
-  let name = '', hNumber = '';
-  if(h){
-    const e = (_employees||[]).find(x => x.hNumber === h);
-    if(e){ name = (e.firstName + ' ' + e.lastName).trim(); hNumber = e.hNumber; }
-  } else {
-    name = $('cfgName').value.trim();   // manual fallback — no H#, so no team auto-fill
-    // Don't clobber an H# already set (e.g. reopening Settings offline, where the
-    // picker can't load): keep it as long as the name still matches.
-    if(name && name === (store.get('name')||'')) hNumber = store.get('hNumber')||'';
-  }
-  if(!name){ toast('Pick your name, or type it in manually'); return; }
-  store.set('name', name); store.set('hNumber', hNumber);
-  closeSheets(); toast('Saved'); paint();
+  const c = cfg();
+  const first = $('cfgFirst').value.trim();
+  const last  = $('cfgLast').value.trim();
+  const h     = $('cfgH').value.trim();
+  if(!first || !last){ toast('Enter your first and last name'); return; }
+  if(!h){ toast('Enter your employee # (H)'); return; }
+  store.set('firstName', first); store.set('lastName', last);
+  store.set('name', (first + ' ' + last).trim()); store.set('hNumber', h);
+  // Register (or refresh) this person in the crew so an admin can add them to a
+  // boat team. Routed through the offline queue, so a first run with no signal
+  // still saves the identity locally now and registers when back online.
+  enqueue({ token:c.token, action:'saveEmployee', hNumber:h, firstName:first, lastName:last });
+  closeSheets(); toast('Saved ✓');
 };
 
 let toastTimer;
