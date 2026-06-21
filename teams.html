@@ -113,6 +113,8 @@
   <p class="sub">Each team has an identifier (A, B, C…), a boat, a captain, and its crew. These auto-fill the daily log when a team member ends their day.</p>
   <div id="teamList"></div>
   <button class="btn full" id="newTeam" style="margin-top:6px">+ New team</button>
+  <!-- captains already used elsewhere, offered as suggestions when typing -->
+  <datalist id="captainNames"></datalist>
 
   <div class="toast" id="toast"></div>
 
@@ -213,7 +215,15 @@ $('addEmp').onclick = async () => {
 };
 
 // ── Teams ────────────────────────────────────────────────────────────────
+// Captain names already in use, so typing one on another boat can be picked
+// from the dropdown — captains move between boats, so the same name recurs.
+function refreshCaptainNames(){
+  const names = [...new Set(state.teams.map(t => (t.captainName||'').trim()).filter(Boolean))].sort();
+  $('captainNames').innerHTML = names.map(n => `<option value="${attr(n)}">`).join('');
+}
+
 function renderTeams(){
+  refreshCaptainNames();
   const box = $('teamList');
   if(!state.teams.length){ box.innerHTML = '<div class="empty" style="padding:4px 2px 10px">No teams yet — tap “New team”.</div>'; return; }
   box.innerHTML = '';
@@ -236,57 +246,43 @@ function teamCard(t){
       <div><label>Boat name</label><input data-f="boatName" value="${attr(t.boatName)}" placeholder="e.g. Sea Ray"></div>
       <div><label>Boat number</label><input data-f="boatNumber" class="mono" value="${attr(t.boatNumber)}" placeholder="e.g. 12"></div>
     </div>
+    <label>Captain <span style="font-weight:500;color:var(--ink-soft)">(first name — captains aren’t crew)</span></label>
+    <input data-f="captainName" list="captainNames" value="${attr(t.captainName)}" placeholder="e.g. Dave" autocapitalize="words">
     <label>Members</label>
     <div class="members" data-role="members"></div>
     ${state.employees.length ? '' : '<div class="empty">Add crew above first, then pick members here.</div>'}
-    <label>Captain</label>
-    <select data-f="captainH" data-role="captain"></select>
     <div class="actions">
       <button class="btn primary" data-act="save">Save team</button>
       <button class="btn danger" data-act="del">Delete</button>
     </div>`;
 
   const membersBox = card.querySelector('[data-role="members"]');
-  const captainSel = card.querySelector('[data-role="captain"]');
   const selected = new Set(t.memberHs || []);
+  const byName = (a,b) => (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName);
 
-  // member checkboxes — every crew member
-  state.employees.slice()
-    .sort((a,b)=>(a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
-    .forEach(e => {
-      const lab = document.createElement('label');
-      lab.className = 'chk' + (selected.has(e.hNumber)?' on':'');
-      lab.innerHTML = `<input type="checkbox" value="${attr(e.hNumber)}" ${selected.has(e.hNumber)?'checked':''}>`
-                    + `<span>${esc(fullName(e))} <span style="color:var(--ink-soft)">(${esc(e.hNumber)})</span></span>`;
-      const cb = lab.querySelector('input');
-      cb.onchange = () => {
-        if(cb.checked) selected.add(e.hNumber); else selected.delete(e.hNumber);
-        lab.classList.toggle('on', cb.checked);
-        refreshCaptain();
-      };
-      membersBox.appendChild(lab);
-    });
-
-  // captain dropdown — only the people currently on the team
-  function refreshCaptain(){
-    const prev = captainSel.value || t.captainH || '';
-    const opts = ['<option value="">— none —</option>'].concat(
-      [...selected].map(h => `<option value="${attr(h)}" ${h===prev?'selected':''}>${esc(labelH(h))}</option>`));
-    captainSel.innerHTML = opts.join('');
-    if(selected.has(prev)) captainSel.value = prev;
-  }
-  refreshCaptain();
+  // member checkboxes — the installers on this boat. The captain is separate
+  // (a free-text name above), so they don't appear here.
+  state.employees.slice().sort(byName).forEach(e => {
+    const lab = document.createElement('label');
+    lab.className = 'chk' + (selected.has(e.hNumber)?' on':'');
+    lab.innerHTML = `<input type="checkbox" value="${attr(e.hNumber)}" ${selected.has(e.hNumber)?'checked':''}>`
+                  + `<span>${esc(fullName(e))} <span style="color:var(--ink-soft)">(${esc(e.hNumber)})</span></span>`;
+    const cb = lab.querySelector('input');
+    cb.onchange = () => {
+      if(cb.checked) selected.add(e.hNumber); else selected.delete(e.hNumber);
+      lab.classList.toggle('on', cb.checked);
+    };
+    membersBox.appendChild(lab);
+  });
 
   card.querySelector('[data-act="save"]').onclick = async () => {
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
     const memberHs = [...selected];
-    const captainH = captainSel.value;
     if(!g('identifier')){ toast('Team identifier (A, B, C…) required'); return; }
-    if(captainH && !selected.has(captainH)){ toast('Captain must be a team member'); return; }
     try{
       await post({ action:'saveTeam', id:t.id||undefined,
         identifier:g('identifier'), boatName:g('boatName'), boatNumber:g('boatNumber'),
-        captainH, memberHs });
+        captainName:g('captainName'), memberHs });
       toast('Team saved ✓'); await load();
     } catch(err){ toast(err.message); }
   };
@@ -302,7 +298,7 @@ function teamCard(t){
 }
 
 $('newTeam').onclick = () => {
-  const blank = { id:'', identifier:'', boatName:'', boatNumber:'', captainH:'', memberHs:[] };
+  const blank = { id:'', identifier:'', boatName:'', boatNumber:'', captainName:'', memberHs:[] };
   const card = teamCard(blank);
   $('teamList').appendChild(card);
   card.scrollIntoView({ behavior:'smooth', block:'center' });

@@ -106,6 +106,7 @@
     <select class="viewsel" id="viewSel" aria-label="View">
       <option value="map">Map</option>
       <option value="analytics">Analytics</option>
+      <option value="teams">Crew &amp; Teams</option>
     </select>
   </div>
 
@@ -406,12 +407,18 @@ $('searchBtn').onclick = doSearch;
 $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
 
 $('viewSel').onchange = e => {
+  if(e.target.value==='teams'){ window.location.href = 'teams.html'; return; }
   const mapOn = e.target.value==='map';
   $('mapView').classList.toggle('on', mapOn);
   $('analytics').classList.toggle('on', !mapOn);
   if(mapOn && map) setTimeout(()=>map.invalidateSize(), 60);
   else renderAnalytics();
 };
+// If the browser restores this page from its back/forward cache, the dropdown
+// can be stuck on "Crew & Teams" — snap it back to whichever view is showing.
+window.addEventListener('pageshow', () => {
+  $('viewSel').value = $('analytics').classList.contains('on') ? 'analytics' : 'map';
+});
 
 let toastTimer;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');

@@ -63,9 +63,11 @@ const TRACKER_HEADERS = [
 // two people with the same name never collide. firstName/lastName are the
 // display label; hNumber is the identity.
 const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active'];
-// Boat teams: captainH + memberHs hold employee numbers (memberHs is a JSON
-// array of H numbers, captain included). identifier is the A/B/C… label.
-const TEAMS_HEADERS = ['id','identifier','boatName','boatNumber','captainH','memberHs'];
+// Boat teams: memberHs holds the installers' employee numbers (a JSON array of
+// H numbers). captainName is a free-text first name — captains aren't employees
+// and move between boats, so they're not keyed on an H number or counted as
+// crew members. identifier is the A/B/C… label.
+const TEAMS_HEADERS = ['id','identifier','boatName','boatNumber','captainName','memberHs'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -464,9 +466,9 @@ function teamsList() {
     id:         String(r.id == null ? '' : r.id),
     identifier: String(r.identifier == null ? '' : r.identifier).trim(),
     boatName:   String(r.boatName == null ? '' : r.boatName).trim(),
-    boatNumber: String(r.boatNumber == null ? '' : r.boatNumber).trim(),
-    captainH:   String(r.captainH == null ? '' : r.captainH).trim(),
-    memberHs:   parseMembers(r.memberHs)
+    boatNumber:  String(r.boatNumber == null ? '' : r.boatNumber).trim(),
+    captainName: String(r.captainName == null ? '' : r.captainName).trim(),
+    memberHs:    parseMembers(r.memberHs)
   })).filter(t => t.id);
 }
 
@@ -516,16 +518,14 @@ function saveTeam(b) {
   const data = sh.getDataRange().getValues();
   const idCol = data[0].indexOf('id');
 
-  const members  = parseMembers(b.memberHs);
-  const captainH = String(b.captainH == null ? '' : b.captainH).trim();
-  // Keep the captain on the roster even if the UI forgot to include them.
-  if (captainH && members.indexOf(captainH) < 0) members.push(captainH);
+  const members     = parseMembers(b.memberHs);
+  const captainName = String(b.captainName == null ? '' : b.captainName).trim();
 
   const out = [
     '', String(b.identifier == null ? '' : b.identifier).trim(),
     String(b.boatName == null ? '' : b.boatName).trim(),
     String(b.boatNumber == null ? '' : b.boatNumber).trim(),
-    captainH, JSON.stringify(members)
+    captainName, JSON.stringify(members)
   ];
 
   if (b.id) {
@@ -557,24 +557,20 @@ function deleteTeam(b) {
   return { ok: false, error: 'id not found' };
 }
 
-/** Strip a departed employee out of every team's members + captain slot. */
+/** Strip a departed employee out of every team's member roster. Captains
+ *  aren't employees, so the captain slot is left alone. */
 function removeEmployeeFromTeams(h) {
   h = String(h).trim();
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
   const data = sh.getDataRange().getValues();
-  const headers = data[0];
-  const capCol = headers.indexOf('captainH');
-  const memCol = headers.indexOf('memberHs');
+  const memCol = data[0].indexOf('memberHs');
   for (let i = 1; i < data.length; i++) {
-    let changed = false;
-    const members = parseMembers(data[i][memCol]).filter(x => x !== h);
-    if (members.length !== parseMembers(data[i][memCol]).length) {
-      sh.getRange(i + 1, memCol + 1).setValue(JSON.stringify(members)); changed = true;
+    const orig = parseMembers(data[i][memCol]);
+    const members = orig.filter(x => x !== h);
+    if (members.length !== orig.length) {
+      sh.getRange(i + 1, memCol + 1).setValue(JSON.stringify(members));
+      SpreadsheetApp.flush();
     }
-    if (String(data[i][capCol]).trim() === h) {
-      sh.getRange(i + 1, capCol + 1).setValue(''); changed = true;
-    }
-    if (changed) SpreadsheetApp.flush();
   }
 }
 
@@ -584,19 +580,20 @@ function employeeByH(h) { h = String(h).trim(); return employeesList().filter(e 
 function nameOfH(h) { return fullName(employeeByH(h)); }
 function teamForEmployee(h) {
   h = String(h).trim();
-  return teamsList().filter(t => t.captainH === h || t.memberHs.indexOf(h) >= 0)[0] || null;
+  return teamsList().filter(t => t.memberHs.indexOf(h) >= 0)[0] || null;
 }
 /** The header block the daily log auto-fills for this installer's boat team:
- *  partner = the rest of the crew (not you, not the captain); captain name;
- *  the A/B/C… identifier; and boat name with its number folded in. */
+ *  partner = the rest of the crew on the boat (not you); captain (a free-text
+ *  first name — captains aren't employees and move between boats); the A/B/C…
+ *  identifier; and boat name with its number folded in. */
 function teamHeader(team, selfH) {
   if (!team) return { partner: '', captain: '', boatTeam: '', boatName: '' };
   selfH = String(selfH || '').trim();
   const partners = team.memberHs
-    .filter(h => h !== selfH && h !== team.captainH)
+    .filter(h => h !== selfH)
     .map(nameOfH).filter(Boolean);
   const boatName = team.boatName + (team.boatNumber ? (' #' + team.boatNumber) : '');
-  return { partner: partners.join(', '), captain: nameOfH(team.captainH),
+  return { partner: partners.join(', '), captain: team.captainName,
            boatTeam: team.identifier, boatName: boatName };
 }
 
