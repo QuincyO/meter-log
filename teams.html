@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — Crew & Boat Teams</title>
+<style>
+  :root{
+    --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+    --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+    --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+    --r:14px; --tap:54px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--surface); color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 14px 48px;
+    max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+       background:var(--surface);z-index:5}
+  .bar .title{font-size:18px;font-weight:800;flex:1}
+  .pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+        padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+  .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+  .backlink{font-size:13px;font-weight:700;color:var(--ink-soft);text-decoration:none;
+            padding:8px 12px;border-radius:10px;background:var(--panel);box-shadow:var(--shadow)}
+
+  h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+     font-weight:700;margin:26px 2px 4px}
+  .sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+  label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+  input,select{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
+     padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
+  input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+  .hide{display:none !important}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+  .card .head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+  .card .head strong{font-size:17px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .grid3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0 12px}
+
+  .btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
+       background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{border:0;background:var(--amber);color:#1a1300}
+  .btn.primary:active{background:var(--amber-press)}
+  .btn.danger{border-color:#F1C3B4;color:var(--uti);background:#FFF4F0}
+  .btn.full{width:100%}
+  .actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .actions .btn{flex:1;min-width:120px}
+
+  /* member checkbox grid */
+  .members{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:6px}
+  .chk{display:flex;align-items:center;gap:9px;padding:9px 11px;border:2px solid var(--line);
+       border-radius:10px;background:var(--surface);cursor:pointer;font-size:15px;font-weight:600}
+  .chk input{width:20px;height:20px;min-height:0;flex:none;accent-color:var(--amber)}
+  .chk.on{border-color:var(--amber);background:#FFF7E8}
+
+  /* crew table */
+  .crewrow{display:grid;grid-template-columns:1fr 1fr 0.9fr auto auto;gap:10px;align-items:end;
+           padding:10px 0;border-bottom:1px solid var(--line)}
+  .crewrow:last-child{border-bottom:0}
+  .crewrow .x{min-height:46px;height:46px;width:46px;padding:0;font-size:18px}
+  .empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+     background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+     box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  @media (max-width:520px){
+    .grid3,.crewrow{grid-template-columns:1fr}
+    .members{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+  <div class="bar">
+    <div class="title">Crew &amp; Boat Teams</div>
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <a class="backlink" href="index.html">← Log</a>
+  </div>
+
+  <!-- ── Crew ─────────────────────────────────────────────────────────── -->
+  <h1>Crew</h1>
+  <p class="sub">Everyone who logs meters. The employee number (“H#”) is the unique key — names can repeat, H numbers can’t.</p>
+  <div class="card">
+    <div id="crewList"></div>
+  </div>
+  <div class="card">
+    <strong style="font-size:15px">Add a crew member</strong>
+    <div class="crewrow" style="border:0;padding-top:10px">
+      <div><label for="newFirst">First name</label><input id="newFirst" autocapitalize="words"></div>
+      <div><label for="newLast">Last name</label><input id="newLast" autocapitalize="words"></div>
+      <div><label for="newH">Employee # (H)</label><input id="newH" class="mono" autocapitalize="characters"></div>
+      <button class="btn primary x" id="addEmp" title="Add" style="width:auto;padding:0 16px">Add</button>
+    </div>
+  </div>
+
+  <!-- ── Teams ────────────────────────────────────────────────────────── -->
+  <h1>Boat Teams</h1>
+  <p class="sub">Each team has an identifier (A, B, C…), a boat, a captain, and its crew. These auto-fill the daily log when a team member ends their day.</p>
+  <div id="teamList"></div>
+  <button class="btn full" id="newTeam" style="margin-top:6px">+ New team</button>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const $   = id => document.getElementById(id);
+const enc = encodeURIComponent;
+const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const attr = v => String(v??'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
+
+// ── Config (same deployment as index.html / map.html) ──────────────────────
+const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
+const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
+
+let state = { employees:[], teams:[] };
+
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2400); }
+
+function setStatus(kind, text){
+  const p=$('status'), t=$('statusText');
+  p.classList.remove('wait','off');
+  if(kind==='off') p.classList.add('off'); else if(kind==='wait') p.classList.add('wait');
+  t.textContent=text;
+}
+
+const fullName = e => ((e.firstName||'')+' '+(e.lastName||'')).trim();
+const empByH   = h => state.employees.find(e => e.hNumber===h) || null;
+const labelH   = h => { const e=empByH(h); return e ? `${fullName(e)} (${e.hNumber})` : h; };
+
+// ── server I/O ─────────────────────────────────────────────────────────────
+async function load(){
+  setStatus('wait','Loading…');
+  try{
+    const u = `${WEB_APP_URL}?token=${enc(SHARED_TOKEN)}&action=roster`;
+    const d = await (await fetch(u)).json();
+    if(!d.ok) throw new Error(d.error||'load failed');
+    state.employees = (d.employees||[]);
+    state.teams     = (d.teams||[]);
+    setStatus('ok','Synced');
+    renderCrew(); renderTeams();
+  } catch(e){
+    setStatus('off','Offline — can’t load');
+    toast('Couldn’t load crew — check the connection');
+  }
+}
+async function post(payload){
+  const body = JSON.stringify(Object.assign({ token:SHARED_TOKEN }, payload));
+  const d = await (await fetch(WEB_APP_URL, { method:'POST',
+            headers:{'Content-Type':'text/plain'}, body })).json();   // text/plain dodges CORS preflight
+  if(!d.ok) throw new Error(d.error||'save failed');
+  return d;
+}
+
+// ── Crew ───────────────────────────────────────────────────────────────────
+function renderCrew(){
+  const box = $('crewList');
+  if(!state.employees.length){ box.innerHTML = '<div class="empty">No crew yet — add the first person below.</div>'; return; }
+  const sorted = state.employees.slice().sort((a,b)=>
+    (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName));
+  box.innerHTML = sorted.map(e => `
+    <div class="crewrow" data-h="${attr(e.hNumber)}">
+      <div><label>First name</label><input data-f="firstName" value="${attr(e.firstName)}" autocapitalize="words"></div>
+      <div><label>Last name</label><input data-f="lastName" value="${attr(e.lastName)}" autocapitalize="words"></div>
+      <div><label>Employee # (H)</label><input class="mono" value="${attr(e.hNumber)}" disabled title="The H# is the key and can’t be changed — delete &amp; re-add to change it"></div>
+      <button class="btn x" data-act="save" title="Save">✓</button>
+      <button class="btn danger x" data-act="del" title="Remove">✕</button>
+    </div>`).join('');
+
+  box.querySelectorAll('.crewrow').forEach(row => {
+    const h = row.dataset.h;
+    row.querySelector('[data-act="save"]').onclick = async () => {
+      const first = row.querySelector('[data-f="firstName"]').value.trim();
+      const last  = row.querySelector('[data-f="lastName"]').value.trim();
+      if(!first || !last){ toast('First and last name required'); return; }
+      try{ await post({ action:'saveEmployee', hNumber:h, firstName:first, lastName:last });
+           toast('Saved ✓'); await load(); }
+      catch(err){ toast(err.message); }
+    };
+    row.querySelector('[data-act="del"]').onclick = async () => {
+      if(!confirm(`Remove ${labelH(h)}? They’ll also be taken off any boat team.`)) return;
+      try{ await post({ action:'deleteEmployee', hNumber:h }); toast('Removed ✓'); await load(); }
+      catch(err){ toast(err.message); }
+    };
+  });
+}
+
+$('addEmp').onclick = async () => {
+  const first = $('newFirst').value.trim(), last = $('newLast').value.trim(), h = $('newH').value.trim();
+  if(!first || !last){ toast('First and last name required'); return; }
+  if(!h){ toast('Employee # (H) required'); return; }
+  if(empByH(h)){ toast('That H# already exists'); return; }
+  try{
+    await post({ action:'saveEmployee', hNumber:h, firstName:first, lastName:last });
+    $('newFirst').value=''; $('newLast').value=''; $('newH').value='';
+    toast('Added ✓'); await load();
+  } catch(err){ toast(err.message); }
+};
+
+// ── Teams ────────────────────────────────────────────────────────────────
+function renderTeams(){
+  const box = $('teamList');
+  if(!state.teams.length){ box.innerHTML = '<div class="empty" style="padding:4px 2px 10px">No teams yet — tap “New team”.</div>'; return; }
+  box.innerHTML = '';
+  state.teams.slice()
+    .sort((a,b)=>(a.identifier||'').localeCompare(b.identifier||''))
+    .forEach(t => box.appendChild(teamCard(t)));
+}
+
+// A team card, editable in place. `t.id===''` marks an unsaved new team.
+function teamCard(t){
+  const card = document.createElement('div');
+  card.className = 'card';
+  const title = t.id
+    ? `Team ${esc(t.identifier)||'—'}${t.boatName?(' · '+esc(t.boatName)):''}`
+    : 'New team';
+  card.innerHTML = `
+    <div class="head"><strong>${title}</strong></div>
+    <div class="grid3">
+      <div><label>Team identifier</label><input data-f="identifier" class="mono" maxlength="3" value="${attr(t.identifier)}" placeholder="A"></div>
+      <div><label>Boat name</label><input data-f="boatName" value="${attr(t.boatName)}" placeholder="e.g. Sea Ray"></div>
+      <div><label>Boat number</label><input data-f="boatNumber" class="mono" value="${attr(t.boatNumber)}" placeholder="e.g. 12"></div>
+    </div>
+    <label>Members</label>
+    <div class="members" data-role="members"></div>
+    ${state.employees.length ? '' : '<div class="empty">Add crew above first, then pick members here.</div>'}
+    <label>Captain</label>
+    <select data-f="captainH" data-role="captain"></select>
+    <div class="actions">
+      <button class="btn primary" data-act="save">Save team</button>
+      <button class="btn danger" data-act="del">Delete</button>
+    </div>`;
+
+  const membersBox = card.querySelector('[data-role="members"]');
+  const captainSel = card.querySelector('[data-role="captain"]');
+  const selected = new Set(t.memberHs || []);
+
+  // member checkboxes — every crew member
+  state.employees.slice()
+    .sort((a,b)=>(a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
+    .forEach(e => {
+      const lab = document.createElement('label');
+      lab.className = 'chk' + (selected.has(e.hNumber)?' on':'');
+      lab.innerHTML = `<input type="checkbox" value="${attr(e.hNumber)}" ${selected.has(e.hNumber)?'checked':''}>`
+                    + `<span>${esc(fullName(e))} <span style="color:var(--ink-soft)">(${esc(e.hNumber)})</span></span>`;
+      const cb = lab.querySelector('input');
+      cb.onchange = () => {
+        if(cb.checked) selected.add(e.hNumber); else selected.delete(e.hNumber);
+        lab.classList.toggle('on', cb.checked);
+        refreshCaptain();
+      };
+      membersBox.appendChild(lab);
+    });
+
+  // captain dropdown — only the people currently on the team
+  function refreshCaptain(){
+    const prev = captainSel.value || t.captainH || '';
+    const opts = ['<option value="">— none —</option>'].concat(
+      [...selected].map(h => `<option value="${attr(h)}" ${h===prev?'selected':''}>${esc(labelH(h))}</option>`));
+    captainSel.innerHTML = opts.join('');
+    if(selected.has(prev)) captainSel.value = prev;
+  }
+  refreshCaptain();
+
+  card.querySelector('[data-act="save"]').onclick = async () => {
+    const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
+    const memberHs = [...selected];
+    const captainH = captainSel.value;
+    if(!g('identifier')){ toast('Team identifier (A, B, C…) required'); return; }
+    if(captainH && !selected.has(captainH)){ toast('Captain must be a team member'); return; }
+    try{
+      await post({ action:'saveTeam', id:t.id||undefined,
+        identifier:g('identifier'), boatName:g('boatName'), boatNumber:g('boatNumber'),
+        captainH, memberHs });
+      toast('Team saved ✓'); await load();
+    } catch(err){ toast(err.message); }
+  };
+
+  card.querySelector('[data-act="del"]').onclick = async () => {
+    if(!t.id){ card.remove(); return; }           // discard an unsaved card
+    if(!confirm(`Delete Team ${t.identifier||''}? This removes the team, not the crew.`)) return;
+    try{ await post({ action:'deleteTeam', id:t.id }); toast('Team deleted ✓'); await load(); }
+    catch(err){ toast(err.message); }
+  };
+
+  return card;
+}
+
+$('newTeam').onclick = () => {
+  const blank = { id:'', identifier:'', boatName:'', boatNumber:'', captainH:'', memberHs:[] };
+  const card = teamCard(blank);
+  $('teamList').appendChild(card);
+  card.scrollIntoView({ behavior:'smooth', block:'center' });
+};
+
+load();
+</script>
+</body>
+</html>

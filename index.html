@@ -234,11 +234,18 @@
   <!-- Settings sheet -->
   <div class="sheet hide" id="settingsSheet">
     <div class="card">
-      <h2>Your name</h2>
-      <p>Type your name once — it tags everything you log. Stored on this device only; everyone’s logs go to the same sheet.</p>
-      <label for="cfgName">Your name</label>
-      <input id="cfgName" autocapitalize="words">
+      <h2>Who are you?</h2>
+      <p>Pick yourself from the crew list once — it tags everything you log to your employee number and auto-fills your boat team on the daily sheet. Stored on this device only.</p>
+      <label for="cfgEmployee">Your name</label>
+      <select id="cfgEmployee" class="mono"><option value="">Loading crew…</option></select>
+      <details id="cfgManualWrap" style="margin-top:14px">
+        <summary class="muted" style="cursor:pointer">Not in the list / offline? Enter a name manually</summary>
+        <label for="cfgName">Your name</label>
+        <input id="cfgName" autocapitalize="words">
+        <p class="muted" style="margin:6px 2px 0">A manual name still logs stops, but the boat-team auto-fill needs you picked from the list above.</p>
+      </details>
       <button class="primary" id="saveSettings">Save</button>
+      <a href="teams.html" class="ghost" style="display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%;margin-top:12px">Manage crew &amp; boat teams →</a>
     </div>
   </div>
 
@@ -334,7 +341,7 @@ const enc = encodeURIComponent;
 // After this, the only thing each person sets is their name.
 const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
-const cfg = () => ({ name:store.get('name')||'', url:WEB_APP_URL, token:SHARED_TOKEN });
+const cfg = () => ({ name:store.get('name')||'', hNumber:store.get('hNumber')||'', url:WEB_APP_URL, token:SHARED_TOKEN });
 
 // escape helpers for building result cards from stored values
 const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -703,7 +710,7 @@ $('finishDay').onclick = async () => {
   if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
   try{
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name,
+      body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
                              notes:$('eodNotes').value.trim(), weather }) })).json();
     closeSheets();
     if (d.pdf && d.pdf.base64) {
@@ -872,18 +879,61 @@ $('scanNrOldJ').onclick = () => startScan('nrOldJ');
 $('scanOldJ').onclick   = () => startScan('oldJ');
 $('cancelScan').onclick = () => stopScan();
 
+// ── crew list (for the "who are you?" picker) ───────────────────────────────
+// Pulled from the spine's roster. Cached for the session; the picker still
+// works offline if it was loaded once, and the manual-name fallback covers a
+// cold offline start.
+let _employees = null;
+async function loadEmployees(force){
+  const c = cfg();
+  if(_employees && !force) return _employees;
+  if(!c.url || !c.token || !navigator.onLine) return _employees || [];
+  try{
+    const d = await (await fetch(`${c.url}?token=${enc(c.token)}&action=roster`)).json();
+    _employees = (d.employees||[]).filter(e => e.active !== false);
+    return _employees;
+  } catch { return _employees || []; }
+}
+async function fillEmployeeSelect(){
+  const sel = $('cfgEmployee'); if(!sel) return;
+  const curH = store.get('hNumber')||'';
+  sel.innerHTML = '<option value="">Loading crew…</option>';
+  const list = await loadEmployees();
+  if(!list.length){
+    sel.innerHTML = '<option value="">— crew list unavailable —</option>';
+    if($('cfgManualWrap')) $('cfgManualWrap').open = true;   // nudge to the manual fallback
+    return;
+  }
+  const opts = ['<option value="">— select your name —</option>'].concat(
+    list.slice().sort((a,b)=>(a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
+      .map(e => `<option value="${attr(e.hNumber)}" ${e.hNumber===curH?'selected':''}>`
+              + `${esc(e.lastName)}, ${esc(e.firstName)} (${esc(e.hNumber)})</option>`));
+  sel.innerHTML = opts.join('');
+}
+
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
-  if(id==='settingsSheet'){ $('cfgName').value = store.get('name')||''; }
+  if(id==='settingsSheet'){ $('cfgName').value = store.get('name')||''; fillEmployeeSelect(); }
   $(id).classList.remove('hide');
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); releaseScan(); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 $('openSettings').onclick = () => openSheet('settingsSheet');
 $('saveSettings').onclick = () => {
-  const name = $('cfgName').value.trim();
-  if(!name){ toast('Please enter your name'); return; }
-  store.set('name', name); closeSheets(); toast('Saved'); paint();
+  const h = $('cfgEmployee').value;
+  let name = '', hNumber = '';
+  if(h){
+    const e = (_employees||[]).find(x => x.hNumber === h);
+    if(e){ name = (e.firstName + ' ' + e.lastName).trim(); hNumber = e.hNumber; }
+  } else {
+    name = $('cfgName').value.trim();   // manual fallback — no H#, so no team auto-fill
+    // Don't clobber an H# already set (e.g. reopening Settings offline, where the
+    // picker can't load): keep it as long as the name still matches.
+    if(name && name === (store.get('name')||'')) hNumber = store.get('hNumber')||'';
+  }
+  if(!name){ toast('Pick your name, or type it in manually'); return; }
+  store.set('name', name); store.set('hNumber', hNumber);
+  closeSheets(); toast('Saved'); paint();
 };
 
 let toastTimer;
