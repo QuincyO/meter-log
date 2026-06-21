@@ -18,7 +18,7 @@ python -m http.server 8731
 
 The production deploy is **GitHub Pages serving the repo root** — pushing to `main` publishes. There is nothing to compile, so "deploy" = commit + push.
 
-`Code.gs` does **not** run here — it is pasted into the Google Apps Script editor bound to the Sheet and deployed there as a Web App (Deploy ▸ New deployment ▸ Web app ▸ Execute as: Me ▸ Anyone). After changing `Code.gs` you must **redeploy** in that editor; editing the file in this repo has no effect until it is pasted in and redeployed. When tabs/columns change, re-run `setupSheets()` once from the editor (it is additive and leaves existing tabs/data alone — except a schema-changed `Teams` tab, which must be deleted first).
+`Code.gs` runs in the Google Apps Script editor bound to the Sheet, deployed as a Web App (Execute as: Me ▸ Anyone). **Pushing `Code.gs` to `main` now auto-deploys it** via `.github/workflows/deploy-appsscript.yml` (`clasp push` + redeploy the *existing* deployment in place, so the `/exec` URL never changes) — see `DEPLOY.md` for the one-time secret setup. You can still deploy by hand (paste into the editor ▸ redeploy) if CI is unavailable. The Action only ships code: when tabs/columns change you must still re-run `setupSheets()` once from the editor (it is additive and leaves existing tabs/data alone — except a schema-changed `Teams` tab, which must be deleted first). The manifest is `appsscript.json`; `.claspignore` keeps clasp from pushing the HTML frontend into the script project.
 
 ## Architecture in one paragraph
 
@@ -31,7 +31,7 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 - Every request carries `token` which must equal `SHARED_TOKEN`. This value is duplicated in **four places** that must stay in sync: `Code.gs:42`, `index.html`, `map.html`, `teams.html`. Same for `WEB_APP_URL` (the `/exec` URL) in the three HTML files.
 - **Writes** go through `doPost` → a `switch` on `body.action`: `addStop`, `addDowntime`, `updateStop`, `endOfDay`, `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`, `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 - **Reads** go through `doGet` on `?action=`: `day`, `lookup`, `geocode`, `nearby`, `pins`, `tracker`, `roster`.
-- The exact field shapes per action live in `ARCHITECTURE.md` §"Data structures". If you add a column to a tab, update the corresponding `*_HEADERS` array in `Code.gs` and the read/write functions that build that row by positional order.
+- The exact field shapes per action live in `ARCHITECTURE.md` §"Data structures". If you add a column to a tab, update the corresponding `*_HEADERS` array in `Code.gs` and the read/write functions that build that row by positional order. **Exception:** `saveEmployee`/`saveTeam` write through `upsertByHeader()`, which maps `{header: value}` onto the sheet's *actual* column order — so reordered `Employees`/`Teams` columns can't scramble those writes (reads via `rows()` were already header-keyed). Other tabs' writes (`addStop`, `endOfDay`/Tracker) are still positional appends.
 
 ## Things that are easy to get wrong
 

@@ -1,0 +1,6 @@
+# clasp local credentials / project config — generated in CI, never commit
+.clasprc.json
+.clasp.json
+
+# node (only used transiently for clasp; no package.json in this repo)
+node_modules/

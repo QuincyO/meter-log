@@ -1,0 +1,8 @@
+# clasp pushes EVERYTHING in rootDir by default — including index.html, map.html
+# and teams.html, which are the GitHub Pages frontend and must NOT go into the
+# Apps Script project. Ignore everything, then re-include only the two files
+# that actually belong to Apps Script.
+**/**
+
+!Code.gs
+!appsscript.json

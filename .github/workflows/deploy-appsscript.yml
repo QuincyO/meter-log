@@ -1,0 +1,57 @@
+name: Deploy Apps Script
+
+# Pushes Code.gs to the bound Apps Script project and redeploys the EXISTING
+# web-app deployment in place — which bumps its version while keeping the same
+# /exec URL the three HTML pages are hard-coded against. (Creating a *new*
+# deployment would change the URL and break the frontend, so we never do that.)
+#
+# One-time setup (secrets + how to get them) lives in DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Code.gs'
+      - 'appsscript.json'
+      - '.github/workflows/deploy-appsscript.yml'
+  workflow_dispatch: {}
+
+# Never let two runs race to bump the same deployment.
+concurrency:
+  group: appsscript-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Same value as the segment between /s/ and /exec in WEB_APP_URL. It is
+      # already public in the client HTML, so it lives here, not in a secret.
+      # If the deployment is ever recreated, update this AND the three HTML files.
+      DEPLOYMENT_ID: AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp@2.4.2
+
+      - name: Write clasp auth + project config
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$SCRIPT_ID" ]; then
+            echo "::error::Missing CLASPRC_JSON or SCRIPT_ID secret — see DEPLOY.md"; exit 1
+          fi
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"."}' "$SCRIPT_ID" > .clasp.json
+
+      - name: Push Code.gs to the Apps Script project
+        run: clasp push --force
+
+      - name: Redeploy (new version, same /exec URL)
+        run: clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "CI ${{ github.sha }}"
