@@ -1,0 +1,52 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A field data-capture app for a hydro meter installer crew working out of boats. There is **no build step, no package manager, no test suite, and no framework** — it is a handful of static files served as-is plus one Google Apps Script. Read `ARCHITECTURE.md` first; it is the authoritative design doc and is kept current.
+
+## Running locally
+
+The three pages are static HTML. Serve the repo root over HTTP (a `file://` open breaks the service worker and fetches):
+
+```
+python -m http.server 8731
+```
+
+`.claude/launch.json` already defines this as the `static` debug config. Then open `http://localhost:8731/index.html` (the capture form), `/map.html` (read-only map + analytics), or `/teams.html` (crew/boat admin).
+
+The production deploy is **GitHub Pages serving the repo root** — pushing to `main` publishes. There is nothing to compile, so "deploy" = commit + push.
+
+`Code.gs` does **not** run here — it is pasted into the Google Apps Script editor bound to the Sheet and deployed there as a Web App (Deploy ▸ New deployment ▸ Web app ▸ Execute as: Me ▸ Anyone). After changing `Code.gs` you must **redeploy** in that editor; editing the file in this repo has no effect until it is pasted in and redeployed. When tabs/columns change, re-run `setupSheets()` once from the editor (it is additive and leaves existing tabs/data alone — except a schema-changed `Teams` tab, which must be deleted first).
+
+## Architecture in one paragraph
+
+Three layers (see `ARCHITECTURE.md` §"The three layers"). **Store:** one Google Sheet, seven tabs (`Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`) — the system of record. **Spine:** `Code.gs`, an Apps Script Web App that does all deterministic writes/reads via `doPost`/`doGet`. **Capture/view:** the three static pages. Claude (via the Drive connector, outside this repo) only *generates* the formatted daily-log deliverable and summaries; it never stores data and is not in the write path.
+
+## The contract that ties it all together
+
+The frontends and the spine communicate over a single JSON-over-HTTP protocol, and **changing one side requires changing the other**:
+
+- Every request carries `token` which must equal `SHARED_TOKEN`. This value is duplicated in **four places** that must stay in sync: `Code.gs:42`, `index.html`, `map.html`, `teams.html`. Same for `WEB_APP_URL` (the `/exec` URL) in the three HTML files.
+- **Writes** go through `doPost` → a `switch` on `body.action`: `addStop`, `addDowntime`, `updateStop`, `endOfDay`, `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`, `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
+- **Reads** go through `doGet` on `?action=`: `day`, `lookup`, `geocode`, `nearby`, `pins`, `tracker`, `roster`.
+- The exact field shapes per action live in `ARCHITECTURE.md` §"Data structures". If you add a column to a tab, update the corresponding `*_HEADERS` array in `Code.gs` and the read/write functions that build that row by positional order.
+
+## Things that are easy to get wrong
+
+- **Offline queue (`index.html`).** The capture form is offline-first: writes are pushed onto a `localStorage` queue (`enqueue` → `flush`) and retried when `navigator.onLine`. The service worker (`sw.js`) deliberately lets the POST to the Apps Script URL hit the network and fail when offline so the page's own queue owns retry — do not add the endpoint to the SW cache. There is **no idempotency key**, so a timed-out-but-succeeded write can duplicate (known limit, see `ARCHITECTURE.md`).
+- **`sw.js` caches the app shell** stale-while-revalidate. Normal edits to the HTML need no version bump; only bump `CACHE` if you must force-evict.
+- **Dates are Toronto-local.** `dateOf()` in `Code.gs` normalizes Date objects, UTC `…Z` strings, and plain local strings to the Toronto calendar date. This is load-bearing — the "end of day all zeros" bug was a date-comparison mismatch. Don't replace it with `String(ts).slice(0,10)`.
+- **Identity is split.** Crew are keyed on the employee "H number" in `Employees`; the boat-team auto-fill (`endOfDay` → `teamHeader`) joins on H number and is collision-safe. But `Stops`/`Tracker` rows are still filtered by **display name** (`sameName`), so same-name installers can still collide there. Keep this distinction in mind before "fixing" attribution.
+- **`status: "DONE"`** is a coordinates-only "already installed here" marker (the one-tap button). It is intentionally excluded from install/UTI tallies, the daily PDF, and the viewer counts — it only feeds the `nearby` proximity check. It is just `addStop` with `status:"DONE"`; do not add an endpoint for it.
+- **`Teams.memberLetters`** is a JSON map `{hNumber: "A"}` stored as a string in one cell. People sharing a letter on a boat are partners; `boatTeam` renders as boat number + letter (e.g. `11A`). `parseMemberLetters` tolerates a legacy JSON-array form.
+- **Captains/Subs are not employees** — free-text names, no H number, stored in their own list tabs and auto-remembered via `ensureName` whenever a team is saved.
+
+## Daily-log PDF
+
+`endOfDay` builds the PDF by copying the `DailyLog Template` tab, filling header anchors (`ANCHORS` in `Code.gs`) + body rows, and exporting via the Sheets export URL. If you move a header box in `setupDailyLogTemplate()`, update its A1 anchor in `ANCHORS`. The Tracker row is written *before* the PDF so a PDF failure can't block closing the day.
+
+## Security note
+
+`SHARED_TOKEN` and the Web App URL sit in client-side source on a public-capable GitHub Pages site — this is a deliberate, documented trade-off (open-the-link-and-it-works), mitigated by keeping the repo private. Do not treat the token as a real secret, but also do not introduce anything that assumes per-user auth exists.
