@@ -565,25 +565,27 @@ function deleteEmployee(b) {
   return { ok: false, error: 'employee number not found' };
 }
 
-/** Adds a 'memberLetters' column to the Teams sheet if the sheet was created
- *  under the old schema (which had 'memberHs' instead). Safe to call on every
- *  save — it's a no-op once the column exists. */
-function ensureMemberLettersColumn() {
+/** Ensures every required Teams column exists by name, appending any that are
+ *  missing to the right. Handles any old schema variant (some sheets were
+ *  created before captainName/subName/memberLetters existed). Safe on every
+ *  save — it's a no-op once all columns are present. */
+function ensureTeamsColumns() {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
-  if (!sh) return;
-  const lastCol = sh.getLastColumn();
-  if (lastCol === 0) return;
-  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
-  if (headers.indexOf('memberLetters') === -1) {
-    const cell = sh.getRange(1, lastCol + 1);
-    cell.setValue('memberLetters').setFontWeight('bold');
-  }
+  if (!sh || sh.getLastColumn() === 0) return;
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  let next = sh.getLastColumn() + 1;
+  ['boatName', 'captainName', 'subName', 'memberLetters'].forEach(col => {
+    if (headers.indexOf(col) === -1) {
+      sh.getRange(1, next).setValue(col).setFontWeight('bold');
+      next++;
+    }
+  });
 }
 
 /** Create a boat, or update one in place when its id is supplied. memberLetters
  *  is stored as a JSON map of employee number → team letter ({"H100":"A"}). */
 function saveTeam(b) {
-  ensureMemberLettersColumn();
+  ensureTeamsColumns();
   const memberLetters = normalizeLetters(parseMemberLetters(b.memberLetters));
   const captainName   = String(b.captainName == null ? '' : b.captainName).trim();
   const subName       = String(b.subName == null ? '' : b.subName).trim();
