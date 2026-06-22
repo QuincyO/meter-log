@@ -337,13 +337,35 @@ function doGet(e) {
 function addStop(b) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Stops');
   const id = b.id || newId();
-  sh.appendRow([
+  const row = [
     id, b.timestamp || now(), b.installer || '', b.workOrderId || '',
     b.unit || '', b.address || '', numOrBlank(b.lat), numOrBlank(b.lng),
     b.newJNumber || '', b.oldJNumber || '', numOrBlank(b.meterRead),
     b.status || '', b.utiReason || '', b.notes || '', b.noReadReason || '',
     numOrBlank(b.meterReadReceived)
-  ]);
+  ];
+
+  // Dedup: only INSTALLED stops with both a WO# and a new J# are checked.
+  // UTI/DONE entries are always appended without restriction.
+  if (b.status === 'INSTALLED' && b.workOrderId && b.newJNumber) {
+    const norm = v => String(v == null ? '' : v).trim().toUpperCase();
+    const history = rows('Stops').filter(r =>
+      norm(r.workOrderId) === norm(b.workOrderId) && r.status === 'INSTALLED'
+    );
+
+    // Exact duplicate: same WO# + same newJNumber → reject without writing.
+    if (history.some(r => norm(r.newJNumber) === norm(b.newJNumber))) {
+      return { ok: false, duplicate: true, history: history };
+    }
+
+    // J# conflict: same WO# but a different newJNumber → write and warn.
+    if (history.length > 0) {
+      sh.appendRow(row);
+      return { ok: true, id: id, flagged: true, history: history };
+    }
+  }
+
+  sh.appendRow(row);
   return { ok: true, id: id };
 }
 
