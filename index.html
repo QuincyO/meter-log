@@ -82,6 +82,16 @@
      box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:20;max-width:90vw}
   .toast.show{transform:translateX(-50%) translateY(0)}
 
+  /* duplicate / J# conflict notice */
+  .notice{border-radius:var(--r);padding:12px 14px;margin-bottom:10px;display:none}
+  .notice.show{display:block}
+  .notice.dup{background:#FEECEC;border:1.5px solid var(--uti);color:#7A1A00}
+  .notice.flag{background:#FFF3CD;border:1.5px solid var(--amber);color:#7A5800}
+  .notice-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:14px;font-weight:700}
+  .notice-dismiss{background:none;border:none;font-size:18px;cursor:pointer;flex:none;padding:0 2px;color:inherit;opacity:.6}
+  .notice-rows{margin-top:8px;font-size:13px}
+  .notice-row{padding:4px 0;border-top:1px solid rgba(0,0,0,.08)}
+
   /* settings + downtime + lookup + end-of-day sheets */
   .sheet{position:fixed;inset:0;background:rgba(19,23,28,.45);display:flex;align-items:flex-end;
      justify-content:center;z-index:30}
@@ -122,6 +132,14 @@
   <div class="bar">
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
     <button class="gear" id="openSettings" aria-label="Settings">⚙︎</button>
+  </div>
+
+  <div class="notice" id="notice">
+    <div class="notice-head">
+      <span id="noticeMsg"></span>
+      <button class="notice-dismiss" id="noticeDismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="notice-rows" id="noticeRows"></div>
   </div>
 
   <h1>Log a stop</h1>
@@ -369,9 +387,13 @@ async function flush(){
   let q = queue();
   while(q.length){
     try{
-      await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-                           body: JSON.stringify(q[0]) });   // text/plain dodges CORS preflight
-      q.shift(); setQueue(q);
+      const item = q[0];
+      const resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+                                         body: JSON.stringify(item) });   // text/plain dodges CORS preflight
+      let body = null;
+      try { body = await resp.json(); } catch {}
+      q.shift(); setQueue(q);        // remove from queue on any HTTP success (even duplicate/flagged)
+      if (body) onFlushResult(body, item);
     } catch { break; }   // still no real connection — keep the rest
   }
   paint();
@@ -384,6 +406,34 @@ function paint(){
   else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
   else t.textContent = 'All synced';
 }
+
+function onFlushResult(body, item) {
+  if (!body.duplicate && !body.flagged) return;
+  const wo = item.workOrderId || '?';
+  const newJ = item.newJNumber || '';
+  if (body.duplicate) {
+    showNotice('dup',
+      `Duplicate — WO# ${wo} with J# ${newJ} was already logged. Entry discarded.`,
+      body.history || []);
+  } else if (body.flagged) {
+    showNotice('flag',
+      `J# conflict — WO# ${wo} was previously logged with a different J#. New entry saved.`,
+      body.history || []);
+  }
+}
+
+let noticeTimer;
+function showNotice(type, msg, history) {
+  const el = $('notice');
+  el.className = 'notice show ' + type;
+  $('noticeMsg').textContent = msg;
+  $('noticeRows').innerHTML = history.map(r =>
+    `<div class="notice-row">WO# ${r.workOrderId || '?'} · J# ${r.newJNumber || '—'} · ${r.status} · ${r.installer} · ${r.timestamp}</div>`
+  ).join('');
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);
+}
+$('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';
