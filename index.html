@@ -15,7 +15,8 @@
   :root{
     --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
     --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
-    --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+    --install:#1E8E5A; --uti:#D64500; --visited:#2563EB; --unaccounted:#64748B;
+    --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
     --r:14px; --tap:60px;
   }
   *{box-sizing:border-box}
@@ -42,12 +43,14 @@
 
   /* segmented status — the one bold element */
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-  .seg button{height:72px;border:2px solid var(--line);border-radius:var(--r);background:var(--panel);
-     font-size:19px;font-weight:800;letter-spacing:.01em;cursor:pointer;color:var(--ink-soft);
+  .seg button{height:64px;border:2px solid var(--line);border-radius:var(--r);background:var(--panel);
+     font-size:17px;font-weight:800;letter-spacing:.01em;cursor:pointer;color:var(--ink-soft);
      transition:transform .06s ease}
   .seg button:active{transform:scale(.98)}
   .seg button.on-install{border-color:var(--install);color:#fff;background:var(--install)}
   .seg button.on-uti{border-color:var(--uti);color:#fff;background:var(--uti)}
+  .seg button.on-visited{border-color:var(--visited);color:#fff;background:var(--visited)}
+  .seg button.on-unaccounted{border-color:var(--unaccounted);color:#fff;background:var(--unaccounted)}
 
   label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin:14px 2px 6px}
   input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:12px;
@@ -108,6 +111,7 @@
   .sc-sum strong{font-size:16px}
   .sc-meta{display:block;font-size:13px;color:var(--ink-soft);margin-top:3px}
   .tag-ok{color:var(--install)} .tag-uti{color:var(--uti)}
+  .tag-visit{color:var(--visited)} .tag-unacc{color:var(--unaccounted)}
   .mini{min-height:40px;height:40px;padding:0 16px;border:2px solid var(--line);border-radius:10px;
      background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;flex:none}
   .sc-edit{margin-top:4px}
@@ -146,6 +150,8 @@
   <div class="seg" role="group" aria-label="Status">
     <button id="btnInstall" class="on-install">INSTALLED</button>
     <button id="btnUti">UTI</button>
+    <button id="btnVisited">VISITED</button>
+    <button id="btnUnaccounted">UNACCOUNTED</button>
   </div>
 
   <label for="wo">Work order #</label>
@@ -226,6 +232,21 @@
       <input id="oldJ" class="mono" autocapitalize="characters">
       <button class="scanbtn" id="scanOldJ" type="button">Scan</button>
     </div>
+  </div>
+
+  <!-- VISITED fields — saw a meter, couldn't do it: old J# + a note -->
+  <div id="visitedFields" class="hide">
+    <label for="visitedOldJ">Old J# (scan or type)</label>
+    <div class="scanrow">
+      <input id="visitedOldJ" class="mono" autocapitalize="characters">
+      <button class="scanbtn" id="scanVisitedOldJ" type="button">Scan</button>
+    </div>
+    <p class="loc" style="margin-top:8px">Saw a meter but couldn’t do it — add the old J# and a note below.</p>
+  </div>
+
+  <!-- UNACCOUNTED fields — showed up, couldn't find/confirm a meter -->
+  <div id="unaccountedFields" class="hide">
+    <p class="loc" style="margin-top:8px">Showed up but couldn’t find or confirm a meter. Your GPS + a note below record that you were here.</p>
   </div>
 
   <label for="unit">Unit</label>
@@ -318,6 +339,17 @@
       <p>Review today’s stops, fix anything that’s off, add a note, then finalize.</p>
       <div class="eod-tally" id="eodTally">Loading…</div>
       <div id="eodList"></div>
+      <div class="row2" style="margin-top:4px">
+        <div>
+          <label for="eodDeparture">Departure time <span style="font-weight:500">(left dock)</span></label>
+          <input id="eodDeparture" type="time">
+        </div>
+        <div>
+          <label for="eodReturned">Returned to land</label>
+          <input id="eodReturned" type="time">
+        </div>
+      </div>
+      <div id="eodIdle"></div>
       <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
       <textarea id="eodNotes" placeholder="Anything else to add to today’s log…"></textarea>
       <button class="primary" id="finishDay" style="margin-top:16px">Finish day</button>
@@ -444,14 +476,20 @@ $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').clas
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';
-$('btnInstall').onclick = () => setStatus('INSTALLED');
-$('btnUti').onclick      = () => setStatus('UTI');
+$('btnInstall').onclick     = () => setStatus('INSTALLED');
+$('btnUti').onclick         = () => setStatus('UTI');
+$('btnVisited').onclick     = () => setStatus('VISITED');
+$('btnUnaccounted').onclick = () => setStatus('UNACCOUNTED');
 function setStatus(s){
   status = s;
-  $('btnInstall').className = s==='INSTALLED' ? 'on-install' : '';
-  $('btnUti').className      = s==='UTI'      ? 'on-uti'     : '';
+  $('btnInstall').className     = s==='INSTALLED'   ? 'on-install'     : '';
+  $('btnUti').className         = s==='UTI'         ? 'on-uti'         : '';
+  $('btnVisited').className     = s==='VISITED'     ? 'on-visited'     : '';
+  $('btnUnaccounted').className = s==='UNACCOUNTED' ? 'on-unaccounted' : '';
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
+  $('visitedFields').classList.toggle('hide', s!=='VISITED');
+  $('unaccountedFields').classList.toggle('hide', s!=='UNACCOUNTED');
   setNoRead(false); setSolar(false);
 }
 $('utiReason').onchange = e => {
@@ -546,7 +584,9 @@ getLocation();
 $('logStop').onclick = () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
-  if(!$('wo').value.trim()){ toast('Work order # is required'); return; }
+  // WO# is required for the two outcomes that finish a work order; the "we were
+  // here" outcomes (Visited / Unaccounted) can be logged without one.
+  if((status==='INSTALLED' || status==='UTI') && !$('wo').value.trim()){ toast('Work order # is required'); return; }
   if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
@@ -569,15 +609,27 @@ $('logStop').onclick = () => {
       meterRead: num($('read').value),
       meterReadReceived: solar ? num($('readRecv').value) : null,
       newJNumber: $('newJ').value.trim(), oldJNumber:$('installOldJ').value.trim()||null, noReadReason:null, utiReason:null });
-  } else {
+  } else if(status==='UTI'){
     const reason = $('utiReason').value;
     Object.assign(base, {
       meterRead:null, meterReadReceived:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(), noReadReason:null,
       utiReason: reason==='Other' ? ('Other: '+$('utiOther').value.trim()) : reason });
+  } else if(status==='VISITED'){
+    Object.assign(base, {
+      meterRead:null, meterReadReceived:null, newJNumber:null,
+      oldJNumber:$('visitedOldJ').value.trim()||null, noReadReason:null, utiReason:null });
+  } else { // UNACCOUNTED — couldn't find/confirm a meter; just coords + the note
+    Object.assign(base, {
+      meterRead:null, meterReadReceived:null, newJNumber:null,
+      oldJNumber:null, noReadReason:null, utiReason:null });
   }
   enqueue(base);
-  toast(status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') : 'UTI logged ✓');
-  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','stopNotes'].forEach(id => $(id).value='');
+  toast(
+    status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
+    status==='UTI'       ? 'UTI logged ✓' :
+    status==='VISITED'   ? 'Visited logged ✓' :
+                           'Unaccounted logged ✓');
+  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','visitedOldJ','stopNotes'].forEach(id => $(id).value='');
   setNoRead(false); setSolar(false);
   getLocation();
 };
@@ -633,11 +685,24 @@ function locLabel(s){
   return unit ? (unit + ' ' + addr) : addr;
 }
 
+// Statuses that earn a row on the log / review lists (everything but the
+// coordinates-only DONE marker).
+const PRINTABLE = { INSTALLED:1, UTI:1, VISITED:1, UNACCOUNTED:1 };
+// Shared tally line for the End-of-day + Today sheets.
+function tallyText(t){
+  return `Installed ${t.installed} · UTI ${t.uti} · Downtime ${t.dtMin} min`
+    + (t.visited ? ` · Visited ${t.visited}` : '')
+    + (t.unaccounted ? ` · Unaccounted ${t.unaccounted}` : '')
+    + (t.done ? ` · ${t.done} already-installed` : '');
+}
+
 // ── editable stop card (shared by Look up + End of day) ────────────────────
+const statusTagClass = st =>
+  st==='UTI' ? 'tag-uti' : st==='VISITED' ? 'tag-visit' : st==='UNACCOUNTED' ? 'tag-unacc' : 'tag-ok';
 function summaryHTML(s){
   return `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
        + `<span class="sc-meta">${esc(locLabel(s))||'no address'} · `
-       + `<b class="${s.status==='UTI'?'tag-uti':'tag-ok'}">${esc(s.status)||'—'}</b>`
+       + `<b class="${statusTagClass(s.status)}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
        + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
        + `${(s.meterReadReceived||s.meterReadReceived===0)?(' / '+esc(s.meterReadReceived)):''}</span>`;
@@ -658,6 +723,8 @@ function makeStopCard(s, onSaved){
       <select class="mono" data-f="status">
         <option ${s.status==='INSTALLED'?'selected':''}>INSTALLED</option>
         <option ${s.status==='UTI'?'selected':''}>UTI</option>
+        <option ${s.status==='VISITED'?'selected':''}>VISITED</option>
+        <option ${s.status==='UNACCOUNTED'?'selected':''}>UNACCOUNTED</option>
       </select>
       <label>New J#</label><input class="mono" data-f="newJ" value="${attr(s.newJNumber)}">
       <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
@@ -728,29 +795,75 @@ $('endDay').onclick = async () => {
   await flush();
   if(queue().length){ toast('Still some unsynced — try when online'); return; }
   $('eodNotes').value=''; $('eodTally').textContent='Loading today’s stops…'; $('eodList').innerHTML='';
+  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML='';
   openSheet('eodSheet');
   try{
     const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
     const d = await (await fetch(u)).json();
     renderEod(d.stops || [], d.downtime || []);
   } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
+  // Idle gaps are a separate, team-aware call (they fold in a partner's stops);
+  // failure here is non-blocking — the day can still be closed without them.
+  try{
+    const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
+    const idata = await (await fetch(iu)).json();
+    renderIdleGaps(idata.gaps || []);
+  } catch { $('eodIdle').innerHTML=''; }
 };
+
+// Detected idle gaps → pre-filled draft downtime the installer labels + confirms.
+// Confirming enqueues a normal addDowntime (reusing the existing Downtime tab),
+// so it lands in today's categorized total once flushed at Finish.
+function renderIdleGaps(gaps){
+  const box = $('eodIdle'); box.innerHTML='';
+  if(!gaps || !gaps.length) return;
+  const opts = Object.keys(CAT_LABEL).map(k => `<option value="${k}">${CAT_LABEL[k]}</option>`).join('');
+  const head = document.createElement('div');
+  head.innerHTML = '<h1 style="margin-top:22px">Detected idle gaps</h1>'
+    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times, travel time already removed. Label any real downtime and confirm — it’s added to today’s total. Skip a gap to leave it as raw idle only.</p>';
+  box.appendChild(head);
+  gaps.forEach(g => {
+    const card = document.createElement('div');
+    card.className = 'stopcard';
+    const kindTag = g.kind==='ramp' ? ' · morning' : g.kind==='tail' ? ' · end of day' : '';
+    card.innerHTML = `
+      <div class="sc-head">
+        <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
+          <span class="sc-meta">${g.idleMin} min idle${kindTag}${g.toWO?(' · next WO '+esc(g.toWO)):''}</span></div>
+      </div>
+      <label>Category</label>
+      <select class="mono" data-f="cat">${opts}</select>
+      <button class="primary sc-save" data-act="confirm" style="height:50px">Add ${g.idleMin} min downtime</button>`;
+    const btn = card.querySelector('[data-act="confirm"]');
+    btn.onclick = () => {
+      const c = cfg();
+      enqueue({ token:c.token, action:'addDowntime', installer:c.name,
+                timestamp:stamp(), category:card.querySelector('[data-f="cat"]').value,
+                minutes:g.idleMin, workOrderId:g.toWO||'',
+                note:`auto-detected gap ${g.start}–${g.end}` });
+      btn.textContent = 'Added ✓'; btn.disabled = true;
+      card.querySelector('[data-f="cat"]').disabled = true;
+      toast('Downtime added ✓');
+    };
+    box.appendChild(card);
+  });
+}
   
 
 function renderEod(stops, downtime){
   eodData = { stops, downtime };
-  const editable  = stops.filter(s => s.status==='INSTALLED' || s.status==='UTI');
-  const installed = stops.filter(s => s.status==='INSTALLED').length;
-  const uti       = stops.filter(s => s.status==='UTI').length;
-  const done      = stops.filter(s => s.status==='DONE').length;
-  const dtMin     = downtime.reduce((a,d)=>a+(Number(d.minutes)||0),0);
+  const editable    = stops.filter(s => PRINTABLE[s.status]);
+  const installed   = stops.filter(s => s.status==='INSTALLED').length;
+  const uti         = stops.filter(s => s.status==='UTI').length;
+  const visited     = stops.filter(s => s.status==='VISITED').length;
+  const unaccounted = stops.filter(s => s.status==='UNACCOUNTED').length;
+  const done        = stops.filter(s => s.status==='DONE').length;
+  const dtMin       = downtime.reduce((a,d)=>a+(Number(d.minutes)||0),0);
 
-  $('eodTally').textContent =
-    `Installed ${installed} · UTI ${uti} · Downtime ${dtMin} min`
-    + (done ? ` · ${done} already-installed` : '');
+  $('eodTally').textContent = tallyText({installed, uti, visited, unaccounted, done, dtMin});
 
   const list = $('eodList'); list.innerHTML='';
-  if(!editable.length){ list.innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
+  if(!editable.length){ list.innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
   editable.forEach(s => list.appendChild(makeStopCard(s)));
 }
 
@@ -762,10 +875,14 @@ $('finishDay').onclick = async () => {
   const withCoord = (eodData.stops||[]).find(s =>
     s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
   if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
+  // Flush first so any idle gaps just confirmed (queued addDowntime) are written
+  // before the spine tallies the day.
+  await flush();
   try{
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
-                             notes:$('eodNotes').value.trim(), weather }) })).json();
+                             notes:$('eodNotes').value.trim(), weather,
+                             departure:$('eodDeparture').value, returned:$('eodReturned').value }) })).json();
     closeSheets();
     if (d.pdf && d.pdf.base64) {
       downloadBase64Pdf(d.pdf.base64, d.pdf.name);
@@ -833,6 +950,8 @@ const catLabel = c => CAT_LABEL[c] || c || 'Other';
 // for a UTI (coloured so UTIs stand out); "no read" for an unreadable install.
 function readCell(s){
   if(s.status==='UTI') return `<span class="tag-uti">${esc(s.utiReason)||'UTI'}</span>`;
+  if(s.status==='VISITED') return `<span class="tag-visit">Visited</span>`;
+  if(s.status==='UNACCOUNTED') return `<span class="tag-unacc">Unaccounted</span>`;
   if(s.meterRead || s.meterRead===0){
     return esc(s.meterRead) + ((s.meterReadReceived||s.meterReadReceived===0) ? (' / '+esc(s.meterReadReceived)) : '');
   }
@@ -856,18 +975,18 @@ function dtForWO(wo, downtime){
 }
 
 function renderToday(stops, downtime){
-  const editable  = stops.filter(s => s.status==='INSTALLED' || s.status==='UTI');
-  const installed = stops.filter(s => s.status==='INSTALLED').length;
-  const uti       = stops.filter(s => s.status==='UTI').length;
-  const done      = stops.filter(s => s.status==='DONE').length;
-  const dtMin     = (downtime||[]).reduce((a,d)=>a+(Number(d.minutes)||0),0);
+  const editable    = stops.filter(s => PRINTABLE[s.status]);
+  const installed   = stops.filter(s => s.status==='INSTALLED').length;
+  const uti         = stops.filter(s => s.status==='UTI').length;
+  const visited     = stops.filter(s => s.status==='VISITED').length;
+  const unaccounted = stops.filter(s => s.status==='UNACCOUNTED').length;
+  const done        = stops.filter(s => s.status==='DONE').length;
+  const dtMin       = (downtime||[]).reduce((a,d)=>a+(Number(d.minutes)||0),0);
 
-  $('todayTally').textContent =
-    `Installed ${installed} · UTI ${uti} · Downtime ${dtMin} min`
-    + (done ? ` · ${done} already-installed` : '');
+  $('todayTally').textContent = tallyText({installed, uti, visited, unaccounted, done, dtMin});
 
   $('todayEdit').innerHTML='';
-  if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">No installs or UTIs logged today yet.</p>'; return; }
+  if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
 
   let html = '<div class="tblwrap"><table class="tbl"><thead><tr>'
            + '<th>WO#</th><th>Address</th><th>New J#</th><th>Meter read</th><th>Downtime (min)</th>'
@@ -932,6 +1051,7 @@ function stopScan(){ releaseScan(); $('scanSheet').classList.add('hide'); }
 $('scanNrOldJ').onclick     = () => startScan('nrOldJ');
 $('scanOldJ').onclick       = () => startScan('oldJ');
 $('scanInstallOldJ').onclick = () => startScan('installOldJ');
+$('scanVisitedOldJ').onclick = () => startScan('visitedOldJ');
 $('cancelScan').onclick = () => stopScan();
 
 // ── settings + sheets plumbing ──────────────────────────────────────────────

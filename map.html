@@ -11,7 +11,7 @@
   :root{
     --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
     --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
-    --install:#1E8E5A; --uti:#D64500; --done:#8A94A6;
+    --install:#1E8E5A; --uti:#D64500; --done:#8A94A6; --visited:#2563EB; --unaccounted:#64748B;
     --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
     --r:14px;
   }
@@ -55,8 +55,11 @@
   .chip.on.c-install{border-color:var(--install);color:var(--ink)}
   .chip.on.c-uti{border-color:var(--uti);color:var(--ink)}
   .chip.on.c-done{border-color:var(--done);color:var(--ink)}
+  .chip.on.c-visited{border-color:var(--visited);color:var(--ink)}
+  .chip.on.c-unaccounted{border-color:var(--unaccounted);color:var(--ink)}
   .chip.off{opacity:.45}
   .sw-install{background:var(--install)} .sw-uti{background:var(--uti)} .sw-done{background:var(--done)}
+  .sw-visited{background:var(--visited)} .sw-unaccounted{background:var(--unaccounted)}
 
   .view{flex:1;min-height:0;display:none} .view.on{display:block}
   #map{width:100%;height:100%}
@@ -129,6 +132,8 @@
     <div class="chips" id="statusChips">
       <span class="chip on c-install" data-st="INSTALLED"><span class="sw sw-install"></span>Installed</span>
       <span class="chip on c-uti" data-st="UTI"><span class="sw sw-uti"></span>UTI</span>
+      <span class="chip on c-visited" data-st="VISITED"><span class="sw sw-visited"></span>Visited</span>
+      <span class="chip on c-unaccounted" data-st="UNACCOUNTED"><span class="sw sw-unaccounted"></span>Unaccounted</span>
       <span class="chip on c-done" data-st="DONE"><span class="sw sw-done"></span>Already&nbsp;in</span>
     </div>
   </div>
@@ -139,6 +144,8 @@
     <div class="legend">
       <div class="lrow"><span class="sw sw-install"></span>Installed</div>
       <div class="lrow"><span class="sw sw-uti"></span>UTI</div>
+      <div class="lrow"><span class="sw sw-visited"></span>Visited</div>
+      <div class="lrow"><span class="sw sw-unaccounted"></span>Unaccounted</div>
       <div class="lrow"><span class="sw sw-done"></span>Already installed</div>
     </div>
   </div>
@@ -174,13 +181,13 @@ const cfg = () => ({ url: WEB_APP_URL, token: SHARED_TOKEN });
 const $   = id => document.getElementById(id);
 const enc = encodeURIComponent;
 const esc = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', DONE:'#8A94A6' };
+const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
   ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
 let ALL = [], TRK = [];
-let state = { installer:'', from:'', to:'', statuses:{ INSTALLED:true, UTI:true, DONE:true } };
+let state = { installer:'', from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
 
 // ── helpers shared with the form's logic ──────────────────────────────────
@@ -258,6 +265,7 @@ function popupHTML(s){
   const color = COLORS[s.status] || COLORS.DONE, loc = locLabel(s);
   let read = '';
   if(s.status==='UTI') read = s.utiReason ? `<div class="pop-row"><span class="lab">Reason:</span> ${esc(s.utiReason)}</div>` : '';
+  else if(s.status==='VISITED' || s.status==='UNACCOUNTED') read = s.notes ? `<div class="pop-row"><span class="lab">Note:</span> ${esc(s.notes)}</div>` : '';
   else if(s.meterRead || s.meterRead===0) read = `<div class="pop-row"><span class="lab">Read:</span> ${esc(s.meterRead)}</div>`;
   else if(s.status==='INSTALLED') read = `<div class="pop-row"><span class="lab">Read:</span> no read</div>`;
   const j = s.newJNumber ? `<div class="pop-row"><span class="lab">J#:</span> <span class="mono">${esc(s.newJNumber)}</span></div>` : '';
@@ -286,7 +294,7 @@ function doSearch(){
   if(!matches.length){ toast('No match for that WO# or J#'); return; }
 
   // clear every filter so a match is never hidden, then locate it
-  state.statuses = { INSTALLED:true, UTI:true, DONE:true };
+  state.statuses = { INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true };
   state.installer = ''; state.from=''; state.to='';
   syncControls(); drawMarkers(false); renderAnalytics();
 
@@ -308,13 +316,18 @@ function renderAnalytics(){
   $('trkNote').innerHTML = trk.length ? '' :
     '<div class="note">Trends come from your end-of-day totals — none in this range yet. Finish a day in the form to fill them in.</div>';
 
-  const installed = trk.reduce((a,r)=>a+trkNum(r.installed),0);
-  const uti       = trk.reduce((a,r)=>a+trkNum(r.uti),0);
-  const down      = trk.reduce((a,r)=>a+trkNum(r.downtimeTotalMin),0);
-  const rate      = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
+  const installed   = trk.reduce((a,r)=>a+trkNum(r.installed),0);
+  const uti         = trk.reduce((a,r)=>a+trkNum(r.uti),0);
+  const down        = trk.reduce((a,r)=>a+trkNum(r.downtimeTotalMin),0);
+  const visited     = trk.reduce((a,r)=>a+trkNum(r.visited),0);
+  const unaccounted = trk.reduce((a,r)=>a+trkNum(r.unaccounted),0);
+  const autoIdle    = trk.reduce((a,r)=>a+trkNum(r.autoIdleMin),0);
+  const rate        = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
-    + tile(rate+'%','Install rate','') + tile(down,'Downtime min','');
+    + tile(rate+'%','Install rate','') + tile(down,'Downtime min','')
+    + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
+    + tile(autoIdle,'Auto-idle min','');
 
   // installs vs UTI by day
   const byDay = {};
@@ -357,12 +370,17 @@ function renderAnalytics(){
 
   // by installer
   const byI = {};
-  trk.forEach(r => { const n=(r.installer||'—'); (byI[n]=byI[n]||{i:0,u:0,d:0}); byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin); });
+  trk.forEach(r => { const n=(r.installer||'—');
+    (byI[n]=byI[n]||{i:0,u:0,d:0,v:0,n:0,idle:0});
+    byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin);
+    byI[n].v+=trkNum(r.visited); byI[n].n+=trkNum(r.unaccounted); byI[n].idle+=trkNum(r.autoIdleMin); });
   const names = Object.keys(byI).sort();
   if(!names.length){ $('byInst').innerHTML = '<div class="empty">No end-of-day totals in this range.</div>'; }
   else{
-    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th><th class="num">Downtime</th></tr></thead><tbody>';
-    names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td><td class="num">${byI[n].d}</td></tr>`);
+    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th>'
+          + '<th class="num">Visited</th><th class="num">Unacc.</th><th class="num">Downtime</th><th class="num">Auto-idle</th></tr></thead><tbody>';
+    names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td>`
+      + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${byI[n].idle}</td></tr>`);
     $('byInst').innerHTML = h + '</tbody></table>';
   }
 }

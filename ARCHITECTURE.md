@@ -100,7 +100,9 @@ and works even with no signal (queued up on the phone).
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `roster`
-(the full crew + teams, for `teams.html` and the installer's name picker).
+(the full crew + teams, for `teams.html` and the installer's name picker), `idle`
+(team-aware derived idle gaps for one installer+date, for the end-of-day
+confirm/label step — see "Automated downtime").
 
 ---
 
@@ -120,7 +122,7 @@ the map), `tracker` (all end-of-day rows, for the viewer's trends), `roster`
 | `newJNumber`      | string              | New J#                                            |
 | `oldJNumber`      | string \| null      | saved when there's no read / on a UTI            |
 | `meterRead`       | number \| null      | the reading, or null if UTI / unreadable         |
-| `status`          | `"INSTALLED"` \| `"UTI"` \| `"DONE"` | `DONE` = a "meter's already here" marker (see note) |
+| `status`          | `"INSTALLED"` \| `"UTI"` \| `"VISITED"` \| `"UNACCOUNTED"` \| `"DONE"` | see status notes below |
 | `utiReason`       | string \| null      | e.g. "No Access"                                 |
 | `notes`           | string              | free text                                        |
 | `noReadReason`    | string \| null      | why an install had no read (e.g. "Missing segments") |
@@ -135,6 +137,21 @@ the person logging it, `DONE` is deliberately left out of the end-of-day
 installed/UTI tallies, the formatted daily log, and the viewer's install/UTI
 counts — it never inflates anyone's numbers. It needs no special endpoint: it's
 just `addStop` with `status: "DONE"` and coordinates.
+
+**"We were here" outcomes (`VISITED` / `UNACCOUNTED`).** Two lighter outcomes for
+trips that finish no work order but should still be on the record:
+
+- **`VISITED`** — showed up, *saw* a meter, but couldn't do it. Carries an
+  `oldJNumber` + a `notes` comment; no read, no new J#.
+- **`UNACCOUNTED`** — showed up but couldn't find or confirm a meter (may or may
+  not have power, could be indoors — unknown). Carries only coordinates + a `notes`
+  comment. WO# is optional for both.
+
+Both are **separate counts**: like `DONE`, they're deliberately kept out of the
+install/UTI tallies and the install-rate, but unlike `DONE` they *do* appear on
+the daily-log PDF (their own body rows + footer counts) and the map/viewer (own
+status chips, colors, and the `visited` / `unaccounted` Tracker columns). They are
+plain `addStop` calls — no new endpoint.
 
 ### DowntimeEntry  (zero or more per day → tab "Downtime")
 | field         | type            | notes                                       |
@@ -154,10 +171,19 @@ just `addStop` with `status: "DONE"` and coordinates.
 ### Tracker row  (one per installer per day → tab "Tracker")
 Appended automatically at end-of-day. This is the "continues forever" sheet, and
 the source the viewer's analytics charts read from.
-| `date` | `installer` | `installed` | `uti` | `downtimeTotalMin` | `nextGen` | `cellSignal` | `badWeather` | `warehouse` | `toolsMaterial` | `dispatch` | `truckIssues` | `assist` | `urgentEer` | `other` | `weather` | `notes` |
+| `date` | `installer` | `installed` | `uti` | `downtimeTotalMin` | `nextGen` | `cellSignal` | `badWeather` | `warehouse` | `toolsMaterial` | `dispatch` | `truckIssues` | `assist` | `urgentEer` | `other` | `weather` | `notes` | `visited` | `unaccounted` | `autoIdleMin` |
 
 The per-category columns are summed minutes for that day, so the running sheet is
-also a breakdown, not just a single downtime number.
+also a breakdown, not just a single downtime number. `visited` / `unaccounted` are
+the day's counts of those two outcomes; `autoIdleMin` is the **derived** idle time
+(see "Automated downtime" below). The last three were **appended** after `notes`
+so older sheets migrate cleanly via `ensureTab` — re-run `setupSheets()` once after
+deploying to add them.
+
+> **`autoIdleMin` vs `downtimeTotalMin` are related but NOT additive.**
+> `downtimeTotalMin` is the sum of *categorized, logged* `Downtime` rows;
+> `autoIdleMin` is idle time *derived from stop timestamps*. A confirmed idle gap
+> becomes a `Downtime` row, so it can show up in both — don't sum them.
 
 ### Employee  (one row per crew member → tab "Employees")
 The crew roster, managed from `teams.html`. Keyed on the **employee number**
@@ -235,6 +261,44 @@ Same pattern as Captains, for sub/subforeman names.
   "notes": ""
 }
 ```
+
+---
+
+## Automated downtime
+
+Idle time is **derived** by the spine from data already captured — every stop's
+Toronto-local timestamp + GPS, plus boat-team membership — so the crew logs nothing
+extra for it. It runs in **"Both" mode**: a raw idle number is recorded silently
+every day *and* the detected gaps are offered at end-of-day as pre-filled drafts the
+installer can label + confirm.
+
+**`computeIdle()` (in `Code.gs`)** treats each stop as one "activity" marker:
+
+1. **Team-aware gaps.** It pools the installer's stops with their *same-letter boat
+   partners'* stops for the day (a single-man team is just their own). Sorting all
+   markers by time, any gap between consecutive markers is a candidate — so a
+   partner's install keeps the whole team's clock running, not just your own.
+2. **Travel-aware adjustment.** Each gap is reduced by the time the hop *should*
+   have taken — `haversine(prev,cur) ÷ BOAT_SPEED_KMH` + an `ON_METER_MIN` buffer —
+   so long inter-island rides aren't counted as idle. Only the leftover above
+   `IDLE_GAP_THRESHOLD_MIN` survives.
+3. **Morning ramp / EOD tail.** When a **departure** and/or **return** time is
+   entered in the end-of-day sheet, the dock→first-stop and last-stop→dock spans are
+   added too. (Those two times also fill the previously-blank Departure / Returned
+   boxes on the PDF.)
+
+The three tunables (`IDLE_GAP_THRESHOLD_MIN`, `BOAT_SPEED_KMH`, `ON_METER_MIN`) sit
+at the top of `Code.gs` and are field-adjustable.
+
+**Wiring.** `endOfDay` calls `computeIdle` and writes the total to the Tracker's
+`autoIdleMin` column (the silent number). Separately, when the end-of-day sheet
+opens the form fetches `?action=idle&installerId=…&date=…` and renders each gap with
+a category dropdown; confirming one **enqueues a normal `addDowntime`** (reusing the
+existing Downtime tab/categories), and `finishDay` flushes the queue before closing
+so confirmed gaps land in that day's categorized total. The `idle` read omits
+ramp/tail (departure/return aren't known yet when the sheet opens); those still fold
+into `autoIdleMin` at close. *Known minor limit:* re-opening the sheet re-lists gaps
+already confirmed that session — there's no gap↔Downtime backlink.
 
 ---
 

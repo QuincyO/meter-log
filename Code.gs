@@ -42,6 +42,16 @@
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr'; // crude gate; must match the caller
 const TIMEZONE     = 'America/Toronto';
 
+// ── Automated downtime tuning (field-tunable) ──────────────────────────────
+// Idle time is derived from the timestamps + GPS already on each stop. A gap
+// between two consecutive team activities counts as idle only above the
+// threshold and after subtracting the travel + on-meter time it should have
+// taken. Bump BOAT_SPEED_KMH down for a slower crew, ON_METER_MIN up if jobs
+// run long, THRESHOLD up to ignore more small gaps.
+const IDLE_GAP_THRESHOLD_MIN = 15;   // ignore adjusted gaps shorter than this
+const BOAT_SPEED_KMH         = 25;   // assumed point-to-point travel speed
+const ON_METER_MIN           = 10;   // expected hands-on time per stop
+
 const CATEGORIES = [
   'NEXT_GEN', 'CELL_SIGNAL', 'BAD_WEATHER', 'WAREHOUSE', 'TOOLS_MATERIAL',
   'DISPATCH', 'TRUCK_ISSUES', 'ASSIST', 'URGENT_EER', 'OTHER'
@@ -57,7 +67,11 @@ const DOWNTIME_HEADERS = [
 const TRACKER_HEADERS = [
   'date','installer','installed','uti','downtimeTotalMin',
   'nextGen','cellSignal','badWeather','warehouse','toolsMaterial',
-  'dispatch','truckIssues','assist','urgentEer','other','weather','notes'
+  'dispatch','truckIssues','assist','urgentEer','other','weather','notes',
+  // Appended after 'notes' so older sheets migrate cleanly (ensureTab fills the
+  // new header cells) and existing header-keyed rows never shift. visited /
+  // unaccounted are the new attendance counts; autoIdleMin is the derived idle.
+  'visited','unaccounted','autoIdleMin'
 ];
 // Crew: one row per installer, keyed on the employee number ("H number"), so
 // two people with the same name never collide. firstName/lastName are the
@@ -91,7 +105,8 @@ const ANCHORS = {
   name:'B1', partner:'B2', captain:'B3',           // crew, auto-filled from the boat team
   boatTeam:'D1', boatName:'D2', date:'D3', sub:'D4',
   weather:'G2',
-  delayTime:'D5'
+  delayTime:'D5',
+  departure:'D6', returned:'E7'                     // anchors the ramp / EOD-tail idle
 };
 
 /** Builds the template tab to match the paper daily log. Re-run any time the
@@ -158,9 +173,14 @@ function buildDailyLogPdf(s) {
   const tpl = ss.getSheetByName(TEMPLATE_TAB);
   if (!tpl) return { error: 'template tab missing — run setupDailyLogTemplate()' };
 
-  const editable  = (s.stops||[]).filter(x => x.status==='INSTALLED' || x.status==='UTI');
-  const installed = (s.stops||[]).filter(x => x.status==='INSTALLED').length;
-  const uti       = (s.stops||[]).filter(x => x.status==='UTI').length;
+  // Everything worth printing on the log: installs, UTIs, and the new "we were
+  // here" outcomes. DONE markers stay off the sheet (not the logger's work).
+  const editable    = (s.stops||[]).filter(x => x.status==='INSTALLED' || x.status==='UTI'
+                                              || x.status==='VISITED'  || x.status==='UNACCOUNTED');
+  const installed   = (s.stops||[]).filter(x => x.status==='INSTALLED').length;
+  const uti         = (s.stops||[]).filter(x => x.status==='UTI').length;
+  const visited     = (s.stops||[]).filter(x => x.status==='VISITED').length;
+  const unaccounted = (s.stops||[]).filter(x => x.status==='UNACCOUNTED').length;
 
   const copy = tpl.copyTo(ss).setName('_tmp_' + Date.now());
   try {
@@ -177,6 +197,8 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather,    s.weather  || '');
     put(ANCHORS.delayTime, (s.downtime||[]).reduce((t,d) => t + (Number(d.minutes)||0), 0));
+    put(ANCHORS.departure, s.departure || '');   // anchors the morning-ramp idle
+    put(ANCHORS.returned,  s.returned  || '');   // anchors the EOD-tail idle
 
     let footerRow = FOOTER0;
     if (n > BODY_ROWS) {                       // grow if a big day
@@ -187,22 +209,32 @@ function buildDailyLogPdf(s) {
     }
 
     editable.forEach((x, i) => {
-      const r = BODY_START + i, isUti = x.status === 'UTI';
+      const r = BODY_START + i;
       const reads = (x.meterRead || x.meterRead === 0)
         ? (x.meterRead + ((x.meterReadReceived || x.meterReadReceived === 0) ? (' / ' + x.meterReadReceived) : ''))
         : (x.noReadReason ? 'no read' : '');
+      // The New-J# column doubles as the outcome column: J# for an install, the
+      // reason for a UTI, and a "Visited/Unaccounted — {note}" line for the two
+      // attendance outcomes. Reads stay blank for anything that isn't an install.
+      const note4 =
+        x.status === 'UTI'         ? (x.utiReason || 'UTI') :
+        x.status === 'VISITED'     ? ('Visited' + (x.notes ? (' — ' + x.notes) : '')) :
+        x.status === 'UNACCOUNTED' ? ('Unaccounted' + (x.notes ? (' — ' + x.notes) : '')) :
+                                     (x.newJNumber || '');
       copy.getRange(r,1,1,8).setValues([[
         i+1, x.workOrderId || '', x.oldJNumber || '',
-        isUti ? (x.utiReason || 'UTI') : (x.newJNumber || ''),
+        note4,
         locLabelSrv(x), '',                    // Island Name blank in Phase 1
-        isUti ? '' : reads,
+        x.status === 'INSTALLED' ? reads : '',
         dtMinutesForWO(x.workOrderId, s.downtime)
       ]]);
     });
 
     copy.getRange(footerRow, 2).setValue(installed);
     copy.getRange(footerRow, 4).setValue(uti);
-    copy.getRange(footerRow, 5).setValue('Delays:  ' + downtimeSummary(s.downtime));
+    const extraCounts = (visited ? ('Visited ' + visited + '  ·  ') : '')
+                      + (unaccounted ? ('Unaccounted ' + unaccounted + '  ·  ') : '');
+    copy.getRange(footerRow, 5).setValue(extraCounts + 'Delays:  ' + downtimeSummary(s.downtime));
     SpreadsheetApp.flush();
 
     // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
@@ -332,6 +364,16 @@ function doGet(e) {
   if (p.action === 'pins')    return json(pins());
   if (p.action === 'tracker') return json(tracker());
   if (p.action === 'roster')  return json(roster());
+  if (p.action === 'idle') {
+    const date = p.date || today();
+    const id   = String(p.installerId == null ? '' : p.installerId).trim();
+    const emp  = id ? employeeByH(id) : null;
+    const installer = emp ? fullName(emp) : (p.installer || '');
+    // Departure / return aren't known when the EOD sheet first opens, so the
+    // confirm list is the team-aware inter-meter gaps; ramp/tail still fold into
+    // autoIdleMin at close (endOfDay passes the times in).
+    return json(Object.assign({ ok: true }, computeIdle(teamStopsFor(id, installer, date))));
+  }
   return json({ ok: true, message: 'Meter Log spine is up.' });
 }
 
@@ -455,26 +497,37 @@ function endOfDay(b) {
   const installer = emp ? fullName(emp) : (b.installer || '');
   const date = b.date || today();
   const stops = stopsFor(installer, date);
-  const installed = stops.filter(s => s.status === 'INSTALLED').length;
-  const uti       = stops.filter(s => s.status === 'UTI').length;
+  const installed   = stops.filter(s => s.status === 'INSTALLED').length;
+  const uti         = stops.filter(s => s.status === 'UTI').length;
+  const visited     = stops.filter(s => s.status === 'VISITED').length;
+  const unaccounted = stops.filter(s => s.status === 'UNACCOUNTED').length;
 
   const dt = downtimeFor(installer, date);
   const byCat = {}; CATEGORIES.forEach(c => byCat[c] = 0);
   let total = 0;
   dt.forEach(d => { byCat[d.category] = (byCat[d.category] || 0) + d.minutes; total += d.minutes; });
 
+  const team = installerId ? teamForEmployee(installerId) : null;
+  const hdr  = teamHeader(team, installerId);
+
+  // Derived idle: team-aware inter-meter gaps + the morning-ramp / EOD-tail
+  // anchored on the departure / return times entered at close. Travel-adjusted,
+  // so long inter-island rides aren't counted. Recorded silently alongside the
+  // manual (categorized) downtime — the two are related but NOT additive.
+  const idle = computeIdle(teamStopsFor(installerId, installer, date), b.departure, b.returned);
+
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tracker').appendRow([
     date, installer, installed, uti, total,
     byCat.NEXT_GEN, byCat.CELL_SIGNAL, byCat.BAD_WEATHER, byCat.WAREHOUSE,
     byCat.TOOLS_MATERIAL, byCat.DISPATCH, byCat.TRUCK_ISSUES, byCat.ASSIST,
-    byCat.URGENT_EER, byCat.OTHER, b.weather || '', b.notes || ''
+    byCat.URGENT_EER, byCat.OTHER, b.weather || '', b.notes || '',
+    visited, unaccounted, idle.idleMinutes
   ]);
 
-  const team = installerId ? teamForEmployee(installerId) : null;
-  const hdr  = teamHeader(team, installerId);
-
-  const summary = { date, installer, installed, uti, downtimeTotalMin: total,
+  const summary = { date, installer, installed, uti, visited, unaccounted,
+    downtimeTotalMin: total, autoIdleMin: idle.idleMinutes, idleGaps: idle.gaps,
     byCategory: byCat, notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
+    departure: b.departure || '', returned: b.returned || '',
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
     boatTeam: hdr.boatTeam, boatName: hdr.boatName,
     team: team ? team.id : null };
@@ -482,6 +535,76 @@ function endOfDay(b) {
   // Tracker row is already written, so a PDF hiccup can't block closing the day.
   const pdf = buildDailyLogPdf(summary);
   return { ok: true, summary, pdf };
+}
+
+/** All of one installer's stops for the day PLUS their boat-team partners' — the
+ *  partners being whoever shares their team letter (a single-man team yields just
+ *  the installer). Every stop is an "activity" that resets the idle clock, so a
+ *  partner's install keeps the team productive. */
+function teamStopsFor(installerId, installer, date) {
+  const team = installerId ? teamForEmployee(installerId) : null;
+  let out = stopsFor(installer, date);
+  teamPartnerNames(team, installerId).forEach(n => { out = out.concat(stopsFor(n, date)); });
+  return out;
+}
+
+/** The display names of the installer's same-letter boat-team partners (the
+ *  array form of teamHeader().partner). */
+function teamPartnerNames(team, selfH) {
+  if (!team) return [];
+  selfH = String(selfH || '').trim();
+  const letter = team.memberLetters[selfH] || '';
+  return Object.keys(team.memberLetters)
+    .filter(h => h !== selfH && letter && team.memberLetters[h] === letter)
+    .map(nameOfH).filter(Boolean);
+}
+
+/** Derive idle time from a day's team activity. Each stop is one activity marker
+ *  (timestamp + optional GPS). For consecutive markers the raw gap is reduced by
+ *  the travel time the hop should have taken (haversine ÷ BOAT_SPEED_KMH) plus a
+ *  fixed on-meter buffer; only the leftover above IDLE_GAP_THRESHOLD_MIN counts.
+ *  When a departure / return clock time is supplied, the morning ramp (dock →
+ *  first stop) and EOD tail (last stop → dock) are added too. Returns the total
+ *  idle minutes and the per-gap breakdown for the confirm/label step. */
+function computeIdle(teamStops, departure, returned) {
+  const acts = (teamStops || [])
+    .map(s => ({ sec: secOfDay(s.timestamp), lat: numCoord(s.lat), lng: numCoord(s.lng), wo: s.workOrderId }))
+    .filter(a => a.sec != null)
+    .sort((a, b) => a.sec - b.sec);
+
+  let idleMinutes = 0;
+  const gaps = [];
+  const pushGap = g => { idleMinutes += g.idleMin; gaps.push(g); };
+
+  for (let i = 1; i < acts.length; i++) {
+    const prev = acts[i - 1], cur = acts[i];
+    const rawMin = (cur.sec - prev.sec) / 60;
+    if (rawMin <= 0) continue;
+    let travelMin = ON_METER_MIN;
+    if (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null)
+      travelMin += (haversine(prev.lat, prev.lng, cur.lat, cur.lng) / 1000 / BOAT_SPEED_KMH) * 60;
+    const idleMin = Math.round(Math.max(0, rawMin - travelMin));
+    if (idleMin >= IDLE_GAP_THRESHOLD_MIN)
+      pushGap({ start: secToHHMM(prev.sec), end: secToHHMM(cur.sec),
+                rawMin: Math.round(rawMin), travelMin: Math.round(travelMin),
+                idleMin: idleMin, toWO: cur.wo || '', kind: 'gap' });
+  }
+
+  if (acts.length) {
+    const dep = clockSec(departure), ret = clockSec(returned);
+    const first = acts[0], last = acts[acts.length - 1];
+    if (dep != null && (first.sec - dep) >= IDLE_GAP_THRESHOLD_MIN * 60)
+      pushGap({ start: secToHHMM(dep), end: secToHHMM(first.sec),
+                rawMin: Math.round((first.sec - dep) / 60), travelMin: 0,
+                idleMin: Math.round((first.sec - dep) / 60), toWO: first.wo || '', kind: 'ramp' });
+    if (ret != null && (ret - last.sec) >= IDLE_GAP_THRESHOLD_MIN * 60)
+      pushGap({ start: secToHHMM(last.sec), end: secToHHMM(ret),
+                rawMin: Math.round((ret - last.sec) / 60), travelMin: 0,
+                idleMin: Math.round((ret - last.sec) / 60), toWO: '', kind: 'tail' });
+  }
+
+  gaps.sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+  return { idleMinutes: Math.round(idleMinutes), gaps: gaps };
 }
 
 // ── Crew + boat teams ──────────────────────────────────────────────────────
@@ -743,7 +866,8 @@ function pins() {
     lat: (r.lat === '' || r.lat == null) ? null : Number(r.lat),
     lng: (r.lng === '' || r.lng == null) ? null : Number(r.lng),
     newJNumber: r.newJNumber, oldJNumber: r.oldJNumber,
-    meterRead: r.meterRead, status: r.status, utiReason: r.utiReason
+    meterRead: r.meterRead, status: r.status, utiReason: r.utiReason,
+    notes: r.notes
   })) };
 }
 
@@ -805,6 +929,33 @@ function today()        { return Utilities.formatDate(new Date(), TIMEZONE, 'yyy
 function newId()        { return Date.now() + '-' + Math.random().toString(36).slice(2, 8); }
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
 function sameName(a, b) { return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim(); }
+function numCoord(v)    { return (v === '' || v == null || isNaN(Number(v))) ? null : Number(v); }
+
+/** Seconds-since-midnight (Toronto) for a stop timestamp. Mirrors dateOf(): a
+ *  real Date or a UTC/offset ISO string is read in Toronto; a plain local stamp
+ *  ("2026-06-19 10:58:04") has its time part taken as-is. Returns null if no
+ *  time can be found. All idle math is same-day, so a seconds-of-day diff sidesteps
+ *  epoch/timezone parsing entirely. */
+function secOfDay(ts) {
+  let hms;
+  if (ts instanceof Date) {
+    hms = Utilities.formatDate(ts, TIMEZONE, 'HH:mm:ss');
+  } else {
+    const s = String(ts);
+    if (/T.*(Z|[+\-]\d\d:?\d\d)$/.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) hms = Utilities.formatDate(d, TIMEZONE, 'HH:mm:ss');
+    }
+    if (!hms) { const m = s.match(/[ T](\d{2}):(\d{2})(?::(\d{2}))?/); if (m) hms = m[1] + ':' + m[2] + ':' + (m[3] || '00'); }
+  }
+  if (!hms) return null;
+  const p = hms.split(':');
+  return (+p[0]) * 3600 + (+p[1]) * 60 + (+(p[2] || 0));
+}
+/** Seconds-since-midnight for an "HH:mm" clock string (a <input type=time>). */
+function clockSec(v) { const m = String(v == null ? '' : v).match(/(\d{1,2}):(\d{2})/); return m ? ((+m[1]) * 3600 + (+m[2]) * 60) : null; }
+/** Seconds-since-midnight back to "HH:mm" for display. */
+function secToHHMM(sec) { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2); }
 /** Coerce a sheet cell to a boolean. Blank cells fall back to `dflt` so an
  *  Employees row written before the 'active' column existed reads as active. */
 function isTruthy(v, dflt) {
