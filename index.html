@@ -49,8 +49,8 @@
   .seg button:active{transform:scale(.98)}
   .seg button.on-install{border-color:var(--install);color:#fff;background:var(--install)}
   .seg button.on-uti{border-color:var(--uti);color:#fff;background:var(--uti)}
-  .seg button.on-visited{border-color:var(--visited);color:#fff;background:var(--visited)}
-  .seg button.on-unaccounted{border-color:var(--unaccounted);color:#fff;background:var(--unaccounted)}
+  .seg button.on-other{border-color:var(--unaccounted);color:#fff;background:var(--unaccounted)}
+  .seg button.seg-wide{grid-column:1/-1}
 
   label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin:14px 2px 6px}
   input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:12px;
@@ -150,8 +150,7 @@
   <div class="seg" role="group" aria-label="Status">
     <button id="btnInstall" class="on-install">INSTALLED</button>
     <button id="btnUti">UTI</button>
-    <button id="btnVisited">VISITED</button>
-    <button id="btnUnaccounted">UNACCOUNTED</button>
+    <button id="btnOther" class="seg-wide">OTHER</button>
   </div>
 
   <label for="wo">Work order #</label>
@@ -234,19 +233,16 @@
     </div>
   </div>
 
-  <!-- VISITED fields — saw a meter, couldn't do it: old J# + a note -->
-  <div id="visitedFields" class="hide">
-    <label for="visitedOldJ">Old J# (scan or type)</label>
+  <!-- OTHER — one "we were here" log + the mark-spot button. The stored status is
+       derived on save: an Old J# → VISITED (saw a meter), blank → UNACCOUNTED. -->
+  <div id="otherFields" class="hide">
+    <label for="otherOldJ">Old J# (scan or type) <span style="font-weight:500">(optional)</span></label>
     <div class="scanrow">
-      <input id="visitedOldJ" class="mono" autocapitalize="characters">
-      <button class="scanbtn" id="scanVisitedOldJ" type="button">Scan</button>
+      <input id="otherOldJ" class="mono" autocapitalize="characters">
+      <button class="scanbtn" id="scanOtherOldJ" type="button">Scan</button>
     </div>
-    <p class="loc" style="margin-top:8px">Saw a meter but couldn’t do it — add the old J# and a note below.</p>
-  </div>
-
-  <!-- UNACCOUNTED fields — showed up, couldn't find/confirm a meter -->
-  <div id="unaccountedFields" class="hide">
-    <p class="loc" style="margin-top:8px">Showed up but couldn’t find or confirm a meter. Your GPS + a note below record that you were here.</p>
+    <p class="loc" style="margin-top:8px">Saw a meter or checked a spot — add the Old J# if you have one (logs a <b>Visit</b>). Leave it blank if you couldn’t find or confirm a meter (logs <b>Unaccounted</b>). Add a note below, then tap <b>Log stop</b>.</p>
+    <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Already installed here · mark spot</button>
   </div>
 
   <label for="unit">Unit</label>
@@ -263,8 +259,6 @@
 
   <button class="primary" id="logStop">Log stop</button>
 
-  <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Already installed here · mark spot</button>
-
   <div class="row2">
     <button class="ghost" id="openDowntime">Add downtime</button>
     <button class="ghost" id="endDay">End of day</button>
@@ -274,6 +268,8 @@
     <button class="ghost" id="openToday">Today’s orders</button>
     <button class="ghost" id="openLookup">Look up · WO# / J#</button>
   </div>
+
+  <button class="ghost" id="genLog" style="width:100%;margin-top:12px">Generate daily log (draft)</button>
 
   <div class="toast" id="toast"></div>
 
@@ -476,20 +472,18 @@ $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').clas
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';
-$('btnInstall').onclick     = () => setStatus('INSTALLED');
-$('btnUti').onclick         = () => setStatus('UTI');
-$('btnVisited').onclick     = () => setStatus('VISITED');
-$('btnUnaccounted').onclick = () => setStatus('UNACCOUNTED');
+$('btnInstall').onclick = () => setStatus('INSTALLED');
+$('btnUti').onclick     = () => setStatus('UTI');
+$('btnOther').onclick   = () => setStatus('OTHER');
 function setStatus(s){
   status = s;
-  $('btnInstall').className     = s==='INSTALLED'   ? 'on-install'     : '';
-  $('btnUti').className         = s==='UTI'         ? 'on-uti'         : '';
-  $('btnVisited').className     = s==='VISITED'     ? 'on-visited'     : '';
-  $('btnUnaccounted').className = s==='UNACCOUNTED' ? 'on-unaccounted' : '';
+  $('btnInstall').className = s==='INSTALLED' ? 'on-install' : '';
+  $('btnUti').className     = s==='UTI'       ? 'on-uti'     : '';
+  // OTHER keeps its full-width modifier whether or not it's selected.
+  $('btnOther').className   = 'seg-wide' + (s==='OTHER' ? ' on-other' : '');
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
-  $('visitedFields').classList.toggle('hide', s!=='VISITED');
-  $('unaccountedFields').classList.toggle('hide', s!=='UNACCOUNTED');
+  $('otherFields').classList.toggle('hide', s!=='OTHER');
   setNoRead(false); setSolar(false);
 }
 $('utiReason').onchange = e => {
@@ -590,11 +584,15 @@ $('logStop').onclick = () => {
   if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
+  // OTHER is one button: an Old J# means we saw a meter (VISITED); blank means we
+  // couldn't find/confirm one (UNACCOUNTED). Other statuses pass through as-is.
+  const otherJ = $('otherOldJ').value.trim();
+  const outStatus = status==='OTHER' ? (otherJ ? 'VISITED' : 'UNACCOUNTED') : status;
   const base = {
     token:c.token, action:'addStop', installer:c.name,
     timestamp:stamp(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
-    address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status,
+    address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
     notes:$('stopNotes').value.trim()
   };
   if(status==='INSTALLED' && noRead){
@@ -614,22 +612,18 @@ $('logStop').onclick = () => {
     Object.assign(base, {
       meterRead:null, meterReadReceived:null, newJNumber:null, oldJNumber:$('oldJ').value.trim(), noReadReason:null,
       utiReason: reason==='Other' ? ('Other: '+$('utiOther').value.trim()) : reason });
-  } else if(status==='VISITED'){
+  } else { // OTHER — VISITED (has an old J#) or UNACCOUNTED (blank); coords + note
     Object.assign(base, {
       meterRead:null, meterReadReceived:null, newJNumber:null,
-      oldJNumber:$('visitedOldJ').value.trim()||null, noReadReason:null, utiReason:null });
-  } else { // UNACCOUNTED — couldn't find/confirm a meter; just coords + the note
-    Object.assign(base, {
-      meterRead:null, meterReadReceived:null, newJNumber:null,
-      oldJNumber:null, noReadReason:null, utiReason:null });
+      oldJNumber: otherJ || null, noReadReason:null, utiReason:null });
   }
   enqueue(base);
   toast(
-    status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
-    status==='UTI'       ? 'UTI logged ✓' :
-    status==='VISITED'   ? 'Visited logged ✓' :
-                           'Unaccounted logged ✓');
-  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','visitedOldJ','stopNotes'].forEach(id => $(id).value='');
+    status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
+    status==='UTI'        ? 'UTI logged ✓' :
+    outStatus==='VISITED' ? 'Visited logged ✓' :
+                            'Unaccounted logged ✓');
+  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
   setNoRead(false); setSolar(false);
   getLocation();
 };
@@ -819,8 +813,8 @@ function renderIdleGaps(gaps){
   if(!gaps || !gaps.length) return;
   const opts = Object.keys(CAT_LABEL).map(k => `<option value="${k}">${CAT_LABEL[k]}</option>`).join('');
   const head = document.createElement('div');
-  head.innerHTML = '<h1 style="margin-top:22px">Detected idle gaps</h1>'
-    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times, travel time already removed. Label any real downtime and confirm — it’s added to today’s total. Skip a gap to leave it as raw idle only.</p>';
+  head.innerHTML = '<h1 style="margin-top:22px">Long stops on one island</h1>'
+    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times — long pauses without moving (island-to-island travel is tracked separately). Label any real downtime and confirm — it’s added to today’s total. Skip a gap to leave it as a plain delay.</p>';
   box.appendChild(head);
   gaps.forEach(g => {
     const card = document.createElement('div');
@@ -924,6 +918,27 @@ function downloadBase64Pdf(b64, name){
     setTimeout(()=>URL.revokeObjectURL(url), 5000);
   } catch { toast('PDF ready, but download was blocked — it’s also in Drive'); }
 }
+
+// ── generate a draft daily log WITHOUT closing the day ─────────────────────
+// Builds + downloads the PDF from today's stops only. Writes nothing (no Tracker
+// row); departure / return / weather stay blank — the real End of day fills them.
+$('genLog').onclick = async () => {
+  const c = cfg();
+  if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
+  toast('Building daily log…');
+  await flush();
+  try{
+    const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ token:c.token, action:'previewDailyLog',
+                             installer:c.name, installerId:c.hNumber }) })).json();
+    if (d.pdf && d.pdf.base64) {
+      downloadBase64Pdf(d.pdf.base64, d.pdf.name);
+      toast('Daily log downloaded — draft (day not closed)');
+    } else {
+      toast(d.pdf && d.pdf.error ? 'Daily log failed to build' : 'No stops logged today yet');
+    }
+  } catch { toast('Could not reach the sheet'); }
+};
 
 // ── today's orders: a quick table of what's logged today ───────────────────
 $('openToday').onclick = async () => {
@@ -1051,7 +1066,7 @@ function stopScan(){ releaseScan(); $('scanSheet').classList.add('hide'); }
 $('scanNrOldJ').onclick     = () => startScan('nrOldJ');
 $('scanOldJ').onclick       = () => startScan('oldJ');
 $('scanInstallOldJ').onclick = () => startScan('installOldJ');
-$('scanVisitedOldJ').onclick = () => startScan('visitedOldJ');
+$('scanOtherOldJ').onclick  = () => startScan('otherOldJ');
 $('cancelScan').onclick = () => stopScan();
 
 // ── settings + sheets plumbing ──────────────────────────────────────────────
