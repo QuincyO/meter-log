@@ -304,6 +304,7 @@
         <option value="TRUCK_ISSUES">Truck Issues</option>
         <option value="ASSIST">Assist</option>
         <option value="URGENT_EER">Urgent / EER</option>
+        <option value="TRAVEL_TIME">Travel Time</option>
         <option value="OTHER">Other</option>
       </select>
       <label for="dtNote" id="dtNoteLabel" class="hide">What happened?</label>
@@ -811,10 +812,12 @@ $('endDay').onclick = async () => {
 function renderIdleGaps(gaps){
   const box = $('eodIdle'); box.innerHTML='';
   if(!gaps || !gaps.length) return;
-  const opts = Object.keys(CAT_LABEL).map(k => `<option value="${k}">${CAT_LABEL[k]}</option>`).join('');
+  // Each gap arrives with a distance-based `suggest`ed category — pre-select it.
+  const optsFor = sel => Object.keys(CAT_LABEL)
+    .map(k => `<option value="${k}"${k===sel?' selected':''}>${CAT_LABEL[k]}</option>`).join('');
   const head = document.createElement('div');
-  head.innerHTML = '<h1 style="margin-top:22px">Long stops on one island</h1>'
-    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times — long pauses without moving (island-to-island travel is tracked separately). Label any real downtime and confirm — it’s added to today’s total. Skip a gap to leave it as a plain delay.</p>';
+  head.innerHTML = '<h1 style="margin-top:22px">Gaps over 20 min</h1>'
+    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times. Label a long ride as <b>Travel Time</b>, or pick the downtime reason. Confirm to add it to today’s total; skip to leave it out.</p>';
   box.appendChild(head);
   gaps.forEach(g => {
     const card = document.createElement('div');
@@ -823,11 +826,11 @@ function renderIdleGaps(gaps){
     card.innerHTML = `
       <div class="sc-head">
         <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
-          <span class="sc-meta">${g.idleMin} min idle${kindTag}${g.toWO?(' · next WO '+esc(g.toWO)):''}</span></div>
+          <span class="sc-meta">${g.idleMin} min${kindTag}${g.toWO?(' · next WO '+esc(g.toWO)):''}</span></div>
       </div>
       <label>Category</label>
-      <select class="mono" data-f="cat">${opts}</select>
-      <button class="primary sc-save" data-act="confirm" style="height:50px">Add ${g.idleMin} min downtime</button>`;
+      <select class="mono" data-f="cat">${optsFor(g.suggest)}</select>
+      <button class="primary sc-save" data-act="confirm" style="height:50px">Add ${g.idleMin} min</button>`;
     const btn = card.querySelector('[data-act="confirm"]');
     btn.onclick = () => {
       const c = cfg();
@@ -837,7 +840,7 @@ function renderIdleGaps(gaps){
                 note:`auto-detected gap ${g.start}–${g.end}` });
       btn.textContent = 'Added ✓'; btn.disabled = true;
       card.querySelector('[data-f="cat"]').disabled = true;
-      toast('Downtime added ✓');
+      toast('Added ✓');
     };
     box.appendChild(card);
   });
@@ -957,7 +960,8 @@ $('openToday').onclick = async () => {
 const CAT_LABEL = {
   NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
   WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
-  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other'
+  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER',
+  TRAVEL_TIME:'Travel Time', OTHER:'Other'
 };
 const catLabel = c => CAT_LABEL[c] || c || 'Other';
 

@@ -175,7 +175,11 @@ plain `addStop` calls — no new endpoint.
 
 **Downtime categories:**
 `NEXT_GEN`, `CELL_SIGNAL`, `BAD_WEATHER`, `WAREHOUSE`, `TOOLS_MATERIAL`,
-`DISPATCH`, `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`.
+`DISPATCH`, `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`, `TRAVEL_TIME`.
+`TRAVEL_TIME` is selectable like the rest but is **not** real downtime — its minutes
+are routed to the travel total and kept out of `downtimeTotalMin` and the per-category
+breakdown (see "Travel vs delay"). It is intentionally absent from `CATEGORIES` in
+`Code.gs` so it gets no Tracker breakdown column.
 
 ### Tracker row  (one per installer per day → tab "Tracker")
 Appended automatically at end-of-day. This is the "continues forever" sheet, and
@@ -184,18 +188,16 @@ the source the viewer's analytics charts read from.
 
 The per-category columns are summed minutes for that day, so the running sheet is
 also a breakdown, not just a single downtime number. `visited` / `unaccounted` are
-the day's counts of those two outcomes. `travelMin` / `delayMin` are the **derived**
-distance-split timing (see "Travel vs delay" below): `travelMin` = island-to-island
-rides + the launch/return legs, `delayMin` = same-island meter-to-meter time.
-`autoIdleMin` is a **legacy** column left in place for old rows (now written blank).
-All of these were **appended** after `notes` so older sheets migrate cleanly via
-`ensureTab` — re-run `setupSheets()` once after deploying to add them.
+the day's counts of those two outcomes. `travelMin` is the **derived** travel time
+(see "Travel vs delay" below) = auto sub-20-min hops + launch/return legs + any gap
+confirmed as Travel Time. `autoIdleMin` and `delayMin` are **legacy** columns left in
+place for old rows (now written blank). All were **appended** after `notes` so older
+sheets migrate cleanly via `ensureTab` — re-run `setupSheets()` once after deploying.
 
-> **`travelMin` / `delayMin` vs `downtimeTotalMin` are related but NOT additive.**
-> `downtimeTotalMin` is the sum of *categorized, logged* `Downtime` rows;
-> `travelMin` / `delayMin` are *derived from stop timestamps + GPS*. A long
-> same-island sit can be confirmed into a `Downtime` row, so it can show up in
-> both — don't sum them.
+> **`travelMin` vs `downtimeTotalMin` are separate, not additive.**
+> `downtimeTotalMin` is the sum of *categorized, logged* `Downtime` rows (excluding
+> `TRAVEL_TIME`); `travelMin` is *derived from stop timestamps + GPS* plus any
+> Travel-Time-labelled gap. They never share the same minutes — don't sum them.
 
 ### Employee  (one row per crew member → tab "Employees")
 The crew roster, managed from `teams.html`. Keyed on the **employee number**
@@ -280,9 +282,9 @@ Same pattern as Captains, for sub/subforeman names.
 
 Timing is **derived** by the spine from data already captured — every stop's
 Toronto-local timestamp + GPS, plus boat-team membership — so the crew logs nothing
-extra for it. The crew's mental model: *meter-to-meter on the same island is a
-delay; the long ride between islands is travel.* The split is by **distance moved**,
-not a travel-speed estimate.
+extra for it. The crew's mental model: *under ~20 min between stops you're just
+driving (travel); a longer gap is worth a look.* The auto split is by **time**;
+distance only hints what a flagged gap probably was.
 
 **`computeIdle()` (in `Code.gs`)** walks the day's markers in time order — **every**
 stop counts (install, UTI, visited, unaccounted, **and** done), "since we still take
@@ -292,30 +294,38 @@ the time to go and check":
    partners'* stops for the day (a single-man team is just their own), so a
    partner's install advances the whole team's clock — "from the first meter to
    whoever does the next one, me or my partner."
-2. **Distance split.** For each consecutive pair, the raw gap is classified purely
-   by how far the boat moved (`haversine`):
-   - **≤ `SAME_ISLAND_M`** (default 500 m) → **delay**: the raw minutes are that
-     arriving stop's *per-stop delay*, printed in the log's "Delays" column and
-     summed into `delayMin` / the "Delay Time" box.
-   - **> `SAME_ISLAND_M`** → **travel**: the raw minutes go to `travelMin` / the
-     "Travel Time" box only; that arriving row's Delays cell prints blank.
+2. **Time gate.** For each consecutive pair the raw gap is classified by duration:
+   - **< `FLAG_GAP_MIN`** (default 20 min) → **travel** (auto, silent): the minutes
+     go to the travel total. Every stop's `rawMin` is also recorded as its *per-stop
+     travel*, printed in the log's "Delays" column (minutes since the previous stop).
+   - **≥ `FLAG_GAP_MIN`** → **flagged**: pushed to the end-of-day label list with a
+     distance-based `suggest`ed category — moved **> `SAME_ISLAND_M`** (500 m) →
+     *Travel Time* (a long ride); otherwise a downtime reason. Not auto-counted.
 3. **Launch / return legs.** When a **departure** and/or **return** time is entered
    at end-of-day, dock→first-stop and last-stop→dock are added to **travel** (always
-   — you're coming from / returning to land). Those times also fill the Departure /
-   Returned boxes on the PDF.
+   — you're coming from / returning to land) and never flagged. Those times also fill
+   the Departure / Returned boxes on the PDF, and the launch leg shows as the first
+   row's "Delays" value.
 
-The two tunables (`SAME_ISLAND_M`, `IDLE_GAP_THRESHOLD_MIN`) sit at the top of
-`Code.gs` and are field-adjustable.
+The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
+are field-adjustable.
 
-**Wiring.** `endOfDay` (via `buildDaySummary` → `computeIdle`) writes `travelMin` /
-`delayMin` to the Tracker and the per-stop delays to the PDF. Separately, a long
-**same-island sit** (a same-island gap over `IDLE_GAP_THRESHOLD_MIN`) is surfaced at
-end-of-day: the form fetches `?action=idle&installerId=…&date=…`, renders each such
-gap with a category dropdown, and confirming one **enqueues a normal `addDowntime`**
-(reusing the existing Downtime tab/categories); `finishDay` flushes before closing so
-confirmed gaps land in that day's categorized total. Travel is **not** offered for
-labelling — it's auto-totalled. *Known minor limit:* re-opening the sheet re-lists
-gaps already confirmed that session — there's no gap↔Downtime backlink.
+**Travel Time is a special category.** It appears in the downtime dropdowns (manual
+*Add downtime* + the end-of-day gap list) and is stored like any `addDowntime` row,
+but `buildDaySummary` routes `TRAVEL_TIME` minutes into the **travel** total and keeps
+them **out** of the downtime total / per-category breakdown — so confirming an honest
+long ride as Travel Time doesn't pad the downtime numbers. The PDF "Travel Time:" box
+= auto short hops + launch/return legs + Travel-Time-labelled gaps; "Delay Time:" box
+= the categorized downtime total.
+
+**Wiring.** `endOfDay` (via `buildDaySummary` → `computeIdle`) writes `travelMin` to
+the Tracker (the legacy `autoIdleMin` / `delayMin` columns are now blank) and the
+per-stop travel minutes to the PDF. Each **≥20-min gap** is surfaced at end-of-day:
+the form fetches `?action=idle&installerId=…&date=…`, renders each gap with a category
+dropdown **pre-selected to its suggestion**, and confirming one **enqueues a normal
+`addDowntime`**; `finishDay` flushes before closing so confirmed gaps land in that
+day's totals. *Known minor limit:* re-opening the sheet re-lists gaps already
+confirmed that session — there's no gap↔Downtime backlink.
 
 ---
 

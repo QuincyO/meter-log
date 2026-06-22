@@ -42,17 +42,16 @@
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr'; // crude gate; must match the caller
 const TIMEZONE     = 'America/Toronto';
 
-// ── Delay / travel tuning (field-tunable) ──────────────────────────────────
-// Delay vs travel is derived from the timestamps + GPS already on each stop.
-// Walking the team's stops in time order, the gap between two consecutive stops
-// is classified purely by how far the boat moved:
-//   • moved ≤ SAME_ISLAND_M  → same-island meter-to-meter "delay" (per-stop).
-//   • moved >  SAME_ISLAND_M  → island-to-island "travel" (its own total, plus
-//     the launch→first-meter and last-meter→dock legs).
-// A same-island delay longer than IDLE_GAP_THRESHOLD_MIN is also surfaced at
-// end-of-day so a long sit can be labelled into a Downtime category.
-const SAME_ISLAND_M          = 500;  // ≤ this between two stops = same island
-const IDLE_GAP_THRESHOLD_MIN = 15;   // same-island sits over this are offered for labelling
+// ── Travel / downtime tuning (field-tunable) ───────────────────────────────
+// Timing is derived from the timestamps + GPS already on each stop. Walking the
+// team's stops in time order, each gap between two consecutive stops is gated by
+// TIME first:
+//   • gap <  FLAG_GAP_MIN → travel (auto, silent; just driving between meters).
+//   • gap >= FLAG_GAP_MIN → flagged at end-of-day for the installer to label.
+// Distance only HINTS a flagged gap's default label: moved more than SAME_ISLAND_M
+// pre-suggests "Travel Time" (a long ride); otherwise a real downtime reason.
+const FLAG_GAP_MIN  = 20;   // gaps shorter than this are auto travel; ≥ this get flagged
+const SAME_ISLAND_M = 500;  // a flagged gap that moved farther than this pre-suggests Travel Time
 
 const CATEGORIES = [
   'NEXT_GEN', 'CELL_SIGNAL', 'BAD_WEATHER', 'WAREHOUSE', 'TOOLS_MATERIAL',
@@ -203,8 +202,8 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.boatName,s.boatName || '');
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather,    s.weather  || '');
-    put(ANCHORS.delayTime, s.delayMinutes || 0);   // same-island meter-to-meter total
-    put(ANCHORS.travelTime,s.travelMinutes || 0);  // island-to-island + launch/return legs
+    put(ANCHORS.delayTime, s.downtimeTotalMin || 0);  // categorized downtime total (excl. Travel Time)
+    put(ANCHORS.travelTime,s.travelMinutes   || 0);   // auto short hops + launch/return + Travel-Time labels
     put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
 
@@ -229,15 +228,15 @@ function buildDailyLogPdf(s) {
         x.status === 'VISITED'     ? ('Visited' + (x.notes ? (' — ' + x.notes) : '')) :
         x.status === 'UNACCOUNTED' ? ('Unaccounted' + (x.notes ? (' — ' + x.notes) : '')) :
                                      (x.newJNumber || '');
-      // Delays = same-island minutes since the previous team stop. Travel rows
-      // (an island hop arrived here) have no per-stop delay, so they print blank.
-      const delay = (s.perStopDelay && x.id != null && s.perStopDelay[x.id]) || '';
+      // Delays column = minutes since the previous team stop (the travel to reach
+      // this one); the day's first row shows the launch → 1st-meter leg.
+      const travel = (s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '';
       copy.getRange(r,1,1,8).setValues([[
         i+1, x.workOrderId || '', x.oldJNumber || '',
         note4,
         locLabelSrv(x), '',                    // Island Name blank in Phase 1
         x.status === 'INSTALLED' ? reads : '',
-        delay
+        travel
       ]]);
     });
 
@@ -245,7 +244,9 @@ function buildDailyLogPdf(s) {
     copy.getRange(footerRow, 4).setValue(uti);
     const extraCounts = (visited ? ('Visited ' + visited + '  ·  ') : '')
                       + (unaccounted ? ('Unaccounted ' + unaccounted + '  ·  ') : '');
-    copy.getRange(footerRow, 5).setValue(extraCounts + 'Delays:  ' + downtimeSummary(s.downtime));
+    // Travel Time labels count as travel, not a delay, so keep them out of this line.
+    const delaysOnly = (s.downtime || []).filter(d => d.category !== 'TRAVEL_TIME');
+    copy.getRange(footerRow, 5).setValue(extraCounts + 'Delays:  ' + downtimeSummary(delaysOnly));
     SpreadsheetApp.flush();
 
     // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
@@ -280,7 +281,9 @@ function locLabelSrv(s) {
 }
 const CAT_LABEL_SRV = { NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
   WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
-  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other' };
+  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other',
+  // Logged like a downtime reason but counts as TRAVEL, not downtime (see buildDaySummary).
+  TRAVEL_TIME:'Travel Time' };
 function downtimeSummary(downtime) {
   const byCat = {}; let total = 0;
   (downtime||[]).forEach(d => { const c=d.category||'OTHER', m=Number(d.minutes)||0; byCat[c]=(byCat[c]||0)+m; total+=m; });
@@ -512,23 +515,31 @@ function buildDaySummary(b) {
   const visited     = stops.filter(s => s.status === 'VISITED').length;
   const unaccounted = stops.filter(s => s.status === 'UNACCOUNTED').length;
 
+  // Downtime rows split two ways: a TRAVEL_TIME row is logged like a downtime
+  // reason but counts as TRAVEL (a long ride someone confirmed), so it's added to
+  // the travel total and kept out of the downtime total + per-category breakdown.
   const dt = downtimeFor(installer, date);
   const byCat = {}; CATEGORIES.forEach(c => byCat[c] = 0);
-  let total = 0;
-  dt.forEach(d => { byCat[d.category] = (byCat[d.category] || 0) + d.minutes; total += d.minutes; });
+  let downtimeTotal = 0, travelFromLabels = 0;
+  dt.forEach(d => {
+    if (d.category === 'TRAVEL_TIME') { travelFromLabels += d.minutes; return; }
+    byCat[d.category] = (byCat[d.category] || 0) + d.minutes;
+    downtimeTotal += d.minutes;
+  });
 
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
 
-  // Distance-split timing: same-island gaps are per-stop delays; island-to-island
-  // rides (plus the launch / return legs anchored on the departure / return times
-  // entered at close) are travel. Team-aware and every status counts as a marker.
+  // Time-gated timing: gaps < FLAG_GAP_MIN are auto travel; ≥ FLAG_GAP_MIN are
+  // flagged for end-of-day labelling. Travel = auto short hops + launch/return
+  // legs + any gap the installer confirmed as Travel Time. Team-aware; every
+  // status counts as a marker.
   const timing = computeIdle(teamStopsFor(installerId, installer, date), b.departure, b.returned);
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
-    downtimeTotalMin: total, byCategory: byCat,
-    travelMinutes: timing.travelMinutes, delayMinutes: timing.delayMinutes,
-    perStopDelay: timing.perStopDelay, idleGaps: timing.gaps,
+    downtimeTotalMin: downtimeTotal, byCategory: byCat,
+    travelMinutes: timing.travelMinutes + travelFromLabels,
+    perStopTravel: timing.perStopTravel, idleGaps: timing.gaps,
     notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
     departure: b.departure || '', returned: b.returned || '',
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
@@ -548,7 +559,7 @@ function endOfDay(b) {
     byCat.NEXT_GEN, byCat.CELL_SIGNAL, byCat.BAD_WEATHER, byCat.WAREHOUSE,
     byCat.TOOLS_MATERIAL, byCat.DISPATCH, byCat.TRUCK_ISSUES, byCat.ASSIST,
     byCat.URGENT_EER, byCat.OTHER, s.weather, s.notes,
-    s.visited, s.unaccounted, '', s.travelMinutes, s.delayMinutes
+    s.visited, s.unaccounted, '', s.travelMinutes, ''   // autoIdleMin + delayMin are legacy/blank
   ]);
 
   const pdf = buildDailyLogPdf(s);
@@ -585,43 +596,42 @@ function teamPartnerNames(team, selfH) {
     .map(nameOfH).filter(Boolean);
 }
 
-/** Classify a day's team activity into same-island "delay" and island-to-island
- *  "travel". Each stop — any status (install, UTI, visited, unaccounted, done) —
- *  is one marker carrying a timestamp + optional GPS, "since we still take the
- *  time to go and check." Walking the markers in time order, each consecutive gap
- *  is split purely by how far the boat moved:
- *    • ≤ SAME_ISLAND_M → delay: the raw minutes are this stop's per-stop delay.
- *    • >  SAME_ISLAND_M → travel: the raw minutes go to the travel total only.
+/** Classify a day's team activity into "travel" and flagged gaps. Each stop —
+ *  any status (install, UTI, visited, unaccounted, done) — is one marker carrying
+ *  a timestamp + optional GPS, "since we still take the time to go and check."
+ *  Walking the markers in time order, each consecutive gap is gated by TIME:
+ *    • gap <  FLAG_GAP_MIN → travel (auto): the minutes go to the travel total,
+ *      and `rawMin` is recorded as that stop's per-stop travel for the PDF column.
+ *    • gap >= FLAG_GAP_MIN → flagged: pushed to gaps[] for the end-of-day label
+ *      step, with a distance-based `suggest`ed category (a long ride → Travel
+ *      Time, otherwise a downtime reason). NOT auto-counted anywhere.
  *  The launch→first-stop and last-stop→dock legs (when departure / return clock
- *  times are supplied) are travel too. A same-island delay over the threshold is
- *  also pushed to gaps[] so a long sit can be labelled into a Downtime category
- *  at close. Returns the travel + delay totals, a {stopId: delayMin} map for the
- *  PDF rows, and the per-gap breakdown for the confirm/label step. */
+ *  times are supplied) are always travel and never flagged. Returns the auto
+ *  travel total, a {stopId: travelMin} map for the PDF rows, and the flagged gaps. */
 function computeIdle(teamStops, departure, returned) {
   const acts = (teamStops || [])
     .map(s => ({ id: s.id, sec: secOfDay(s.timestamp), lat: numCoord(s.lat), lng: numCoord(s.lng), wo: s.workOrderId }))
     .filter(a => a.sec != null)
     .sort((a, b) => a.sec - b.sec);
 
-  let travelMinutes = 0, delayMinutes = 0;
-  const perStopDelay = {};
+  let travelMinutes = 0;
+  const perStopTravel = {};
   const gaps = [];
 
   for (let i = 1; i < acts.length; i++) {
     const prev = acts[i - 1], cur = acts[i];
     const rawMin = (cur.sec - prev.sec) / 60;
     if (rawMin <= 0) continue;
-    const moved = (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null)
-      ? haversine(prev.lat, prev.lng, cur.lat, cur.lng) : 0;
-    if (moved > SAME_ISLAND_M) {
-      travelMinutes += rawMin;                     // island-to-island ride → travel
+    const d = Math.round(rawMin);
+    if (cur.id != null) perStopTravel[cur.id] = d;   // every row prints its time since the last stop
+    if (rawMin < FLAG_GAP_MIN) {
+      travelMinutes += rawMin;                        // short hop → auto travel
     } else {
-      const d = Math.round(rawMin);                // same-island meter-to-meter → delay
-      delayMinutes += d;
-      if (cur.id != null) perStopDelay[cur.id] = d;
-      if (d >= IDLE_GAP_THRESHOLD_MIN)
-        gaps.push({ start: secToHHMM(prev.sec), end: secToHHMM(cur.sec),
-                    idleMin: d, toWO: cur.wo || '', kind: 'gap' });
+      const moved = (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null)
+        ? haversine(prev.lat, prev.lng, cur.lat, cur.lng) : 0;
+      gaps.push({ start: secToHHMM(prev.sec), end: secToHHMM(cur.sec),
+                  idleMin: d, toWO: cur.wo || '', kind: 'gap',
+                  suggest: moved > SAME_ISLAND_M ? 'TRAVEL_TIME' : 'OTHER' });
     }
   }
 
@@ -630,13 +640,16 @@ function computeIdle(teamStops, departure, returned) {
   if (acts.length) {
     const dep = clockSec(departure), ret = clockSec(returned);
     const first = acts[0], last = acts[acts.length - 1];
-    if (dep != null && first.sec > dep) travelMinutes += (first.sec - dep) / 60;
-    if (ret != null && ret > last.sec)  travelMinutes += (ret - last.sec) / 60;
+    if (dep != null && first.sec > dep) {
+      const leg = (first.sec - dep) / 60;
+      travelMinutes += leg;
+      if (first.id != null) perStopTravel[first.id] = Math.round(leg);   // first row = launch → 1st meter
+    }
+    if (ret != null && ret > last.sec) travelMinutes += (ret - last.sec) / 60;
   }
 
   gaps.sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
-  return { travelMinutes: Math.round(travelMinutes), delayMinutes: Math.round(delayMinutes),
-           perStopDelay: perStopDelay, gaps: gaps };
+  return { travelMinutes: Math.round(travelMinutes), perStopTravel: perStopTravel, gaps: gaps };
 }
 
 // ── Crew + boat teams ──────────────────────────────────────────────────────
