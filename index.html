@@ -156,6 +156,12 @@
     <label for="newJ">New J#</label>
     <input id="newJ" class="mono" autocapitalize="characters">
 
+    <label for="installOldJ">Old J# (scan or type)</label>
+    <div class="scanrow">
+      <input id="installOldJ" class="mono" autocapitalize="characters">
+      <button class="scanbtn" id="scanInstallOldJ" type="button">Scan</button>
+    </div>
+
     <div id="readWrap">
       <label for="read" id="readLabel">Meter read</label>
       <input id="read" class="mono" inputmode="numeric">
@@ -562,7 +568,7 @@ $('logStop').onclick = () => {
     Object.assign(base, {
       meterRead: num($('read').value),
       meterReadReceived: solar ? num($('readRecv').value) : null,
-      newJNumber: $('newJ').value.trim(), oldJNumber:null, noReadReason:null, utiReason:null });
+      newJNumber: $('newJ').value.trim(), oldJNumber:$('installOldJ').value.trim()||null, noReadReason:null, utiReason:null });
   } else {
     const reason = $('utiReason').value;
     Object.assign(base, {
@@ -571,7 +577,7 @@ $('logStop').onclick = () => {
   }
   enqueue(base);
   toast(status==='INSTALLED' ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') : 'UTI logged ✓');
-  ['read','readRecv','newJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','stopNotes'].forEach(id => $(id).value='');
+  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','stopNotes'].forEach(id => $(id).value='');
   setNoRead(false); setSolar(false);
   getLocation();
 };
@@ -923,8 +929,9 @@ function releaseScan(){
   const v = $('scanVideo'); if(v) v.srcObject = null;
 }
 function stopScan(){ releaseScan(); $('scanSheet').classList.add('hide'); }
-$('scanNrOldJ').onclick = () => startScan('nrOldJ');
-$('scanOldJ').onclick   = () => startScan('oldJ');
+$('scanNrOldJ').onclick     = () => startScan('nrOldJ');
+$('scanOldJ').onclick       = () => startScan('oldJ');
+$('scanInstallOldJ').onclick = () => startScan('installOldJ');
 $('cancelScan').onclick = () => stopScan();
 
 // ── settings + sheets plumbing ──────────────────────────────────────────────

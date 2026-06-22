@@ -90,7 +90,8 @@ const BODY_ROWS    = 18;   // printed blank rows, like the paper form
 const ANCHORS = {
   name:'B1', partner:'B2', captain:'B3',           // crew, auto-filled from the boat team
   boatTeam:'D1', boatName:'D2', date:'D3', sub:'D4',
-  weather:'G2'
+  weather:'G2',
+  delayTime:'D5'
 };
 
 /** Builds the template tab to match the paper daily log. Re-run any time the
@@ -174,7 +175,8 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.boatTeam,s.boatTeam || '');    // boat number + team letter, e.g. "11A"
     put(ANCHORS.boatName,s.boatName || '');
     put(ANCHORS.date,    s.date);
-    put(ANCHORS.weather, s.weather  || '');
+    put(ANCHORS.weather,    s.weather  || '');
+    put(ANCHORS.delayTime, (s.downtime||[]).reduce((t,d) => t + (Number(d.minutes)||0), 0));
 
     let footerRow = FOOTER0;
     if (n > BODY_ROWS) {                       // grow if a big day
