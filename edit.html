@@ -118,6 +118,10 @@
         <div><label for="departure">Departure time <span style="font-weight:500">(left dock)</span></label><input id="departure" type="time"></div>
         <div><label for="returned">Returned to land</label><input id="returned" type="time"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:8px">
+        <input type="checkbox" id="includeDelays" checked style="width:auto;margin:0">
+        Include delays &amp; travel time on PDF
+      </label>
       <div class="actions">
         <button class="btn" id="saveTimes">Save times</button>
         <button class="btn primary" id="genLog">Generate daily log</button>
@@ -412,7 +416,8 @@ $('genLog').onclick = async () => {
     // endOfDay is idempotent on (date, installer): generates the PDF AND closes
     // the day (or updates it if already closed) without duplicating rows.
     const d = await post({ action:'endOfDay', installer:state.installer, installerId:state.installerId,
-                           date:state.date, departure:$('departure').value, returned:$('returned').value });
+                           date:state.date, departure:$('departure').value, returned:$('returned').value,
+                           includeDelays:$('includeDelays').checked });
     setStatus('ok','Synced');
     renderClosed(true);
     if(d.pdf && d.pdf.base64){ downloadBase64Pdf(d.pdf.base64, d.pdf.name); toast('Daily log ready ✓ · PDF downloaded'); }

@@ -368,6 +368,15 @@ manually logged) is classified by category into one of four non-overlapping tota
 never claim a Tracker column — they ride on the row-based `Downtime` tab and surface on
 the PDF footer, so adding them needed **no sheet-schema change**.
 
+**Clean-log toggle (`includeDelays`).** Both end-of-day surfaces carry an "Include
+delays & travel time on PDF" checkbox (checked by default). The `endOfDay` /
+`previewDailyLog` request body sends `includeDelays`; when `false`, `buildDailyLogPdf`
+suppresses the "Delay Time:" box, the "Travel Time:" box, the per-stop Travel (min)
+column, and the whole Delays/Breaks/Misc Travel footer line — leaving an installs/UTIs
+log (Departure/Returned still print). The flag is **PDF-only**: `buildDaySummary` still
+computes every total and `endOfDay` still writes the full `Tracker` + `Timing` rows, so
+analytics is unaffected by the choice. Absent flag ⇒ included (back-compat).
+
 **`Timing` tab (audit trail).** `endOfDay` writes one row per gap —
 `date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId` —
 where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel` (nothing
