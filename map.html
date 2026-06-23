@@ -278,6 +278,23 @@ function gapsInScope(){
   return TIM.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))
     && (r.type==='Travel' || r.type==='Flagged'));
 }
+// Each installer's OWN consecutive-stop gaps (the partner's logs are NOT merged in),
+// pooled across the range: sum of gap-minutes ÷ number of gaps. Chains are built per
+// (installer, day) so they never cross installers or midnight, even under "all". This
+// is the "between MY meters" lens — e.g. installs at 9:00 & 9:30 with a partner visit
+// at 9:15 between them is still a 30-min install→install gap. Returns null if no gaps.
+function avgOwnGap(statusSet){
+  const byKey = {};                       // `${installer}|${day}` -> [ms,…]
+  pinsInScope().forEach(s => {
+    if(!statusSet.has(s.status)) return;
+    const t = +new Date(s.timestamp); if(isNaN(t)) return;
+    (byKey[s.installer+'|'+dateKey(s.timestamp)] ||= []).push(t);
+  });
+  let sum=0, n=0;
+  Object.values(byKey).forEach(ts => { ts.sort((a,b)=>a-b);
+    for(let i=1;i<ts.length;i++){ const m=(ts[i]-ts[i-1])/60000; if(m>0){ sum+=m; n++; } } });
+  return n ? Math.round(sum/n) : null;
+}
 
 // ── map ─────────────────────────────────────────────────────────────────────
 function initMap(){
@@ -348,19 +365,23 @@ function renderAnalytics(){
   const autoIdle    = trk.reduce((a,r)=>a+trkNum(r.autoIdleMin),0);
   const rate        = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
 
-  // Avg time between meters: mean of every WO→WO gap's full minutes (delays included).
+  // Log→Log (factoring partner): mean of every merged-team WO→WO gap from the Timing
+  // tab — your logs + your partner's that day, interleaved — so a partner's stop
+  // between two of yours shortens the gap. Each day uses that day's real partner.
   const gaps = gapsInScope();
   const gapSum = gaps.reduce((a,r)=>a+trkNum(r.minutes),0);
-  const avgGap = gaps.length ? Math.round(gapSum/gaps.length) : null;
-  // Install-to-install lens: only gaps that run between two INSTALLED stops.
-  const instGaps = gaps.filter(r => r.fromStatus==='INSTALLED' && r.toStatus==='INSTALLED');
-  const avgInst  = instGaps.length ? Math.round(instGaps.reduce((a,r)=>a+trkNum(r.minutes),0)/instGaps.length) : null;
+  const avgLog = gaps.length ? Math.round(gapSum/gaps.length) : null;
+  // Cadence of MY own work only — partner logs not merged in (see avgOwnGap).
+  const avgInst      = avgOwnGap(new Set(['INSTALLED']));            // install → install
+  const avgCompleted = avgOwnGap(new Set(['INSTALLED','UTI']));      // completed WO → completed WO
 
+  const mins = v => v==null ? '—' : (v+' min');
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
     + tile(rate+'%','Install rate','') + tile(down,'Downtime min','')
-    + tile(avgGap==null?'—':(avgGap+' min'),'Avg between meters','')
-    + tile(avgInst==null?'—':(avgInst+' min'),'Avg install-to-install','')
+    + tile(mins(avgInst),     'Avg install→install','')
+    + tile(mins(avgCompleted),'Avg between completed WOs','')
+    + tile(mins(avgLog),      'Avg log→log (w/ partner)','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
 
