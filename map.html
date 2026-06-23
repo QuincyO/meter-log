@@ -271,8 +271,9 @@ function forMap(){
 }
 function pinsInScope(){ return ALL.filter(s => instMatch(s.installer) && inRange(dateKey(s.timestamp))); }
 function trkInScope(){ return TRK.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))); }
-// WO→WO gaps (Travel / Flagged) in scope — Launch/Return dock legs excluded — for the
-// "avg time between meters" metric.
+// WO→WO gaps (Travel / Flagged) in scope — Launch/Return dock legs excluded. This is
+// the any-log-to-any-log lens for "avg time between meters"; filter by fromStatus/
+// toStatus on top for the install-to-install lens.
 function gapsInScope(){
   return TIM.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))
     && (r.type==='Travel' || r.type==='Flagged'));
@@ -351,11 +352,15 @@ function renderAnalytics(){
   const gaps = gapsInScope();
   const gapSum = gaps.reduce((a,r)=>a+trkNum(r.minutes),0);
   const avgGap = gaps.length ? Math.round(gapSum/gaps.length) : null;
+  // Install-to-install lens: only gaps that run between two INSTALLED stops.
+  const instGaps = gaps.filter(r => r.fromStatus==='INSTALLED' && r.toStatus==='INSTALLED');
+  const avgInst  = instGaps.length ? Math.round(instGaps.reduce((a,r)=>a+trkNum(r.minutes),0)/instGaps.length) : null;
 
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
     + tile(rate+'%','Install rate','') + tile(down,'Downtime min','')
     + tile(avgGap==null?'—':(avgGap+' min'),'Avg between meters','')
+    + tile(avgInst==null?'—':(avgInst+' min'),'Avg install-to-install','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
 

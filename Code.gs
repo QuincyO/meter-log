@@ -110,7 +110,7 @@ const SUBS_HEADERS     = ['name'];
 // Audit trail: one row per computed gap, written at end-of-day, so every Travel
 // Time / Delay number on the daily log traces back to a row. `type` is Travel /
 // Flagged / Launch / Return; `bucket` is travel, a downtime label, or unlabeled.
-const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distanceM','type','bucket','workOrderId'];
+const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distanceM','type','bucket','workOrderId','fromStatus','toStatus'];
 // One row per installer per day holding the day "bookend" clock times — Departure
 // (left dock) and Returned (back to land). These anchor the daily log's Launch /
 // Return legs; persisting them (the field form used to discard them) is what lets
@@ -204,14 +204,16 @@ function buildDailyLogPdf(s) {
   const tpl = ss.getSheetByName(TEMPLATE_TAB);
   if (!tpl) return { error: 'template tab missing — run setupDailyLogTemplate()' };
 
-  // Everything worth printing on the log: installs, UTIs, and the new "we were
-  // here" outcomes. DONE markers stay off the sheet (not the logger's work).
-  const editable    = (s.stops||[]).filter(x => x.status==='INSTALLED' || x.status==='UTI'
-                                              || x.status==='VISITED'  || x.status==='UNACCOUNTED');
+  // Only the work that earns a body line: installs and UTIs. The "Other"-button
+  // outcomes (VISITED / UNACCOUNTED) and DONE markers stay off the body and are
+  // rolled into a single "Visited" tally in the footer — every one means the
+  // crew still went and checked the island, which is worth noting.
+  const editable    = (s.stops||[]).filter(x => x.status==='INSTALLED' || x.status==='UTI');
   const installed   = (s.stops||[]).filter(x => x.status==='INSTALLED').length;
   const uti         = (s.stops||[]).filter(x => x.status==='UTI').length;
   const visited     = (s.stops||[]).filter(x => x.status==='VISITED').length;
   const unaccounted = (s.stops||[]).filter(x => x.status==='UNACCOUNTED').length;
+  const done        = (s.stops||[]).filter(x => x.status==='DONE').length;
 
   // When false (the End-of-day "Include delays & travel time" box was unchecked),
   // the PDF prints installs/UTIs only: Delay Time box, Travel Time box, per-stop
@@ -256,13 +258,9 @@ function buildDailyLogPdf(s) {
         ? (x.meterRead + ((x.meterReadReceived || x.meterReadReceived === 0) ? (' / ' + x.meterReadReceived) : ''))
         : (x.noReadReason ? 'no read' : '');
       // The New-J# column doubles as the outcome column: J# for an install, the
-      // reason for a UTI, and a "Visited/Unaccounted — {note}" line for the two
-      // attendance outcomes. Reads stay blank for anything that isn't an install.
-      const note4 =
-        x.status === 'UTI'         ? (x.utiReason || 'UTI') :
-        x.status === 'VISITED'     ? ('Visited' + (x.notes ? (' — ' + x.notes) : '')) :
-        x.status === 'UNACCOUNTED' ? ('Unaccounted' + (x.notes ? (' — ' + x.notes) : '')) :
-                                     (x.newJNumber || '');
+      // reason for a UTI. Only installs and UTIs reach the body now; the "Other"
+      // attendance outcomes are summarized in the footer instead.
+      const note4 = x.status === 'UTI' ? (x.utiReason || 'UTI') : (x.newJNumber || '');
       // Travel column = full minutes to reach this stop, i.e. the arrival gap from
       // the previous activity (first row = launch leg). Every stop with a preceding
       // gap gets a number, including one reached after a flagged delay. The Travel
@@ -281,8 +279,10 @@ function buildDailyLogPdf(s) {
 
     copy.getRange(footerRow, 2).setValue(installed);
     copy.getRange(footerRow, 4).setValue(uti);
-    const extraCounts = (visited ? ('Visited ' + visited + '  ·  ') : '')
-                      + (unaccounted ? ('Unaccounted ' + unaccounted + '  ·  ') : '');
+    // Every "Other"-button outcome plus DONE rolls into one Visited tally —
+    // each one is an island the crew took the time to go and check.
+    const visitedTotal = visited + unaccounted + done;
+    const extraCounts = visitedTotal ? ('Visited ' + visitedTotal + '  ·  ') : '';
     // Three independent lenses, each summing its own category set: real work delays,
     // lunch/breaks, and miscellaneous (non-WO→WO) travel. Breaks & Misc Travel were
     // subtracted from the WO→WO travel above, so they're reported separately here.
@@ -663,7 +663,8 @@ function buildDaySummary(b) {
     if (g.type !== 'Return' && g.toId != null && g.toId !== '' && ownPrintableIds[g.toId])
       travelMinutes += net;
     return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
-             distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO };
+             distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO,
+             fromStatus: g.fromStatus, toStatus: g.toStatus };
   });
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
@@ -715,7 +716,7 @@ function endOfDay(b) {
     if (s.timingRows && s.timingRows.length) {
       timingSh.getRange(timingSh.getLastRow() + 1, 1, s.timingRows.length, TIMING_HEADERS.length)
         .setValues(s.timingRows.map(r => [s.date, s.installer, r.fromTime, r.toTime,
-          r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId]));
+          r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId, r.fromStatus, r.toStatus]));
     }
   }
 
@@ -875,16 +876,19 @@ function teamPartnerNames(team, selfH) {
  *  per-stop column are derived in buildDaySummary, which knows the gap labels. */
 function computeIdle(teamStops, departure, returned) {
   const acts = (teamStops || [])
-    .map(s => ({ id: s.id, sec: secOfDay(s.timestamp), lat: numCoord(s.lat), lng: numCoord(s.lng), wo: s.workOrderId }))
+    .map(s => ({ id: s.id, sec: secOfDay(s.timestamp), lat: numCoord(s.lat), lng: numCoord(s.lng), wo: s.workOrderId, status: s.status }))
     .filter(a => a.sec != null)
     .sort((a, b) => a.sec - b.sec);
 
   const gaps = [];
-  const mk = (fromSec, toSec, type, toId, toWO, distM, suggest) => {
+  // fromStatus / toStatus record the gap's endpoint stop statuses so the backend
+  // can separate the two lenses: install-to-install vs any-log-to-any-log. Dock
+  // ends (Launch's from, Return's to) carry '' since there's no stop there.
+  const mk = (fromSec, toSec, type, toId, toWO, distM, suggest, fromStatus, toStatus) => {
     const from = secToHHMM(fromSec), to = secToHHMM(toSec), minutes = Math.round((toSec - fromSec) / 60);
     gaps.push({ fromHHMM: from, toHHMM: to, minutes: minutes, distM: distM,
                 type: type, toId: toId != null ? toId : '', toWO: toWO || '',
-                suggest: suggest || '',
+                suggest: suggest || '', fromStatus: fromStatus || '', toStatus: toStatus || '',
                 start: from, end: to, idleMin: minutes, kind: 'gap' });   // aliases for renderIdleGaps
   };
 
@@ -895,7 +899,8 @@ function computeIdle(teamStops, departure, returned) {
       ? Math.round(haversine(prev.lat, prev.lng, cur.lat, cur.lng)) : null;
     const flagged = (cur.sec - prev.sec) / 60 >= FLAG_GAP_MIN;
     mk(prev.sec, cur.sec, flagged ? 'Flagged' : 'Travel', cur.id, cur.wo, moved,
-       flagged ? (moved != null && moved > SAME_ISLAND_M ? 'TRAVEL_TIME' : 'OTHER') : '');
+       flagged ? (moved != null && moved > SAME_ISLAND_M ? 'TRAVEL_TIME' : 'OTHER') : '',
+       prev.status, cur.status);
   }
 
   // Launch → first stop and last stop → dock are always travel (coming from /
@@ -903,8 +908,8 @@ function computeIdle(teamStops, departure, returned) {
   if (acts.length) {
     const dep = clockSec(departure), ret = clockSec(returned);
     const first = acts[0], last = acts[acts.length - 1];
-    if (dep != null && first.sec > dep) mk(dep, first.sec, 'Launch', first.id, first.wo, null, '');
-    if (ret != null && ret > last.sec)  mk(last.sec, ret, 'Return', null, '', null, '');
+    if (dep != null && first.sec > dep) mk(dep, first.sec, 'Launch', first.id, first.wo, null, '', '', first.status);
+    if (ret != null && ret > last.sec)  mk(last.sec, ret, 'Return', null, '', null, '', last.status, '');
   }
 
   gaps.sort((a, b) => a.fromHHMM < b.fromHHMM ? -1 : a.fromHHMM > b.fromHHMM ? 1 : 0);
