@@ -210,7 +210,9 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
     // Travel Time box is summed from the per-row column below, so the two always
-    // reconcile on the page (team-wide s.travelMinutes goes to the Tracker instead).
+    // reconcile on the page. The column shows every stop's full arrival gap, so this
+    // total can overlap with the Delay Time box by design (team-wide travel-only
+    // s.travelMinutes goes to the Tracker instead).
     let travelColSum = 0;
 
     let footerRow = FOOTER0;
@@ -234,9 +236,10 @@ function buildDailyLogPdf(s) {
         x.status === 'VISITED'     ? ('Visited' + (x.notes ? (' — ' + x.notes) : '')) :
         x.status === 'UNACCOUNTED' ? ('Unaccounted' + (x.notes ? (' — ' + x.notes) : '')) :
                                      (x.newJNumber || '');
-      // Travel column = travel minutes to reach this stop (first row = launch leg).
-      // Only travel-classified gaps appear; a stop reached after a flagged delay
-      // prints blank. The Travel Time box is the running sum of this column.
+      // Travel column = full minutes to reach this stop, i.e. the arrival gap from
+      // the previous activity (first row = launch leg). Every stop with a preceding
+      // gap gets a number, including one reached after a flagged delay. The Travel
+      // Time box is the running sum of this column.
       const travel = (s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '';
       if (travel) travelColSum += travel;
       copy.getRange(r,1,1,8).setValues([[
@@ -551,11 +554,13 @@ function buildDaySummary(b) {
   const gapCat = {};
   dt.forEach(d => { const m = noteTimes(d.note); if (m) gapCat[gapKey(m[1], m[2])] = d.category; });
 
-  // Per-stop travel column + the Travel Time total derive from the SAME gaps, so
-  // the PDF column sums EXACTLY to the box. A gap is travel when it's a short hop
-  // or launch leg, or a Flagged gap confirmed as Travel Time. A Return leg is
-  // travel but has no stop row, so it's audit-only (kept out of both, preserving
-  // column == box). Flagged gaps labelled a real reason are delays (blank column).
+  // The PDF's per-stop Travel column shows EVERY arriving gap's full duration, so
+  // every workorder row has a number — even one reached after a flagged delay. The
+  // "Travel Time:" box is the running sum of that column, so a delay gap's minutes
+  // land in BOTH that total and the Delays breakdown (an intended overlap — two
+  // lenses on the same time). `travelMinutes` (Tracker `travelMin`) stays travel-ONLY:
+  // short hops + launch legs + Flagged gaps confirmed as Travel Time, excluding the
+  // row-less Return leg. Flagged gaps labelled a real reason are delays.
   const perStopTravel = {};
   let travelMinutes = 0;
   const consumedTravelKeys = {};
@@ -565,9 +570,10 @@ function buildDaySummary(b) {
       const cat = gapCat[gapKey(g.fromHHMM, g.toHHMM)];
       bucket = !cat ? 'unlabeled' : (cat === 'TRAVEL_TIME' ? 'travel' : (CAT_LABEL_SRV[cat] || cat));
     }
+    // Every arriving gap (any bucket) fills the per-stop Travel column cell.
+    if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = g.minutes;
     if (bucket === 'travel' && g.type !== 'Return') {
       travelMinutes += g.minutes;
-      if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = g.minutes;
       if (g.type === 'Flagged') consumedTravelKeys[gapKey(g.fromHHMM, g.toHHMM)] = true;
     }
     return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,

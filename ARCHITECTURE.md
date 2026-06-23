@@ -303,12 +303,17 @@ the time to go and check":
    - **`Launch`** (dock→first) and **`Return`** (last→dock) legs, when a departure /
      return time is entered, are always travel.
 3. **Per-stop travel column (reconciled).** The PDF's per-row "Travel (min)" column =
-   travel minutes to reach each stop (the first row = the launch leg); a stop reached
-   after a flagged *delay* prints blank. **`buildDailyLogPdf` sets the "Travel Time:"
-   box to the literal running sum of that column**, so the two always reconcile on the
-   page regardless of partner / DONE markers. (The team-wide `s.travelMinutes` —
-   including partner-leg + `Return` travel — goes to the Tracker's `travelMin` instead;
-   the full per-gap detail is on the `Timing` tab.)
+   the **full arrival gap** to reach each stop — the minutes since the previous activity
+   (the first row = the launch leg). **Every** stop with a preceding gap gets a number,
+   *including* one reached after a flagged *delay* (only the very first stop of the day,
+   with no launch leg, stays blank). **`buildDailyLogPdf` sets the "Travel Time:" box to
+   the literal running sum of that column**, so the two always reconcile on the page
+   regardless of partner / DONE markers. Because the column now includes delay gaps, the
+   "Travel Time:" box **intentionally overlaps** the "Delay Time:" box for those gaps —
+   two lenses on the same minutes. (The team-wide `s.travelMinutes` — travel-only: short
+   hops + launch + partner legs + confirmed Travel Time, excluding the row-less `Return`
+   leg — goes to the Tracker's `travelMin` instead; the full per-gap detail is on the
+   `Timing` tab.)
 
 The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
 are field-adjustable.
