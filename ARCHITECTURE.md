@@ -164,11 +164,13 @@ mark-spot DONE button). The single "we were here" log asks only for an Old J#
 `VISITED`, blank → `UNACCOUNTED`. The backend still receives a plain `addStop` with
 the resolved status, so the Sheet / PDF / map distinction is unchanged.
 
-Both are **separate counts**: like `DONE`, they're deliberately kept out of the
-install/UTI tallies and the install-rate, but unlike `DONE` they *do* appear on
-the daily-log PDF (their own body rows + footer counts) and the map/viewer (own
-status chips, colors, and the `visited` / `unaccounted` Tracker columns). They are
-plain `addStop` calls — no new endpoint.
+Both are **separate counts** in the store: like `DONE`, they're deliberately kept
+out of the install/UTI tallies and the install-rate. On the **daily-log PDF** they
+get **no body row** — the body is installs + UTIs only — and instead roll up, together
+with `DONE`, into a single **"Visited N"** footer tally (`N = visited + unaccounted +
+done`), since each one means the crew still took the time to go and check the island.
+On the **map/viewer** they keep their own status chips, colors, and the `visited` /
+`unaccounted` Tracker columns. They are plain `addStop` calls — no new endpoint.
 
 ### DowntimeEntry  (zero or more per day → tab "Downtime")
 | field         | type            | notes                                       |
@@ -378,10 +380,13 @@ computes every total and `endOfDay` still writes the full `Tracker` + `Timing` r
 analytics is unaffected by the choice. Absent flag ⇒ included (back-compat).
 
 **`Timing` tab (audit trail).** `endOfDay` writes one row per gap —
-`date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId` —
+`date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId, fromStatus, toStatus` —
 where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel` (nothing
-subtracted), `mixed` (partly subtracted), or `delay` (fully consumed). Every number on
-the daily log traces back to these rows. To stay idempotent, `endOfDay` first
+subtracted), `mixed` (partly subtracted), or `delay` (fully consumed). `fromStatus` /
+`toStatus` are the gap's endpoint stop statuses (blank at a dock end), letting analytics
+separate the **install-to-install** lens from the **any-log-to-any-log** lens — `map.html`
+shows both tiles ("Avg install-to-install" filters to gaps where both ends are INSTALLED).
+Every number on the daily log traces back to these rows. To stay idempotent, `endOfDay` first
 **deletes** that `(date, installer)`'s existing rows, then writes the fresh set.
 `previewDailyLog` does **not** write it (preview stays no-write).
 
