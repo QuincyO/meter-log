@@ -110,6 +110,7 @@
       <option value="map">Map</option>
       <option value="analytics">Analytics</option>
       <option value="teams">Crew &amp; Teams</option>
+      <option value="edit">Edit &amp; Daily Log</option>
     </select>
   </div>
 
@@ -426,6 +427,7 @@ $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); }
 
 $('viewSel').onchange = e => {
   if(e.target.value==='teams'){ window.location.href = 'teams.html'; return; }
+  if(e.target.value==='edit'){ window.location.href = 'edit.html'; return; }
   const mapOn = e.target.value==='map';
   $('mapView').classList.toggle('on', mapOn);
   $('analytics').classList.toggle('on', !mapOn);

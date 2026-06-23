@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — Edit & Daily Log</title>
+<style>
+  :root{
+    --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+    --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+    --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+    --r:14px; --tap:54px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--surface); color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 14px 48px;
+    max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+       background:var(--surface);z-index:5}
+  .bar .title{font-size:18px;font-weight:800;flex:1}
+  .pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+        padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+  .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+  .navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+          border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+          font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+  .navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+
+  h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+     font-weight:700;margin:26px 2px 4px}
+  .sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+  label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+  input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
+     padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
+  textarea{min-height:70px;padding:10px 13px;line-height:1.4}
+  input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+  .hide{display:none !important}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+
+  .btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
+       background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{border:0;background:var(--amber);color:#1a1300}
+  .btn.primary:active{background:var(--amber-press)}
+  .btn.full{width:100%}
+  .actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .actions .btn{flex:1;min-width:120px}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;
+         padding:4px 10px;border-radius:999px;background:#E7F5EE;color:var(--install)}
+  .badge.open{background:#FFF4E6;color:var(--amber-press)}
+
+  /* editable stop cards */
+  .empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+  .stopcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;
+            padding:12px 13px;margin:10px 0;box-shadow:var(--shadow)}
+  .sc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .sc-sum strong{font-size:16px}
+  .sc-meta{display:block;color:var(--ink-soft);font-size:13px;margin-top:2px}
+  .tag-ok{color:var(--install)} .tag-uti{color:var(--uti)}
+  .tag-visit{color:#7A5AF8} .tag-unacc{color:var(--ink-soft)}
+  .mini{height:38px;min-height:0;padding:0 13px;border:2px solid var(--line);border-radius:10px;
+        background:var(--panel);font-size:14px;font-weight:700;cursor:pointer;flex:none}
+  .sc-edit{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
+  .sc-edit .primary{width:100%;margin-top:14px;border:0;background:var(--amber);color:#1a1300;
+        min-height:46px;height:46px;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+     background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+     box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  @media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+  <div class="bar">
+    <div class="title">Edit &amp; Daily Log</div>
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <select class="navsel" id="navSel" aria-label="Go to view">
+      <option value="log">Log</option>
+      <option value="map">Map</option>
+      <option value="analytics">Analytics</option>
+      <option value="teams">Crew &amp; Teams</option>
+      <option value="edit" selected>Edit &amp; Daily Log</option>
+    </select>
+  </div>
+
+  <h1>Pick an installer &amp; day</h1>
+  <p class="sub">Look up the workorders an installer logged on a day, correct any values, set their Departure / Returned times, then generate the daily-log PDF.</p>
+  <div class="card">
+    <div class="grid2">
+      <div><label for="who">Installer</label><select id="who"><option value="">— choose —</option></select></div>
+      <div><label for="day">Date</label><input id="day" type="date"></div>
+    </div>
+    <div class="actions"><button class="btn primary full" id="loadBtn">Load workorders</button></div>
+  </div>
+
+  <!-- Day bookends + generate (revealed after a load) -->
+  <div id="daySection" class="hide">
+    <h1>Day times &amp; daily log</h1>
+    <div class="card">
+      <div id="closedBadge"></div>
+      <div class="grid2">
+        <div><label for="departure">Departure time <span style="font-weight:500">(left dock)</span></label><input id="departure" type="time"></div>
+        <div><label for="returned">Returned to land</label><input id="returned" type="time"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="saveTimes">Save times</button>
+        <button class="btn primary" id="genLog">Generate daily log</button>
+      </div>
+    </div>
+
+    <h1 id="stopsHead">Workorders</h1>
+    <div id="stopList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const $   = id => document.getElementById(id);
+const enc = encodeURIComponent;
+const esc  = v => String(v??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const attr = v => String(v??'').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
+
+// ── Config (same deployment as index.html / map.html / teams.html) ──────────
+const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
+const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
+
+let state = { employees:[], installer:'', installerId:'', date:'', stops:[] };
+
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2400); }
+
+function setStatus(kind, text){
+  const p=$('status'), t=$('statusText');
+  p.classList.remove('wait','off');
+  if(kind==='off') p.classList.add('off'); else if(kind==='wait') p.classList.add('wait');
+  t.textContent=text;
+}
+
+const fullName = e => ((e.firstName||'')+' '+(e.lastName||'')).trim();
+const empByH   = h => state.employees.find(e => e.hNumber===h) || null;
+
+// Statuses that earn a row on the daily log (DONE markers are excluded).
+function statusTagClass(st){
+  return st==='UTI' ? 'tag-uti' : st==='VISITED' ? 'tag-visit' : st==='UNACCOUNTED' ? 'tag-unacc' : 'tag-ok';
+}
+function locLabel(s){
+  const unit = (s.unit||'').trim(), addr = (s.address||'').trim();
+  return unit ? (unit + ' ' + addr).trim() : addr;
+}
+// Clock part ("HH:mm") of a stored timestamp string, for the arrival input.
+function clockOf(ts){ const m = String(ts??'').match(/[ T](\d{2}):(\d{2})/); return m ? (m[1]+':'+m[2]) : ''; }
+
+// ── server I/O ─────────────────────────────────────────────────────────────
+async function loadRoster(){
+  setStatus('wait','Loading…');
+  try{
+    const d = await (await fetch(`${WEB_APP_URL}?token=${enc(SHARED_TOKEN)}&action=roster`)).json();
+    if(!d.ok) throw new Error(d.error||'load failed');
+    state.employees = (d.employees||[]).filter(e => e.active !== false);
+    const sel = $('who');
+    state.employees.slice()
+      .sort((a,b)=> (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
+      .forEach(e => { const o=document.createElement('option');
+        o.value=e.hNumber; o.textContent=`${fullName(e)} (${e.hNumber})`; sel.appendChild(o); });
+    setStatus('ok','Synced');
+  } catch(e){ setStatus('off','Offline — can’t load'); toast('Couldn’t load crew — check the connection'); }
+}
+async function post(payload){
+  const body = JSON.stringify(Object.assign({ token:SHARED_TOKEN }, payload));
+  const d = await (await fetch(WEB_APP_URL, { method:'POST',
+            headers:{'Content-Type':'text/plain'}, body })).json();   // text/plain dodges CORS preflight
+  if(!d.ok) throw new Error(d.error||'save failed');
+  return d;
+}
+
+// ── load a day ─────────────────────────────────────────────────────────────
+$('loadBtn').onclick = async () => {
+  const h = $('who').value, date = $('day').value;
+  const emp = empByH(h);
+  if(!emp){ toast('Pick an installer'); return; }
+  if(!date){ toast('Pick a date'); return; }
+  state.installer = fullName(emp); state.installerId = h; state.date = date;
+  setStatus('wait','Loading…');
+  try{
+    const u = `${WEB_APP_URL}?token=${enc(SHARED_TOKEN)}&action=day&installer=${enc(state.installer)}&date=${enc(date)}`;
+    const d = await (await fetch(u)).json();
+    if(!d.ok) throw new Error(d.error||'load failed');
+    setStatus('ok','Synced');
+    // DONE markers are coordinates-only and never print on the log — leave them out.
+    state.stops = (d.stops||[]).filter(s => s.status !== 'DONE');
+    $('departure').value = (d.day && d.day.departure) || '';
+    $('returned').value  = (d.day && d.day.returned)  || '';
+    renderClosed(d.closed);
+    renderStops();
+    $('daySection').classList.remove('hide');
+  } catch(e){ setStatus('off','Offline'); toast('Couldn’t load that day'); }
+};
+
+function renderClosed(closed){
+  $('closedBadge').innerHTML = closed
+    ? '<span class="badge">Day closed ✓</span>'
+    : '<span class="badge open">Not closed yet</span>';
+  $('closedBadge').style.marginBottom = '4px';
+}
+
+function renderStops(){
+  const box = $('stopList');
+  $('stopsHead').textContent = `Workorders — ${state.installer} · ${state.date}`;
+  if(!state.stops.length){ box.innerHTML = '<div class="empty">No workorders logged for that installer on that date.</div>'; return; }
+  box.innerHTML = '';
+  state.stops.forEach(s => box.appendChild(stopCard(s)));
+}
+
+function summaryHTML(s){
+  return `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
+       + `<span class="sc-meta">${esc(clockOf(s.timestamp))||'--:--'} · ${esc(locLabel(s))||'no address'} · `
+       + `<b class="${statusTagClass(s.status)}">${esc(s.status)||'—'}</b>`
+       + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
+       + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
+       + `${(s.meterReadReceived||s.meterReadReceived===0)?(' / '+esc(s.meterReadReceived)):''}</span>`;
+}
+
+function stopCard(s){
+  const card = document.createElement('div');
+  card.className = 'stopcard';
+  card.innerHTML = `
+    <div class="sc-head">
+      <div class="sc-sum">${summaryHTML(s)}</div>
+      <button class="mini" data-act="toggle">Edit</button>
+    </div>
+    <div class="sc-edit hide">
+      <label>Arrival time <span style="font-weight:500">(drives Travel min)</span></label><input type="time" data-f="arr" value="${attr(clockOf(s.timestamp))}">
+      <label>Work order #</label><input class="mono" data-f="wo" value="${attr(s.workOrderId)}">
+      <label>Unit</label><input class="mono" data-f="unit" value="${attr(s.unit)}">
+      <label>Address</label><input data-f="addr" value="${attr(s.address)}">
+      <label>Status</label>
+      <select class="mono" data-f="status">
+        <option ${s.status==='INSTALLED'?'selected':''}>INSTALLED</option>
+        <option ${s.status==='UTI'?'selected':''}>UTI</option>
+        <option ${s.status==='VISITED'?'selected':''}>VISITED</option>
+        <option ${s.status==='UNACCOUNTED'?'selected':''}>UNACCOUNTED</option>
+      </select>
+      <label>New J#</label><input class="mono" data-f="newJ" value="${attr(s.newJNumber)}">
+      <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
+      <label>Meter read</label><input class="mono" inputmode="numeric" data-f="read" value="${attr(s.meterRead)}">
+      <label>Received read (solar)</label><input class="mono" inputmode="numeric" data-f="readRecv" value="${attr(s.meterReadReceived)}">
+      <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
+      <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
+      <button class="primary" data-act="save">Save changes</button>
+    </div>`;
+
+  const editBlock = card.querySelector('.sc-edit');
+  const toggleBtn = card.querySelector('[data-act="toggle"]');
+  toggleBtn.onclick = () => {
+    editBlock.classList.toggle('hide');
+    toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
+  };
+
+  card.querySelector('[data-act="save"]').onclick = async () => {
+    const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
+    const payload = {
+      action:'updateStop', id:s.id, date:state.date,
+      arrivalTime: g('arr'),
+      workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
+      status:g('status'), newJNumber:g('newJ'), oldJNumber:g('oldJ'),
+      meterRead: g('read')===''? null : Number(g('read')),
+      meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
+      utiReason:g('utiReason'), notes:g('notes')
+    };
+    try{
+      await post(payload);
+      // Reflect the edit locally: rebuild the stamp's clock so the summary updates.
+      if(payload.arrivalTime) s.timestamp = state.date + ' ' + payload.arrivalTime + ':00';
+      Object.assign(s, payload);
+      card.querySelector('.sc-sum').innerHTML = summaryHTML(s);
+      editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
+      toast('Saved ✓');
+    } catch(err){ toast(err.message || 'Could not save'); }
+  };
+  return card;
+}
+
+// ── bookend times + daily log ──────────────────────────────────────────────
+async function saveTimes(){
+  await post({ action:'saveDay', date:state.date, installer:state.installer,
+               departure:$('departure').value, returned:$('returned').value });
+}
+$('saveTimes').onclick = async () => {
+  try{ await saveTimes(); toast('Times saved ✓'); } catch(err){ toast(err.message); }
+};
+
+function downloadBase64Pdf(b64, name){
+  try{
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    const a = document.createElement('a'); a.href=url; a.download=name||'DailyLog.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  } catch { toast('PDF ready, but download was blocked — it’s also in Drive'); }
+}
+
+$('genLog').onclick = async () => {
+  setStatus('wait','Generating…');
+  try{
+    await saveTimes();   // persist the bookends first so the log always has them
+    // endOfDay is idempotent on (date, installer): generates the PDF AND closes
+    // the day (or updates it if already closed) without duplicating rows.
+    const d = await post({ action:'endOfDay', installer:state.installer, installerId:state.installerId,
+                           date:state.date, departure:$('departure').value, returned:$('returned').value });
+    setStatus('ok','Synced');
+    renderClosed(true);
+    if(d.pdf && d.pdf.base64){ downloadBase64Pdf(d.pdf.base64, d.pdf.name); toast('Daily log ready ✓ · PDF downloaded'); }
+    else toast(d.pdf && d.pdf.error ? 'Closed · PDF failed' : 'Daily log saved ✓');
+  } catch(err){ setStatus('off','Error'); toast(err.message || 'Could not generate'); }
+};
+
+// top-bar navigation
+$('navSel').onchange = e => {
+  const v = e.target.value;
+  if(v==='log')            window.location.href = 'index.html';
+  else if(v==='map')       window.location.href = 'map.html';
+  else if(v==='analytics') window.location.href = 'map.html#analytics';
+  else if(v==='teams')     window.location.href = 'teams.html';
+};
+window.addEventListener('pageshow', () => { $('navSel').value = 'edit'; });
+
+// default the date to today (local) and load the crew picker
+(function(){ const n=new Date(); const p=x=>('0'+x).slice(-2);
+  $('day').value = `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; })();
+loadRoster();
+</script>
+</body>
+</html>

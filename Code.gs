@@ -95,6 +95,11 @@ const SUBS_HEADERS     = ['name'];
 // Time / Delay number on the daily log traces back to a row. `type` is Travel /
 // Flagged / Launch / Return; `bucket` is travel, a downtime label, or unlabeled.
 const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distanceM','type','bucket','workOrderId'];
+// One row per installer per day holding the day "bookend" clock times — Departure
+// (left dock) and Returned (back to land). These anchor the daily log's Launch /
+// Return legs; persisting them (the field form used to discard them) is what lets
+// the back-office edit.html regenerate a correct daily log any time.
+const DAYS_HEADERS = ['date','installer','departure','returned'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -320,6 +325,7 @@ function setupSheets() {
   ensureTab(ss, 'Captains', CAPTAINS_HEADERS);
   ensureTab(ss, 'Subs', SUBS_HEADERS);
   ensureTab(ss, 'Timing', TIMING_HEADERS);
+  ensureTab(ss, 'Days', DAYS_HEADERS);
   setupDailyLogTemplate();
 }
 
@@ -352,6 +358,7 @@ function doPost(e) {
       case 'updateStop':     return json(updateStop(body));
       case 'endOfDay':       return json(endOfDay(body));
       case 'previewDailyLog':return json(previewDailyLog(body));
+      case 'saveDay':        return json(saveDay(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
@@ -378,9 +385,13 @@ function doGet(e) {
   }
   if (p.action === 'day') {
     const date = p.date || today();
+    // `day` (bookend times) + `closed` (a Tracker row already exists) let edit.html
+    // pre-fill the Departure/Returned inputs and show whether the day is closed.
     return json({ ok: true,
                   stops: stopsFor(p.installer, date),
-                  downtime: downtimeFor(p.installer, date) });
+                  downtime: downtimeFor(p.installer, date),
+                  day: dayMeta(p.installer, date),
+                  closed: dayClosed(p.installer, date) });
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
@@ -451,8 +462,11 @@ function addDowntime(b) {
 }
 
 /** Edit a stored stop in place, found by its id. Only STOP_EDITABLE fields
- *  (plus the numeric meterRead/lat/lng) can change; id/timestamp/installer
- *  are preserved so a correction never rewrites who logged it or when. */
+ *  (plus the numeric meterRead/lat/lng) can change; id/installer are preserved
+ *  so a correction never rewrites who logged it. The clock part of `timestamp`
+ *  CAN be corrected via `arrivalTime` ("HH:mm") — the calendar date is kept, so
+ *  the stop never jumps days — because that time drives the daily log's per-row
+ *  Travel (min) column. */
 function updateStop(b) {
   if (!b.id) return { ok: false, error: 'id required' };
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Stops');
@@ -470,6 +484,13 @@ function updateStop(b) {
       if ('meterReadReceived' in b) row.meterReadReceived = numOrBlank(b.meterReadReceived);
       if ('lat' in b)       row.lat       = numOrBlank(b.lat);
       if ('lng' in b)       row.lng       = numOrBlank(b.lng);
+      // Swap only the clock, keeping the row's existing calendar date (fall back
+      // to b.date if the stamp is somehow blank). Stored as a plain local string
+      // so dateOf()/secOfDay() read it back the same way now() writes it.
+      if (b.arrivalTime) {
+        const datePart = dateOf(row.timestamp) || b.date || today();
+        row.timestamp = datePart + ' ' + b.arrivalTime + ':00';
+      }
 
       const out = headers.map(h => row[h]);
       sh.getRange(i + 1, 1, 1, headers.length).setValues([out]);   // i is 0=header, so sheet row = i+1
@@ -523,6 +544,11 @@ function buildDaySummary(b) {
   // way; fall back to whatever the form sent.
   const installer = emp ? fullName(emp) : (b.installer || '');
   const date = b.date || today();
+  // Bookend times come from the request, else the persisted Days row, so a daily
+  // log rebuilt later (edit.html) still anchors its Launch / Return legs.
+  const persisted = dayMeta(installer, date);
+  const departure = b.departure || persisted.departure || '';
+  const returned  = b.returned  || persisted.returned  || '';
   const stops = stopsFor(installer, date);
   const installed   = stops.filter(s => s.status === 'INSTALLED').length;
   const uti         = stops.filter(s => s.status === 'UTI').length;
@@ -546,7 +572,7 @@ function buildDaySummary(b) {
   // Every gap, typed by computeIdle. A confirmed gap is stored as a Downtime row
   // noted `auto-detected gap <start>–<end>`; map that note back to its category so
   // a Flagged gap knows whether the installer called it Travel Time or downtime.
-  const timing = computeIdle(teamStopsFor(installerId, installer, date), b.departure, b.returned);
+  const timing = computeIdle(teamStopsFor(installerId, installer, date), departure, returned);
   // Key by the two clock times (dash-char agnostic) so a confirmed gap's note maps
   // back to the gap regardless of how the en-dash was encoded.
   const gapKey = (a, z) => a + '|' + z;
@@ -593,20 +619,31 @@ function buildDaySummary(b) {
     travelMinutes: travelMinutes,
     perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
     notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
-    departure: b.departure || '', returned: b.returned || '',
+    departure: departure, returned: returned,
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
     boatTeam: hdr.boatTeam, boatName: hdr.boatName,
     team: team ? team.id : null };
 }
 
-/** Computes today's totals for one installer, appends a Tracker row, and returns
- *  the daily-log PDF. The Tracker row is written before the PDF so a PDF hiccup
- *  can't block closing the day. */
+/** Computes today's totals for one installer, records the Tracker + Timing rows,
+ *  and returns the daily-log PDF. Idempotent on (date, installer): re-closing a
+ *  day overwrites its Tracker row and replaces its Timing rows instead of
+ *  duplicating, so back-office regenerates (edit.html) stay clean. The Tracker row
+ *  is written before the PDF so a PDF hiccup can't block closing the day. */
 function endOfDay(b) {
   const s = buildDaySummary(b);
   const byCat = s.byCategory;
 
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tracker').appendRow([
+  // Persist the bookend clock times so the daily log can always be rebuilt with
+  // them — the field form used to discard departure/returned after the PDF.
+  if (s.departure || s.returned) {
+    saveDay({ date: s.date, installer: s.installer,
+              departure: s.departure, returned: s.returned });
+  }
+
+  // Upsert one Tracker row per (date, installer) — overwrite in place if it's
+  // already closed, else append.
+  upsertDayRow('Tracker', s.date, s.installer, [
     s.date, s.installer, s.installed, s.uti, s.downtimeTotalMin,
     byCat.NEXT_GEN, byCat.CELL_SIGNAL, byCat.BAD_WEATHER, byCat.WAREHOUSE,
     byCat.TOOLS_MATERIAL, byCat.DISPATCH, byCat.TRUCK_ISSUES, byCat.ASSIST,
@@ -615,20 +652,79 @@ function endOfDay(b) {
   ]);
 
   // Per-gap audit trail (one row each) so the Travel Time / Delay numbers trace.
+  // Clear this day's prior rows first so a regenerate doesn't pile duplicates.
   const timingSh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Timing');
-  if (timingSh && s.timingRows && s.timingRows.length) {
-    timingSh.getRange(timingSh.getLastRow() + 1, 1, s.timingRows.length, TIMING_HEADERS.length)
-      .setValues(s.timingRows.map(r => [s.date, s.installer, r.fromTime, r.toTime,
-        r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId]));
+  if (timingSh) {
+    deleteDayRows('Timing', s.date, s.installer);
+    if (s.timingRows && s.timingRows.length) {
+      timingSh.getRange(timingSh.getLastRow() + 1, 1, s.timingRows.length, TIMING_HEADERS.length)
+        .setValues(s.timingRows.map(r => [s.date, s.installer, r.fromTime, r.toTime,
+          r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId]));
+    }
   }
 
   const pdf = buildDailyLogPdf(s);
   return { ok: true, summary: s, pdf };
 }
 
+/** Overwrite the row matching (date, installer) in a date+installer-keyed tab
+ *  (Tracker), else append. `out` is the full positional row array. */
+function upsertDayRow(tab, date, installer, out) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const dCol = H.indexOf('date'), iCol = H.indexOf('installer');
+  for (let r = 1; r < data.length; r++) {
+    if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) {
+      sh.getRange(r + 1, 1, 1, out.length).setValues([out]);
+      return;
+    }
+  }
+  sh.appendRow(out);
+}
+
+/** Delete every row matching (date, installer) from a date+installer-keyed tab,
+ *  bottom-up so indices stay valid. */
+function deleteDayRows(tab, date, installer) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const dCol = H.indexOf('date'), iCol = H.indexOf('installer');
+  for (let r = data.length - 1; r >= 1; r--) {
+    if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) sh.deleteRow(r + 1);
+  }
+}
+
+/** Upsert the Days bookend row (one per date+installer). Reuses upsertDayRow's
+ *  matching but writes only the four DAYS_HEADERS columns. */
+function saveDay(b) {
+  const date = b.date || today();
+  const installer = b.installer || '';
+  if (!installer) return { ok: false, error: 'installer required' };
+  // Tolerate a not-yet-created Days tab (code can ship before setupSheets() runs)
+  // so a missing tab never blocks closing the day from endOfDay.
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days'))
+    return { ok: false, error: 'Days tab missing — run setupSheets()' };
+  upsertDayRow('Days', date, installer,
+    [date, installer, b.departure || '', b.returned || '']);
+  return { ok: true };
+}
+
+/** The persisted bookend times for an installer's day, or blanks (also when the
+ *  Days tab doesn't exist yet). */
+function dayMeta(installer, date) {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days')) return { departure: '', returned: '' };
+  const r = rows('Days').filter(x => sameName(x.installer, installer) && dateOf(x.date) === date)[0];
+  return { departure: r ? (r.departure || '') : '', returned: r ? (r.returned || '') : '' };
+}
+
+/** True when a Tracker row already exists for (installer, date) — the day is closed. */
+function dayClosed(installer, date) {
+  return rows('Tracker').some(r => sameName(r.installer, installer) && dateOf(r.date) === date);
+}
+
 /** Generates the daily-log PDF on demand WITHOUT closing the day: no Tracker row
- *  is written and departure / return / weather / notes stay blank unless the form
- *  sends them. The real endOfDay later fills the blanks. */
+ *  is written. Weather / notes stay blank unless the form sends them; departure /
+ *  return fall back to the persisted Days row. The real endOfDay later fills the
+ *  blanks. */
 function previewDailyLog(b) {
   const s = buildDaySummary(b);
   return { ok: true, summary: s, pdf: buildDailyLogPdf(s) };

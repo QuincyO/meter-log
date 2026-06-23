@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, eight tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`. This is the truth.
+One spreadsheet, nine tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -25,7 +25,12 @@ It is not Claude and not the form. Everything reads from or writes to it.
   `Teams` tabs: add/remove crew (first name, last name, employee "H" number),
   build boat teams (identifier, boat name/number, captain, members). The
   installer's name picker and the end-of-day auto-fill both read from here.
-- All three are static files hosted on GitHub Pages. They never store the data
+- The **back-office editor** (`edit.html`) — pick an installer + date, list the
+  workorders they logged that day, correct any field (including each stop's
+  **arrival time**, via `updateStop`'s `arrivalTime`), set the day's **Departure /
+  Returned** bookends (persisted to the `Days` tab via `saveDay`), then **generate
+  the daily-log PDF** — which closes the day idempotently (`endOfDay`).
+- All four are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
 
 > The earlier iPhone Shortcuts capture path has been **dropped.** The work phone
@@ -182,8 +187,10 @@ breakdown (see "Travel vs delay"). It is intentionally absent from `CATEGORIES` 
 `Code.gs` so it gets no Tracker breakdown column.
 
 ### Tracker row  (one per installer per day → tab "Tracker")
-Appended automatically at end-of-day. This is the "continues forever" sheet, and
-the source the viewer's analytics charts read from.
+Written at end-of-day. This is the "continues forever" sheet, and the source the
+viewer's analytics charts read from. `endOfDay` **upserts** it by `(date, installer)`
+— closing or regenerating the same day overwrites the row in place rather than
+duplicating, so the back-office `edit.html` can regenerate freely.
 | `date` | `installer` | `installed` | `uti` | `downtimeTotalMin` | `nextGen` | `cellSignal` | `badWeather` | `warehouse` | `toolsMaterial` | `dispatch` | `truckIssues` | `assist` | `urgentEer` | `other` | `weather` | `notes` | `visited` | `unaccounted` | `autoIdleMin` | `travelMin` | `delayMin` |
 
 The per-category columns are summed minutes for that day, so the running sheet is
@@ -198,6 +205,22 @@ sheets migrate cleanly via `ensureTab` — re-run `setupSheets()` once after dep
 > `downtimeTotalMin` is the sum of *categorized, logged* `Downtime` rows (excluding
 > `TRAVEL_TIME`); `travelMin` is *derived from stop timestamps + GPS* plus any
 > Travel-Time-labelled gap. They never share the same minutes — don't sum them.
+
+### Day  (one row per installer per day → tab "Days")
+The day's **bookend clock times**, persisted so the daily log can always be rebuilt
+with them — the field end-of-day form used to send `departure`/`returned` only
+transiently and discard them after the PDF.
+| field       | type   | notes                                  |
+|-------------|--------|----------------------------------------|
+| `date`      | string | Toronto local `yyyy-MM-dd`             |
+| `installer` | string | display name                           |
+| `departure` | string | `"HH:mm"` — left the dock (Launch leg) |
+| `returned`  | string | `"HH:mm"` — back to land (Return leg)  |
+
+Upserted by `saveDay` (keyed on `date`+`installer`); also written by `endOfDay`
+when those times are supplied. `buildDaySummary` falls back to this row when a
+request omits the bookends, and `?action=day` returns it (plus a `closed` flag) so
+`edit.html` can pre-fill the inputs.
 
 ### Employee  (one row per crew member → tab "Employees")
 The crew roster, managed from `teams.html`. Keyed on the **employee number**
@@ -330,7 +353,9 @@ PDF "Delay Time:" box = the categorized downtime total.
 `date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId` —
 where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel`, a downtime
 label, or `unlabeled`. Every Travel Time / Delay number on the daily log traces back to
-these rows. `previewDailyLog` does **not** write it (preview stays no-write).
+these rows. To stay idempotent, `endOfDay` first **deletes** that `(date, installer)`'s
+existing rows, then writes the fresh set — a regenerate replaces rather than piles up.
+`previewDailyLog` does **not** write it (preview stays no-write).
 
 **Wiring.** `endOfDay` (via `buildDaySummary` → `computeIdle`) writes `travelMin` to
 the Tracker (the legacy `autoIdleMin` / `delayMin` columns are now blank) and the

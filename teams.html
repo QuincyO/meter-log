@@ -131,6 +131,7 @@
       <option value="map">Map</option>
       <option value="analytics">Analytics</option>
       <option value="teams" selected>Crew &amp; Teams</option>
+      <option value="edit">Edit &amp; Daily Log</option>
     </select>
   </div>
 
@@ -506,6 +507,7 @@ $('navSel').onchange = e => {
   if(v==='log')       window.location.href = 'index.html';
   else if(v==='map')  window.location.href = 'map.html';
   else if(v==='analytics') window.location.href = 'map.html#analytics';
+  else if(v==='edit') window.location.href = 'edit.html';
 };
 // reset the dropdown if the page is restored from the back/forward cache
 window.addEventListener('pageshow', () => { $('navSel').value = 'teams'; });
