@@ -429,10 +429,13 @@ function doGet(e) {
     const id   = String(p.installerId == null ? '' : p.installerId).trim();
     const emp  = id ? employeeByH(id) : null;
     const installer = emp ? fullName(emp) : (p.installer || '');
-    // Every WO→WO gap (short hops included) is offered for review so a break can be
-    // subtracted from any of them. (Launch/Return legs need the bookend times, not
-    // known when this opens, so they stay auto-travel and aren't listed here.)
-    const gaps = computeIdle(teamStopsFor(id, installer, date)).gaps
+    // Every meter-to-meter gap (short hops included) is offered for review so a break
+    // can be subtracted from any of them. Gaps run between this installer's own
+    // consecutive meters; a non-first installer's first gap (from the team's first
+    // install) is included so its delays can be labelled too. (Launch/Return legs need
+    // the bookend times, not known when this opens, so they aren't listed here.)
+    const gi = installerGapStops(id, installer, date);
+    const gaps = computeIdle(gi.stops).gaps
       .filter(g => g.type === 'Travel' || g.type === 'Flagged');
     // Attach any already-saved allocations (gap-tagged Downtime rows) so re-opening a
     // day from either surface pre-fills what was entered.
@@ -630,15 +633,17 @@ function buildDaySummary(b) {
     dedByGap[k] = (dedByGap[k] || 0) + d.minutes;
   });
 
-  // Per-stop Travel column + the "Travel Time:" box now show NET travel (the raw
-  // WO→WO gap minus the downtime subtracted from it — exactly the number saved).
+  // Per-stop Travel column + the "Travel Time:" box now show NET travel (the raw gap
+  // minus the downtime subtracted from it — exactly the number saved). Gaps run between
+  // this installer's OWN consecutive meters; only their first stop is anchored to the
+  // team's first install (or the dock, if they installed first) — see installerGapStops.
   // `travelMinutes` (Tracker `travelMin`) is the per-person net total: only gaps that
   // land on this installer's OWN printable stops (incl. their own launch leg; the
   // row-less Return leg has no toId, so it's never counted). This mirrors the PDF box,
-  // which sums the same per-stop column, and stops partners double-counting the shared
-  // boat ride. A gap with no deductions is full travel; a fully-consumed gap nets to 0
-  // (prints blank), which reproduces old whole-gap-delay days.
-  const timing = computeIdle(teamStopsFor(installerId, installer, date), departure, returned);
+  // which sums the same per-stop column. A gap with no deductions is full travel; a
+  // fully-consumed gap nets to 0 (prints blank), which reproduces old whole-gap days.
+  const gi = installerGapStops(installerId, installer, date);
+  const timing = computeIdle(gi.stops, gi.isFirst ? departure : '', returned);
   const perStopTravel = {};
   let travelMinutes = 0;
   const timingRows = timing.gaps.map(g => {
@@ -807,15 +812,28 @@ function previewDailyLog(b) {
   return { ok: true, summary: s, pdf: buildDailyLogPdf(s) };
 }
 
-/** All of one installer's stops for the day PLUS their boat-team partners' — the
- *  partners being whoever shares their team letter (a single-man team yields just
- *  the installer). Every stop is an "activity" that resets the idle clock, so a
- *  partner's install keeps the team productive. */
-function teamStopsFor(installerId, installer, date) {
+/** The activity list for ONE installer's gap calc. Their own stops drive every gap
+ *  (so a partner installing mid-island never splits a gap), EXCEPT the first gap: when
+ *  this installer isn't the team's first that day, we prepend a marker at the team's
+ *  first install so their first stop's travel runs from the first person's meter, not
+ *  the dock. `isFirst` tells the caller whether to anchor a Launch leg from departure. */
+function installerGapStops(installerId, installer, date) {
+  const own = stopsFor(installer, date);
   const team = installerId ? teamForEmployee(installerId) : null;
-  let out = stopsFor(installer, date);
-  teamPartnerNames(team, installerId).forEach(n => { out = out.concat(stopsFor(n, date)); });
-  return out;
+  const partners = teamPartnerNames(team, installerId);
+  if (!partners.length) return { stops: own, isFirst: true };
+  const ownSecs = own.map(s => secOfDay(s.timestamp)).filter(x => x != null);
+  const ownFirst = ownSecs.length ? Math.min.apply(null, ownSecs) : null;
+  let teamFirst = null, teamFirstSec = null;
+  [own].concat(partners.map(n => stopsFor(n, date))).forEach(arr => arr.forEach(s => {
+    const sec = secOfDay(s.timestamp); if (sec == null) return;
+    if (teamFirstSec == null || sec < teamFirstSec) { teamFirstSec = sec; teamFirst = s; }
+  }));
+  // Installed first (or tied) → launch from the dock; else first gap from the first
+  // person's install (no Launch leg of their own).
+  if (teamFirst == null || ownFirst == null || ownFirst <= teamFirstSec)
+    return { stops: own, isFirst: true };
+  return { stops: [teamFirst].concat(own), isFirst: false };
 }
 
 /** The display names of the installer's same-letter boat-team partners (the
