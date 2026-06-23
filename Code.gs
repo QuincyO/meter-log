@@ -87,8 +87,10 @@ const TRACKER_HEADERS = [
   // new header cells) and existing header-keyed rows never shift. visited /
   // unaccounted are the attendance counts; autoIdleMin is the legacy derived idle
   // (kept for old rows). travelMin / delayMin are the new distance-split totals:
-  // travelMin = island-to-island rides + launch/return legs; delayMin = same-
-  // island meter-to-meter time.
+  // travelMin = this installer's own arrival gaps (the rides leading to their own
+  // stops, incl. their own launch leg, excl. the return leg) — per-person, so it
+  // reconciles with the daily-log "Travel Time" box; delayMin = same-island
+  // meter-to-meter time.
   'visited','unaccounted','autoIdleMin','travelMin','delayMin'
 ];
 // Crew: one row per installer, keyed on the employee number ("H number"), so
@@ -230,8 +232,8 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
     // Travel Time box is summed from the per-row column below, so the two always
     // reconcile on the page. The column shows every stop's full arrival gap, so this
-    // total can overlap with the Delay Time box by design (team-wide travel-only
-    // s.travelMinutes goes to the Tracker instead).
+    // total can overlap with the Delay Time box by design. s.travelMinutes (Tracker)
+    // is now the same per-person total — both sum this installer's own arrival gaps.
     let travelColSum = 0;
 
     let footerRow = FOOTER0;
@@ -583,6 +585,14 @@ function buildDaySummary(b) {
   const departure = b.departure || persisted.departure || '';
   const returned  = b.returned  || persisted.returned  || '';
   const stops = stopsFor(installer, date);
+  // The installer's own printable stops (same statuses the PDF prints as rows). Travel
+  // is attributed per-person: only the gaps that land on one of these count toward this
+  // installer's total — so a partner who installs first "owns" the morning launch leg,
+  // and the other partner's first-stop travel starts from the team's prior install.
+  const ownPrintableIds = {};
+  stops.filter(x => x.status === 'INSTALLED' || x.status === 'UTI'
+                 || x.status === 'VISITED'  || x.status === 'UNACCOUNTED')
+       .forEach(x => { if (x.id != null) ownPrintableIds[x.id] = true; });
   const installed   = stops.filter(s => s.status === 'INSTALLED').length;
   const uti         = stops.filter(s => s.status === 'UTI').length;
   const visited     = stops.filter(s => s.status === 'VISITED').length;
@@ -622,9 +632,12 @@ function buildDaySummary(b) {
 
   // Per-stop Travel column + the "Travel Time:" box now show NET travel (the raw
   // WO→WO gap minus the downtime subtracted from it — exactly the number saved).
-  // `travelMinutes` (Tracker `travelMin`) is the same net total, excluding the
-  // row-less Return leg. A gap with no deductions is full travel; a fully-consumed
-  // gap nets to 0 (prints blank), which reproduces old whole-gap-delay days.
+  // `travelMinutes` (Tracker `travelMin`) is the per-person net total: only gaps that
+  // land on this installer's OWN printable stops (incl. their own launch leg; the
+  // row-less Return leg has no toId, so it's never counted). This mirrors the PDF box,
+  // which sums the same per-stop column, and stops partners double-counting the shared
+  // boat ride. A gap with no deductions is full travel; a fully-consumed gap nets to 0
+  // (prints blank), which reproduces old whole-gap-delay days.
   const timing = computeIdle(teamStopsFor(installerId, installer, date), departure, returned);
   const perStopTravel = {};
   let travelMinutes = 0;
@@ -633,7 +646,8 @@ function buildDaySummary(b) {
     const net = Math.max(0, g.minutes - ded);
     const bucket = (g.minutes > 0 && ded >= g.minutes) ? 'delay' : (ded > 0 ? 'mixed' : 'travel');
     if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = net;
-    if (g.type !== 'Return') travelMinutes += net;
+    if (g.type !== 'Return' && g.toId != null && g.toId !== '' && ownPrintableIds[g.toId])
+      travelMinutes += net;
     return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
              distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO };
   });
