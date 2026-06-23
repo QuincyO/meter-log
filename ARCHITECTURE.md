@@ -109,7 +109,8 @@ fills the blanks),
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
-the map), `tracker` (all end-of-day rows, for the viewer's trends), `roster`
+the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
+(all per-gap `Timing` rows, for the analytics "avg time between meters" metric), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
