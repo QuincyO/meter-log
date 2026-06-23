@@ -352,6 +352,10 @@
       <div id="eodIdle"></div>
       <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
       <textarea id="eodNotes" placeholder="Anything else to add to today’s log…"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:8px">
+        <input type="checkbox" id="eodIncludeDelays" checked style="width:auto;margin:0">
+        Include delays &amp; travel time on PDF
+      </label>
       <button class="primary" id="finishDay" style="margin-top:16px">Finish day</button>
     </div>
   </div>
@@ -916,6 +920,7 @@ $('finishDay').onclick = async () => {
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
                              notes:$('eodNotes').value.trim(), weather,
+                             includeDelays:$('eodIncludeDelays').checked,
                              departure:$('eodDeparture').value, returned:$('eodReturned').value }) })).json();
     closeSheets();
     if (d.pdf && d.pdf.base64) {
@@ -970,7 +975,8 @@ $('genLog').onclick = async () => {
   try{
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ token:c.token, action:'previewDailyLog',
-                             installer:c.name, installerId:c.hNumber }) })).json();
+                             installer:c.name, installerId:c.hNumber,
+                             includeDelays:$('eodIncludeDelays').checked }) })).json();
     if (d.pdf && d.pdf.base64) {
       downloadBase64Pdf(d.pdf.base64, d.pdf.name);
       toast('Daily log downloaded — draft (day not closed)');

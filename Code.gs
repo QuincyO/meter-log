@@ -213,6 +213,12 @@ function buildDailyLogPdf(s) {
   const visited     = (s.stops||[]).filter(x => x.status==='VISITED').length;
   const unaccounted = (s.stops||[]).filter(x => x.status==='UNACCOUNTED').length;
 
+  // When false (the End-of-day "Include delays & travel time" box was unchecked),
+  // the PDF prints installs/UTIs only: Delay Time box, Travel Time box, per-stop
+  // Travel column, and the Delays/Breaks/Misc footer line are all suppressed.
+  // The day's totals are still computed and recorded — this only gates rendering.
+  const showDT = s.includeDelays !== false;
+
   const copy = tpl.copyTo(ss).setName('_tmp_' + Date.now());
   try {
     const FOOTER0 = BODY_START + BODY_ROWS;
@@ -227,7 +233,7 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.boatName,s.boatName || '');
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather,    s.weather  || '');
-    put(ANCHORS.delayTime, s.downtimeTotalMin || 0);  // categorized downtime total (excl. Travel Time)
+    put(ANCHORS.delayTime, showDT ? (s.downtimeTotalMin || 0) : '');  // categorized downtime total (excl. Travel Time)
     put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
     // Travel Time box is summed from the per-row column below, so the two always
@@ -261,7 +267,7 @@ function buildDailyLogPdf(s) {
       // the previous activity (first row = launch leg). Every stop with a preceding
       // gap gets a number, including one reached after a flagged delay. The Travel
       // Time box is the running sum of this column.
-      const travel = (s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '';
+      const travel = showDT ? ((s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '') : '';
       if (travel) travelColSum += travel;
       copy.getRange(r,1,1,8).setValues([[
         i+1, x.workOrderId || '', x.oldJNumber || '',
@@ -271,7 +277,7 @@ function buildDailyLogPdf(s) {
         travel
       ]]);
     });
-    put(ANCHORS.travelTime, travelColSum);
+    put(ANCHORS.travelTime, showDT ? travelColSum : '');
 
     copy.getRange(footerRow, 2).setValue(installed);
     copy.getRange(footerRow, 4).setValue(uti);
@@ -286,7 +292,10 @@ function buildDailyLogPdf(s) {
     const segs = ['Delays:  ' + downtimeSummary(delays)];
     if (breaks.length) segs.push('Breaks:  ' + downtimeSummary(breaks));
     if (misc.length)   segs.push('Misc Travel:  ' + downtimeSummary(misc));
-    copy.getRange(footerRow, 5).setValue(extraCounts + segs.join('   ·   '));
+    // showDT off → footer carries only the Visited/Unaccounted counts, no delay segments.
+    copy.getRange(footerRow, 5).setValue(showDT
+      ? (extraCounts + segs.join('   ·   '))
+      : extraCounts.replace(/\s*·\s*$/, ''));
     SpreadsheetApp.flush();
 
     // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
@@ -658,6 +667,9 @@ function buildDaySummary(b) {
   });
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
+    // PDF-only flag: when false, buildDailyLogPdf omits the delay/travel cells.
+    // It never affects the Tracker/Timing writes — analytics always gets full data.
+    includeDelays: b.includeDelays !== false,
     downtimeTotalMin: downtimeTotal, byCategory: byCat,
     breaksTotalMin: breaksTotal, byBreak: byBreak, miscTravelMin: miscTravelTotal,
     travelMinutes: travelMinutes,
