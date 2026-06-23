@@ -420,6 +420,7 @@ function doGet(e) {
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
   if (p.action === 'pins')    return json(pins());
   if (p.action === 'tracker') return json(tracker());
+  if (p.action === 'timing')  return json(timing());
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -1134,6 +1135,13 @@ function pins() {
  *  charts. The viewer filters by installer + date range on its side. */
 function tracker() {
   return { ok: true, tracker: rows('Tracker') };
+}
+
+/** Every per-gap audit row (the Timing tab). Feeds the analytics "avg time between
+ *  meters" metric — the viewer filters by installer + date range and averages the
+ *  WO→WO gaps (type Travel / Flagged) on its side. */
+function timing() {
+  return { ok: true, timing: rows('Timing') };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

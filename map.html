@@ -48,6 +48,17 @@
   .preset{height:42px;padding:0 12px;border:2px solid var(--line);border-radius:10px;background:var(--surface);
        color:var(--ink-soft);font-size:13px;font-weight:700;cursor:pointer}
   .preset:active{transform:scale(.97)} .preset.on{border-color:var(--amber);color:var(--amber-press)}
+  /* typed multi-installer filter */
+  .instwrap{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:42px;min-width:200px;
+       border:2px solid var(--line);border-radius:10px;background:var(--surface);padding:3px 8px}
+  .instwrap:focus-within{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+  .instchips{display:flex;gap:6px;flex-wrap:wrap}
+  .instchip{display:flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 11px;border-radius:8px;
+       background:var(--panel);border:1px solid var(--line);font-size:14px;font-weight:700;color:var(--ink)}
+  .instchip button{border:0;background:none;color:var(--ink-soft);font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
+  .instchip button:hover{color:var(--ink)}
+  .f-inst{flex:1;min-width:120px;height:34px;border:0;background:none;color:var(--ink);font-size:15px;
+       font-weight:600;font-family:inherit;outline:none}
   .chips{display:flex;gap:6px}
   .chip{display:flex;align-items:center;gap:7px;height:42px;padding:0 13px;border:2px solid var(--line);
        border-radius:10px;background:var(--surface);font-size:14px;font-weight:700;color:var(--ink-soft);cursor:pointer;user-select:none}
@@ -119,9 +130,12 @@
       <input id="search" class="mono" placeholder="Find WO# or J#…" autocapitalize="characters">
       <button class="btn" id="searchBtn">Find</button>
     </div>
-    <select class="f-sel" id="installerSel" aria-label="Installer">
-      <option value="">All installers</option>
-    </select>
+    <div class="instwrap" id="instWrap">
+      <span class="instchips" id="instChips"></span>
+      <input id="instInput" class="f-inst" list="instList" aria-label="Installers"
+             placeholder="All installers — type a name…" autocomplete="off">
+      <datalist id="instList"></datalist>
+    </div>
     <div class="daterange">
       <input type="date" class="f-date" id="fromDate" aria-label="From date">
       <span class="sep">→</span>
@@ -187,8 +201,8 @@ const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeathe
   ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
-let ALL = [], TRK = [];
-let state = { installer:'', from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
+let ALL = [], TRK = [], TIM = [], INSTALLER_NAMES = [];
+let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
 
 // ── helpers shared with the form's logic ──────────────────────────────────
@@ -217,7 +231,7 @@ const norm = v => String(v==null?'':v).trim().toUpperCase();
 const hasCoords = s => s.lat!=null && s.lng!=null && !isNaN(s.lat) && !isNaN(s.lng);
 const trkNum = v => Number(v)||0;
 const inRange = k => (!state.from || k>=state.from) && (!state.to || k<=state.to);
-const instMatch = name => !state.installer || String(name||'').trim()===state.installer;
+const instMatch = name => !state.installers.length || state.installers.includes(String(name||'').trim());
 
 // ── load ────────────────────────────────────────────────────────────────────
 async function load(){
@@ -229,15 +243,17 @@ async function load(){
   const c = cfg();
   $('pillstat').textContent = 'Loading…';
   try{
-    const [pd, td] = await Promise.all([
+    const [pd, td, md] = await Promise.all([
       fetch(`${c.url}?token=${enc(c.token)}&action=pins`).then(r=>r.json()),
-      fetch(`${c.url}?token=${enc(c.token)}&action=tracker`).then(r=>r.json())
+      fetch(`${c.url}?token=${enc(c.token)}&action=tracker`).then(r=>r.json()),
+      fetch(`${c.url}?token=${enc(c.token)}&action=timing`).then(r=>r.json())
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
       lng:(s.lng===''||s.lng==null)?null:Number(s.lng) }));
     TRK = td.tracker || [];
-    buildInstallerOptions();
+    TIM = md.timing || [];
+    buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
     updatePill();
@@ -255,6 +271,12 @@ function forMap(){
 }
 function pinsInScope(){ return ALL.filter(s => instMatch(s.installer) && inRange(dateKey(s.timestamp))); }
 function trkInScope(){ return TRK.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))); }
+// WO→WO gaps (Travel / Flagged) in scope — Launch/Return dock legs excluded — for the
+// "avg time between meters" metric.
+function gapsInScope(){
+  return TIM.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))
+    && (r.type==='Travel' || r.type==='Flagged'));
+}
 
 // ── map ─────────────────────────────────────────────────────────────────────
 function initMap(){
@@ -296,7 +318,7 @@ function doSearch(){
 
   // clear every filter so a match is never hidden, then locate it
   state.statuses = { INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true };
-  state.installer = ''; state.from=''; state.to='';
+  state.installers = []; state.from=''; state.to='';
   syncControls(); drawMarkers(false); renderAnalytics();
 
   const located = matches.filter(hasCoords);
@@ -324,9 +346,16 @@ function renderAnalytics(){
   const unaccounted = trk.reduce((a,r)=>a+trkNum(r.unaccounted),0);
   const autoIdle    = trk.reduce((a,r)=>a+trkNum(r.autoIdleMin),0);
   const rate        = (installed+uti) ? Math.round(installed/(installed+uti)*100) : 0;
+
+  // Avg time between meters: mean of every WO→WO gap's full minutes (delays included).
+  const gaps = gapsInScope();
+  const gapSum = gaps.reduce((a,r)=>a+trkNum(r.minutes),0);
+  const avgGap = gaps.length ? Math.round(gapSum/gaps.length) : null;
+
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
     + tile(rate+'%','Install rate','') + tile(down,'Downtime min','')
+    + tile(avgGap==null?'—':(avgGap+' min'),'Avg between meters','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
 
@@ -375,13 +404,18 @@ function renderAnalytics(){
     (byI[n]=byI[n]||{i:0,u:0,d:0,v:0,n:0,idle:0});
     byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin);
     byI[n].v+=trkNum(r.visited); byI[n].n+=trkNum(r.unaccounted); byI[n].idle+=trkNum(r.autoIdleMin); });
+  // Per-installer avg gap, from the same WO→WO gaps as the tile.
+  const gapByI = {};
+  gaps.forEach(r => { const n=(r.installer||'—'); (gapByI[n]=gapByI[n]||{sum:0,cnt:0});
+    gapByI[n].sum+=trkNum(r.minutes); gapByI[n].cnt++; });
+  const avgGapFor = n => (gapByI[n] && gapByI[n].cnt) ? Math.round(gapByI[n].sum/gapByI[n].cnt)+'m' : '—';
   const names = Object.keys(byI).sort();
   if(!names.length){ $('byInst').innerHTML = '<div class="empty">No end-of-day totals in this range.</div>'; }
   else{
     let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th>'
-          + '<th class="num">Visited</th><th class="num">Unacc.</th><th class="num">Downtime</th><th class="num">Auto-idle</th></tr></thead><tbody>';
+          + '<th class="num">Visited</th><th class="num">Unacc.</th><th class="num">Downtime</th><th class="num">Avg gap</th><th class="num">Auto-idle</th></tr></thead><tbody>';
     names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td>`
-      + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${byI[n].idle}</td></tr>`);
+      + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${avgGapFor(n)}</td><td class="num">${byI[n].idle}</td></tr>`);
     $('byInst').innerHTML = h + '</tbody></table>';
   }
 }
@@ -390,15 +424,37 @@ function blank(id,msg){ const el=$(id); el.textContent=msg; el.style.display = m
 function remake(inst, canvas, conf){ if(inst){ inst.destroy(); } return conf ? new Chart(canvas, conf) : null; }
 
 // ── controls ────────────────────────────────────────────────────────────────
-function buildInstallerOptions(){
+function buildInstallerList(){
   const set = new Set();
   ALL.forEach(s=>{ const n=String(s.installer||'').trim(); if(n) set.add(n); });
   TRK.forEach(r=>{ const n=String(r.installer||'').trim(); if(n) set.add(n); });
-  $('installerSel').innerHTML = '<option value="">All installers</option>'
-    + [...set].sort().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  INSTALLER_NAMES = [...set].sort();
+  renderInstChips();
+}
+// Selected installers render as removable chips; the datalist offers the rest by name.
+function renderInstChips(){
+  $('instChips').innerHTML = state.installers.map(n =>
+    `<span class="instchip">${esc(n)}<button type="button" data-name="${esc(n)}" aria-label="Remove ${esc(n)}">×</button></span>`).join('');
+  $('instChips').querySelectorAll('button').forEach(b =>
+    b.onclick = () => removeInstaller(b.dataset.name));
+  $('instList').innerHTML = INSTALLER_NAMES
+    .filter(n => !state.installers.includes(n))
+    .map(n => `<option value="${esc(n)}"></option>`).join('');
+  $('instInput').placeholder = state.installers.length ? 'Add another…' : 'All installers — type a name…';
+}
+function addInstaller(typed){
+  const t = String(typed||'').trim(); if(!t) return;
+  const match = INSTALLER_NAMES.find(n => n.toLowerCase() === t.toLowerCase());
+  if(!match || state.installers.includes(match)) return;
+  state.installers.push(match);
+  syncControls(); drawMarkers(true); renderAnalytics();
+}
+function removeInstaller(name){
+  state.installers = state.installers.filter(n => n !== name);
+  syncControls(); drawMarkers(true); renderAnalytics();
 }
 function syncControls(){
-  $('installerSel').value = state.installer;
+  renderInstChips();
   $('fromDate').value = state.from; $('toDate').value = state.to;
   document.querySelectorAll('#statusChips .chip').forEach(ch => {
     const on = state.statuses[ch.dataset.st];
@@ -411,7 +467,13 @@ function presetMatches(p){
   return state.to===torontoToday() && state.from===daysAgo(Number(p.dataset.days));
 }
 
-$('installerSel').onchange = e => { state.installer=e.target.value; drawMarkers(true); renderAnalytics(); };
+// Datalist pick fires 'change'; Enter commits a typed name. Either way add + clear.
+$('instInput').addEventListener('change', e => { addInstaller(e.target.value); e.target.value=''; });
+$('instInput').addEventListener('keydown', e => {
+  if(e.key==='Enter'){ e.preventDefault(); addInstaller(e.target.value); e.target.value=''; }
+  else if(e.key==='Backspace' && !e.target.value && state.installers.length){ removeInstaller(state.installers[state.installers.length-1]); }
+});
+$('instWrap').onclick = e => { if(e.target===$('instWrap')||e.target===$('instChips')) $('instInput').focus(); };
 document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
