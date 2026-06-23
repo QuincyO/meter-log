@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, seven tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`. This is the truth.
+One spreadsheet, eight tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -294,29 +294,38 @@ the time to go and check":
    partners'* stops for the day (a single-man team is just their own), so a
    partner's install advances the whole team's clock — "from the first meter to
    whoever does the next one, me or my partner."
-2. **Time gate.** For each consecutive pair the raw gap is classified by duration:
-   - **< `FLAG_GAP_MIN`** (default 20 min) → **travel** (auto, silent): the minutes
-     go to the travel total. Every stop's `rawMin` is also recorded as its *per-stop
-     travel*, printed in the log's "Delays" column (minutes since the previous stop).
-   - **≥ `FLAG_GAP_MIN`** → **flagged**: pushed to the end-of-day label list with a
-     distance-based `suggest`ed category — moved **> `SAME_ISLAND_M`** (500 m) →
-     *Travel Time* (a long ride); otherwise a downtime reason. Not auto-counted.
-3. **Launch / return legs.** When a **departure** and/or **return** time is entered
-   at end-of-day, dock→first-stop and last-stop→dock are added to **travel** (always
-   — you're coming from / returning to land) and never flagged. Those times also fill
-   the Departure / Returned boxes on the PDF, and the launch leg shows as the first
-   row's "Delays" value.
+2. **Time gate.** `computeIdle` emits one typed row per gap — the single source the
+   totals, the PDF column, and the `Timing` tab all derive from. Each gap is:
+   - **< `FLAG_GAP_MIN`** (default 20 min) → **`Travel`** (auto): counts as travel.
+   - **≥ `FLAG_GAP_MIN`** → **`Flagged`**: surfaced at end-of-day to label, with a
+     distance-based `suggest` — moved **> `SAME_ISLAND_M`** (500 m) → *Travel Time*
+     (a long ride); otherwise a downtime reason. Not auto-counted until labelled.
+   - **`Launch`** (dock→first) and **`Return`** (last→dock) legs, when a departure /
+     return time is entered, are always travel.
+3. **Per-stop travel column (reconciled).** The PDF's per-row "Travel (min)" column =
+   travel minutes to reach each stop (the first row = the launch leg); a stop reached
+   after a flagged *delay* prints blank. **`buildDailyLogPdf` sets the "Travel Time:"
+   box to the literal running sum of that column**, so the two always reconcile on the
+   page regardless of partner / DONE markers. (The team-wide `s.travelMinutes` —
+   including partner-leg + `Return` travel — goes to the Tracker's `travelMin` instead;
+   the full per-gap detail is on the `Timing` tab.)
 
 The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
 are field-adjustable.
 
 **Travel Time is a special category.** It appears in the downtime dropdowns (manual
 *Add downtime* + the end-of-day gap list) and is stored like any `addDowntime` row,
-but `buildDaySummary` routes `TRAVEL_TIME` minutes into the **travel** total and keeps
-them **out** of the downtime total / per-category breakdown — so confirming an honest
-long ride as Travel Time doesn't pad the downtime numbers. The PDF "Travel Time:" box
-= auto short hops + launch/return legs + Travel-Time-labelled gaps; "Delay Time:" box
-= the categorized downtime total.
+but `buildDaySummary` routes `TRAVEL_TIME` minutes into the **travel** total (matched
+back to its gap by the `auto-detected gap <start>–<end>` note, so it lands in the right
+per-stop cell) and keeps them **out** of the downtime total / per-category breakdown —
+so confirming an honest long ride as Travel Time doesn't pad the downtime numbers. The
+PDF "Delay Time:" box = the categorized downtime total.
+
+**`Timing` tab (audit trail).** `endOfDay` writes one row per gap —
+`date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId` —
+where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel`, a downtime
+label, or `unlabeled`. Every Travel Time / Delay number on the daily log traces back to
+these rows. `previewDailyLog` does **not** write it (preview stays no-write).
 
 **Wiring.** `endOfDay` (via `buildDaySummary` → `computeIdle`) writes `travelMin` to
 the Tracker (the legacy `autoIdleMin` / `delayMin` columns are now blank) and the

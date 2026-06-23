@@ -22,7 +22,7 @@ The production deploy is **GitHub Pages serving the repo root** — pushing to `
 
 ## Architecture in one paragraph
 
-Three layers (see `ARCHITECTURE.md` §"The three layers"). **Store:** one Google Sheet, seven tabs (`Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`) — the system of record. **Spine:** `Code.gs`, an Apps Script Web App that does all deterministic writes/reads via `doPost`/`doGet`. **Capture/view:** the three static pages. Claude (via the Drive connector, outside this repo) only *generates* the formatted daily-log deliverable and summaries; it never stores data and is not in the write path.
+Three layers (see `ARCHITECTURE.md` §"The three layers"). **Store:** one Google Sheet, eight tabs (`Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`) — the system of record. (`Timing` is the per-gap audit trail written at end-of-day; see ARCHITECTURE.md §"Travel vs delay".) **Spine:** `Code.gs`, an Apps Script Web App that does all deterministic writes/reads via `doPost`/`doGet`. **Capture/view:** the three static pages. Claude (via the Drive connector, outside this repo) only *generates* the formatted daily-log deliverable and summaries; it never stores data and is not in the write path.
 
 ## The contract that ties it all together
 

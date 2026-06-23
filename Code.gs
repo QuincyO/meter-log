@@ -91,6 +91,10 @@ const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','mem
 // Quick-pick name lists that feed the team form's captain / sub dropdowns.
 const CAPTAINS_HEADERS = ['name'];
 const SUBS_HEADERS     = ['name'];
+// Audit trail: one row per computed gap, written at end-of-day, so every Travel
+// Time / Delay number on the daily log traces back to a row. `type` is Travel /
+// Flagged / Launch / Return; `bucket` is travel, a downtime label, or unlabeled.
+const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distanceM','type','bucket','workOrderId'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -154,7 +158,7 @@ function setupDailyLogTemplate() {
 
   // table header (row 9)
   sh.getRange(9,1,1,COLS)
-    .setValues([['#','WO#','Old J #','New J # (or UTI reason)','Address','Island Name','Meter Read','Delays']])
+    .setValues([['#','WO#','Old J #','New J # (or UTI reason)','Address','Island Name','Meter Read','Travel (min)']])
     .setFontWeight('bold').setFontSize(8).setHorizontalAlignment('center').setBackground('#EEF1F5');
 
   // footer (row 28)
@@ -203,9 +207,11 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather,    s.weather  || '');
     put(ANCHORS.delayTime, s.downtimeTotalMin || 0);  // categorized downtime total (excl. Travel Time)
-    put(ANCHORS.travelTime,s.travelMinutes   || 0);   // auto short hops + launch/return + Travel-Time labels
     put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
+    // Travel Time box is summed from the per-row column below, so the two always
+    // reconcile on the page (team-wide s.travelMinutes goes to the Tracker instead).
+    let travelColSum = 0;
 
     let footerRow = FOOTER0;
     if (n > BODY_ROWS) {                       // grow if a big day
@@ -228,9 +234,11 @@ function buildDailyLogPdf(s) {
         x.status === 'VISITED'     ? ('Visited' + (x.notes ? (' — ' + x.notes) : '')) :
         x.status === 'UNACCOUNTED' ? ('Unaccounted' + (x.notes ? (' — ' + x.notes) : '')) :
                                      (x.newJNumber || '');
-      // Delays column = minutes since the previous team stop (the travel to reach
-      // this one); the day's first row shows the launch → 1st-meter leg.
+      // Travel column = travel minutes to reach this stop (first row = launch leg).
+      // Only travel-classified gaps appear; a stop reached after a flagged delay
+      // prints blank. The Travel Time box is the running sum of this column.
       const travel = (s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '';
+      if (travel) travelColSum += travel;
       copy.getRange(r,1,1,8).setValues([[
         i+1, x.workOrderId || '', x.oldJNumber || '',
         note4,
@@ -239,6 +247,7 @@ function buildDailyLogPdf(s) {
         travel
       ]]);
     });
+    put(ANCHORS.travelTime, travelColSum);
 
     copy.getRange(footerRow, 2).setValue(installed);
     copy.getRange(footerRow, 4).setValue(uti);
@@ -307,6 +316,7 @@ function setupSheets() {
   ensureTab(ss, 'Teams', TEAMS_HEADERS);
   ensureTab(ss, 'Captains', CAPTAINS_HEADERS);
   ensureTab(ss, 'Subs', SUBS_HEADERS);
+  ensureTab(ss, 'Timing', TIMING_HEADERS);
   setupDailyLogTemplate();
 }
 
@@ -379,10 +389,11 @@ function doGet(e) {
     const id   = String(p.installerId == null ? '' : p.installerId).trim();
     const emp  = id ? employeeByH(id) : null;
     const installer = emp ? fullName(emp) : (p.installer || '');
-    // The confirm list (.gaps) is the team-aware same-island sits over the
-    // threshold — long pauses on one island worth labelling as Downtime. Travel
-    // (island hops + launch/return legs) is auto-totalled, not labelled here.
-    return json(Object.assign({ ok: true }, computeIdle(teamStopsFor(id, installer, date))));
+    // The confirm list is only the FLAGGED gaps (≥ FLAG_GAP_MIN) — the short auto
+    // 'Travel' hops aren't labelled. (Launch/Return legs need departure/return
+    // times, unknown when this opens, so they aren't here either.)
+    const flagged = computeIdle(teamStopsFor(id, installer, date)).gaps.filter(g => g.type === 'Flagged');
+    return json({ ok: true, gaps: flagged });
   }
   return json({ ok: true, message: 'Meter Log spine is up.' });
 }
@@ -515,14 +526,13 @@ function buildDaySummary(b) {
   const visited     = stops.filter(s => s.status === 'VISITED').length;
   const unaccounted = stops.filter(s => s.status === 'UNACCOUNTED').length;
 
-  // Downtime rows split two ways: a TRAVEL_TIME row is logged like a downtime
-  // reason but counts as TRAVEL (a long ride someone confirmed), so it's added to
-  // the travel total and kept out of the downtime total + per-category breakdown.
+  // Downtime rows: a TRAVEL_TIME row is logged like a downtime reason but counts
+  // as TRAVEL, so it's kept out of the downtime total + per-category breakdown.
   const dt = downtimeFor(installer, date);
   const byCat = {}; CATEGORIES.forEach(c => byCat[c] = 0);
-  let downtimeTotal = 0, travelFromLabels = 0;
+  let downtimeTotal = 0;
   dt.forEach(d => {
-    if (d.category === 'TRAVEL_TIME') { travelFromLabels += d.minutes; return; }
+    if (d.category === 'TRAVEL_TIME') return;
     byCat[d.category] = (byCat[d.category] || 0) + d.minutes;
     downtimeTotal += d.minutes;
   });
@@ -530,16 +540,52 @@ function buildDaySummary(b) {
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
 
-  // Time-gated timing: gaps < FLAG_GAP_MIN are auto travel; ≥ FLAG_GAP_MIN are
-  // flagged for end-of-day labelling. Travel = auto short hops + launch/return
-  // legs + any gap the installer confirmed as Travel Time. Team-aware; every
-  // status counts as a marker.
+  // Every gap, typed by computeIdle. A confirmed gap is stored as a Downtime row
+  // noted `auto-detected gap <start>–<end>`; map that note back to its category so
+  // a Flagged gap knows whether the installer called it Travel Time or downtime.
   const timing = computeIdle(teamStopsFor(installerId, installer, date), b.departure, b.returned);
+  // Key by the two clock times (dash-char agnostic) so a confirmed gap's note maps
+  // back to the gap regardless of how the en-dash was encoded.
+  const gapKey = (a, z) => a + '|' + z;
+  const noteTimes = note => String(note == null ? '' : note).match(/auto-detected gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/);
+  const gapCat = {};
+  dt.forEach(d => { const m = noteTimes(d.note); if (m) gapCat[gapKey(m[1], m[2])] = d.category; });
+
+  // Per-stop travel column + the Travel Time total derive from the SAME gaps, so
+  // the PDF column sums EXACTLY to the box. A gap is travel when it's a short hop
+  // or launch leg, or a Flagged gap confirmed as Travel Time. A Return leg is
+  // travel but has no stop row, so it's audit-only (kept out of both, preserving
+  // column == box). Flagged gaps labelled a real reason are delays (blank column).
+  const perStopTravel = {};
+  let travelMinutes = 0;
+  const consumedTravelKeys = {};
+  const timingRows = timing.gaps.map(g => {
+    let bucket = 'travel';
+    if (g.type === 'Flagged') {
+      const cat = gapCat[gapKey(g.fromHHMM, g.toHHMM)];
+      bucket = !cat ? 'unlabeled' : (cat === 'TRAVEL_TIME' ? 'travel' : (CAT_LABEL_SRV[cat] || cat));
+    }
+    if (bucket === 'travel' && g.type !== 'Return') {
+      travelMinutes += g.minutes;
+      if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = g.minutes;
+      if (g.type === 'Flagged') consumedTravelKeys[gapKey(g.fromHHMM, g.toHHMM)] = true;
+    }
+    return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
+             distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO };
+  });
+  // Manual / unmatched TRAVEL_TIME rows (not tied to an auto gap) still count as
+  // travel in the box — they just can't be attributed to a per-stop column cell.
+  dt.forEach(d => {
+    if (d.category !== 'TRAVEL_TIME') return;
+    const m = noteTimes(d.note);
+    if (m && consumedTravelKeys[gapKey(m[1], m[2])]) return;
+    travelMinutes += d.minutes;
+  });
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
     downtimeTotalMin: downtimeTotal, byCategory: byCat,
-    travelMinutes: timing.travelMinutes + travelFromLabels,
-    perStopTravel: timing.perStopTravel, idleGaps: timing.gaps,
+    travelMinutes: travelMinutes,
+    perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
     notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
     departure: b.departure || '', returned: b.returned || '',
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
@@ -561,6 +607,14 @@ function endOfDay(b) {
     byCat.URGENT_EER, byCat.OTHER, s.weather, s.notes,
     s.visited, s.unaccounted, '', s.travelMinutes, ''   // autoIdleMin + delayMin are legacy/blank
   ]);
+
+  // Per-gap audit trail (one row each) so the Travel Time / Delay numbers trace.
+  const timingSh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Timing');
+  if (timingSh && s.timingRows && s.timingRows.length) {
+    timingSh.getRange(timingSh.getLastRow() + 1, 1, s.timingRows.length, TIMING_HEADERS.length)
+      .setValues(s.timingRows.map(r => [s.date, s.installer, r.fromTime, r.toTime,
+        r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId]));
+  }
 
   const pdf = buildDailyLogPdf(s);
   return { ok: true, summary: s, pdf };
@@ -596,43 +650,43 @@ function teamPartnerNames(team, selfH) {
     .map(nameOfH).filter(Boolean);
 }
 
-/** Classify a day's team activity into "travel" and flagged gaps. Each stop —
- *  any status (install, UTI, visited, unaccounted, done) — is one marker carrying
- *  a timestamp + optional GPS, "since we still take the time to go and check."
- *  Walking the markers in time order, each consecutive gap is gated by TIME:
- *    • gap <  FLAG_GAP_MIN → travel (auto): the minutes go to the travel total,
- *      and `rawMin` is recorded as that stop's per-stop travel for the PDF column.
- *    • gap >= FLAG_GAP_MIN → flagged: pushed to gaps[] for the end-of-day label
- *      step, with a distance-based `suggest`ed category (a long ride → Travel
- *      Time, otherwise a downtime reason). NOT auto-counted anywhere.
- *  The launch→first-stop and last-stop→dock legs (when departure / return clock
- *  times are supplied) are always travel and never flagged. Returns the auto
- *  travel total, a {stopId: travelMin} map for the PDF rows, and the flagged gaps. */
+/** Walk a day's team activity and emit ONE structured row per gap — the single
+ *  source the totals, the PDF column, and the Timing audit tab all derive from.
+ *  Each stop (any status: install, UTI, visited, unaccounted, done) is a marker
+ *  carrying a timestamp + optional GPS, "since we still take the time to go and
+ *  check." Between two consecutive markers the gap is typed by TIME:
+ *    • gap <  FLAG_GAP_MIN → 'Travel' (auto, just driving between meters).
+ *    • gap >= FLAG_GAP_MIN → 'Flagged' (surfaced at end-of-day to label; the
+ *      distance-based `suggest` pre-fills Travel Time for a long ride else a
+ *      downtime reason).
+ *  Plus the 'Launch' leg (dock → first stop) and 'Return' leg (last stop → dock)
+ *  when departure / return clock times are supplied. Each gap carries `toId` (the
+ *  arriving stop, for the PDF column) and `distM`. `start`/`end`/`idleMin` are
+ *  aliases the end-of-day labeller (renderIdleGaps) reads. The travel total and
+ *  per-stop column are derived in buildDaySummary, which knows the gap labels. */
 function computeIdle(teamStops, departure, returned) {
   const acts = (teamStops || [])
     .map(s => ({ id: s.id, sec: secOfDay(s.timestamp), lat: numCoord(s.lat), lng: numCoord(s.lng), wo: s.workOrderId }))
     .filter(a => a.sec != null)
     .sort((a, b) => a.sec - b.sec);
 
-  let travelMinutes = 0;
-  const perStopTravel = {};
   const gaps = [];
+  const mk = (fromSec, toSec, type, toId, toWO, distM, suggest) => {
+    const from = secToHHMM(fromSec), to = secToHHMM(toSec), minutes = Math.round((toSec - fromSec) / 60);
+    gaps.push({ fromHHMM: from, toHHMM: to, minutes: minutes, distM: distM,
+                type: type, toId: toId != null ? toId : '', toWO: toWO || '',
+                suggest: suggest || '',
+                start: from, end: to, idleMin: minutes, kind: 'gap' });   // aliases for renderIdleGaps
+  };
 
   for (let i = 1; i < acts.length; i++) {
     const prev = acts[i - 1], cur = acts[i];
-    const rawMin = (cur.sec - prev.sec) / 60;
-    if (rawMin <= 0) continue;
-    const d = Math.round(rawMin);
-    if (cur.id != null) perStopTravel[cur.id] = d;   // every row prints its time since the last stop
-    if (rawMin < FLAG_GAP_MIN) {
-      travelMinutes += rawMin;                        // short hop → auto travel
-    } else {
-      const moved = (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null)
-        ? haversine(prev.lat, prev.lng, cur.lat, cur.lng) : 0;
-      gaps.push({ start: secToHHMM(prev.sec), end: secToHHMM(cur.sec),
-                  idleMin: d, toWO: cur.wo || '', kind: 'gap',
-                  suggest: moved > SAME_ISLAND_M ? 'TRAVEL_TIME' : 'OTHER' });
-    }
+    if (cur.sec - prev.sec <= 0) continue;
+    const moved = (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null)
+      ? Math.round(haversine(prev.lat, prev.lng, cur.lat, cur.lng)) : null;
+    const flagged = (cur.sec - prev.sec) / 60 >= FLAG_GAP_MIN;
+    mk(prev.sec, cur.sec, flagged ? 'Flagged' : 'Travel', cur.id, cur.wo, moved,
+       flagged ? (moved != null && moved > SAME_ISLAND_M ? 'TRAVEL_TIME' : 'OTHER') : '');
   }
 
   // Launch → first stop and last stop → dock are always travel (coming from /
@@ -640,16 +694,12 @@ function computeIdle(teamStops, departure, returned) {
   if (acts.length) {
     const dep = clockSec(departure), ret = clockSec(returned);
     const first = acts[0], last = acts[acts.length - 1];
-    if (dep != null && first.sec > dep) {
-      const leg = (first.sec - dep) / 60;
-      travelMinutes += leg;
-      if (first.id != null) perStopTravel[first.id] = Math.round(leg);   // first row = launch → 1st meter
-    }
-    if (ret != null && ret > last.sec) travelMinutes += (ret - last.sec) / 60;
+    if (dep != null && first.sec > dep) mk(dep, first.sec, 'Launch', first.id, first.wo, null, '');
+    if (ret != null && ret > last.sec)  mk(last.sec, ret, 'Return', null, '', null, '');
   }
 
-  gaps.sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
-  return { travelMinutes: Math.round(travelMinutes), perStopTravel: perStopTravel, gaps: gaps };
+  gaps.sort((a, b) => a.fromHHMM < b.fromHHMM ? -1 : a.fromHHMM > b.fromHHMM ? 1 : 0);
+  return { gaps: gaps };
 }
 
 // ── Crew + boat teams ──────────────────────────────────────────────────────
