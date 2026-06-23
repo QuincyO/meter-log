@@ -57,6 +57,20 @@ const CATEGORIES = [
   'NEXT_GEN', 'CELL_SIGNAL', 'BAD_WEATHER', 'WAREHOUSE', 'TOOLS_MATERIAL',
   'DISPATCH', 'TRUCK_ISSUES', 'ASSIST', 'URGENT_EER', 'OTHER'
 ];
+// Allocation categories that are NOT delays — kept out of CATEGORIES so they never
+// claim a Tracker per-category column. Both still subtract from a gap's WO→WO travel
+// when entered at end-of-day review; they're summed onto their own daily-log lines.
+const BREAK_CATS      = ['LUNCH', 'BREAK'];   // "Breaks" footer line
+const TRAVEL_ADJ_CATS = ['MISC_TRAVEL'];      // "Misc Travel" footer line
+// A gap allocation of any category EXCEPT legacy TRAVEL_TIME subtracts from that gap's
+// travel. TRAVEL_TIME (old data) meant "the whole gap was still travel", so it must
+// NOT be subtracted — this is what keeps already-closed days computing unchanged.
+function isGapDeduction(cat) { return !!cat && cat !== 'TRAVEL_TIME'; }
+// Maps a gap-allocation Downtime row's note (`gap HH:MM–HH:MM`, or the legacy
+// `auto-detected gap …`) back to its two clock times, dash-char agnostic.
+function gapNoteTimes(note) {
+  return String(note == null ? '' : note).match(/gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/);
+}
 
 const STOPS_HEADERS = [
   'id','timestamp','installer','workOrderId','unit','address','lat','lng',
@@ -261,9 +275,16 @@ function buildDailyLogPdf(s) {
     copy.getRange(footerRow, 4).setValue(uti);
     const extraCounts = (visited ? ('Visited ' + visited + '  ·  ') : '')
                       + (unaccounted ? ('Unaccounted ' + unaccounted + '  ·  ') : '');
-    // Travel Time labels count as travel, not a delay, so keep them out of this line.
-    const delaysOnly = (s.downtime || []).filter(d => d.category !== 'TRAVEL_TIME');
-    copy.getRange(footerRow, 5).setValue(extraCounts + 'Delays:  ' + downtimeSummary(delaysOnly));
+    // Three independent lenses, each summing its own category set: real work delays,
+    // lunch/breaks, and miscellaneous (non-WO→WO) travel. Breaks & Misc Travel were
+    // subtracted from the WO→WO travel above, so they're reported separately here.
+    const delays = (s.downtime||[]).filter(d => CATEGORIES.indexOf(d.category) >= 0);
+    const breaks = (s.downtime||[]).filter(d => BREAK_CATS.indexOf(d.category) >= 0);
+    const misc   = (s.downtime||[]).filter(d => TRAVEL_ADJ_CATS.indexOf(d.category) >= 0);
+    const segs = ['Delays:  ' + downtimeSummary(delays)];
+    if (breaks.length) segs.push('Breaks:  ' + downtimeSummary(breaks));
+    if (misc.length)   segs.push('Misc Travel:  ' + downtimeSummary(misc));
+    copy.getRange(footerRow, 5).setValue(extraCounts + segs.join('   ·   '));
     SpreadsheetApp.flush();
 
     // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
@@ -299,6 +320,7 @@ function locLabelSrv(s) {
 const CAT_LABEL_SRV = { NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
   WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
   TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other',
+  LUNCH:'Lunch', BREAK:'Break', MISC_TRAVEL:'Misc Travel',
   // Logged like a downtime reason but counts as TRAVEL, not downtime (see buildDaySummary).
   TRAVEL_TIME:'Travel Time' };
 function downtimeSummary(downtime) {
@@ -358,6 +380,7 @@ function doPost(e) {
       case 'updateStop':     return json(updateStop(body));
       case 'endOfDay':       return json(endOfDay(body));
       case 'previewDailyLog':return json(previewDailyLog(body));
+      case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
@@ -403,11 +426,20 @@ function doGet(e) {
     const id   = String(p.installerId == null ? '' : p.installerId).trim();
     const emp  = id ? employeeByH(id) : null;
     const installer = emp ? fullName(emp) : (p.installer || '');
-    // The confirm list is only the FLAGGED gaps (≥ FLAG_GAP_MIN) — the short auto
-    // 'Travel' hops aren't labelled. (Launch/Return legs need departure/return
-    // times, unknown when this opens, so they aren't here either.)
-    const flagged = computeIdle(teamStopsFor(id, installer, date)).gaps.filter(g => g.type === 'Flagged');
-    return json({ ok: true, gaps: flagged });
+    // Every WO→WO gap (short hops included) is offered for review so a break can be
+    // subtracted from any of them. (Launch/Return legs need the bookend times, not
+    // known when this opens, so they stay auto-travel and aren't listed here.)
+    const gaps = computeIdle(teamStopsFor(id, installer, date)).gaps
+      .filter(g => g.type === 'Travel' || g.type === 'Flagged');
+    // Attach any already-saved allocations (gap-tagged Downtime rows) so re-opening a
+    // day from either surface pre-fills what was entered.
+    const dt = downtimeFor(installer, date);
+    const allocFor = (a, z) => dt
+      .filter(d => { const m = gapNoteTimes(d.note); return m && m[1] === a && m[2] === z; })
+      .map(d => ({ id: d.id, category: d.category, minutes: Number(d.minutes) || 0 }));
+    return json({ ok: true, gaps: gaps.map(g => ({
+      start: g.start, end: g.end, idleMin: g.idleMin, toWO: g.toWO, toId: g.toId,
+      distM: g.distM, suggest: g.suggest, allocations: allocFor(g.start, g.end) })) });
   }
   return json({ ok: true, message: 'Meter Log spine is up.' });
 }
@@ -555,67 +587,59 @@ function buildDaySummary(b) {
   const visited     = stops.filter(s => s.status === 'VISITED').length;
   const unaccounted = stops.filter(s => s.status === 'UNACCOUNTED').length;
 
-  // Downtime rows: a TRAVEL_TIME row is logged like a downtime reason but counts
-  // as TRAVEL, so it's kept out of the downtime total + per-category breakdown.
+  // Downtime rows for the day, sorted into four non-overlapping buckets by category:
+  //   • delays → the 10 CATEGORIES (Delay Time box + Tracker per-cat columns)
+  //   • breaks → LUNCH / BREAK (own daily-log line, kept OUT of the delay total)
+  //   • misc   → MISC_TRAVEL (own daily-log line)
+  //   • legacy TRAVEL_TIME → counts as travel, not a delay (back-compat, no bucket)
   const dt = downtimeFor(installer, date);
   const byCat = {}; CATEGORIES.forEach(c => byCat[c] = 0);
-  let downtimeTotal = 0;
+  const byBreak = {}; BREAK_CATS.forEach(c => byBreak[c] = 0);
+  let downtimeTotal = 0, breaksTotal = 0, miscTravelTotal = 0;
   dt.forEach(d => {
-    if (d.category === 'TRAVEL_TIME') return;
-    byCat[d.category] = (byCat[d.category] || 0) + d.minutes;
-    downtimeTotal += d.minutes;
+    const c = d.category, m = d.minutes;
+    if (BREAK_CATS.indexOf(c) >= 0)            { byBreak[c] += m; breaksTotal += m; }
+    else if (TRAVEL_ADJ_CATS.indexOf(c) >= 0)  { miscTravelTotal += m; }
+    else if (c === 'TRAVEL_TIME')              { /* travel, not a delay */ }
+    else { byCat[c] = (byCat[c] || 0) + m; downtimeTotal += m; }
   });
 
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
 
-  // Every gap, typed by computeIdle. A confirmed gap is stored as a Downtime row
-  // noted `auto-detected gap <start>–<end>`; map that note back to its category so
-  // a Flagged gap knows whether the installer called it Travel Time or downtime.
-  const timing = computeIdle(teamStopsFor(installerId, installer, date), departure, returned);
-  // Key by the two clock times (dash-char agnostic) so a confirmed gap's note maps
-  // back to the gap regardless of how the en-dash was encoded.
+  // Sum the per-gap deductions, keyed by the gap's two clock times (dash-char
+  // agnostic), so each gap's net travel = its raw minutes minus what was subtracted
+  // from it. TRAVEL_TIME is excluded (it never subtracts — see isGapDeduction).
   const gapKey = (a, z) => a + '|' + z;
-  const noteTimes = note => String(note == null ? '' : note).match(/auto-detected gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/);
-  const gapCat = {};
-  dt.forEach(d => { const m = noteTimes(d.note); if (m) gapCat[gapKey(m[1], m[2])] = d.category; });
+  const dedByGap = {};
+  dt.forEach(d => {
+    if (!isGapDeduction(d.category)) return;
+    const m = gapNoteTimes(d.note); if (!m) return;
+    const k = gapKey(m[1], m[2]);
+    dedByGap[k] = (dedByGap[k] || 0) + d.minutes;
+  });
 
-  // The PDF's per-stop Travel column shows EVERY arriving gap's full duration, so
-  // every workorder row has a number — even one reached after a flagged delay. The
-  // "Travel Time:" box is the running sum of that column, so a delay gap's minutes
-  // land in BOTH that total and the Delays breakdown (an intended overlap — two
-  // lenses on the same time). `travelMinutes` (Tracker `travelMin`) stays travel-ONLY:
-  // short hops + launch legs + Flagged gaps confirmed as Travel Time, excluding the
-  // row-less Return leg. Flagged gaps labelled a real reason are delays.
+  // Per-stop Travel column + the "Travel Time:" box now show NET travel (the raw
+  // WO→WO gap minus the downtime subtracted from it — exactly the number saved).
+  // `travelMinutes` (Tracker `travelMin`) is the same net total, excluding the
+  // row-less Return leg. A gap with no deductions is full travel; a fully-consumed
+  // gap nets to 0 (prints blank), which reproduces old whole-gap-delay days.
+  const timing = computeIdle(teamStopsFor(installerId, installer, date), departure, returned);
   const perStopTravel = {};
   let travelMinutes = 0;
-  const consumedTravelKeys = {};
   const timingRows = timing.gaps.map(g => {
-    let bucket = 'travel';
-    if (g.type === 'Flagged') {
-      const cat = gapCat[gapKey(g.fromHHMM, g.toHHMM)];
-      bucket = !cat ? 'unlabeled' : (cat === 'TRAVEL_TIME' ? 'travel' : (CAT_LABEL_SRV[cat] || cat));
-    }
-    // Every arriving gap (any bucket) fills the per-stop Travel column cell.
-    if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = g.minutes;
-    if (bucket === 'travel' && g.type !== 'Return') {
-      travelMinutes += g.minutes;
-      if (g.type === 'Flagged') consumedTravelKeys[gapKey(g.fromHHMM, g.toHHMM)] = true;
-    }
+    const ded = dedByGap[gapKey(g.fromHHMM, g.toHHMM)] || 0;
+    const net = Math.max(0, g.minutes - ded);
+    const bucket = (g.minutes > 0 && ded >= g.minutes) ? 'delay' : (ded > 0 ? 'mixed' : 'travel');
+    if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = net;
+    if (g.type !== 'Return') travelMinutes += net;
     return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
              distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO };
-  });
-  // Manual / unmatched TRAVEL_TIME rows (not tied to an auto gap) still count as
-  // travel in the box — they just can't be attributed to a per-stop column cell.
-  dt.forEach(d => {
-    if (d.category !== 'TRAVEL_TIME') return;
-    const m = noteTimes(d.note);
-    if (m && consumedTravelKeys[gapKey(m[1], m[2])]) return;
-    travelMinutes += d.minutes;
   });
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
     downtimeTotalMin: downtimeTotal, byCategory: byCat,
+    breaksTotalMin: breaksTotal, byBreak: byBreak, miscTravelMin: miscTravelTotal,
     travelMinutes: travelMinutes,
     perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
     notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
@@ -691,6 +715,44 @@ function deleteDayRows(tab, date, installer) {
   for (let r = data.length - 1; r >= 1; r--) {
     if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) sh.deleteRow(r + 1);
   }
+}
+
+/** Replaces a day's gap-allocation Downtime rows (the per-gap travel deductions —
+ *  delays, breaks, misc travel a reviewer subtracted from a WO→WO gap) with the
+ *  posted set, so re-reviewing a day from either surface is idempotent and never
+ *  duplicates. Only gap-tagged rows (note `gap HH:MM–HH:MM`) are touched — manual
+ *  downtime logged from the field form is left alone. Rows are stamped on the gap's
+ *  own date so a past day edited from edit.html still reads them back. */
+function saveTravel(b) {
+  const date = b.date || today();
+  const installerId = String(b.installerId == null ? '' : b.installerId).trim();
+  const emp = installerId ? employeeByH(installerId) : null;
+  const installer = emp ? fullName(emp) : (b.installer || '');
+  if (!installer) return { ok: false, error: 'installer required' };
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime');
+  if (!sh) return { ok: false, error: 'Downtime tab missing' };
+
+  // Drop this day's existing gap-tagged rows (bottom-up so indexes stay valid).
+  const data = sh.getDataRange().getValues();
+  const H = data[0];
+  const iCol = H.indexOf('installer'), tsCol = H.indexOf('timestamp'), nCol = H.indexOf('note');
+  for (let r = data.length - 1; r >= 1; r--) {
+    if (sameName(data[r][iCol], installer) && dateOf(data[r][tsCol]) === date
+        && gapNoteTimes(data[r][nCol])) sh.deleteRow(r + 1);
+  }
+
+  // Append the new allocations. Each carries the arriving WO + a `gap HH:MM–HH:MM`
+  // note so buildDaySummary can attribute it back to the right gap.
+  const allocs = (b.allocations || [])
+    .filter(a => a && a.category && (parseInt(a.minutes, 10) || 0) > 0);
+  if (allocs.length) {
+    const ts = date + ' 12:00:00';   // anchored on the gap's date, not "now"
+    sh.getRange(sh.getLastRow() + 1, 1, allocs.length, DOWNTIME_HEADERS.length).setValues(
+      allocs.map(a => [ newId(), ts, installer, String(a.category).toUpperCase(),
+        parseInt(a.minutes, 10) || 0, a.workOrderId || '',
+        'gap ' + a.fromTime + '–' + a.toTime ]));
+  }
+  return { ok: true, count: allocs.length };
 }
 
 /** Upsert the Days bookend row (one per date+installer). Reuses upsertDayRow's
