@@ -359,6 +359,11 @@ function setupSheets() {
   ensureTab(ss, 'Subs', SUBS_HEADERS);
   ensureTab(ss, 'Timing', TIMING_HEADERS);
   ensureTab(ss, 'Days', DAYS_HEADERS);
+  // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
+  // into a 1899-epoch time value (which then reads back as a Date and prints a
+  // date instead of a clock time on the daily log).
+  const days = ss.getSheetByName('Days');
+  days.getRange('C2:D').setNumberFormat('@');   // departure, returned (cols 3-4)
   setupDailyLogTemplate();
 }
 
@@ -808,7 +813,7 @@ function saveDay(b) {
 function dayMeta(installer, date) {
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days')) return { departure: '', returned: '' };
   const r = rows('Days').filter(x => sameName(x.installer, installer) && dateOf(x.date) === date)[0];
-  return { departure: r ? (r.departure || '') : '', returned: r ? (r.returned || '') : '' };
+  return { departure: r ? clockHHMM(r.departure) : '', returned: r ? clockHHMM(r.returned) : '' };
 }
 
 /** True when a Tracker row already exists for (installer, date) — the day is closed. */
@@ -1270,6 +1275,15 @@ function secOfDay(ts) {
 }
 /** Seconds-since-midnight for an "HH:mm" clock string (a <input type=time>). */
 function clockSec(v) { const m = String(v == null ? '' : v).match(/(\d{1,2}):(\d{2})/); return m ? ((+m[1]) * 3600 + (+m[2]) * 60) : null; }
+/** Normalize any Days-cell bookend value to an "HH:mm" clock string (or '').
+ *  Handles a literal "HH:mm" string, a full timestamp, and a Date object that
+ *  Sheets produced by coercing an entered time. Mirrors secOfDay's Date path. */
+function clockHHMM(v) {
+  if (v === '' || v == null) return '';
+  if (v instanceof Date) return Utilities.formatDate(v, TIMEZONE, 'HH:mm');
+  const m = String(v).match(/(\d{1,2}):(\d{2})/);
+  return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : '';
+}
 /** Seconds-since-midnight back to "HH:mm" for display. */
 function secToHHMM(sec) { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2); }
 /** Coerce a sheet cell to a boolean. Blank cells fall back to `dflt` so an
