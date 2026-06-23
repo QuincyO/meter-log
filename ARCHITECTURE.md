@@ -102,6 +102,8 @@ and works even with no signal (queued up on the phone).
 `previewDailyLog` (build the daily-log PDF on demand from today's stops **without**
 writing a Tracker row or requiring departure/return — the real `endOfDay` later
 fills the blanks),
+`saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
+`saveDay`,
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
@@ -109,8 +111,8 @@ fills the blanks),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
-(team-aware long same-island sits for one installer+date, for the end-of-day
-confirm/label step — see "Travel vs delay").
+(team-aware **every WO→WO gap** for one installer+date, each with any deductions
+already saved, for the end-of-day subtraction step — see "Travel vs delay").
 
 ---
 
@@ -179,12 +181,20 @@ plain `addStop` calls — no new endpoint.
 | `note`        | string          | **required** when category is `OTHER`       |
 
 **Downtime categories:**
-`NEXT_GEN`, `CELL_SIGNAL`, `BAD_WEATHER`, `WAREHOUSE`, `TOOLS_MATERIAL`,
-`DISPATCH`, `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`, `TRAVEL_TIME`.
-`TRAVEL_TIME` is selectable like the rest but is **not** real downtime — its minutes
-are routed to the travel total and kept out of `downtimeTotalMin` and the per-category
-breakdown (see "Travel vs delay"). It is intentionally absent from `CATEGORIES` in
-`Code.gs` so it gets no Tracker breakdown column.
+- **Delays** (`CATEGORIES` in `Code.gs`, each gets a Tracker column): `NEXT_GEN`,
+  `CELL_SIGNAL`, `BAD_WEATHER`, `WAREHOUSE`, `TOOLS_MATERIAL`, `DISPATCH`,
+  `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`.
+- **Breaks** (`BREAK_CATS`): `LUNCH`, `BREAK` — summed on the log's "Breaks:" line,
+  kept out of `downtimeTotalMin`.
+- **Travel adjustments** (`TRAVEL_ADJ_CATS`): `MISC_TRAVEL` — summed on the log's
+  "Misc Travel:" line.
+- **Legacy:** `TRAVEL_TIME` — kept for back-compat; **not** subtracted from a gap and
+  not counted as a delay (see "Travel vs delay").
+
+All allocation categories **except** `TRAVEL_TIME` subtract from their WO→WO gap's
+travel. `BREAK_CATS` / `TRAVEL_ADJ_CATS` are intentionally absent from `CATEGORIES`, so
+they ride on the row-based `Downtime` tab and get **no** Tracker breakdown column — that
+is what let the feature ship with no sheet-schema change.
 
 ### Tracker row  (one per installer per day → tab "Tracker")
 Written at end-of-day. This is the "continues forever" sheet, and the source the
@@ -196,15 +206,16 @@ duplicating, so the back-office `edit.html` can regenerate freely.
 The per-category columns are summed minutes for that day, so the running sheet is
 also a breakdown, not just a single downtime number. `visited` / `unaccounted` are
 the day's counts of those two outcomes. `travelMin` is the **derived** travel time
-(see "Travel vs delay" below) = auto sub-20-min hops + launch/return legs + any gap
-confirmed as Travel Time. `autoIdleMin` and `delayMin` are **legacy** columns left in
+(see "Travel vs delay" below) = the sum of each WO→WO gap's **net** minutes (raw minus
+what was subtracted) + launch leg. `autoIdleMin` and `delayMin` are **legacy** columns left in
 place for old rows (now written blank). All were **appended** after `notes` so older
 sheets migrate cleanly via `ensureTab` — re-run `setupSheets()` once after deploying.
 
 > **`travelMin` vs `downtimeTotalMin` are separate, not additive.**
-> `downtimeTotalMin` is the sum of *categorized, logged* `Downtime` rows (excluding
-> `TRAVEL_TIME`); `travelMin` is *derived from stop timestamps + GPS* plus any
-> Travel-Time-labelled gap. They never share the same minutes — don't sum them.
+> `downtimeTotalMin` is the sum of the 10 **delay** `Downtime` categories (breaks,
+> misc travel, and `TRAVEL_TIME` excluded); `travelMin` is the net WO→WO travel after
+> those same delays/breaks/misc were subtracted from each gap. They never share the
+> same minutes — don't sum them.
 
 ### Day  (one row per installer per day → tab "Days")
 The day's **bookend clock times**, persisted so the daily log can always be rebuilt
@@ -317,54 +328,63 @@ the time to go and check":
    partners'* stops for the day (a single-man team is just their own), so a
    partner's install advances the whole team's clock — "from the first meter to
    whoever does the next one, me or my partner."
-2. **Time gate.** `computeIdle` emits one typed row per gap — the single source the
-   totals, the PDF column, and the `Timing` tab all derive from. Each gap is:
-   - **< `FLAG_GAP_MIN`** (default 20 min) → **`Travel`** (auto): counts as travel.
-   - **≥ `FLAG_GAP_MIN`** → **`Flagged`**: surfaced at end-of-day to label, with a
-     distance-based `suggest` — moved **> `SAME_ISLAND_M`** (500 m) → *Travel Time*
-     (a long ride); otherwise a downtime reason. Not auto-counted until labelled.
-   - **`Launch`** (dock→first) and **`Return`** (last→dock) legs, when a departure /
-     return time is entered, are always travel.
-3. **Per-stop travel column (reconciled).** The PDF's per-row "Travel (min)" column =
-   the **full arrival gap** to reach each stop — the minutes since the previous activity
-   (the first row = the launch leg). **Every** stop with a preceding gap gets a number,
-   *including* one reached after a flagged *delay* (only the very first stop of the day,
-   with no launch leg, stays blank). **`buildDailyLogPdf` sets the "Travel Time:" box to
-   the literal running sum of that column**, so the two always reconcile on the page
-   regardless of partner / DONE markers. Because the column now includes delay gaps, the
-   "Travel Time:" box **intentionally overlaps** the "Delay Time:" box for those gaps —
-   two lenses on the same minutes. (The team-wide `s.travelMinutes` — travel-only: short
-   hops + launch + partner legs + confirmed Travel Time, excluding the row-less `Return`
-   leg — goes to the Tracker's `travelMin` instead; the full per-gap detail is on the
-   `Timing` tab.)
+2. **One row per gap.** `computeIdle` emits one typed row per gap — the single source
+   the totals, the PDF column, and the `Timing` tab all derive from. `type` is:
+   - **`Travel`** — a WO→WO gap **< `FLAG_GAP_MIN`** (default 20 min).
+   - **`Flagged`** — a WO→WO gap **≥ `FLAG_GAP_MIN`** (now just a styling / `suggest`
+     hint; **every** WO→WO gap is surfaced for review regardless of length).
+   - **`Launch`** (dock→first) / **`Return`** (last→dock) legs, when a departure /
+     return time is entered — always pure travel, not shown for subtraction.
+3. **Subtraction model (the saved travel).** At end-of-day review **every WO→WO gap**
+   is shown with its raw minutes. The reviewer subtracts any downtime, lunch, or break
+   that happened during that drive (multiple chunks per gap, each a reason + minutes);
+   the **remainder is that gap's travel time** — the value saved. A 60-min gap with
+   *15 Next Gen + 15 Break* subtracted nets to **30**. Each chunk is one `Downtime` row
+   tagged `gap <start>–<end>` + the arriving WO#. `buildDaySummary` sums the subtractable
+   chunks per gap (everything **except** legacy `TRAVEL_TIME`) and sets
+   `perStopTravel[stop] = max(0, raw − subtracted)`. The PDF's per-row "Travel (min)"
+   column and the "Travel Time:" box (its running sum) both show this **net** value, and
+   `s.travelMinutes` (Tracker `travelMin`) is the same net total minus the row-less
+   `Return` leg. No overlap with the "Delay Time:" box — subtracted minutes live in their
+   own bucket, not in travel.
 
 The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
 are field-adjustable.
 
-**Travel Time is a special category.** It appears in the downtime dropdowns (manual
-*Add downtime* + the end-of-day gap list) and is stored like any `addDowntime` row,
-but `buildDaySummary` routes `TRAVEL_TIME` minutes into the **travel** total (matched
-back to its gap by the `auto-detected gap <start>–<end>` note, so it lands in the right
-per-stop cell) and keeps them **out** of the downtime total / per-category breakdown —
-so confirming an honest long ride as Travel Time doesn't pad the downtime numbers. The
-PDF "Delay Time:" box = the categorized downtime total.
+**Four buckets at the bottom of the log.** Every `Downtime` row (gap-subtracted or
+manually logged) is classified by category into one of four non-overlapping totals:
+- **Delays** — the 10 `CATEGORIES` (Next Gen, Dispatch, …). The PDF "Delay Time:" box
+  and the Tracker per-category columns = this total.
+- **Breaks** — `LUNCH` + `BREAK`, on their own "Breaks:" line, kept **out** of the
+  delay total (a break isn't a work disruption).
+- **Misc Travel** — `MISC_TRAVEL`, on its own line (travel that wasn't WO→WO, e.g. a
+  fuel run pulled out of the clean ride number).
+- **Travel** — the per-gap remainders (above). Legacy `TRAVEL_TIME` rows are **not**
+  subtracted from a gap (they meant "the whole gap was travel"), so old closed days
+  still compute unchanged.
+
+`BREAK_CATS` / `TRAVEL_ADJ_CATS` are deliberately kept **out** of `CATEGORIES` so they
+never claim a Tracker column — they ride on the row-based `Downtime` tab and surface on
+the PDF footer, so adding them needed **no sheet-schema change**.
 
 **`Timing` tab (audit trail).** `endOfDay` writes one row per gap —
 `date, installer, fromTime, toTime, minutes, distanceM, type, bucket, workOrderId` —
-where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel`, a downtime
-label, or `unlabeled`. Every Travel Time / Delay number on the daily log traces back to
-these rows. To stay idempotent, `endOfDay` first **deletes** that `(date, installer)`'s
-existing rows, then writes the fresh set — a regenerate replaces rather than piles up.
+where `type` is Travel / Flagged / Launch / Return and `bucket` is `travel` (nothing
+subtracted), `mixed` (partly subtracted), or `delay` (fully consumed). Every number on
+the daily log traces back to these rows. To stay idempotent, `endOfDay` first
+**deletes** that `(date, installer)`'s existing rows, then writes the fresh set.
 `previewDailyLog` does **not** write it (preview stays no-write).
 
-**Wiring.** `endOfDay` (via `buildDaySummary` → `computeIdle`) writes `travelMin` to
-the Tracker (the legacy `autoIdleMin` / `delayMin` columns are now blank) and the
-per-stop travel minutes to the PDF. Each **≥20-min gap** is surfaced at end-of-day:
-the form fetches `?action=idle&installerId=…&date=…`, renders each gap with a category
-dropdown **pre-selected to its suggestion**, and confirming one **enqueues a normal
-`addDowntime`**; `finishDay` flushes before closing so confirmed gaps land in that
-day's totals. *Known minor limit:* re-opening the sheet re-lists gaps already
-confirmed that session — there's no gap↔Downtime backlink.
+**Wiring.** Both surfaces (`index.html` end-of-day, `edit.html` back-office) fetch
+`?action=idle&installerId=…&date=…` — which now returns **every WO→WO gap** plus any
+deductions already saved for it — and render an editable card per gap (raw minutes, a
+live net-travel readout, add/remove reason+minutes rows). On generate/finish they POST
+**`saveTravel`** with the full allocation set; `saveTravel` **replaces** that day's
+gap-tagged `Downtime` rows (idempotent — re-editing never duplicates), and the caller
+then POSTs `endOfDay`, which reads those rows back through `buildDaySummary`.
+Gap-allocation rows are stamped on the gap's own date so a past day edited from
+`edit.html` reads them back. Manual *Add downtime* rows (free-text/empty notes) are
+never touched by `saveTravel`.
 
 ---
 

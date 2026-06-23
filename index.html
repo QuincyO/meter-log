@@ -304,6 +304,9 @@
         <option value="TRUCK_ISSUES">Truck Issues</option>
         <option value="ASSIST">Assist</option>
         <option value="URGENT_EER">Urgent / EER</option>
+        <option value="LUNCH">Lunch</option>
+        <option value="BREAK">Break</option>
+        <option value="MISC_TRAVEL">Misc Travel</option>
         <option value="TRAVEL_TIME">Travel Time</option>
         <option value="OTHER">Other</option>
       </select>
@@ -790,7 +793,7 @@ $('endDay').onclick = async () => {
   await flush();
   if(queue().length){ toast('Still some unsynced — try when online'); return; }
   $('eodNotes').value=''; $('eodTally').textContent='Loading today’s stops…'; $('eodList').innerHTML='';
-  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML='';
+  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML=''; eodGaps=[];
   openSheet('eodSheet');
   try{
     const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
@@ -806,46 +809,75 @@ $('endDay').onclick = async () => {
   } catch { $('eodIdle').innerHTML=''; }
 };
 
-// Detected idle gaps → pre-filled draft downtime the installer labels + confirms.
-// Confirming enqueues a normal addDowntime (reusing the existing Downtime tab),
-// so it lands in today's categorized total once flushed at Finish.
+// Every WO→WO gap → an editable card. The installer subtracts any downtime, lunch
+// or break that happened during the drive; whatever's left is the travel time. The
+// allocations are stashed in `eodGaps` and saved (saveTravel) at Finish, so the
+// math is idempotent and editable up to the last moment.
+let eodGaps = [];
+
 function renderIdleGaps(gaps){
   const box = $('eodIdle'); box.innerHTML='';
-  if(!gaps || !gaps.length) return;
-  // Each gap arrives with a distance-based `suggest`ed category — pre-select it.
-  const optsFor = sel => Object.keys(CAT_LABEL)
-    .map(k => `<option value="${k}"${k===sel?' selected':''}>${CAT_LABEL[k]}</option>`).join('');
+  eodGaps = (gaps||[]).map(g => ({
+    start:g.start, end:g.end, idleMin:g.idleMin, toWO:g.toWO||'', toId:g.toId,
+    allocations:(g.allocations||[]).map(a => ({ category:a.category, minutes:Number(a.minutes)||0 }))
+  }));
+  if(!eodGaps.length) return;
   const head = document.createElement('div');
-  head.innerHTML = '<h1 style="margin-top:22px">Gaps over 20 min</h1>'
-    + '<p class="muted" style="margin:0 2px 8px">Auto-found from your team’s stop times. Label a long ride as <b>Travel Time</b>, or pick the downtime reason. Confirm to add it to today’s total; skip to leave it out.</p>';
+  head.innerHTML = '<h1 style="margin-top:22px">Travel between work orders</h1>'
+    + '<p class="muted" style="margin:0 2px 8px">Each row is the time from one work order to the next. Subtract any downtime, lunch or break that happened during the drive — the rest is your travel time.</p>';
   box.appendChild(head);
-  gaps.forEach(g => {
-    const card = document.createElement('div');
-    card.className = 'stopcard';
-    const kindTag = g.kind==='ramp' ? ' · morning' : g.kind==='tail' ? ' · end of day' : '';
-    card.innerHTML = `
-      <div class="sc-head">
-        <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
-          <span class="sc-meta">${g.idleMin} min${kindTag}${g.toWO?(' · next WO '+esc(g.toWO)):''}</span></div>
-      </div>
-      <label>Category</label>
-      <select class="mono" data-f="cat">${optsFor(g.suggest)}</select>
-      <button class="primary sc-save" data-act="confirm" style="height:50px">Add ${g.idleMin} min</button>`;
-    const btn = card.querySelector('[data-act="confirm"]');
-    btn.onclick = () => {
-      const c = cfg();
-      enqueue({ token:c.token, action:'addDowntime', installer:c.name,
-                timestamp:stamp(), category:card.querySelector('[data-f="cat"]').value,
-                minutes:g.idleMin, workOrderId:g.toWO||'',
-                note:`auto-detected gap ${g.start}–${g.end}` });
-      btn.textContent = 'Added ✓'; btn.disabled = true;
-      card.querySelector('[data-f="cat"]').disabled = true;
-      toast('Added ✓');
-    };
-    box.appendChild(card);
-  });
+  eodGaps.forEach(g => box.appendChild(gapCard(g)));
 }
-  
+
+function gapCard(g){
+  const card = document.createElement('div'); card.className = 'stopcard';
+  card.innerHTML = `
+    <div class="sc-head">
+      <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
+        <span class="sc-meta">${g.idleMin} min${g.toWO?(' · → WO '+esc(g.toWO)):''}</span></div>
+      <strong data-f="net" class="sc-meta" style="margin-top:0;text-align:right"></strong>
+    </div>
+    <div data-f="allocs"></div>
+    <button class="mini" data-act="add" style="margin-top:8px">+ Subtract downtime / break</button>`;
+  const allocBox = card.querySelector('[data-f="allocs"]');
+  const netEl    = card.querySelector('[data-f="net"]');
+  const opts = sel => ALLOC_CATS.map(k => `<option value="${k}"${k===sel?' selected':''}>${CAT_LABEL[k]}</option>`).join('');
+  const refreshNet = () => {
+    const used = g.allocations.reduce((s,a)=>s+(Number(a.minutes)||0),0);
+    const over = used > g.idleMin;
+    netEl.textContent = over ? `⚠ ${used} over ${g.idleMin}` : `Travel ${g.idleMin-used} min`;
+    netEl.style.color = over ? '#c0392b' : 'var(--install)';
+  };
+  const drawRows = () => {
+    allocBox.innerHTML = '';
+    g.allocations.forEach((a, ai) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;align-items:center;margin:6px 0';
+      row.innerHTML = `
+        <input class="mono" inputmode="numeric" data-f="min" value="${a.minutes||''}" placeholder="min" style="width:72px">
+        <select class="mono" data-f="cat" style="flex:1">${opts(a.category)}</select>
+        <button class="mini" data-act="del" style="min-width:44px">✕</button>`;
+      row.querySelector('[data-f="min"]').oninput = e => { a.minutes = parseInt(e.target.value,10)||0; refreshNet(); };
+      row.querySelector('[data-f="cat"]').onchange = e => { a.category = e.target.value; };
+      row.querySelector('[data-act="del"]').onclick = () => { g.allocations.splice(ai,1); drawRows(); refreshNet(); };
+      allocBox.appendChild(row);
+    });
+  };
+  card.querySelector('[data-act="add"]').onclick = () => { g.allocations.push({ category:'BREAK', minutes:0 }); drawRows(); refreshNet(); };
+  drawRows(); refreshNet();
+  return card;
+}
+
+// Flattens the per-gap allocation state into the saveTravel payload (positive only).
+function collectGapAllocations(gaps){
+  const out = [];
+  (gaps||[]).forEach(g => (g.allocations||[]).forEach(a => {
+    if((parseInt(a.minutes,10)||0) > 0)
+      out.push({ fromTime:g.start, toTime:g.end, workOrderId:g.toWO||'', category:a.category, minutes:parseInt(a.minutes,10) });
+  }));
+  return out;
+}
+
 
 function renderEod(stops, downtime){
   eodData = { stops, downtime };
@@ -872,10 +904,15 @@ $('finishDay').onclick = async () => {
   const withCoord = (eodData.stops||[]).find(s =>
     s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
   if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
-  // Flush first so any idle gaps just confirmed (queued addDowntime) are written
-  // before the spine tallies the day.
+  // Flush first so any queued stops / manual downtime are written before the spine
+  // tallies the day.
   await flush();
   try{
+    // Persist the per-gap travel deductions first (replaces this day's prior set), so
+    // the daily log the spine builds next already reflects the subtracted travel times.
+    await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
+                             allocations: collectGapAllocations(eodGaps) }) });
     const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
                              notes:$('eodNotes').value.trim(), weather,
@@ -961,8 +998,13 @@ const CAT_LABEL = {
   NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
   WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
   TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER',
+  LUNCH:'Lunch', BREAK:'Break', MISC_TRAVEL:'Misc Travel',
   TRAVEL_TIME:'Travel Time', OTHER:'Other'
 };
+// Reasons offered for subtracting from a WO→WO gap. No "Travel Time" — whatever's
+// left after subtractions IS the travel time, so it never needs picking.
+const ALLOC_CATS = ['NEXT_GEN','CELL_SIGNAL','BAD_WEATHER','WAREHOUSE','TOOLS_MATERIAL',
+  'DISPATCH','TRUCK_ISSUES','ASSIST','URGENT_EER','LUNCH','BREAK','MISC_TRAVEL','OTHER'];
 const catLabel = c => CAT_LABEL[c] || c || 'Other';
 
 // Meter-read cell: the read (+ received for solar) for an install; the reason
