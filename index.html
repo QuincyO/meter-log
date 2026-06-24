@@ -818,7 +818,6 @@ $('endDay').onclick = async () => {
     } catch {}
     setGapData(gaps);
     renderEod(d.stops || [], d.downtime || []);
-    renderIdleList();
   } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
 };
 
@@ -828,9 +827,8 @@ $('endDay').onclick = async () => {
 // math is idempotent and editable up to the last moment.
 let eodGaps = [];
 
-// gapByToId maps a gap to its arriving stop (g.toId === stop.id), so the same gap
-// appears both in the standalone list and as an inline "Travel in" dropdown on its
-// work-order card — both bound to the SAME gap object, kept in sync on edit.
+// gapByToId maps a gap to its arriving stop (g.toId === stop.id), so each gap shows
+// as an inline "Travel in" dropdown on its work-order card.
 let gapByToId = {};
 function setGapData(gaps){
   eodGaps = (gaps||[]).map(g => ({
@@ -840,15 +838,6 @@ function setGapData(gaps){
   }));
   gapByToId = {};
   eodGaps.forEach(g => { if(g.toId!=null && g.toId!=='') gapByToId[g.toId]=g; });
-}
-function renderIdleList(){
-  const box = $('eodIdle'); box.innerHTML='';
-  if(!eodGaps.length) return;
-  const head = document.createElement('div');
-  head.innerHTML = '<h1 style="margin-top:22px">Travel between work orders</h1>'
-    + '<p class="muted" style="margin:0 2px 8px">Each row is the time from one work order to the next. Subtract any downtime, lunch or break that happened during the drive — the rest is your travel time.</p>';
-  box.appendChild(head);
-  eodGaps.forEach(g => box.appendChild(gapCard(g)));
 }
 
 // Net travel = gap minutes − subtracted minutes.
@@ -892,21 +881,6 @@ function allocEditor(g, onNet){
   return wrap;
 }
 
-// Standalone gap card (the "Travel between work orders" list).
-function gapCard(g){
-  const card = document.createElement('div'); card.className = 'stopcard';
-  card.innerHTML = `
-    <div class="sc-head">
-      <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
-        <span class="sc-meta">${g.idleMin} min${g.toWO?(' · → WO '+esc(g.toWO)):''}</span></div>
-      <strong data-f="net" class="sc-meta" style="margin-top:0;text-align:right"></strong>
-    </div>`;
-  const netEl = card.querySelector('[data-f="net"]');
-  const onNet = () => { const n = gapNet(g); netEl.textContent = n.text; netEl.style.color = n.over ? '#c0392b' : 'var(--install)'; };
-  card.appendChild(allocEditor(g, onNet));
-  onNet();
-  return card;
-}
 
 // Inline "Travel in" dropdown shown on a work-order card. `box` is the card's
 // .sc-travel slot; binds to the gap that arrives at this stop (if any).
@@ -959,7 +933,7 @@ function renderEod(stops, downtime){
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = editable.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
-  editable.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true })));
+  ordered.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true })));
 }
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF

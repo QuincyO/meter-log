@@ -131,10 +131,6 @@
       </div>
     </div>
 
-    <h1 id="gapHead" class="hide">Travel between work orders</h1>
-    <p class="sub gap-intro hide">Each row is the time from one work order to the next. Subtract any downtime, lunch or break that happened during the drive — the rest is the saved travel time. Saved when you generate the log.</p>
-    <div id="gapList"></div>
-
     <h1 id="stopsHead">Workorders</h1>
     <div id="stopList"></div>
   </div>
@@ -244,7 +240,6 @@ $('loadBtn').onclick = async () => {
     } catch {}
     setGapData(gaps);
     renderStops();
-    renderGapList();
     $('daySection').classList.remove('hide');
   } catch(e){ setStatus('off','Offline'); toast('Couldn’t load that day'); }
 };
@@ -264,14 +259,12 @@ function renderStops(){
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = state.stops.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
-  state.stops.forEach(s => box.appendChild(stopCard(s, posById[s.id])));
+  ordered.forEach(s => box.appendChild(stopCard(s, posById[s.id])));
 }
 
 // ── travel review: every WO→WO gap, subtract downtime/breaks ─────────────────
-// Each gap is shown in TWO places — the standalone list below and an inline
-// "Travel in" dropdown on the work-order card it arrives at — both bound to the
-// SAME gap object, so a deduction entered in one place shows in the other.
-// gapByToId maps a gap to its arriving stop (g.toId === stop.id).
+// Each gap is shown as an inline "Travel in" dropdown on the work-order card it
+// arrives at. gapByToId maps a gap to its arriving stop (g.toId === stop.id).
 let gapByToId = {};
 function setGapData(gaps){
   gapData = (gaps||[]).map(g => ({
@@ -281,13 +274,6 @@ function setGapData(gaps){
   }));
   gapByToId = {};
   gapData.forEach(g => { if(g.toId!=null && g.toId!=='') gapByToId[g.toId]=g; });
-}
-function renderGapList(){
-  const box = $('gapList'); box.innerHTML = '';
-  const show = gapData.length > 0;
-  $('gapHead').classList.toggle('hide', !show);
-  document.querySelector('.gap-intro').classList.toggle('hide', !show);
-  gapData.forEach(g => box.appendChild(gapCard(g)));
 }
 
 // Net travel = gap minutes − subtracted minutes.
@@ -329,22 +315,6 @@ function allocEditor(g, onNet){
   g._views.push({ drawRows, onNet });
   drawRows();
   return wrap;
-}
-
-// Standalone gap card (the "Travel between work orders" list).
-function gapCard(g){
-  const card = document.createElement('div'); card.className = 'stopcard';
-  card.innerHTML = `
-    <div class="sc-head">
-      <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
-        <span class="sc-meta">${g.idleMin} min${g.toWO?(' · → WO '+esc(g.toWO)):''}</span></div>
-      <strong data-f="net" class="sc-meta" style="text-align:right"></strong>
-    </div>`;
-  const netEl = card.querySelector('[data-f="net"]');
-  const onNet = () => { const n = gapNet(g); netEl.textContent = n.text; netEl.style.color = n.over ? '#c0392b' : '#1a7f37'; };
-  card.appendChild(allocEditor(g, onNet));
-  onNet();
-  return card;
 }
 
 // Inline "Travel in" dropdown shown on a work-order card. `box` is the card's
