@@ -254,8 +254,16 @@ are a display label only.
 A boat, managed from `teams.html`. `memberLetters` is a JSON map keying each
 installer's H number to their team letter (e.g. `{"H100":"A","H200":"A","H300":"B"}`).
 People sharing the same letter are partners — Boat 11 members with letter A form
-team **11A**, letter B → **11B**, etc. The **captain and sub are *not* employees** —
-they move between boats, have no H number, and are stored as free-text names.
+team **11A**, letter B → **11B**, etc. A boat can hold any number of crew (letters
+run A..Z). The **captain and sub are *not* employees** — they move between boats,
+have no H number, and are stored as free-text names.
+
+Crew are added on the boat card by **typing a name**: an existing installer is
+linked by H number, while a brand-new name is sent in the `saveTeam` payload's
+`newMembers: [{name, letter}]` array and the spine auto-creates an `Employees` row
+for it (`ensureEmployeeByName` — matches an existing full name first to avoid
+duplicates, otherwise generates an H number; single-word names leave `lastName`
+blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged.
 | field           | type        | notes                                               |
 |-----------------|-------------|-----------------------------------------------------|
 | `id`            | string      | unique (timestamp + random)                         |
