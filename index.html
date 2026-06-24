@@ -156,6 +156,13 @@
   <label for="wo">Work order #</label>
   <input id="wo" class="mono" inputmode="numeric">
 
+  <div id="requestedWrap" class="hide">
+    <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:4px">
+      <input type="checkbox" id="requestedMeter" style="width:auto;margin:0">
+      Requested meter? (adds dispatch downtime)
+    </label>
+  </div>
+
   <!-- INSTALLED fields -->
   <div id="installFields">
     <label for="newJ">New J#</label>
@@ -492,6 +499,8 @@ function setStatus(s){
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
   $('otherFields').classList.toggle('hide', s!=='OTHER');
+  $('requestedWrap').classList.toggle('hide', !(s==='INSTALLED'||s==='UTI'));
+  $('requestedMeter').checked = false;
   setNoRead(false); setSolar(false);
 }
 $('utiReason').onchange = e => {
@@ -601,7 +610,8 @@ $('logStop').onclick = () => {
     timestamp:stamp(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
-    notes:$('stopNotes').value.trim()
+    notes:$('stopNotes').value.trim(),
+    requestedMeter: (status==='INSTALLED'||status==='UTI') && $('requestedMeter').checked
   };
   if(status==='INSTALLED' && noRead){
     const r = $('nrReason').value;
@@ -632,6 +642,7 @@ $('logStop').onclick = () => {
     outStatus==='VISITED' ? 'Visited logged ✓' :
                             'Unaccounted logged ✓');
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
+  $('requestedMeter').checked=false;
   setNoRead(false); setSolar(false);
   getLocation();
 };

@@ -116,6 +116,11 @@ const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distan
 // Return legs; persisting them (the field form used to discard them) is what lets
 // the back-office edit.html regenerate a correct daily log any time.
 const DAYS_HEADERS = ['date','installer','departure','returned'];
+// One row per dispatch request fired from the Apple Shortcut (action=dispatchRequest).
+// `requestTime`+`oldJNumber` are written when the request fires; the rest are filled
+// in place when a stop carrying the same oldJ is completed (see applyDispatchDowntime),
+// so `matched`='Y' rows are the measured dispatch downtimes the average is built from.
+const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completedTime','minutes','matched'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -359,6 +364,7 @@ function setupSheets() {
   ensureTab(ss, 'Subs', SUBS_HEADERS);
   ensureTab(ss, 'Timing', TIMING_HEADERS);
   ensureTab(ss, 'Days', DAYS_HEADERS);
+  ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).
@@ -393,6 +399,7 @@ function doPost(e) {
     switch (body.action) {
       case 'addStop':        return json(addStop(body));
       case 'addDowntime':    return json(addDowntime(body));
+      case 'dispatchRequest':return json(dispatchRequest(body));
       case 'updateStop':     return json(updateStop(body));
       case 'endOfDay':       return json(endOfDay(body));
       case 'previewDailyLog':return json(previewDailyLog(body));
@@ -437,6 +444,7 @@ function doGet(e) {
   if (p.action === 'pins')    return json(pins());
   if (p.action === 'tracker') return json(tracker());
   if (p.action === 'timing')  return json(timing());
+  if (p.action === 'dispatch')return json({ ok: true, dispatch: rows('Dispatch') });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -478,6 +486,7 @@ function addStop(b) {
 
   // Dedup: only INSTALLED stops with both a WO# and a new J# are checked.
   // UTI/DONE entries are always appended without restriction.
+  let flagged = false, hist = null;
   if (b.status === 'INSTALLED' && b.workOrderId && b.newJNumber) {
     const norm = v => String(v == null ? '' : v).trim().toUpperCase();
     const history = rows('Stops').filter(r =>
@@ -490,14 +499,51 @@ function addStop(b) {
     }
 
     // J# conflict: same WO# but a different newJNumber → write and warn.
-    if (history.length > 0) {
-      sh.appendRow(row);
-      return { ok: true, id: id, flagged: true, history: history };
-    }
+    if (history.length > 0) { flagged = true; hist = history; }
   }
 
   sh.appendRow(row);
-  return { ok: true, id: id };
+  const disp = applyDispatchDowntime(b);   // null unless a "Requested meter?" stop matched/estimated
+  const res = { ok: true, id: id };
+  if (flagged) { res.flagged = true; res.history = hist; }
+  if (disp)    res.dispatch = disp;
+  return res;
+}
+
+/** When a stop is flagged "Requested meter?" (b.requestedMeter) and carries an
+ *  oldJ, turn the dispatch wait into a DISPATCH Downtime row. If a matching
+ *  unmatched Dispatch request (same oldJ) exists, use the real elapsed time and
+ *  close out that request row; otherwise fall back to the running average.
+ *  Returns {minutes, measured} when a row was written, else null. */
+function applyDispatchDowntime(b) {
+  if (!b.requestedMeter) return null;
+  const oldJ = String(b.oldJNumber || '').trim();
+  if (!oldJ) return null;
+  const norm = v => String(v == null ? '' : v).trim().toUpperCase();
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
+  let minutes = null, measured = false;
+  if (sh) {
+    const data = sh.getDataRange().getValues();
+    const H = data[0]; const c = n => H.indexOf(n);
+    for (let r = 1; r < data.length; r++) {
+      if (norm(data[r][c('oldJNumber')]) === norm(oldJ) && !String(data[r][c('matched')]).trim()) {
+        const t0 = parseLocal(data[r][c('requestTime')]);
+        const t1 = parseLocal(b.timestamp || now());
+        if (t0 && t1) {
+          minutes = Math.max(0, Math.round((t1 - t0) / 60000)); measured = true;
+          sh.getRange(r + 1, 1, 1, H.length).setValues([[
+            data[r][c('id')], data[r][c('requestTime')], data[r][c('oldJNumber')],
+            b.installer || '', (b.timestamp || now()), minutes, 'Y' ]]);
+        }
+        break;
+      }
+    }
+  }
+  if (!measured) { minutes = avgDispatchMinutes(); if (minutes == null) return null; }
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime').appendRow([
+    newId(), b.timestamp || now(), b.installer || '', 'DISPATCH',
+    minutes, b.workOrderId || '', measured ? 'dispatch (measured)' : 'dispatch (avg est.)' ]);
+  return { minutes: minutes, measured: measured };
 }
 
 function addDowntime(b) {
@@ -511,6 +557,17 @@ function addDowntime(b) {
     b.workOrderId || '', b.note || ''
   ]);
   return { ok: true, id: id };
+}
+
+/** Apple Shortcut endpoint: log a pending dispatch request keyed on oldJ. The
+ *  request is closed out later by applyDispatchDowntime when the matching stop
+ *  is completed. Sends only a time + oldJ (no installer — match is oldJ-only). */
+function dispatchRequest(b) {
+  if (!b.oldJ) return { ok: false, error: 'oldJ required' };
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
+  if (!sh) return { ok: false, error: 'Dispatch tab missing' };
+  sh.appendRow([ newId(), b.time || now(), String(b.oldJ).trim(), '', '', '', '' ]);
+  return { ok: true };
 }
 
 /** Edit a stored stop in place, found by its id. Only STOP_EDITABLE fields
@@ -1248,6 +1305,21 @@ function json(obj)      { return ContentService.createTextOutput(JSON.stringify(
 function now()          { return Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm:ss'); }
 function today()        { return Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd'); }
 function newId()        { return Date.now() + '-' + Math.random().toString(36).slice(2, 8); }
+// Parse a Toronto-local "yyyy-MM-dd HH:mm[:ss]" (or ISO 'T' form) into a Date.
+// Any trailing zone marker is ignored — both the request time and the stop
+// timestamp are naive Toronto strings, so a component-wise Date keeps the diff exact.
+function parseLocal(s) {
+  const m = String(s == null ? '' : s).replace('T', ' ')
+    .match(/(\d{4})-(\d\d)-(\d\d)[ ](\d\d):(\d\d)(?::(\d\d))?/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6] || 0) : null;
+}
+// Mean of all measured dispatch downtimes (matched='Y' rows), rounded; null if none yet.
+function avgDispatchMinutes() {
+  const ms = rows('Dispatch')
+    .filter(r => String(r.matched).trim().toUpperCase() === 'Y')
+    .map(r => Number(r.minutes)).filter(n => !isNaN(n) && n > 0);
+  return ms.length ? Math.round(ms.reduce((a, c) => a + c, 0) / ms.length) : null;
+}
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
 function sameName(a, b) { return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim(); }
 function numCoord(v)    { return (v === '' || v == null || isNaN(Number(v))) ? null : Number(v); }

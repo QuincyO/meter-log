@@ -201,7 +201,7 @@ const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeathe
   ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
-let ALL = [], TRK = [], TIM = [], INSTALLER_NAMES = [];
+let ALL = [], TRK = [], TIM = [], DISP = [], INSTALLER_NAMES = [];
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
 
@@ -243,16 +243,18 @@ async function load(){
   const c = cfg();
   $('pillstat').textContent = 'Loading…';
   try{
-    const [pd, td, md] = await Promise.all([
+    const [pd, td, md, dd] = await Promise.all([
       fetch(`${c.url}?token=${enc(c.token)}&action=pins`).then(r=>r.json()),
       fetch(`${c.url}?token=${enc(c.token)}&action=tracker`).then(r=>r.json()),
-      fetch(`${c.url}?token=${enc(c.token)}&action=timing`).then(r=>r.json())
+      fetch(`${c.url}?token=${enc(c.token)}&action=timing`).then(r=>r.json()),
+      fetch(`${c.url}?token=${enc(c.token)}&action=dispatch`).then(r=>r.json())
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
       lng:(s.lng===''||s.lng==null)?null:Number(s.lng) }));
     TRK = td.tracker || [];
     TIM = md.timing || [];
+    DISP = dd.dispatch || [];
     buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
@@ -375,6 +377,12 @@ function renderAnalytics(){
   const avgInst      = avgOwnGap(new Set(['INSTALLED']));            // install → install
   const avgCompleted = avgOwnGap(new Set(['INSTALLED','UTI']));      // completed WO → completed WO
 
+  // Measured dispatch downtimes (Dispatch tab, matched='Y'), dated by completion.
+  const disp = DISP.filter(r => String(r.matched).trim().toUpperCase()==='Y'
+    && instMatch(r.installer) && inRange(dateKey(r.completedTime)));
+  const avgDispatch = disp.length
+    ? Math.round(disp.reduce((a,r)=>a+(trkNum(r.minutes)||0),0)/disp.length) : null;
+
   const mins = v => v==null ? '—' : (v+' min');
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
@@ -382,6 +390,7 @@ function renderAnalytics(){
     + tile(mins(avgInst),     'Avg install→install','')
     + tile(mins(avgCompleted),'Avg between completed WOs','')
     + tile(mins(avgLog),      'Avg log→log (w/ partner)','')
+    + tile(mins(avgDispatch), 'Avg dispatch downtime','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
 

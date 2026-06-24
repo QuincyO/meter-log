@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, nine tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`. This is the truth.
+One spreadsheet, ten tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `Dispatch`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -98,7 +98,9 @@ and works even with no signal (queued up on the phone).
                                                                           └──────────┘
 ```
 
-**Write actions (POST):** `addStop`, `addDowntime`, `updateStop`, `endOfDay`,
+**Write actions (POST):** `addStop`, `addDowntime`,
+`dispatchRequest` (Apple Shortcut: log a pending meter request — see "Dispatch downtime"),
+`updateStop`, `endOfDay`,
 `previewDailyLog` (build the daily-log PDF on demand from today's stops **without**
 writing a Tracker row or requiring departure/return — the real `endOfDay` later
 fills the blanks),
@@ -110,7 +112,8 @@ fills the blanks),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
-(all per-gap `Timing` rows, for the analytics "avg time between meters" metric), `roster`
+(all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
+`dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
@@ -288,6 +291,21 @@ Same pattern as Captains, for sub/subforeman names.
 |--------|--------|
 | `name` | string |
 
+### DispatchRequest  (one row per meter request → tab "Dispatch")
+A meter request fired from the Apple Shortcut. The first three columns are written
+when the request fires; the rest are filled **in place** when the matching stop is
+completed (see "Dispatch downtime"). The `matched`=`Y` rows are the measured
+dispatch downtimes the average is built from.
+| field           | type   | notes                                                      |
+|-----------------|--------|------------------------------------------------------------|
+| `id`            | string | unique (timestamp + random)                                |
+| `requestTime`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss` — when the request fired|
+| `oldJNumber`    | string | the match key — the J# the request is keyed to             |
+| `installer`     | string | filled on match — who completed the matching stop          |
+| `completedTime` | string | filled on match — the matching stop's timestamp            |
+| `minutes`       | number | filled on match — `completedTime − requestTime`            |
+| `matched`       | string | `''` until matched, then `'Y'`                             |
+
 ---
 
 ## Sample stop (the JSON the form posts)
@@ -400,6 +418,50 @@ then POSTs `endOfDay`, which reads those rows back through `buildDaySummary`.
 Gap-allocation rows are stamped on the gap's own date so a past day edited from
 `edit.html` reads them back. Manual *Add downtime* rows (free-text/empty notes) are
 never touched by `saveTravel`.
+
+---
+
+## Dispatch downtime
+
+"Dispatch" downtime is the wait between asking dispatch for a new work order and
+actually getting on it. It used to be a manual guess; now it can be **measured**.
+
+**The flow.** When the installer requests a meter, a new **Apple Shortcut** both
+texts dispatch **and** POSTs `dispatchRequest` to the spine with a `time` and an
+`oldJ`. That appends a *pending* row to the `Dispatch` tab (match key = `oldJ`,
+installer unknown at this point — match is **oldJ-only**). Later, when the crew
+completes that work order, they log a stop in `index.html` with the **"Requested
+meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
+`oldJNumber`). `addStop` → **`applyDispatchDowntime`**:
+
+- **Matched** — finds the oldest unmatched `Dispatch` row with the same oldJ,
+  computes `minutes = stop.timestamp − requestTime`, and closes that row
+  (`matched=Y`, `installer`/`completedTime`/`minutes` filled). This is the
+  **true** downtime ("only when the oldJ matches and the request was sent").
+- **Unmatched** — no pending request, so it falls back to **`avgDispatchMinutes()`**
+  (mean of all `matched=Y` rows) as an estimate. If nothing's been measured yet,
+  nothing is added.
+
+Either way the result is written as a normal `DISPATCH` **`Downtime`** row (note
+`dispatch (measured)` or `dispatch (avg est.)`), so it flows through
+`buildDaySummary` untouched — into the Tracker `dispatch` column, the daily-log
+PDF's Delays bucket, and the viewer counts. Checkbox **off** ⇒ nothing is added,
+even if a stray request exists.
+
+**Time format.** Both `requestTime` and the stop timestamp are naive Toronto-local
+`yyyy-MM-dd HH:mm:ss`; `parseLocal()` builds a component-wise `Date` from each so
+the difference is exact regardless of host zone. The shortcut must send its `time`
+in that same format (a "Format Date" step with a `yyyy-MM-dd HH:mm:ss` Toronto
+custom format).
+
+**Analytics.** `?action=dispatch` returns all `Dispatch` rows; `map.html` averages
+the `matched=Y` ones (scoped by the page's installer + date filters, dated by
+`completedTime`) into the "Avg dispatch downtime" tile.
+
+**Known limit.** Like every other write, `dispatchRequest`/`addStop` have **no
+idempotency key**, so a timed-out-but-succeeded retry could double-write. And
+oldJ-only matching can mis-attribute if two crew reuse the same oldJ at once —
+accepted trade-offs consistent with the rest of the app.
 
 ---
 
