@@ -60,6 +60,9 @@
   input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
   .hide{display:none !important}
   .loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
+  .addrrow{display:flex;gap:10px;align-items:stretch}
+  .addrrow #unit{flex:none;width:var(--tap);text-align:center;padding:0 8px}
+  .addrrow #addr{flex:1}
   .locrow{display:flex;align-items:center;gap:10px;margin-top:6px}
   .locrow .loc{flex:1;margin:0}
   .locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;
@@ -164,11 +167,8 @@
     <label for="newJ">New J#</label>
     <input id="newJ" class="mono" autocapitalize="characters">
 
-    <label for="installOldJ">Old J# (scan or type)</label>
-    <div class="scanrow">
-      <input id="installOldJ" class="mono" autocapitalize="characters">
-      <button class="scanbtn" id="scanInstallOldJ" type="button">Scan</button>
-    </div>
+    <label for="installOldJ">Old J#</label>
+    <input id="installOldJ" class="mono" autocapitalize="characters">
 
     <div id="readWrap">
       <label for="read" id="readLabel">Meter read</label>
@@ -192,11 +192,8 @@
       </select>
       <label for="nrOther" id="nrOtherLabel" class="hide">What happened?</label>
       <textarea id="nrOther" class="hide"></textarea>
-      <label for="nrOldJ">Old J# (scan or type)</label>
-      <div class="scanrow">
-        <input id="nrOldJ" class="mono" autocapitalize="characters">
-        <button class="scanbtn" id="scanNrOldJ" type="button">Scan</button>
-      </div>
+      <label for="nrOldJ">Old J#</label>
+      <input id="nrOldJ" class="mono" autocapitalize="characters">
     </div>
   </div>
 
@@ -229,29 +226,24 @@
     </select>
     <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
     <textarea id="utiOther" class="hide"></textarea>
-    <label for="oldJ">Old J# (scan or type)</label>
-    <div class="scanrow">
-      <input id="oldJ" class="mono" autocapitalize="characters">
-      <button class="scanbtn" id="scanOldJ" type="button">Scan</button>
-    </div>
+    <label for="oldJ">Old J#</label>
+    <input id="oldJ" class="mono" autocapitalize="characters">
   </div>
 
   <!-- OTHER — one "we were here" log + the mark-spot button. The stored status is
        derived on save: an Old J# → VISITED (saw a meter), blank → UNACCOUNTED. -->
   <div id="otherFields" class="hide">
-    <label for="otherOldJ">Old J# (scan or type) <span style="font-weight:500">(optional)</span></label>
-    <div class="scanrow">
-      <input id="otherOldJ" class="mono" autocapitalize="characters">
-      <button class="scanbtn" id="scanOtherOldJ" type="button">Scan</button>
-    </div>
+    <label for="otherOldJ">Old J# <span style="font-weight:500">(optional)</span></label>
+    <input id="otherOldJ" class="mono" autocapitalize="characters">
     <p class="loc" style="margin-top:8px">Saw a meter or checked a spot — add the Old J# if you have one (logs a <b>Visit</b>). Leave it blank if you couldn’t find or confirm a meter (logs <b>Unaccounted</b>). Add a note below, then tap <b>Log stop</b>.</p>
     <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Already installed here · mark spot</button>
   </div>
 
-  <label for="unit">Unit</label>
-  <input id="unit" class="mono">
-  <label for="addr">Address / landmark <span style="font-weight:500">(auto-fills from GPS · editable)</span></label>
-  <input id="addr">
+  <label for="addr">Address / landmark <span style="font-weight:500">(tap Refresh to fill from GPS · editable)</span></label>
+  <div class="addrrow">
+    <input id="unit" class="mono" placeholder="Unit" aria-label="Unit">
+    <input id="addr">
+  </div>
   <div class="locrow">
     <div class="loc" id="locText">Location: not captured yet</div>
     <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
@@ -371,17 +363,6 @@
       <div class="eod-tally" id="todayTally">Loading…</div>
       <div id="todayTable"></div>
       <div id="todayEdit"></div>
-    </div>
-  </div>
-
-  <!-- Scan sheet -->
-  <div class="sheet hide" id="scanSheet">
-    <div class="card" style="padding:0;overflow:hidden">
-      <video id="scanVideo" playsinline muted style="width:100%;display:block;background:#000"></video>
-      <div style="padding:14px 16px 22px">
-        <p class="muted" style="margin:0 2px 12px">Point the camera at the meter’s J# barcode — it fills in on its own.</p>
-        <button class="ghost" id="cancelScan" type="button" style="width:100%">Cancel</button>
-      </div>
     </div>
   </div>
 
@@ -561,7 +542,7 @@ function getLocation(force){
     async p => {
       coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
       $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`;
-      await fetchAddress(coords.lat, coords.lng, force);
+      if(force) await fetchAddress(coords.lat, coords.lng, true);
       if(btn) btn.disabled = false;
     },
     () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; if(btn) btn.disabled = false; },
@@ -1159,46 +1140,6 @@ function renderToday(stops, downtime){
   });
 }
 
-// ── barcode scanner (fills a target field, e.g. the old J#) ───────────────
-// Uses the built-in BarcodeDetector where the browser supports it (Android
-// Chrome today). Where it's unavailable, it says so and you type the J#.
-let scanStream = null, scanTimer = null, scanTargetId = null, barcodeDetector = null;
-const scanSupported = () => ('BarcodeDetector' in window) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
-
-async function startScan(targetId){
-  if(!scanSupported()){ toast('Scanning needs Android Chrome — type the J# instead'); return; }
-  scanTargetId = targetId;
-  $('scanSheet').classList.remove('hide');
-  try{
-    if(!barcodeDetector) barcodeDetector = new BarcodeDetector();
-    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
-    const v = $('scanVideo'); v.srcObject = scanStream; await v.play();
-    scanLoop();
-  } catch { stopScan(); toast('Camera blocked — allow it, or type the J#'); }
-}
-async function scanLoop(){
-  if(!scanStream || !barcodeDetector) return;
-  try{
-    const codes = await barcodeDetector.detect($('scanVideo'));
-    if(codes && codes.length){
-      const val = String(codes[0].rawValue || '').trim().toUpperCase();
-      if(val){ if(scanTargetId) $(scanTargetId).value = val; stopScan(); toast('Scanned ✓'); return; }
-    }
-  } catch {}
-  scanTimer = setTimeout(scanLoop, 250);
-}
-function releaseScan(){
-  if(scanTimer){ clearTimeout(scanTimer); scanTimer = null; }
-  if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
-  const v = $('scanVideo'); if(v) v.srcObject = null;
-}
-function stopScan(){ releaseScan(); $('scanSheet').classList.add('hide'); }
-$('scanNrOldJ').onclick     = () => startScan('nrOldJ');
-$('scanOldJ').onclick       = () => startScan('oldJ');
-$('scanInstallOldJ').onclick = () => startScan('installOldJ');
-$('scanOtherOldJ').onclick  = () => startScan('otherOldJ');
-$('cancelScan').onclick = () => stopScan();
-
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
   if(id==='settingsSheet'){
@@ -1208,7 +1149,7 @@ function openSheet(id){
   }
   $(id).classList.remove('hide');
 }
-function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); releaseScan(); }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 $('openSettings').onclick = () => openSheet('settingsSheet');
 $('saveSettings').onclick = () => {
