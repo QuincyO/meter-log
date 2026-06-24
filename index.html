@@ -154,13 +154,9 @@
   </div>
 
   <label for="wo">Work order #</label>
-  <input id="wo" class="mono" inputmode="numeric">
-
-  <div id="requestedWrap" class="hide">
-    <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:4px">
-      <input type="checkbox" id="requestedMeter" style="width:auto;margin:0">
-      Requested meter? (adds dispatch downtime)
-    </label>
+  <div class="scanrow">
+    <input id="wo" class="mono" inputmode="numeric">
+    <button class="scanbtn" id="requestedMeter" type="button">Requested?</button>
   </div>
 
   <!-- INSTALLED fields -->
@@ -499,9 +495,8 @@ function setStatus(s){
   $('installFields').classList.toggle('hide', s!=='INSTALLED');
   $('utiFields').classList.toggle('hide', s!=='UTI');
   $('otherFields').classList.toggle('hide', s!=='OTHER');
-  $('requestedWrap').classList.toggle('hide', !(s==='INSTALLED'||s==='UTI'));
-  $('requestedMeter').checked = false;
-  setNoRead(false); setSolar(false);
+  $('requestedMeter').classList.toggle('hide', !(s==='INSTALLED'||s==='UTI'));
+  setNoRead(false); setSolar(false); setRequested(false);
 }
 $('utiReason').onchange = e => {
   const other = e.target.value === 'Other';
@@ -532,6 +527,15 @@ $('nrReason').onchange = e => {
 };
 
 // ── solar meter → two reads (delivered + received) ─────────────────────────
+// ── requested-meter toggle (adds dispatch downtime on save) ────────────────
+let requested = false;
+$('requestedMeter').onclick = () => setRequested(!requested);
+function setRequested(on){
+  requested = on;
+  $('requestedMeter').classList.toggle('toggle-on', on);
+  $('requestedMeter').textContent = on ? 'Requested ✓' : 'Requested?';
+}
+
 let solar = false;
 $('solarToggle').onclick = () => setSolar(!solar);
 function setSolar(on){
@@ -611,7 +615,7 @@ $('logStop').onclick = () => {
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
     notes:$('stopNotes').value.trim(),
-    requestedMeter: (status==='INSTALLED'||status==='UTI') && $('requestedMeter').checked
+    requestedMeter: (status==='INSTALLED'||status==='UTI') && requested
   };
   if(status==='INSTALLED' && noRead){
     const r = $('nrReason').value;
@@ -642,8 +646,7 @@ $('logStop').onclick = () => {
     outStatus==='VISITED' ? 'Visited logged ✓' :
                             'Unaccounted logged ✓');
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
-  $('requestedMeter').checked=false;
-  setNoRead(false); setSolar(false);
+  setNoRead(false); setSolar(false); setRequested(false);
   getLocation();
 };
 
