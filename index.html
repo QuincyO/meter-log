@@ -687,6 +687,10 @@ function locLabel(s){
   return unit ? (unit + ' ' + addr) : addr;
 }
 
+// "…T09:00…" / "… 09:00 …" → "09:00"; "HH:MM" → minutes-of-day, or null.
+function clockOf(ts){ const m = String(ts??'').match(/[ T](\d{2}):(\d{2})/); return m ? (m[1]+':'+m[2]) : ''; }
+function hhmmMin(t){ const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'')); return m ? (+m[1])*60 + (+m[2]) : null; }
+
 // Statuses that earn a row on the log / review lists (everything but the
 // coordinates-only DONE marker).
 const PRINTABLE = { INSTALLED:1, UTI:1, VISITED:1, UNACCOUNTED:1 };
@@ -702,9 +706,10 @@ function tallyText(t){
 const statusTagClass = st =>
   st==='UTI' ? 'tag-uti' : st==='VISITED' ? 'tag-visit' : st==='UNACCOUNTED' ? 'tag-unacc' : 'tag-ok';
 function summaryHTML(s, pos){
+  const t = esc(clockOf(s.timestamp)) || '--:--';
   return (pos ? `<strong>${ordinal(pos)}</strong> · ` : '')
-       + `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
-       + `<span class="sc-meta">${esc(locLabel(s))||'no address'} · `
+       + `<strong>WO ${esc(s.workOrderId)||'—'}</strong> `
+       + `<span class="sc-meta">(${t}) · ${esc(locLabel(s))||'no address'} · `
        + `<b class="${statusTagClass(s.status)}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
        + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
@@ -740,7 +745,7 @@ function makeStopCard(s, onSaved, opts){
       <button class="primary sc-save" data-act="save">Save changes</button>
     </div>`;
 
-  if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s);
+  if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s, pos);
 
   const editBlock = card.querySelector('.sc-edit');
   const toggleBtn = card.querySelector('[data-act="toggle"]');
@@ -796,6 +801,9 @@ $('doLookup').onclick = async () => {
 };
 
 // ── end of day: review, edit, then finish ──────────────────────────────────
+// Re-draw the 1st WO's launch leg as the Departure time is typed.
+$('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
+
 $('endDay').onclick = async () => {
   const c = cfg();
   if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
@@ -882,11 +890,30 @@ function allocEditor(g, onNet){
 }
 
 
+// Set while rendering the 1st WO so the Departure input can refresh its launch leg live.
+let updateLaunch = null;
+
 // Inline "Travel in" dropdown shown on a work-order card. `box` is the card's
-// .sc-travel slot; binds to the gap that arrives at this stop (if any).
-function renderStopTravel(box, s){
+// .sc-travel slot; binds to the gap that arrives at this stop (if any). The
+// chronologically-first WO (pos 1) has no WO→WO gap — its travel is the launch
+// leg from the Departure bookend, shown read-only and refreshed live.
+function renderStopTravel(box, s, pos){
   const g = gapByToId[s.id];
-  if(!g){ box.innerHTML = '<div class="sc-meta">Travel in: — (first stop)</div>'; return; }
+  if(!g){
+    if(pos === 1){
+      const render = () => {
+        const dep = $('eodDeparture').value, arr = clockOf(s.timestamp);
+        const dm = hhmmMin(dep), am = hhmmMin(arr);
+        box.innerHTML = (dm == null || am == null)
+          ? '<div class="sc-meta">Travel in: — (set Departure time)</div>'
+          : `<div class="sc-meta">Travel in: <b style="color:var(--install)">${Math.max(0, am-dm)} min</b> · from Departure</div>`;
+      };
+      updateLaunch = render; render();
+    } else {
+      box.innerHTML = '<div class="sc-meta">Travel in: —</div>';
+    }
+    return;
+  }
   box.innerHTML = '';
   const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
   const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
@@ -929,6 +956,7 @@ function renderEod(stops, downtime){
   $('eodTally').textContent = tallyText({installed, uti, visited, unaccounted, done, dtMin});
 
   const list = $('eodList'); list.innerHTML='';
+  updateLaunch = null;   // cleared each render; the 1st WO re-arms it if it has a launch leg
   if(!editable.length){ list.innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = editable.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));

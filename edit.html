@@ -256,6 +256,7 @@ function renderStops(){
   $('stopsHead').textContent = `Workorders — ${state.installer} · ${state.date}`;
   if(!state.stops.length){ box.innerHTML = '<div class="empty">No workorders logged for that installer on that date.</div>'; return; }
   box.innerHTML = '';
+  updateLaunch = null;   // cleared each render; the 1st WO re-arms it if it has a launch leg
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = state.stops.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
@@ -317,11 +318,32 @@ function allocEditor(g, onNet){
   return wrap;
 }
 
+// "HH:MM" → minutes-of-day, or null.
+function hhmmMin(t){ const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'')); return m ? (+m[1])*60 + (+m[2]) : null; }
+// Set while rendering the 1st WO so the Departure input can refresh its launch leg live.
+let updateLaunch = null;
+
 // Inline "Travel in" dropdown shown on a work-order card. `box` is the card's
-// .sc-travel slot; binds to the gap that arrives at this stop (if any).
-function renderStopTravel(box, s){
+// .sc-travel slot; binds to the gap that arrives at this stop (if any). The
+// chronologically-first WO (pos 1) has no WO→WO gap — its travel is the launch
+// leg from the Departure bookend, shown read-only and refreshed live.
+function renderStopTravel(box, s, pos){
   const g = gapByToId[s.id];
-  if(!g){ box.innerHTML = '<div class="sc-meta">Travel in: — (first stop)</div>'; return; }
+  if(!g){
+    if(pos === 1){
+      const render = () => {
+        const dep = $('departure').value, arr = clockOf(s.timestamp);
+        const dm = hhmmMin(dep), am = hhmmMin(arr);
+        box.innerHTML = (dm == null || am == null)
+          ? '<div class="sc-meta">Travel in: — (set Departure time)</div>'
+          : `<div class="sc-meta">Travel in: <b style="color:#1a7f37">${Math.max(0, am-dm)} min</b> · from Departure</div>`;
+      };
+      updateLaunch = render; render();
+    } else {
+      box.innerHTML = '<div class="sc-meta">Travel in: —</div>';
+    }
+    return;
+  }
   box.innerHTML = '';
   const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
   const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
@@ -347,9 +369,10 @@ function collectGapAllocations(gaps){
 }
 
 function summaryHTML(s, pos){
+  const t = esc(clockOf(s.timestamp)) || '--:--';
   return (pos ? `<strong>${ordinal(pos)}</strong> · ` : '')
-       + `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
-       + `<span class="sc-meta">${esc(clockOf(s.timestamp))||'--:--'} · ${esc(locLabel(s))||'no address'} · `
+       + `<strong>WO ${esc(s.workOrderId)||'—'}</strong> `
+       + `<span class="sc-meta">(${t}) · ${esc(locLabel(s))||'no address'} · `
        + `<b class="${statusTagClass(s.status)}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
        + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
@@ -386,7 +409,7 @@ function stopCard(s, pos){
       <button class="primary" data-act="save">Save changes</button>
     </div>`;
 
-  renderStopTravel(card.querySelector('.sc-travel'), s);
+  renderStopTravel(card.querySelector('.sc-travel'), s, pos);
 
   const editBlock = card.querySelector('.sc-edit');
   const toggleBtn = card.querySelector('[data-act="toggle"]');
@@ -427,6 +450,8 @@ async function saveTimes(){
 $('saveTimes').onclick = async () => {
   try{ await saveTimes(); toast('Times saved ✓'); } catch(err){ toast(err.message); }
 };
+// Re-draw the 1st WO's launch leg as the Departure time is typed.
+$('departure').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
 
 function downloadBase64Pdf(b64, name){
   try{
