@@ -701,22 +701,25 @@ function tallyText(t){
 // ── editable stop card (shared by Look up + End of day) ────────────────────
 const statusTagClass = st =>
   st==='UTI' ? 'tag-uti' : st==='VISITED' ? 'tag-visit' : st==='UNACCOUNTED' ? 'tag-unacc' : 'tag-ok';
-function summaryHTML(s){
-  return `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
+function summaryHTML(s, pos){
+  return (pos ? `<strong>${ordinal(pos)}</strong> · ` : '')
+       + `<strong>WO ${esc(s.workOrderId)||'—'}</strong>`
        + `<span class="sc-meta">${esc(locLabel(s))||'no address'} · `
        + `<b class="${statusTagClass(s.status)}">${esc(s.status)||'—'}</b>`
        + `${s.newJNumber?(' · '+esc(s.newJNumber)):''}`
        + `${(s.meterRead||s.meterRead===0)?(' · read '+esc(s.meterRead)):''}`
        + `${(s.meterReadReceived||s.meterReadReceived===0)?(' / '+esc(s.meterReadReceived)):''}</span>`;
 }
-function makeStopCard(s, onSaved){
+function makeStopCard(s, onSaved, opts){
+  const pos = opts && opts.pos;
   const card = document.createElement('div');
   card.className = 'stopcard';
   card.innerHTML = `
     <div class="sc-head">
-      <div class="sc-sum">${summaryHTML(s)}</div>
+      <div class="sc-sum">${summaryHTML(s, pos)}</div>
       <button class="mini" data-act="toggle">Edit</button>
     </div>
+    ${opts && opts.travel ? '<div class="sc-travel" style="margin-top:6px"></div>' : ''}
     <div class="sc-edit hide">
       <label>Work order #</label><input class="mono" data-f="wo" value="${attr(s.workOrderId)}">
       <label>Unit</label><input class="mono" data-f="unit" value="${attr(s.unit)}">
@@ -736,6 +739,8 @@ function makeStopCard(s, onSaved){
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary sc-save" data-act="save">Save changes</button>
     </div>`;
+
+  if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s);
 
   const editBlock = card.querySelector('.sc-edit');
   const toggleBtn = card.querySelector('[data-act="toggle"]');
@@ -761,7 +766,7 @@ function makeStopCard(s, onSaved){
                                             body: JSON.stringify(payload) })).json();
       if(d.ok){
         Object.assign(s, payload);
-        card.querySelector('.sc-sum').innerHTML = summaryHTML(s);
+        card.querySelector('.sc-sum').innerHTML = summaryHTML(s, pos);
         editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
         toast('Saved ✓');
         if(typeof onSaved === 'function') onSaved();
@@ -802,15 +807,19 @@ $('endDay').onclick = async () => {
   try{
     const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
     const d = await (await fetch(u)).json();
+    // Idle gaps are a separate, team-aware call (they fold in a partner's stops).
+    // Fetch them BEFORE rendering the stops so each work-order card can show its
+    // incoming travel. Non-blocking — the day still closes without them.
+    let gaps = [];
+    try{
+      const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
+      const idata = await (await fetch(iu)).json();
+      gaps = idata.gaps || [];
+    } catch {}
+    setGapData(gaps);
     renderEod(d.stops || [], d.downtime || []);
+    renderIdleList();
   } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
-  // Idle gaps are a separate, team-aware call (they fold in a partner's stops);
-  // failure here is non-blocking — the day can still be closed without them.
-  try{
-    const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
-    const idata = await (await fetch(iu)).json();
-    renderIdleGaps(idata.gaps || []);
-  } catch { $('eodIdle').innerHTML=''; }
 };
 
 // Every WO→WO gap → an editable card. The installer subtracts any downtime, lunch
@@ -819,12 +828,21 @@ $('endDay').onclick = async () => {
 // math is idempotent and editable up to the last moment.
 let eodGaps = [];
 
-function renderIdleGaps(gaps){
-  const box = $('eodIdle'); box.innerHTML='';
+// gapByToId maps a gap to its arriving stop (g.toId === stop.id), so the same gap
+// appears both in the standalone list and as an inline "Travel in" dropdown on its
+// work-order card — both bound to the SAME gap object, kept in sync on edit.
+let gapByToId = {};
+function setGapData(gaps){
   eodGaps = (gaps||[]).map(g => ({
     start:g.start, end:g.end, idleMin:g.idleMin, toWO:g.toWO||'', toId:g.toId,
-    allocations:(g.allocations||[]).map(a => ({ category:a.category, minutes:Number(a.minutes)||0 }))
+    allocations:(g.allocations||[]).map(a => ({ category:a.category, minutes:Number(a.minutes)||0 })),
+    _views:[]   // every rendered editor for this gap, so edits stay in sync
   }));
+  gapByToId = {};
+  eodGaps.forEach(g => { if(g.toId!=null && g.toId!=='') gapByToId[g.toId]=g; });
+}
+function renderIdleList(){
+  const box = $('eodIdle'); box.innerHTML='';
   if(!eodGaps.length) return;
   const head = document.createElement('div');
   head.innerHTML = '<h1 style="margin-top:22px">Travel between work orders</h1>'
@@ -833,25 +851,26 @@ function renderIdleGaps(gaps){
   eodGaps.forEach(g => box.appendChild(gapCard(g)));
 }
 
-function gapCard(g){
-  const card = document.createElement('div'); card.className = 'stopcard';
-  card.innerHTML = `
-    <div class="sc-head">
-      <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
-        <span class="sc-meta">${g.idleMin} min${g.toWO?(' · → WO '+esc(g.toWO)):''}</span></div>
-      <strong data-f="net" class="sc-meta" style="margin-top:0;text-align:right"></strong>
-    </div>
-    <div data-f="allocs"></div>
+// Net travel = gap minutes − subtracted minutes.
+function gapNet(g){
+  const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
+  const net = g.idleMin - used;
+  return { used, net, over: used > g.idleMin,
+           text: used > g.idleMin ? `⚠ ${used} over ${g.idleMin}` : `Travel ${net} min` };
+}
+// Re-sync every place a gap is shown. syncNet on minutes typing (keeps focus);
+// syncDraw rebuilds rows on add/delete.
+function syncNet(g){ (g._views||[]).forEach(v => v.onNet && v.onNet()); }
+function syncDraw(g){ (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); }
+
+// Shared subtract-downtime editor (rows + "add"), bound to gap `g`. `onNet` lets the
+// host update its own net display; registers itself in g._views.
+function allocEditor(g, onNet){
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<div data-f="allocs"></div>
     <button class="mini" data-act="add" style="margin-top:8px">+ Subtract downtime / break</button>`;
-  const allocBox = card.querySelector('[data-f="allocs"]');
-  const netEl    = card.querySelector('[data-f="net"]');
+  const allocBox = wrap.querySelector('[data-f="allocs"]');
   const opts = sel => ALLOC_CATS.map(k => `<option value="${k}"${k===sel?' selected':''}>${CAT_LABEL[k]}</option>`).join('');
-  const refreshNet = () => {
-    const used = g.allocations.reduce((s,a)=>s+(Number(a.minutes)||0),0);
-    const over = used > g.idleMin;
-    netEl.textContent = over ? `⚠ ${used} over ${g.idleMin}` : `Travel ${g.idleMin-used} min`;
-    netEl.style.color = over ? '#c0392b' : 'var(--install)';
-  };
   const drawRows = () => {
     allocBox.innerHTML = '';
     g.allocations.forEach((a, ai) => {
@@ -861,16 +880,56 @@ function gapCard(g){
         <input class="mono" inputmode="numeric" data-f="min" value="${a.minutes||''}" placeholder="min" style="width:72px">
         <select class="mono" data-f="cat" style="flex:1">${opts(a.category)}</select>
         <button class="mini" data-act="del" style="min-width:44px">✕</button>`;
-      row.querySelector('[data-f="min"]').oninput = e => { a.minutes = parseInt(e.target.value,10)||0; refreshNet(); };
+      row.querySelector('[data-f="min"]').oninput = e => { a.minutes = parseInt(e.target.value,10)||0; syncNet(g); };
       row.querySelector('[data-f="cat"]').onchange = e => { a.category = e.target.value; };
-      row.querySelector('[data-act="del"]').onclick = () => { g.allocations.splice(ai,1); drawRows(); refreshNet(); };
+      row.querySelector('[data-act="del"]').onclick = () => { g.allocations.splice(ai,1); syncDraw(g); };
       allocBox.appendChild(row);
     });
   };
-  card.querySelector('[data-act="add"]').onclick = () => { g.allocations.push({ category:'BREAK', minutes:0 }); drawRows(); refreshNet(); };
-  drawRows(); refreshNet();
+  wrap.querySelector('[data-act="add"]').onclick = () => { g.allocations.push({ category:'BREAK', minutes:0 }); syncDraw(g); };
+  g._views.push({ drawRows, onNet });
+  drawRows();
+  return wrap;
+}
+
+// Standalone gap card (the "Travel between work orders" list).
+function gapCard(g){
+  const card = document.createElement('div'); card.className = 'stopcard';
+  card.innerHTML = `
+    <div class="sc-head">
+      <div class="sc-sum"><strong>${esc(g.start)}–${esc(g.end)}</strong>
+        <span class="sc-meta">${g.idleMin} min${g.toWO?(' · → WO '+esc(g.toWO)):''}</span></div>
+      <strong data-f="net" class="sc-meta" style="margin-top:0;text-align:right"></strong>
+    </div>`;
+  const netEl = card.querySelector('[data-f="net"]');
+  const onNet = () => { const n = gapNet(g); netEl.textContent = n.text; netEl.style.color = n.over ? '#c0392b' : 'var(--install)'; };
+  card.appendChild(allocEditor(g, onNet));
+  onNet();
   return card;
 }
+
+// Inline "Travel in" dropdown shown on a work-order card. `box` is the card's
+// .sc-travel slot; binds to the gap that arrives at this stop (if any).
+function renderStopTravel(box, s){
+  const g = gapByToId[s.id];
+  if(!g){ box.innerHTML = '<div class="sc-meta">Travel in: — (first stop)</div>'; return; }
+  box.innerHTML = '';
+  const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+  const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
+  const arrow = () => body.classList.contains('hide') ? '▸' : '▾';
+  const onNet = () => { const n = gapNet(g);
+    toggle.innerHTML = `${arrow()} Travel in: <b style="color:${n.over?'#c0392b':'var(--install)'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
+  toggle.onclick = () => { body.classList.toggle('hide'); onNet(); };
+  const meta = document.createElement('div'); meta.className = 'sc-meta'; meta.style.marginBottom = '4px';
+  meta.textContent = `${g.start}–${g.end} · ${g.idleMin} min gap`;
+  body.appendChild(meta);
+  body.appendChild(allocEditor(g, onNet));
+  box.appendChild(toggle); box.appendChild(body);
+  onNet();
+}
+
+// 1 → "1st", 2 → "2nd", … for the work-order position chip.
+function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n + (s[(v-20)%10] || s[v] || s[0]); }
 
 // Flattens the per-gap allocation state into the saveTravel payload (positive only).
 function collectGapAllocations(gaps){
@@ -897,7 +956,10 @@ function renderEod(stops, downtime){
 
   const list = $('eodList'); list.innerHTML='';
   if(!editable.length){ list.innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
-  editable.forEach(s => list.appendChild(makeStopCard(s)));
+  // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
+  const ordered = editable.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
+  const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
+  editable.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true })));
 }
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
