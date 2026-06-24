@@ -1116,11 +1116,36 @@ function ensureTeamsColumns() {
   });
 }
 
+/** Resolve a typed-in crew name to an employee H number, creating the Employees
+ *  row when the name is new. Matches an existing employee by full name first
+ *  (case-insensitive) so re-typing someone never makes a duplicate. Unlike
+ *  saveEmployee this allows a single-word name (last name left blank). */
+function ensureEmployeeByName(name) {
+  name = String(name == null ? '' : name).trim();
+  if (!name) return '';
+  const match = employeesList().filter(e => fullName(e).toLowerCase() === name.toLowerCase())[0];
+  if (match) return match.hNumber;
+  const parts = name.split(/\s+/);
+  const first = parts.shift();
+  const last  = parts.join(' ');
+  const h = newId();
+  upsertByHeader('Employees', 'hNumber', h,
+    { hNumber: h, firstName: first, lastName: last, active: true });
+  return h;
+}
+
 /** Create a boat, or update one in place when its id is supplied. memberLetters
- *  is stored as a JSON map of employee number → team letter ({"H100":"A"}). */
+ *  is stored as a JSON map of employee number → team letter ({"H100":"A"}).
+ *  newMembers ([{name, letter}]) are typed-in crew not yet in Employees; each is
+ *  auto-created (or linked by name) and folded into memberLetters by H number. */
 function saveTeam(b) {
   ensureTeamsColumns();
   const memberLetters = normalizeLetters(parseMemberLetters(b.memberLetters));
+  (Array.isArray(b.newMembers) ? b.newMembers : []).forEach(m => {
+    const h = ensureEmployeeByName(m && m.name);
+    const L = String(m && m.letter == null ? '' : m.letter).trim().toUpperCase();
+    if (h && L) memberLetters[h] = L;
+  });
   const captainName   = String(b.captainName == null ? '' : b.captainName).trim();
   const subName       = String(b.subName == null ? '' : b.subName).trim();
 
