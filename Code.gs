@@ -392,6 +392,15 @@ function ensureTab(ss, name, headers) {
 
 // ── POST: capture layer sends JSON here ────────────────────────────────────
 function doPost(e) {
+  // Serialize all writes. Apps Script web apps can run concurrently, and several
+  // actions read-modify-write the sheet (applyDispatchDowntime, upsertDayRow,
+  // saveTravel, the addStop dedup). A script lock keeps those atomic. If the lock
+  // can't be had quickly we return a transient error so the client's offline queue
+  // keeps the item and retries (it never drops it) — see index.html flush().
+  const lock = LockService.getScriptLock();
+  try {
+    if (!lock.tryLock(25000)) return json({ ok: false, error: 'busy, retry' });
+  } catch (e0) { /* lock service unavailable — proceed unlocked rather than block */ }
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
@@ -417,6 +426,8 @@ function doPost(e) {
     }
   } catch (err) {
     return json({ ok: false, error: String(err) });
+  } finally {
+    try { lock.releaseLock(); } catch (e1) {}
   }
 }
 
@@ -476,6 +487,10 @@ function doGet(e) {
 function addStop(b) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Stops');
   const id = b.id || newId();
+  // Idempotency: if the client sent an id we already appended, this is a retry of
+  // a write that actually succeeded (the client just never saw the response). Ack
+  // it without writing a second row. Dispatch downtime already ran the first time.
+  if (b.id && idExists(sh, b.id)) return { ok: true, id: b.id };
   const row = [
     id, b.timestamp || now(), b.installer || '', b.workOrderId || '',
     b.unit || '', b.address || '', numOrBlank(b.lat), numOrBlank(b.lng),
@@ -551,6 +566,7 @@ function addDowntime(b) {
     return { ok: false, error: 'OTHER downtime needs a note' };
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime');
   const id = b.id || newId();
+  if (b.id && idExists(sh, b.id)) return { ok: true, id: b.id };   // idempotent retry — see addStop
   sh.appendRow([
     id, b.timestamp || now(), b.installer || '',
     (b.category || 'OTHER').toUpperCase(), parseInt(b.minutes, 10) || 0,
@@ -1256,6 +1272,18 @@ function timing() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+// True if a row with this id already exists. Reads only the id column (column A,
+// the first header for every id-bearing tab) so the idempotency check stays cheap
+// versus a full rows() load on the per-stop write path.
+function idExists(sh, id) {
+  const last = sh.getLastRow();
+  if (last < 2) return false;
+  const ids = sh.getRange(2, 1, last - 1, 1).getValues();
+  const want = String(id);
+  for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === want) return true;
+  return false;
+}
+
 function rows(tabName) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
   const data = sh.getDataRange().getValues();
