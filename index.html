@@ -407,22 +407,46 @@ const QKEY = 'queue';
 const queue = () => JSON.parse(store.get(QKEY) || '[]');
 const setQueue = q => store.set(QKEY, JSON.stringify(q));
 
-function enqueue(payload){ const q = queue(); q.push(payload); setQueue(q); paint(); flush(); }
+// Client-generated id so a write is idempotent: the same queued item keeps its
+// id across retries, and the spine skips it if that id was already appended. This
+// is what makes the "keep on failure, retry later" policy below safe from dupes.
+const newId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+function enqueue(payload){
+  if((payload.action==='addStop' || payload.action==='addDowntime') && !payload.id) payload.id = newId();
+  const q = queue(); q.push(payload); setQueue(q); paint(); flush();
+}
 
+// Re-entrancy guard: flush() is triggered from enqueue + online/focus/visibility +
+// explicit awaits, which fire near-simultaneously when signal returns. Without this,
+// two concurrent runs each take their own queue snapshot and re-send/lose items.
+let flushing = false;
 async function flush(){
+  if(flushing) return;
   const c = cfg(); if(!c.url || !navigator.onLine) { paint(); return; }
-  let q = queue();
-  while(q.length){
-    try{
+  flushing = true;
+  try{
+    while(true){
+      const q = queue();            // re-read each pass so a mid-flush enqueue is picked up
+      if(!q.length) break;
       const item = q[0];
-      const resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-                                         body: JSON.stringify(item) });   // text/plain dodges CORS preflight
+      let resp;
+      try{
+        resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
+                                    body: JSON.stringify(item) });   // text/plain dodges CORS preflight
+      } catch { break; }            // genuine network failure — keep the whole queue for next trigger
       let body = null;
       try { body = await resp.json(); } catch {}
-      q.shift(); setQueue(q);        // remove from queue on any HTTP success (even duplicate/flagged)
-      if (body) onFlushResult(body, item);
-    } catch { break; }   // still no real connection — keep the rest
-  }
+      // Only a real 2xx with a recognized result counts as delivered. An HTTP error
+      // (500 / quota / timeout page) or a transient {ok:false} is KEPT and retried —
+      // a busy-window failure must never silently drop a logged stop. The client id
+      // makes the eventual retry idempotent, so a timed-out-but-succeeded write
+      // (where we never saw the response) won't duplicate.
+      const delivered = resp.ok && body && (body.ok || body.duplicate || body.flagged);
+      if(!delivered) break;
+      const q2 = queue(); q2.shift(); setQueue(q2);   // re-read before removing the head
+      onFlushResult(body, item);
+    }
+  } finally { flushing = false; }
   paint();
 }
 
@@ -455,7 +479,7 @@ function showNotice(type, msg, history) {
   el.className = 'notice show ' + type;
   $('noticeMsg').textContent = msg;
   $('noticeRows').innerHTML = history.map(r =>
-    `<div class="notice-row">WO# ${r.workOrderId || '?'} · J# ${r.newJNumber || '—'} · ${r.status} · ${r.installer} · ${r.timestamp}</div>`
+    `<div class="notice-row">WO# ${esc(r.workOrderId)||'?'} · J# ${esc(r.newJNumber)||'—'} · ${esc(r.status)} · ${esc(r.installer)} · ${esc(r.timestamp)}</div>`
   ).join('');
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);

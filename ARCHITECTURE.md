@@ -458,10 +458,12 @@ custom format).
 the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
-**Known limit.** Like every other write, `dispatchRequest`/`addStop` have **no
-idempotency key**, so a timed-out-but-succeeded retry could double-write. And
-oldJ-only matching can mis-attribute if two crew reuse the same oldJ at once —
-accepted trade-offs consistent with the rest of the app.
+**Known limit.** `addStop` now carries a client-generated `id` and the spine skips a
+duplicate id, so a timed-out-but-succeeded retry of a completed stop no longer
+double-writes. `dispatchRequest` (the Apple Shortcut path, not on the offline queue)
+still has **no idempotency key**, so a retried request could double-write; and oldJ-only
+matching can mis-attribute if two crew reuse the same oldJ at once — accepted trade-offs
+consistent with the rest of the app.
 
 ---
 
@@ -527,10 +529,12 @@ is not built for ~200, and the gaps are worth recording before they bite:
 - **One shared token, in public files.** No way to revoke one person without
   rotating everyone's. **Planned fix:** per-installer credentials tied to the
   employee number.
-- **No write de-duplication.** A request that times out client-side *after* the
-  server wrote the row gets retried by the offline queue → duplicate stop.
-  **Planned fix:** a client-generated idempotency key the spine checks before
-  appending.
+- **Write de-duplication (queued appends).** `addStop`/`addDowntime` now carry a
+  client-generated `id`; the spine's `idExists()` skips a row already written under
+  that id, so a request that times out client-side *after* the server wrote the row no
+  longer duplicates on retry. `flush()` also keeps an item queued unless it sees a real
+  success, and is re-entrancy-guarded. `dispatchRequest` (off-queue, Apple Shortcut)
+  is still unkeyed — **planned fix:** extend the same id check there.
 - **`updateStop` has no audit trail.** Edits overwrite in place with no history.
   **Planned fix:** record who/when/old-value for corrections.
 - **Single point of failure.** The spine runs as one Google identity
