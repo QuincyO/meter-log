@@ -423,20 +423,23 @@ const store = (() => {
   catch { return { get:k=>mem[k]??null, set:(k,v)=>{mem[k]=String(v)} }; }
 })();
 
-// ── IndexedDB for day cache + worklist (falls back to null on any error) ─────
-// Two stores: 'dayCache' (key = "name|date", value = {stops,downtime,day,closed,cachedAt})
-//             'worklist' (keyPath 'id', installer-built planned orders)
+// ── IndexedDB: the durable store for all offline data (falls back to null on error) ─
+// Three stores: 'dayCache' (key = "name|date", value = {stops,downtime,day,closed,cachedAt})
+//               'worklist' (keyPath 'id', installer-built planned orders)
+//               'queue'    (keyPath '_seq', autoIncrement → FIFO un-synced writes;
+//                           the system of record until each write reaches the Sheet)
 const idb = (() => {
   let _db = null;
   function open(){
     return new Promise((res, rej) => {
       if(_db){ res(_db); return; }
       try{
-        const req = indexedDB.open('meterlog', 1);
+        const req = indexedDB.open('meterlog', 2);
         req.onupgradeneeded = e => {
           const d = e.target.result;
           if(!d.objectStoreNames.contains('dayCache')) d.createObjectStore('dayCache');
           if(!d.objectStoreNames.contains('worklist')) d.createObjectStore('worklist', {keyPath:'id'});
+          if(!d.objectStoreNames.contains('queue'))    d.createObjectStore('queue', {keyPath:'_seq', autoIncrement:true});
         };
         req.onsuccess = e => { _db = e.target.result; res(_db); };
         req.onerror   = e => rej(e.target.error);
@@ -498,18 +501,32 @@ function localDate(){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-// ── offline queue ────────────────────────────────────────────────────────
-const QKEY = 'queue';
-const queue = () => JSON.parse(store.get(QKEY) || '[]');
-const setQueue = q => store.set(QKEY, JSON.stringify(q));
+// ── offline queue (IndexedDB-backed) ──────────────────────────────────────
+// Un-synced writes live in the IndexedDB 'queue' store, not localStorage —
+// it's the system of record until each write reaches the Sheet, so it must be
+// durable (localStorage gets evicted under storage pressure on mobile). The
+// auto-increment '_seq' key gives FIFO order: idb.all('queue') returns items
+// oldest-first, so q[0] is the head.
+const queueAll = async () => (await idb.all('queue')) || [];
 
 // Client-generated id so a write is idempotent: the same queued item keeps its
 // id across retries, and the spine skips it if that id was already appended.
 const newId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-function enqueue(payload){
+async function enqueue(payload){
   if((payload.action==='addStop' || payload.action==='addDowntime') && !payload.id) payload.id = newId();
-  const q = queue(); q.push(payload); setQueue(q); paint(); flush();
-  applyOptimisticCache(payload);  // async fire-and-forget — updates IDB immediately
+  await idb.put('queue', payload);   // auto-assigns _seq; preserves order
+  paint(); flush();
+  applyOptimisticCache(payload);     // async fire-and-forget — updates the day copy immediately
+}
+
+// One-time migration: drain any queue left in localStorage by the pre-IDB build
+// into the durable store, then drop the old key so nothing is lost on upgrade.
+async function migrateLegacyQueue(){
+  let legacy;
+  try { legacy = JSON.parse(localStorage.getItem('queue') || '[]'); } catch { legacy = []; }
+  if(!Array.isArray(legacy) || !legacy.length) return;
+  for(const item of legacy){ const {_seq, ...rest} = item || {}; await idb.put('queue', rest); }
+  try { localStorage.removeItem('queue'); } catch {}
 }
 
 // Re-entrancy guard: flush() is triggered from enqueue + online/focus/visibility +
@@ -522,32 +539,33 @@ async function flush(){
   flushing = true;
   try{
     while(true){
-      const q = queue();            // re-read each pass so a mid-flush enqueue is picked up
+      const q = await queueAll();   // re-read each pass so a mid-flush enqueue is picked up
       if(!q.length) break;
-      const item = q[0];
+      const item = q[0];            // lowest _seq = head of the queue
+      const {_seq, ...body} = item; // _seq is an internal key — don't send it
       let resp;
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-                                    body: JSON.stringify(item) });   // text/plain dodges CORS preflight
+                                    body: JSON.stringify(body) });   // text/plain dodges CORS preflight
       } catch { break; }            // genuine network failure — keep the whole queue for next trigger
-      let body = null;
-      try { body = await resp.json(); } catch {}
+      let respBody = null;
+      try { respBody = await resp.json(); } catch {}
       // Only a real 2xx with a recognized result counts as delivered. An HTTP error
       // (500 / quota / timeout page) or a transient {ok:false} is KEPT and retried —
       // a busy-window failure must never silently drop a logged stop. The client id
       // makes the eventual retry idempotent, so a timed-out-but-succeeded write
       // (where we never saw the response) won't duplicate.
-      const delivered = resp.ok && body && (body.ok || body.duplicate || body.flagged);
+      const delivered = resp.ok && respBody && (respBody.ok || respBody.duplicate || respBody.flagged);
       if(!delivered) break;
-      const q2 = queue(); q2.shift(); setQueue(q2);   // re-read before removing the head
-      onFlushResult(body, item);
+      await idb.del('queue', _seq);   // remove the head only on a genuine success
+      onFlushResult(respBody, body);
     }
   } finally { flushing = false; }
   paint();
 }
 
-function paint(){
-  const n = queue().length, p = $('status'), t = $('statusText');
+async function paint(){
+  const n = (await queueAll()).length, p = $('status'), t = $('statusText');
   p.classList.remove('wait','off');
   if(!navigator.onLine){ p.classList.add('off'); t.textContent = n ? n+' waiting — offline' : 'Offline'; }
   else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
@@ -576,8 +594,11 @@ function onFlushResult(body, item) {
 async function applyOptimisticCache(payload){
   const c = cfg(); if(!c.name) return;
   const key = `${c.name}|${localDate()}`;
-  const cached = await idb.get('dayCache', key);
-  if(!cached) return;
+  // Storage-first: if no local day copy exists yet (e.g. first log of the day,
+  // or logged before ever pulling "Today's orders"), seed an empty one so the
+  // stop lands on the phone immediately and survives offline.
+  const cached = (await idb.get('dayCache', key))
+    || { stops:[], downtime:[], day:{}, closed:false, cachedAt:stamp() };
 
   if(payload.action==='addStop' && payload.id){
     // Avoid double-add on flush retry
@@ -823,6 +844,7 @@ $('logStop').onclick = () => {
       oldJNumber: otherJ || null, noReadReason:null, utiReason:null });
   }
   enqueue(base);
+  markWorklistDone(base.workOrderId);   // complete the matching planned order, if any
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
     status==='UTI'        ? 'UTI logged ✓' :
@@ -954,8 +976,9 @@ function makeStopCard(s, onSaved, opts){
   card.querySelector('[data-act="save"]').onclick = () => {
     const c = cfg();
     if(!c.url || !c.token){ toast('Add your URL first'); return; }
-    // Pending stops haven't synced yet — their id doesn't exist on the server yet.
-    if(s._tempId){ toast('Still syncing — wait a moment'); return; }
+    // A still-pending stop (logged offline, not yet acked) is editable: the
+    // queue is FIFO so its addStop reaches the server before this updateStop,
+    // and both carry the same client id, so the edit applies to the right row.
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
     const payload = {
       token:c.token, action:'updateStop', id:s.id,
@@ -1125,6 +1148,18 @@ function collectGapAllocations(gaps){
 
 
 // ── cached day loader (stale-while-revalidate) ─────────────────────────────
+// Merge a fresh server list with locally-pending entries. The server is
+// authoritative for anything it already knows about (matched by id); any cached
+// row still flagged _tempId (logged on the phone, not yet acked) is overlaid so
+// a refresh never drops un-synced work. Once a row syncs, reconcileCache clears
+// its _tempId and the server copy naturally wins.
+function mergePending(serverArr, cachedArr){
+  const out = (serverArr || []).slice();
+  const ids = new Set(out.map(r => String(r.id)));
+  (cachedArr || []).forEach(r => { if(r._tempId && !ids.has(String(r.id))) out.push(r); });
+  return out;
+}
+
 // Opens Today or EOD: renders from IDB cache immediately (instant), then
 // re-fetches from Sheets in the background and re-renders with fresh data.
 // Offline → shows cached data (or a "nothing cached" message).
@@ -1158,8 +1193,13 @@ async function loadDay(mode){
   try{
     const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
     const d = await (await fetch(u)).json();
+    // Re-read the cache (an enqueue may have run since the top of this fn) and
+    // merge, so locally-pending stops/downtime survive the server pull.
+    const local = await idb.get('dayCache', key);
+    const stops    = mergePending(d.stops,    local && local.stops);
+    const downtime = mergePending(d.downtime, local && local.downtime);
     await idb.put('dayCache', {
-      stops:d.stops||[], downtime:d.downtime||[],
+      stops, downtime,
       day:d.day||{}, closed:!!d.closed, cachedAt:stamp()
     }, key);
     let gaps = [];
@@ -1170,7 +1210,7 @@ async function loadDay(mode){
         gaps = idata.gaps || [];
       } catch {}
     }
-    renderDayData(mode, d.stops||[], d.downtime||[], d.day||{}, gaps);
+    renderDayData(mode, stops, downtime, d.day||{}, gaps);
   } catch {
     if(!renderedFromCache){
       const msg = '<p class="muted">Couldn\'t load — check the connection.</p>';
@@ -1517,12 +1557,25 @@ async function wlUse(item){
   $('otherOldJ').value = '';
   $('stopNotes').value = item.notes || '';
   setStatus('INSTALLED');  // default; installer changes if needed
-  // Mark the order as done so it moves to the 'done' section
-  const updated = Object.assign({}, item, { wlStatus:'done', updatedAt:stamp() });
-  await idb.put('worklist', updated);
+  // Don't mark done here — completion is driven by an actual log (see
+  // markWorklistDone), so an order only clears once the stop is captured.
   closeSheets();
   window.scrollTo({top:0, behavior:'smooth'});
   toast('Prefilled from worklist ✓');
+}
+
+// Completing a planned worklist order when its work order is actually logged.
+// Matches the first pending card by WO# (case-insensitive); a blank WO# never
+// matches. Runs entirely against IndexedDB so it works with no signal.
+async function markWorklistDone(workOrderId){
+  const wo = String(workOrderId || '').trim().toUpperCase();
+  if(!wo) return;
+  const items = (await idb.all('worklist')) || [];
+  const match = items.find(x => x.wlStatus !== 'done'
+    && String(x.workOrderId || '').trim().toUpperCase() === wo);
+  if(!match) return;
+  await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', updatedAt:stamp() }));
+  if(!$('worklistSheet').classList.contains('hide')) await renderWorklist();
 }
 $('saveSettings').onclick = () => {
   const c = cfg();
@@ -1549,7 +1602,8 @@ window.addEventListener('offline', paint);
 // also try to sync whenever the app comes back to the foreground
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
 window.addEventListener('focus', flush);
-paint();
+// Drain any pre-IDB localStorage queue into the durable store, then paint + sync.
+migrateLegacyQueue().then(() => { paint(); flush(); });
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.
