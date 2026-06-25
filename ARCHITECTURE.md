@@ -113,7 +113,9 @@ fills the blanks),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 (all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
-`dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile), `roster`
+`dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
+`avgDispatchTime` (a single rounded avg dispatch time, computed by pairing every
+requested meter to its completed install — see "Dispatch downtime"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
@@ -465,6 +467,15 @@ custom format).
 **Analytics.** `?action=dispatch` returns all `Dispatch` rows; `map.html` averages
 the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
+
+`?action=avgDispatchTime` (`avgDispatchTime()` in `Code.gs`) is a separate,
+self-contained measure not yet wired into any UI. Instead of reading the
+live-matched `Dispatch` rows, it pairs **every** requested meter (`Dispatch`)
+to the completed install (`Stops`, status `INSTALLED`/`UTI`) carrying the same
+`oldJ` — each request claiming the earliest still-unused install at/after its
+`requestTime` — and returns the rounded mean wait in minutes (or `null`). Being
+keyed on the install record rather than the `matched=Y` flag, it is retroactive
+and counts installs that were never tapped "Requested?".
 
 **Known limit.** `addStop` now carries a client-generated `id` and the spine skips a
 duplicate id, so a timed-out-but-succeeded retry of a completed stop no longer
