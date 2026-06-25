@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, ten tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `Dispatch`. This is the truth.
+One spreadsheet, eleven tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `Dispatch`, `Metrics`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -114,8 +114,9 @@ fills the blanks),
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 (all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
 `dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
-`avgDispatchTime` (a single rounded avg dispatch time, computed by pairing every
-requested meter to its completed install — see "Dispatch downtime"), `roster`
+`avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
+the write path keeps fresh by pairing every requested meter to its completed
+install — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
@@ -316,6 +317,15 @@ dispatch downtimes the average is built from.
 | `minutes`       | number | filled on match — `completedTime − requestTime`            |
 | `matched`       | string | `''` until matched, then `'Y'`                             |
 
+### Metric  (one row per metric → tab "Metrics")
+A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
+`avgDispatchTime()` (see "Avg dispatch time"). Room for more metrics later.
+| field     | type          | notes                                                |
+|-----------|---------------|------------------------------------------------------|
+| `metric`  | string        | the key, e.g. `avgDispatchTime`                      |
+| `value`   | number/string | the stored value (`''` when not yet computable)      |
+| `updated` | string        | Toronto-local timestamp of the last refresh          |
+
 ---
 
 ## Sample stop (the JSON the form posts)
@@ -442,15 +452,18 @@ texts dispatch **and** POSTs `dispatchRequest` to the spine with a `time` and an
 installer unknown at this point — match is **oldJ-only**). Later, when the crew
 completes that work order, they log a stop in `index.html` with the **"Requested
 meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
-`oldJNumber`). `addStop` → **`applyDispatchDowntime`**:
+`oldJNumber`).
 
-- **Matched** — finds the oldest unmatched `Dispatch` row with the same oldJ,
-  computes `minutes = stop.timestamp − requestTime`, and closes that row
-  (`matched=Y`, `installer`/`completedTime`/`minutes` filled). This is the
-  **true** downtime ("only when the oldJ matches and the request was sent").
-- **Unmatched** — no pending request, so it falls back to **`avgDispatchMinutes()`**
-  (mean of all `matched=Y` rows) as an estimate. If nothing's been measured yet,
-  nothing is added.
+Matching itself is owned by **`avgDispatchTime()`** (see "Avg dispatch time"
+below), which `addStop` runs right after appending any install carrying an oldJ —
+it pairs requests to installs and closes out the matched `Dispatch` rows.
+`addStop` → **`applyDispatchDowntime`** then only *reports* this stop's wait:
+
+- **Matched** — the reconciled `Dispatch` row for this stop (`matched=Y`, same
+  oldJ + `completedTime`) supplies the **true** measured `minutes`.
+- **Unmatched** — no pending request, so it falls back to the running average
+  (the `avgDispatchTime()` return / Metrics value) as an estimate. If nothing's
+  been measured yet, nothing is added.
 
 Either way the result is written as a normal `DISPATCH` **`Downtime`** row (note
 `dispatch (measured)` or `dispatch (avg est.)`), so it flows through
@@ -468,14 +481,20 @@ custom format).
 the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
-`?action=avgDispatchTime` (`avgDispatchTime()` in `Code.gs`) is a separate,
-self-contained measure not yet wired into any UI. Instead of reading the
-live-matched `Dispatch` rows, it pairs **every** requested meter (`Dispatch`)
-to the completed install (`Stops`, status `INSTALLED`/`UTI`) carrying the same
-`oldJ` — each request claiming the earliest still-unused install at/after its
-`requestTime` — and returns the rounded mean wait in minutes (or `null`). Being
-keyed on the install record rather than the `matched=Y` flag, it is retroactive
-and counts installs that were never tapped "Requested?".
+**Avg dispatch time.** `avgDispatchTime()` in `Code.gs` is the **single source of
+truth for dispatch matching** — `addStop` runs it after appending any install
+with an oldJ, and it is what `applyDispatchDowntime` reports against (above). It
+pairs **every** requested meter (`Dispatch`) to the completed install (`Stops`,
+status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request claiming the
+earliest still-unused install at/after its `requestTime` — **fills** that
+`Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then writes
+the rounded mean wait in minutes to the **`Metrics`** tab (row `avgDispatchTime`)
+and returns it (`null` if nothing pairs). Keyed on the install record rather than
+a live flag, it is retroactive — it counts installs that were never tapped
+"Requested?" — and idempotent (re-runs converge; only changed rows are rewritten,
+unmatched rows are left alone). `?action=avgDispatchTime` is a pure read of the
+stored `Metrics` value (kept fresh by the write path); the variable isn't wired
+into any UI yet.
 
 **Known limit.** `addStop` now carries a client-generated `id` and the spine skips a
 duplicate id, so a timed-out-but-succeeded retry of a completed stop no longer
