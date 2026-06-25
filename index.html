@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -771,7 +771,7 @@ async function fetchAddress(lat, lng, force){
       $('locText').textContent = `Location: ${lat}, ${lng} · no address found — enter manually`;
     }
   } catch {
-    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · couldn’t fetch address`;
+    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · couldn't fetch address`;
   }
 }
 
@@ -850,7 +850,7 @@ $('markDone').onclick = () => {
                      lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6),
                      status:'DONE' });
            toast('Marked — already installed ✓'); },
-    () => toast('Couldn’t get GPS — try again'),
+    () => toast("Couldn't get GPS — try again"),
     { enableHighAccuracy:true, timeout:8000 });
 };
 
@@ -993,21 +993,21 @@ $('doLookup').onclick = async () => {
     const matches = d.matches || [];
     if(!matches.length){ box.innerHTML = '<p class="muted">No match found.</p>'; return; }
     matches.forEach(s => box.appendChild(makeStopCard(s)));
-  } catch { $('lookupResults').innerHTML = '<p class="muted">Couldn’t search — check the connection.</p>'; }
+  } catch { $('lookupResults').innerHTML = "<p class=\"muted\">Couldn't search — check the connection.</p>"; }
 };
 
 // ── end of day: review, edit, then finish ──────────────────────────────────
 // Re-draw the 1st WO's launch leg as the Departure time is typed.
 $('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
 
-$(‘endDay’).onclick = async () => {
+$('endDay').onclick = async () => {
   const c = cfg();
-  if(!c.name){ openSheet(‘settingsSheet’); toast(‘Add your name first’); return; }
+  if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   await flush();
-  $(‘eodNotes’).value=’’; $(‘eodTally’).textContent=’Loading…’; $(‘eodList’).innerHTML=’’;
-  $(‘eodDeparture’).value=’’; $(‘eodReturned’).value=’’; $(‘eodIdle’).innerHTML=’’; eodGaps=[];
-  openSheet(‘eodSheet’);
-  await loadDay(‘eod’);
+  $('eodNotes').value=''; $('eodTally').textContent='Loading…'; $('eodList').innerHTML='';
+  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML=''; eodGaps=[];
+  openSheet('eodSheet');
+  await loadDay('eod');
 };
 
 // Every WO→WO gap → an editable card. The installer subtracts any downtime, lunch
@@ -1274,7 +1274,7 @@ function downloadBase64Pdf(b64, name){
     const a = document.createElement('a'); a.href=url; a.download=name||'DailyLog.pdf';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  } catch { toast('PDF ready, but download was blocked — it’s also in Drive'); }
+  } catch { toast("PDF ready, but download was blocked — it's also in Drive"); }
 }
 
 // ── generate a draft daily log WITHOUT closing the day ─────────────────────
@@ -1299,14 +1299,14 @@ $('genLog').onclick = async () => {
   } catch { toast('Could not reach the sheet'); }
 };
 
-// ── today’s orders: a quick table of what’s logged today ───────────────────
-$(‘openToday’).onclick = async () => {
+// ── today's orders: a quick table of what's logged today ───────────────────
+$('openToday').onclick = async () => {
   const c = cfg();
-  if(!c.name){ openSheet(‘settingsSheet’); toast(‘Add your name first’); return; }
+  if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   await flush();
-  $(‘todayTally’).textContent = ‘Loading…’; $(‘todayTable’).innerHTML=’’; $(‘todayEdit’).innerHTML=’’;
-  openSheet(‘todaySheet’);
-  await loadDay(‘today’);
+  $('todayTally').textContent = 'Loading…'; $('todayTable').innerHTML=''; $('todayEdit').innerHTML='';
+  openSheet('todaySheet');
+  await loadDay('today');
 };
 
 const CAT_LABEL = {
