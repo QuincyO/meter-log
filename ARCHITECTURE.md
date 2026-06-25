@@ -15,8 +15,9 @@ It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
 - The **web form / PWA** (`index.html`) — the capture tool. Runs on the Android
-  work phone and any browser, offline-first: it queues stops locally and syncs
-  when there's signal. Each person sets only their **name**; the Web App URL and
+  work phone and any browser, offline-first: it stores stops locally in
+  IndexedDB and syncs when there's signal (see "Client-side storage"). Each
+  person sets only their **name**; the Web App URL and
   access token are baked into the file, so there's nothing else to configure.
 - The **map + analytics viewer** (`map.html`) — a read-only window over the
   data: plots stops by GPS, filters (installer / status / date range), WO#/J#
@@ -120,6 +121,49 @@ install — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
+
+---
+
+## Client-side storage (the phone)
+
+The capture PWA (`index.html`) is **offline-first**, and **IndexedDB is the
+durable store for everything that must survive with no signal**. One database,
+`meterlog`, with three object stores:
+
+- **`queue`** (keyPath `_seq`, auto-increment) — the **system of record for
+  un-synced writes**. Every `addStop` / `addDowntime` / `updateStop` /
+  `saveEmployee` etc. is appended here first; `flush()` POSTs the head to the
+  spine and only deletes it on a genuine success (`resp.ok` **and** a recognized
+  `{ok|duplicate|flagged}` body), so a busy-window failure is kept and retried.
+  The auto-increment `_seq` preserves FIFO order; `_seq` is internal and stripped
+  before the POST. Append writes carry a client-generated `id` so a
+  timed-out-but-succeeded retry is idempotent (`idExists` on the spine).
+- **`dayCache`** (key `"name|YYYY-MM-DD"`) — the **storage-first local copy of
+  the day's orders**. Logging writes here *immediately* (`applyOptimisticCache`
+  seeds an empty copy if none exists), so "Today's orders" / End-of-day show the
+  stop instantly and offline, before anything reaches the Sheet. A server pull
+  (`loadDay`) **merges** rather than replaces: the server is authoritative for
+  rows it knows about (by `id`), and any still-pending local row (`_tempId`,
+  not yet acked) is overlaid so a refresh never drops un-synced work — **local
+  pending wins** until it syncs, then the server copy takes over.
+- **`worklist`** (keyPath `id`) — the installer's locally-built **planned
+  orders** (a personal to-do list, never sent to the Sheet). Add / edit / delete
+  all run against IndexedDB, so the list is fully editable offline. An order is
+  marked done when its work order is **actually logged** (matched by WO#), not
+  at prefill time.
+
+**`localStorage` is reserved for trivial, synchronous device config only** —
+the person's name and H number (read synchronously by `cfg()` all over the UI).
+Losing it just re-prompts for a name; there's no data loss. **Policy going
+forward: any durable offline state belongs in IndexedDB, not `localStorage`.**
+(The pre-IndexedDB build kept the queue in `localStorage`; a one-time
+`migrateLegacyQueue()` drains it into the `queue` store on first load of the new
+build.)
+
+The service worker (`sw.js`) caches the **app shell** (HTML/icons) so the page
+opens with no signal; it deliberately lets the POST to the spine hit the network
+and fail when offline, so the IndexedDB `queue` owns retry. Don't add the
+endpoint to the SW cache.
 
 ---
 
