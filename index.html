@@ -35,8 +35,23 @@
         padding:9px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
   .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
-  .gear{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
-        font-size:20px;cursor:pointer}
+  .nav-wrap{position:relative;flex:none}
+  .nav-btn{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
+           font-size:20px;cursor:pointer}
+  .nav-menu{position:absolute;top:50px;right:0;background:var(--panel);border-radius:var(--r);
+            box-shadow:0 4px 20px rgba(19,23,28,.15);min-width:170px;overflow:hidden;z-index:50}
+  .nav-menu button{display:block;width:100%;text-align:left;padding:14px 16px;border:0;background:0;
+                   font-size:16px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .nav-menu button:active{background:var(--surface)}
+
+  /* worklist */
+  .wl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--shadow)}
+  .wl-done-card{opacity:.55}
+  .wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px}
+  .wl-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .wl-use{background:var(--amber);border:0;border-radius:10px;padding:0 18px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:#1a1300}
+  .wl-edit{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 14px;height:38px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}
+  .wl-del{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
 
   h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
      font-weight:700;margin:18px 2px 8px}
@@ -138,7 +153,13 @@
 
   <div class="bar">
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
-    <button class="gear" id="openSettings" aria-label="Settings">⚙︎</button>
+    <div class="nav-wrap">
+      <button class="nav-btn" id="navBtn" aria-label="Menu">☰</button>
+      <div class="nav-menu hide" id="navMenu">
+        <button id="navWorklist">📋 Worklist</button>
+        <button id="navSettings">⚙︎ Settings</button>
+      </div>
+    </div>
   </div>
 
   <div class="notice" id="notice">
@@ -366,6 +387,33 @@
     </div>
   </div>
 
+
+  <!-- Worklist sheet -->
+  <div class="sheet hide" id="worklistSheet">
+    <div class="card">
+      <h2>Worklist</h2>
+      <p>Your planned orders for today — saved on this device, works offline. Tap <b>Use →</b> to prefill the capture form.</p>
+      <button class="primary" id="wlAddBtn" style="height:50px;font-size:16px;margin-bottom:4px">＋ Add order</button>
+      <div class="hide" id="wlForm" style="margin-top:4px">
+        <label>Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
+        <label>Unit</label><input id="wlUnit" class="mono">
+        <label>Address / landmark</label><input id="wlAddr">
+        <label>Old J# <span style="font-weight:500">(optional)</span></label>
+        <input id="wlOldJ" class="mono" autocapitalize="characters">
+        <label>New J# <span style="font-weight:500">(optional)</span></label>
+        <input id="wlNewJ" class="mono" autocapitalize="characters">
+        <label>Notes <span style="font-weight:500">(optional)</span></label>
+        <textarea id="wlNotes" style="min-height:64px"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="ghost" id="wlFormCancel" style="flex:1">Cancel</button>
+          <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>
+        </div>
+      </div>
+      <div id="wlList" style="margin-top:4px"></div>
+    </div>
+  </div>
+
+
 <script>
 // ── tiny storage that survives a sandbox preview (falls back to memory) ──────
 const store = (() => {
@@ -373,6 +421,44 @@ const store = (() => {
   try { localStorage.setItem('__t','1'); localStorage.removeItem('__t');
         return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v) }; }
   catch { return { get:k=>mem[k]??null, set:(k,v)=>{mem[k]=String(v)} }; }
+})();
+
+// ── IndexedDB for day cache + worklist (falls back to null on any error) ─────
+// Two stores: 'dayCache' (key = "name|date", value = {stops,downtime,day,closed,cachedAt})
+//             'worklist' (keyPath 'id', installer-built planned orders)
+const idb = (() => {
+  let _db = null;
+  function open(){
+    return new Promise((res, rej) => {
+      if(_db){ res(_db); return; }
+      try{
+        const req = indexedDB.open('meterlog', 1);
+        req.onupgradeneeded = e => {
+          const d = e.target.result;
+          if(!d.objectStoreNames.contains('dayCache')) d.createObjectStore('dayCache');
+          if(!d.objectStoreNames.contains('worklist')) d.createObjectStore('worklist', {keyPath:'id'});
+        };
+        req.onsuccess = e => { _db = e.target.result; res(_db); };
+        req.onerror   = e => rej(e.target.error);
+      } catch(e){ rej(e); }
+    });
+  }
+  function tx(sName, mode, fn){
+    return open().then(d => new Promise((res, rej) => {
+      try{
+        const t = d.transaction(sName, mode);
+        const r = fn(t.objectStore(sName));
+        r.onsuccess = e => res(e.target.result);
+        r.onerror   = e => rej(e.target.error);
+      } catch(e){ rej(e); }
+    })).catch(() => null);
+  }
+  return {
+    get : (s, k)   => tx(s, 'readonly',  os => os.get(k)),
+    put : (s, v, k) => tx(s, 'readwrite', os => k!==undefined ? os.put(v,k) : os.put(v)),
+    del : (s, k)   => tx(s, 'readwrite', os => os.delete(k)),
+    all : s        => tx(s, 'readonly',  os => os.getAll()),
+  };
 })();
 
 const $   = id => document.getElementById(id);
@@ -402,18 +488,28 @@ function stamp(){
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
 }
 
+// Toronto-local calendar date "YYYY-MM-DD". Matches dateOf() in Code.gs.
+// Used as part of the dayCache key so cached data is date-scoped automatically.
+function localDate(){
+  const p = {};
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone:'America/Toronto', year:'numeric', month:'2-digit', day:'2-digit'
+  }).formatToParts(new Date()).forEach(x => p[x.type] = x.value);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 // ── offline queue ────────────────────────────────────────────────────────
 const QKEY = 'queue';
 const queue = () => JSON.parse(store.get(QKEY) || '[]');
 const setQueue = q => store.set(QKEY, JSON.stringify(q));
 
 // Client-generated id so a write is idempotent: the same queued item keeps its
-// id across retries, and the spine skips it if that id was already appended. This
-// is what makes the "keep on failure, retry later" policy below safe from dupes.
+// id across retries, and the spine skips it if that id was already appended.
 const newId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 function enqueue(payload){
   if((payload.action==='addStop' || payload.action==='addDowntime') && !payload.id) payload.id = newId();
   const q = queue(); q.push(payload); setQueue(q); paint(); flush();
+  applyOptimisticCache(payload);  // async fire-and-forget — updates IDB immediately
 }
 
 // Re-entrancy guard: flush() is triggered from enqueue + online/focus/visibility +
@@ -459,6 +555,7 @@ function paint(){
 }
 
 function onFlushResult(body, item) {
+  reconcileCache(body, item);   // async fire-and-forget — swaps temp ids, handles dispatch side-effect
   if (!body.duplicate && !body.flagged) return;
   const wo = item.workOrderId || '?';
   const newJ = item.newJNumber || '';
@@ -471,6 +568,87 @@ function onFlushResult(body, item) {
       `J# conflict — WO# ${wo} was previously logged with a different J#. New entry saved.`,
       body.history || []);
   }
+}
+
+// ── IDB cache helpers ────────────────────────────────────────────────────────
+// Called from enqueue() immediately after a new item enters the queue.
+// Adds an optimistic entry to today's dayCache so Today/EOD show it instantly.
+async function applyOptimisticCache(payload){
+  const c = cfg(); if(!c.name) return;
+  const key = `${c.name}|${localDate()}`;
+  const cached = await idb.get('dayCache', key);
+  if(!cached) return;
+
+  if(payload.action==='addStop' && payload.id){
+    // Avoid double-add on flush retry
+    if(cached.stops.some(s => s.id===payload.id)) return;
+    cached.stops.push({
+      id:payload.id, timestamp:payload.timestamp, installer:payload.installer,
+      workOrderId:payload.workOrderId, unit:payload.unit, address:payload.address,
+      lat:payload.lat, lng:payload.lng, newJNumber:payload.newJNumber,
+      oldJNumber:payload.oldJNumber, meterRead:payload.meterRead,
+      meterReadReceived:payload.meterReadReceived, status:payload.status,
+      utiReason:payload.utiReason, notes:payload.notes, noReadReason:payload.noReadReason,
+      _tempId:true
+    });
+    await idb.put('dayCache', cached, key);
+
+  } else if(payload.action==='addDowntime' && payload.id){
+    if(cached.downtime.some(d => d.id===payload.id)) return;
+    cached.downtime.push({
+      id:payload.id, timestamp:payload.timestamp, installer:payload.installer,
+      category:payload.category, minutes:payload.minutes,
+      workOrderId:payload.workOrderId, note:payload.note, _tempId:true
+    });
+    await idb.put('dayCache', cached, key);
+
+  } else if(payload.action==='updateStop'){
+    const idx = (cached.stops||[]).findIndex(s => s.id===payload.id);
+    if(idx !== -1){ Object.assign(cached.stops[idx], payload); await idb.put('dayCache', cached, key); }
+  }
+}
+
+// Called from onFlushResult() once the server acks a queued item.
+// Clears the _tempId pending marker and handles the dispatch side-effect
+// (applyDispatchDowntime on the server silently appended a DISPATCH Downtime row).
+// The stop id stays the same (client-generated, used by server as-is).
+async function reconcileCache(body, item){
+  const c = cfg(); if(!c.name) return;
+  const key = `${c.name}|${localDate()}`;
+  const cached = await idb.get('dayCache', key);
+  if(!cached) return;
+  let changed = false;
+
+  if(item.action==='addStop' && body.ok && body.id){
+    const idx = (cached.stops||[]).findIndex(s => s.id===item.id);
+    if(idx !== -1){
+      delete cached.stops[idx]._tempId;
+      changed = true;
+    } else if(!cached.stops.some(s => s.id===body.id)){
+      cached.stops.push({...item, id:body.id});
+      changed = true;
+    }
+    // The spine's applyDispatchDowntime may have written a DISPATCH downtime row
+    // when the stop had requestedMeter=true. Mirror it in the cache.
+    if(body.dispatch){
+      cached.downtime.push({
+        id:`dispatch-${body.id}`, timestamp:item.timestamp, installer:item.installer,
+        category:'DISPATCH', minutes:body.dispatch.minutes, workOrderId:item.workOrderId,
+        note:body.dispatch.measured ? 'dispatch (measured)' : 'dispatch (avg est.)'
+      });
+      changed = true;
+    }
+  } else if(item.action==='addDowntime' && body.ok && body.id){
+    const idx = (cached.downtime||[]).findIndex(d => d.id===item.id);
+    if(idx !== -1){
+      delete cached.downtime[idx]._tempId;
+      changed = true;
+    } else if(!cached.downtime.some(d => d.id===body.id)){
+      cached.downtime.push({...item, id:body.id});
+      changed = true;
+    }
+  }
+  if(changed) await idb.put('dayCache', cached, key);
 }
 
 let noticeTimer;
@@ -773,9 +951,11 @@ function makeStopCard(s, onSaved, opts){
     toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
   };
 
-  card.querySelector('[data-act="save"]').onclick = async () => {
+  card.querySelector('[data-act="save"]').onclick = () => {
     const c = cfg();
     if(!c.url || !c.token){ toast('Add your URL first'); return; }
+    // Pending stops haven't synced yet — their id doesn't exist on the server yet.
+    if(s._tempId){ toast('Still syncing — wait a moment'); return; }
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
     const payload = {
       token:c.token, action:'updateStop', id:s.id,
@@ -785,17 +965,14 @@ function makeStopCard(s, onSaved, opts){
       meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
       utiReason:g('utiReason'), notes:g('notes')
     };
-    try{
-      const d = await (await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-                                            body: JSON.stringify(payload) })).json();
-      if(d.ok){
-        Object.assign(s, payload);
-        card.querySelector('.sc-sum').innerHTML = summaryHTML(s, pos);
-        editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
-        toast('Saved ✓');
-        if(typeof onSaved === 'function') onSaved();
-      } else toast(d.error || 'Save failed');
-    } catch { toast('Could not save — need a connection'); }
+    // Optimistic DOM update — matches what the server will persist
+    Object.assign(s, payload);
+    card.querySelector('.sc-sum').innerHTML = summaryHTML(s, pos);
+    editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
+    // Route through the offline queue so edits survive with no signal
+    enqueue(payload);
+    toast(navigator.onLine ? 'Saving…' : 'Saved — will sync when online');
+    if(typeof onSaved === 'function') onSaved();
   };
   return card;
 }
@@ -823,29 +1000,14 @@ $('doLookup').onclick = async () => {
 // Re-draw the 1st WO's launch leg as the Departure time is typed.
 $('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
 
-$('endDay').onclick = async () => {
+$(‘endDay’).onclick = async () => {
   const c = cfg();
-  if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
+  if(!c.name){ openSheet(‘settingsSheet’); toast(‘Add your name first’); return; }
   await flush();
-  if(queue().length){ toast('Still some unsynced — try when online'); return; }
-  $('eodNotes').value=''; $('eodTally').textContent='Loading today’s stops…'; $('eodList').innerHTML='';
-  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML=''; eodGaps=[];
-  openSheet('eodSheet');
-  try{
-    const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
-    const d = await (await fetch(u)).json();
-    // Idle gaps are a separate, team-aware call (they fold in a partner's stops).
-    // Fetch them BEFORE rendering the stops so each work-order card can show its
-    // incoming travel. Non-blocking — the day still closes without them.
-    let gaps = [];
-    try{
-      const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
-      const idata = await (await fetch(iu)).json();
-      gaps = idata.gaps || [];
-    } catch {}
-    setGapData(gaps);
-    renderEod(d.stops || [], d.downtime || []);
-  } catch { $('eodTally').textContent=''; $('eodList').innerHTML='<p class="muted">Couldn’t load today — check the connection.</p>'; }
+  $(‘eodNotes’).value=’’; $(‘eodTally’).textContent=’Loading…’; $(‘eodList’).innerHTML=’’;
+  $(‘eodDeparture’).value=’’; $(‘eodReturned’).value=’’; $(‘eodIdle’).innerHTML=’’; eodGaps=[];
+  openSheet(‘eodSheet’);
+  await loadDay(‘eod’);
 };
 
 // Every WO→WO gap → an editable card. The installer subtracts any downtime, lunch
@@ -962,6 +1124,74 @@ function collectGapAllocations(gaps){
 }
 
 
+// ── cached day loader (stale-while-revalidate) ─────────────────────────────
+// Opens Today or EOD: renders from IDB cache immediately (instant), then
+// re-fetches from Sheets in the background and re-renders with fresh data.
+// Offline → shows cached data (or a "nothing cached" message).
+async function loadDay(mode){
+  const c = cfg(); if(!c.name) return;
+  const key = `${c.name}|${localDate()}`;
+  const cached = await idb.get('dayCache', key);
+  let renderedFromCache = false;
+
+  if(cached){
+    renderDayData(mode, cached.stops||[], cached.downtime||[], cached.day||{}, []);
+    renderedFromCache = true;
+  }
+
+  if(!navigator.onLine || !c.url || !c.token){
+    if(!renderedFromCache){
+      const msg = '<p class="muted">Offline — nothing cached yet for today.</p>';
+      if(mode==='today'){ $('todayTally').textContent=''; $('todayTable').innerHTML=msg; }
+      else              { $('eodTally').textContent='';   $('eodList').innerHTML=msg; }
+    } else {
+      // Show a subtle offline banner above the cached content
+      const note = document.createElement('p');
+      note.className='muted'; note.style.cssText='text-align:center;font-size:13px;margin:0 0 8px';
+      note.textContent='Offline — showing last saved data';
+      if(mode==='today') $('todayTable').prepend(note);
+      else               $('eodList').prepend(note);
+    }
+    return;
+  }
+
+  try{
+    const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
+    const d = await (await fetch(u)).json();
+    await idb.put('dayCache', {
+      stops:d.stops||[], downtime:d.downtime||[],
+      day:d.day||{}, closed:!!d.closed, cachedAt:stamp()
+    }, key);
+    let gaps = [];
+    if(mode==='eod'){
+      try{
+        const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
+        const idata = await (await fetch(iu)).json();
+        gaps = idata.gaps || [];
+      } catch {}
+    }
+    renderDayData(mode, d.stops||[], d.downtime||[], d.day||{}, gaps);
+  } catch {
+    if(!renderedFromCache){
+      const msg = '<p class="muted">Couldn\'t load — check the connection.</p>';
+      if(mode==='today'){ $('todayTally').textContent=''; $('todayTable').innerHTML=msg; }
+      else              { $('eodTally').textContent='';   $('eodList').innerHTML=msg; }
+    }
+    // If cached render is already showing, just leave it — no error shown
+  }
+}
+
+function renderDayData(mode, stops, downtime, day, gaps){
+  if(mode==='today'){
+    renderToday(stops, downtime);
+  } else {
+    setGapData(gaps);
+    renderEod(stops, downtime);
+    if(day.departure) $('eodDeparture').value = day.departure;
+    if(day.returned)  $('eodReturned').value  = day.returned;
+  }
+}
+
 function renderEod(stops, downtime){
   eodData = { stops, downtime };
   const editable    = stops.filter(s => PRINTABLE[s.status]);
@@ -1069,18 +1299,14 @@ $('genLog').onclick = async () => {
   } catch { toast('Could not reach the sheet'); }
 };
 
-// ── today's orders: a quick table of what's logged today ───────────────────
-$('openToday').onclick = async () => {
+// ── today’s orders: a quick table of what’s logged today ───────────────────
+$(‘openToday’).onclick = async () => {
   const c = cfg();
-  if(!c.url || !c.token){ openSheet('settingsSheet'); toast('Add your URL first'); return; }
+  if(!c.name){ openSheet(‘settingsSheet’); toast(‘Add your name first’); return; }
   await flush();
-  $('todayTally').textContent = 'Loading…'; $('todayTable').innerHTML=''; $('todayEdit').innerHTML='';
-  openSheet('todaySheet');
-  try{
-    const u = `${c.url}?token=${enc(c.token)}&action=day&installer=${enc(c.name)}`;
-    const d = await (await fetch(u)).json();
-    renderToday(d.stops || [], d.downtime || []);
-  } catch { $('todayTally').textContent=''; $('todayTable').innerHTML='<p class="muted">Couldn’t load — check the connection.</p>'; }
+  $(‘todayTally’).textContent = ‘Loading…’; $(‘todayTable’).innerHTML=’’; $(‘todayEdit’).innerHTML=’’;
+  openSheet(‘todaySheet’);
+  await loadDay(‘today’);
 };
 
 const CAT_LABEL = {
@@ -1175,7 +1401,129 @@ function openSheet(id){
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
-$('openSettings').onclick = () => openSheet('settingsSheet');
+
+// ── nav dropdown ──────────────────────────────────────────────────────────────
+$('navBtn').onclick = e => { e.stopPropagation(); $('navMenu').classList.toggle('hide'); };
+document.addEventListener('click', () => { const m=$('navMenu'); if(m) m.classList.add('hide'); });
+$('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorklist(); };
+$('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
+
+// ── worklist ──────────────────────────────────────────────────────────────────
+let _wlEditId = null;   // null = new order, string = id being edited
+
+async function openWorklist(){
+  _wlEditId = null;
+  $('wlForm').classList.add('hide');
+  $('wlAddBtn').textContent = '＋ Add order';
+  openSheet('worklistSheet');
+  await renderWorklist();
+}
+
+async function renderWorklist(){
+  const items = (await idb.all('worklist')) || [];
+  const pending = items.filter(x => x.wlStatus !== 'done');
+  const done    = items.filter(x => x.wlStatus === 'done');
+  const list = $('wlList'); list.innerHTML='';
+  if(!items.length){ list.innerHTML='<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
+  [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
+}
+
+function makeWlCard(item){
+  const card = document.createElement('div');
+  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '');
+  const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
+  const sub = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
+  const jLine = [item.oldJNumber && `Old J# ${esc(item.oldJNumber)}`, item.newJNumber && `New J# ${esc(item.newJNumber)}`].filter(Boolean).join(' · ');
+  const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
+  card.innerHTML = `
+    <div>
+      <strong>${title}</strong>${doneTag}
+      ${sub   ? `<div class="wl-body">${sub}</div>` : ''}
+      ${jLine ? `<div class="wl-body mono" style="font-size:13px">${jLine}</div>` : ''}
+      ${item.notes ? `<div class="wl-body" style="margin-top:2px">${esc(item.notes)}</div>` : ''}
+    </div>
+    <div class="wl-actions">
+      ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
+      <button class="wl-edit" data-act="edit">Edit</button>
+      <button class="wl-del" data-act="del">✕</button>
+    </div>`;
+  card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
+  if(item.wlStatus !== 'done') card.querySelector('[data-act="use"]').onclick = () => wlUse(item);
+  card.querySelector('[data-act="del"]').onclick = async () => {
+    await idb.del('worklist', item.id);
+    toast('Order removed');
+    await renderWorklist();
+  };
+  return card;
+}
+
+function wlOpenForm(item){
+  _wlEditId = item ? item.id : null;
+  $('wlWo').value    = item ? (item.workOrderId||'') : '';
+  $('wlUnit').value  = item ? (item.unit||'') : '';
+  $('wlAddr').value  = item ? (item.address||'') : '';
+  $('wlOldJ').value  = item ? (item.oldJNumber||'') : '';
+  $('wlNewJ').value  = item ? (item.newJNumber||'') : '';
+  $('wlNotes').value = item ? (item.notes||'') : '';
+  $('wlForm').classList.remove('hide');
+  $('wlAddBtn').textContent = '✕ Cancel';
+  $('wlWo').focus();
+  $('wlForm').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+$('wlAddBtn').onclick = () => {
+  if(!$('wlForm').classList.contains('hide')){
+    $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; return;
+  }
+  wlOpenForm(null);
+};
+$('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
+$('wlFormSave').onclick = async () => {
+  const wo = $('wlWo').value.trim();
+  if(!wo && !$('wlAddr').value.trim()){ toast('Enter a work order # or address'); return; }
+  const now = stamp();
+  const isEdit = !!_wlEditId;
+  let item;
+  if(isEdit){
+    const existing = (await idb.get('worklist', _wlEditId)) || {};
+    item = Object.assign({}, existing, {
+      id:_wlEditId, workOrderId:wo, unit:$('wlUnit').value.trim(),
+      address:$('wlAddr').value.trim(), oldJNumber:$('wlOldJ').value.trim(),
+      newJNumber:$('wlNewJ').value.trim(), notes:$('wlNotes').value.trim(), updatedAt:now
+    });
+  } else {
+    item = {
+      id: now + '-' + Math.random().toString(36).slice(2,6),
+      workOrderId:wo, unit:$('wlUnit').value.trim(), address:$('wlAddr').value.trim(),
+      oldJNumber:$('wlOldJ').value.trim(), newJNumber:$('wlNewJ').value.trim(),
+      notes:$('wlNotes').value.trim(), wlStatus:'pending', createdAt:now, updatedAt:now
+    };
+  }
+  await idb.put('worklist', item);
+  $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null;
+  toast(isEdit ? 'Order updated ✓' : 'Order saved ✓');
+  await renderWorklist();
+};
+
+async function wlUse(item){
+  // Prefill the capture form from this worklist order
+  $('wo').value        = item.workOrderId || '';
+  $('unit').value      = item.unit || '';
+  $('addr').value      = item.address || '';
+  $('newJ').value      = item.newJNumber || '';
+  $('installOldJ').value = item.oldJNumber || '';
+  $('oldJ').value      = item.oldJNumber || '';
+  $('nrOldJ').value    = item.oldJNumber || '';
+  $('otherOldJ').value = '';
+  $('stopNotes').value = item.notes || '';
+  setStatus('INSTALLED');  // default; installer changes if needed
+  // Mark the order as done so it moves to the 'done' section
+  const updated = Object.assign({}, item, { wlStatus:'done', updatedAt:stamp() });
+  await idb.put('worklist', updated);
+  closeSheets();
+  window.scrollTo({top:0, behavior:'smooth'});
+  toast('Prefilled from worklist ✓');
+}
 $('saveSettings').onclick = () => {
   const c = cfg();
   const first = $('cfgFirst').value.trim();
