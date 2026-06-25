@@ -122,6 +122,11 @@ const DAYS_HEADERS = ['date','installer','departure','returned'];
 // so `matched`='Y' rows are the measured dispatch downtimes the average is built from.
 const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completedTime','minutes','matched'];
 
+// Key/value summary metrics, one row per metric (keyed on `metric`). Currently
+// just `avgDispatchTime` — the reconciled avg dispatch wait, refreshed whenever
+// avgDispatchTime() runs (each install capture + the editor). Room for more later.
+const METRICS_HEADERS = ['metric','value','updated'];
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -365,6 +370,7 @@ function setupSheets() {
   ensureTab(ss, 'Timing', TIMING_HEADERS);
   ensureTab(ss, 'Days', DAYS_HEADERS);
   ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
+  ensureTab(ss, 'Metrics', METRICS_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).
@@ -456,7 +462,7 @@ function doGet(e) {
   if (p.action === 'tracker') return json(tracker());
   if (p.action === 'timing')  return json(timing());
   if (p.action === 'dispatch')return json({ ok: true, dispatch: rows('Dispatch') });
-  if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: avgDispatchTime() });
+  if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -492,8 +498,10 @@ function addStop(b) {
   // a write that actually succeeded (the client just never saw the response). Ack
   // it without writing a second row. Dispatch downtime already ran the first time.
   if (b.id && idExists(sh, b.id)) return { ok: true, id: b.id };
+  b.timestamp = b.timestamp || now();   // resolve once so the Stops row, the
+  // reconciled Dispatch completedTime, and applyDispatchDowntime all agree.
   const row = [
-    id, b.timestamp || now(), b.installer || '', b.workOrderId || '',
+    id, b.timestamp, b.installer || '', b.workOrderId || '',
     b.unit || '', b.address || '', numOrBlank(b.lat), numOrBlank(b.lng),
     b.newJNumber || '', b.oldJNumber || '', numOrBlank(b.meterRead),
     b.status || '', b.utiReason || '', b.notes || '', b.noReadReason || '',
@@ -519,7 +527,12 @@ function addStop(b) {
   }
 
   sh.appendRow(row);
-  const disp = applyDispatchDowntime(b);   // null unless a "Requested meter?" stop matched/estimated
+  // An install carrying an oldJ may complete a pending dispatch request, so
+  // reconcile the Dispatch sheet (fills matched rows + refreshes the Metrics
+  // avg) before reporting this stop's dispatch downtime against it.
+  const dispAvg = (b.oldJNumber && (b.status === 'INSTALLED' || b.status === 'UTI'))
+    ? avgDispatchTime() : null;
+  const disp = applyDispatchDowntime(b, dispAvg);   // null unless a "Requested meter?" stop matched/estimated
   const res = { ok: true, id: id };
   if (flagged) { res.flagged = true; res.history = hist; }
   if (disp)    res.dispatch = disp;
@@ -527,37 +540,34 @@ function addStop(b) {
 }
 
 /** When a stop is flagged "Requested meter?" (b.requestedMeter) and carries an
- *  oldJ, turn the dispatch wait into a DISPATCH Downtime row. If a matching
- *  unmatched Dispatch request (same oldJ) exists, use the real elapsed time and
- *  close out that request row; otherwise fall back to the running average.
+ *  oldJ, turn the dispatch wait into a DISPATCH Downtime row. Matching itself is
+ *  owned by avgDispatchTime() (run from addStop just before this), which closes
+ *  out any pending request this stop completed — so here we only *report* it:
+ *  if that reconciled row exists (matched='Y', same oldJ + completedTime) use its
+ *  measured minutes, otherwise fall back to the running average `dispAvg`.
  *  Returns {minutes, measured} when a row was written, else null. */
-function applyDispatchDowntime(b) {
+function applyDispatchDowntime(b, dispAvg) {
   if (!b.requestedMeter) return null;
   const oldJ = String(b.oldJNumber || '').trim();
   if (!oldJ) return null;
   const norm = v => String(v == null ? '' : v).trim().toUpperCase();
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
+  const ts = localStamp(b.timestamp || now());
   let minutes = null, measured = false;
-  if (sh) {
-    const data = sh.getDataRange().getValues();
-    const H = data[0]; const c = n => H.indexOf(n);
-    for (let r = 1; r < data.length; r++) {
-      if (norm(data[r][c('oldJNumber')]) === norm(oldJ) && !String(data[r][c('matched')]).trim()) {
-        const t0 = parseLocal(data[r][c('requestTime')]);
-        const t1 = parseLocal(b.timestamp || now());
-        if (t0 && t1) {
-          minutes = Math.max(0, Math.round((t1 - t0) / 60000)); measured = true;
-          sh.getRange(r + 1, 1, 1, H.length).setValues([[
-            data[r][c('id')], data[r][c('requestTime')], data[r][c('oldJNumber')],
-            b.installer || '', (b.timestamp || now()), minutes, 'Y' ]]);
-        }
-        break;
-      }
+  rows('Dispatch').forEach(r => {
+    if (!measured
+        && norm(r.oldJNumber) === norm(oldJ)
+        && String(r.matched).trim().toUpperCase() === 'Y'
+        && localStamp(r.completedTime) === ts
+        && sameName(r.installer, b.installer)) {
+      minutes = Number(r.minutes); measured = !isNaN(minutes);
     }
+  });
+  if (!measured) {
+    minutes = (dispAvg == null) ? avgDispatchTime() : dispAvg;
+    if (minutes == null) return null;
   }
-  if (!measured) { minutes = avgDispatchMinutes(); if (minutes == null) return null; }
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime').appendRow([
-    newId(), b.timestamp || now(), b.installer || '', 'DISPATCH',
+    newId(), ts, b.installer || '', 'DISPATCH',
     minutes, b.workOrderId || '', measured ? 'dispatch (measured)' : 'dispatch (avg est.)' ]);
   return { minutes: minutes, measured: measured };
 }
@@ -1367,43 +1377,95 @@ function parseLocal(s) {
     .match(/(\d{4})-(\d\d)-(\d\d)[ ](\d\d):(\d\d)(?::(\d\d))?/);
   return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6] || 0) : null;
 }
-// Mean of all measured dispatch downtimes (matched='Y' rows), rounded; null if none yet.
-function avgDispatchMinutes() {
-  const ms = rows('Dispatch')
-    .filter(r => String(r.matched).trim().toUpperCase() === 'Y')
-    .map(r => Number(r.minutes)).filter(n => !isNaN(n) && n > 0);
-  return ms.length ? Math.round(ms.reduce((a, c) => a + c, 0) / ms.length) : null;
+// Epoch ms from a Date or a Toronto-local string; null if unparseable. A Sheets
+// datetime cell can read back as a Date, so the dispatch matcher accepts both.
+function localMs(v) {
+  if (v instanceof Date) return v.getTime();
+  const d = parseLocal(v);
+  return d ? d.getTime() : null;
 }
-// Avg dispatch time, computed independently of the live "Requested?" plumbing:
-// scan every requested meter (Dispatch) and pair it to the completed install
-// (Stops, status INSTALLED/UTI) carrying the same oldJ. Each request takes the
-// earliest still-unused install at/after its requestTime, so two requests for
-// one meter can't both claim a single install. Returns the rounded mean minutes,
-// or null if nothing pairs. Retroactive — catches installs never flagged "Requested?".
+// Canonical Toronto 'yyyy-MM-dd HH:mm:ss' from a Date or local string (echoes the
+// raw value back if unparseable) — so completedTime can be compared exactly.
+function localStamp(v) {
+  const ms = localMs(v);
+  return ms == null ? String(v == null ? '' : v)
+                    : Utilities.formatDate(new Date(ms), TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+}
+/** The single source of truth for dispatch matching. Pairs every requested
+ *  meter (Dispatch) to the completed install (Stops, status INSTALLED/UTI)
+ *  carrying the same oldJ — each request taking the earliest still-unused
+ *  install at/after its requestTime, so two requests for one meter can't both
+ *  claim a single install. For each pair it FILLS that Dispatch row
+ *  (installer/completedTime/minutes/matched='Y'), then persists the rounded mean
+ *  wait to the Metrics tab (`avgDispatchTime`) and returns it (null if nothing
+ *  pairs). Retroactive and idempotent — re-runs converge; unmatched rows are
+ *  left untouched. */
 function avgDispatchTime() {
   const norm = v => String(v == null ? '' : v).trim().toUpperCase();
   const installs = rows('Stops')
     .filter(r => { const s = norm(r.status); return s === 'INSTALLED' || s === 'UTI'; })
-    .map(r => ({ oldJ: norm(r.oldJNumber), t: parseLocal(r.timestamp), used: false }))
-    .filter(r => r.oldJ && r.t);
-  const reqs = rows('Dispatch')
-    .map(r => ({ oldJ: norm(r.oldJNumber), t: parseLocal(r.requestTime) }))
-    .filter(r => r.oldJ && r.t)
-    .sort((a, b) => a.t - b.t);
+    .map(r => ({ oldJ: norm(r.oldJNumber), t: localMs(r.timestamp),
+                 ts: localStamp(r.timestamp), installer: r.installer || '', used: false }))
+    .filter(r => r.oldJ && r.t != null);
+
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const c = n => H.indexOf(n);
+  // Row indices sorted by requestTime so earliest requests claim installs first.
+  const reqIdx = [];
+  for (let r = 1; r < data.length; r++) {
+    const t = localMs(data[r][c('requestTime')]);
+    if (norm(data[r][c('oldJNumber')]) && t != null) reqIdx.push({ r: r, t: t });
+  }
+  reqIdx.sort((a, b) => a.t - b.t);
+
   const mins = [];
-  reqs.forEach(req => {
+  reqIdx.forEach(({ r, t }) => {
+    const oldJ = norm(data[r][c('oldJNumber')]);
     let best = null;
     installs.forEach(inst => {
-      if (inst.used || inst.oldJ !== req.oldJ || inst.t < req.t) return;
+      if (inst.used || inst.oldJ !== oldJ || inst.t < t) return;
       if (!best || inst.t < best.t) best = inst;
     });
-    if (best) {
-      best.used = true;
-      mins.push(Math.max(0, Math.round((best.t - req.t) / 60000)));
+    if (!best) return;
+    best.used = true;
+    const minutes = Math.max(0, Math.round((best.t - t) / 60000));
+    mins.push(minutes);
+    // Fill the row only when something actually changes (keeps writes minimal).
+    if (String(data[r][c('matched')]).trim().toUpperCase() !== 'Y'
+        || Number(data[r][c('minutes')]) !== minutes
+        || localStamp(data[r][c('completedTime')]) !== best.ts
+        || !sameName(data[r][c('installer')], best.installer)) {
+      data[r][c('installer')]     = best.installer;
+      data[r][c('completedTime')] = best.ts;
+      data[r][c('minutes')]       = minutes;
+      data[r][c('matched')]       = 'Y';
+      sh.getRange(r + 1, 1, 1, H.length).setValues([data[r]]);
     }
   });
+
   const ok = mins.filter(n => !isNaN(n) && n > 0);
-  return ok.length ? Math.round(ok.reduce((a, c) => a + c, 0) / ok.length) : null;
+  const avg = ok.length ? Math.round(ok.reduce((a, x) => a + x, 0) / ok.length) : null;
+  ensureMetricsTab();
+  upsertByHeader('Metrics', 'metric', 'avgDispatchTime',
+    { metric: 'avgDispatchTime', value: avg == null ? '' : avg, updated: now() });
+  return avg;
+}
+
+// Read a stored Metrics value by name as a Number, or null if absent/blank.
+function readMetric(name) {
+  ensureMetricsTab();
+  const hit = rows('Metrics').find(r => String(r.metric).trim() === name);
+  if (!hit || hit.value === '' || hit.value == null) return null;
+  const n = Number(hit.value);
+  return isNaN(n) ? null : n;
+}
+
+// Create the Metrics tab (with headers) on the fly if setupSheets() hasn't been
+// re-run yet, so the dispatch code can't throw on an older sheet.
+function ensureMetricsTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName('Metrics')) ensureTab(ss, 'Metrics', METRICS_HEADERS);
 }
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
 function sameName(a, b) { return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim(); }
