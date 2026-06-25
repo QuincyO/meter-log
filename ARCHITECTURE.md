@@ -145,7 +145,15 @@ durable store for everything that must survive with no signal**. One database,
   (`loadDay`) **merges** rather than replaces: the server is authoritative for
   rows it knows about (by `id`), and any still-pending local row (`_tempId`,
   not yet acked) is overlaid so a refresh never drops un-synced work — **local
-  pending wins** until it syncs, then the server copy takes over.
+  pending wins** until it syncs, then the server copy takes over. The
+  **end-of-day travel review works offline too**: `computeGapsLocal` derives the
+  WO→WO gaps from the cached stops' timestamps (the same walk as `computeIdle`,
+  so the network `idle` fetch isn't needed to show or edit travel time), and the
+  in-progress deductions + Departure/Returned bookends are stashed in the cache
+  field `eodTravel` (cleared once `saveTravel` syncs). Finishing the day with no
+  signal queues `saveTravel` + `saveDay` and tells the installer to tap Finish
+  again online for the PDF (the spine builds it, so closing the day needs a
+  connection); when online the authoritative `idle` overrides the local gaps.
 - **`worklist`** (keyPath `id`) — the installer's locally-built **planned
   orders** (a personal to-do list, never sent to the Sheet). Add / edit / delete
   all run against IndexedDB, so the list is fully editable offline. An order is

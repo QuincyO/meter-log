@@ -668,6 +668,11 @@ async function reconcileCache(body, item){
       cached.downtime.push({...item, id:body.id});
       changed = true;
     }
+  } else if(item.action==='saveTravel' && body.ok && cached.eodTravel){
+    // The offline travel review reached the Sheet — drop the local pending copy
+    // so the next load reads the authoritative gap rows back via `idle`.
+    delete cached.eodTravel;
+    changed = true;
   }
   if(changed) await idb.put('dayCache', cached, key);
 }
@@ -1021,7 +1026,8 @@ $('doLookup').onclick = async () => {
 
 // ── end of day: review, edit, then finish ──────────────────────────────────
 // Re-draw the 1st WO's launch leg as the Departure time is typed.
-$('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
+$('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); schedulePersistEod(); });
+$('eodReturned').addEventListener('input', schedulePersistEod);
 
 $('endDay').onclick = async () => {
   const c = cfg();
@@ -1061,8 +1067,8 @@ function gapNet(g){
 }
 // Re-sync every place a gap is shown. syncNet on minutes typing (keeps focus);
 // syncDraw rebuilds rows on add/delete.
-function syncNet(g){ (g._views||[]).forEach(v => v.onNet && v.onNet()); }
-function syncDraw(g){ (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); }
+function syncNet(g){ (g._views||[]).forEach(v => v.onNet && v.onNet()); schedulePersistEod(); }
+function syncDraw(g){ (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); schedulePersistEod(); }
 
 // Shared subtract-downtime editor (rows + "add"), bound to gap `g`. `onNet` lets the
 // host update its own net display; registers itself in g._views.
@@ -1146,6 +1152,23 @@ function collectGapAllocations(gaps){
   return out;
 }
 
+// Storage-first end-of-day review: stash the current travel deductions and the
+// Departure/Returned bookends into dayCache so an offline review survives a
+// reload and re-renders via computeGapsLocal. Cleared once saveTravel syncs
+// (reconcileCache). Debounced so live typing doesn't thrash IndexedDB.
+async function persistEodReview(){
+  const c = cfg(); if(!c.name) return;
+  const key = `${c.name}|${localDate()}`;
+  const cached = (await idb.get('dayCache', key))
+    || { stops:[], downtime:[], day:{}, closed:false, cachedAt:stamp() };
+  cached.eodTravel = collectGapAllocations(eodGaps);
+  cached.day = Object.assign({}, cached.day,
+    { departure:$('eodDeparture').value, returned:$('eodReturned').value });
+  await idb.put('dayCache', cached, key);
+}
+let _eodPersistTimer;
+function schedulePersistEod(){ clearTimeout(_eodPersistTimer); _eodPersistTimer = setTimeout(persistEodReview, 700); }
+
 
 // ── cached day loader (stale-while-revalidate) ─────────────────────────────
 // Merge a fresh server list with locally-pending entries. The server is
@@ -1160,6 +1183,46 @@ function mergePending(serverArr, cachedArr){
   return out;
 }
 
+// Mirrors Code.gs gapNoteTimes(): pulls the two clock times out of a gap-tagged
+// downtime note ("gap HH:MM–HH:MM"), dash-char agnostic.
+function gapNoteTimes(note){ return String(note==null?'':note).match(/gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/); }
+
+// Compute the end-of-day WO→WO gaps client-side so the travel editor works with
+// no signal — the same per-consecutive-stop walk Code.gs computeIdle() does
+// (Launch/Return legs are handled separately by the Departure bookend in
+// renderStopTravel). Each gap is keyed to its arriving stop (toId) and carries
+// the deductions already entered: from `pending` (offline review not yet synced)
+// when present, otherwise from gap-tagged Downtime rows (server-synced). Times
+// use clockOf's zero-padded HH:MM, matching secToHHMM on the spine so saved
+// allocations round-trip. When online, loadDay overrides these with the
+// authoritative `idle` response (which also applies team-partner first-gap logic
+// this local pass intentionally skips).
+function computeGapsLocal(stops, downtime, pending){
+  const acts = (stops||[])
+    .map(s => ({ id:s.id, hhmm:clockOf(s.timestamp), min:hhmmMin(clockOf(s.timestamp)), wo:s.workOrderId }))
+    .filter(a => a.min!=null)
+    .sort((a,b)=> a.min - b.min);
+  const gaps = [];
+  for(let i=1;i<acts.length;i++){
+    const prev=acts[i-1], cur=acts[i];
+    if(cur.min - prev.min <= 0) continue;
+    gaps.push({ start:prev.hhmm, end:cur.hhmm, idleMin:cur.min-prev.min, toWO:cur.wo||'', toId:cur.id });
+  }
+  const dt = downtime||[];
+  gaps.forEach(g => {
+    if(pending && pending.length){
+      g.allocations = pending
+        .filter(a => a.fromTime===g.start && a.toTime===g.end)
+        .map(a => ({ category:a.category, minutes:Number(a.minutes)||0 }));
+    } else {
+      g.allocations = dt
+        .filter(d => { const m=gapNoteTimes(d.note); return m && m[1]===g.start && m[2]===g.end; })
+        .map(d => ({ category:d.category, minutes:Number(d.minutes)||0 }));
+    }
+  });
+  return gaps;
+}
+
 // Opens Today or EOD: renders from IDB cache immediately (instant), then
 // re-fetches from Sheets in the background and re-renders with fresh data.
 // Offline → shows cached data (or a "nothing cached" message).
@@ -1170,7 +1233,8 @@ async function loadDay(mode){
   let renderedFromCache = false;
 
   if(cached){
-    renderDayData(mode, cached.stops||[], cached.downtime||[], cached.day||{}, []);
+    const localGaps = mode==='eod' ? computeGapsLocal(cached.stops||[], cached.downtime||[], cached.eodTravel) : [];
+    renderDayData(mode, cached.stops||[], cached.downtime||[], cached.day||{}, localGaps);
     renderedFromCache = true;
   }
 
@@ -1198,16 +1262,19 @@ async function loadDay(mode){
     const local = await idb.get('dayCache', key);
     const stops    = mergePending(d.stops,    local && local.stops);
     const downtime = mergePending(d.downtime, local && local.downtime);
+    const pendingTravel = local && local.eodTravel;   // offline review not yet synced
     await idb.put('dayCache', {
       stops, downtime,
-      day:d.day||{}, closed:!!d.closed, cachedAt:stamp()
+      day:d.day||{}, closed:!!d.closed, cachedAt:stamp(),
+      eodTravel: pendingTravel   // preserved so a brief reconnect can't wipe an un-synced review
     }, key);
-    let gaps = [];
+    // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
+    let gaps = mode==='eod' ? computeGapsLocal(stops, downtime, pendingTravel) : [];
     if(mode==='eod'){
       try{
         const iu = `${c.url}?token=${enc(c.token)}&action=idle&installerId=${enc(c.hNumber)}&installer=${enc(c.name)}`;
         const idata = await (await fetch(iu)).json();
-        gaps = idata.gaps || [];
+        if(idata.gaps) gaps = idata.gaps;
       } catch {}
     }
     renderDayData(mode, stops, downtime, d.day||{}, gaps);
@@ -1257,6 +1324,23 @@ let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 
 $('finishDay').onclick = async () => {
   const c = cfg();
+  // Storage-first: never lose the travel/downtime review or the bookend times.
+  await persistEodReview();
+
+  // No signal → the PDF/close can't be built (the spine does that). Queue the
+  // review (travel deductions + bookends) so it syncs, and tell the installer to
+  // tap Finish again once online to generate the PDF.
+  if(!navigator.onLine){
+    enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
+              allocations: collectGapAllocations(eodGaps) });
+    if($('eodDeparture').value || $('eodReturned').value)
+      enqueue({ token:c.token, action:'saveDay', installer:c.name,
+                departure:$('eodDeparture').value, returned:$('eodReturned').value });
+    closeSheets();
+    toast('Saved offline — reconnect and tap Finish to get the PDF');
+    return;
+  }
+
   let weather = '';
   const withCoord = (eodData.stops||[]).find(s =>
     s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
@@ -1275,6 +1359,11 @@ $('finishDay').onclick = async () => {
                              notes:$('eodNotes').value.trim(), weather,
                              includeDelays:$('eodIncludeDelays').checked,
                              departure:$('eodDeparture').value, returned:$('eodReturned').value }) })).json();
+    // The review reached the Sheet — drop any local pending copy so the next
+    // load reads the authoritative gap rows back.
+    const key = `${c.name}|${localDate()}`;
+    const cc = await idb.get('dayCache', key);
+    if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
     closeSheets();
     if (d.pdf && d.pdf.base64) {
       downloadBase64Pdf(d.pdf.base64, d.pdf.name);
