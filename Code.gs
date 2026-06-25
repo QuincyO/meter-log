@@ -456,6 +456,7 @@ function doGet(e) {
   if (p.action === 'tracker') return json(tracker());
   if (p.action === 'timing')  return json(timing());
   if (p.action === 'dispatch')return json({ ok: true, dispatch: rows('Dispatch') });
+  if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: avgDispatchTime() });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -1372,6 +1373,37 @@ function avgDispatchMinutes() {
     .filter(r => String(r.matched).trim().toUpperCase() === 'Y')
     .map(r => Number(r.minutes)).filter(n => !isNaN(n) && n > 0);
   return ms.length ? Math.round(ms.reduce((a, c) => a + c, 0) / ms.length) : null;
+}
+// Avg dispatch time, computed independently of the live "Requested?" plumbing:
+// scan every requested meter (Dispatch) and pair it to the completed install
+// (Stops, status INSTALLED/UTI) carrying the same oldJ. Each request takes the
+// earliest still-unused install at/after its requestTime, so two requests for
+// one meter can't both claim a single install. Returns the rounded mean minutes,
+// or null if nothing pairs. Retroactive — catches installs never flagged "Requested?".
+function avgDispatchTime() {
+  const norm = v => String(v == null ? '' : v).trim().toUpperCase();
+  const installs = rows('Stops')
+    .filter(r => { const s = norm(r.status); return s === 'INSTALLED' || s === 'UTI'; })
+    .map(r => ({ oldJ: norm(r.oldJNumber), t: parseLocal(r.timestamp), used: false }))
+    .filter(r => r.oldJ && r.t);
+  const reqs = rows('Dispatch')
+    .map(r => ({ oldJ: norm(r.oldJNumber), t: parseLocal(r.requestTime) }))
+    .filter(r => r.oldJ && r.t)
+    .sort((a, b) => a.t - b.t);
+  const mins = [];
+  reqs.forEach(req => {
+    let best = null;
+    installs.forEach(inst => {
+      if (inst.used || inst.oldJ !== req.oldJ || inst.t < req.t) return;
+      if (!best || inst.t < best.t) best = inst;
+    });
+    if (best) {
+      best.used = true;
+      mins.push(Math.max(0, Math.round((best.t - req.t) / 60000)));
+    }
+  });
+  const ok = mins.filter(n => !isNaN(n) && n > 0);
+  return ok.length ? Math.round(ok.reduce((a, c) => a + c, 0) / ok.length) : null;
 }
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
 function sameName(a, b) { return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim(); }
