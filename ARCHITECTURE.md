@@ -124,7 +124,9 @@ the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 off-peak — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
-already saved, for the end-of-day subtraction step — see "Travel vs delay").
+already saved — plus a pre-filled `DISPATCH` deduction on a requested install's
+gap — for the end-of-day subtraction step — see "Travel vs delay" and "Dispatch
+downtime").
 
 ---
 
@@ -218,8 +220,7 @@ point in `js/pages/`. Shared modules in `js/`:
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
-  (`PRINTABLE`/`countDay`/`tallyText`), `dispatch.js` (client-side dispatch
-  downtime).
+  (`PRINTABLE`/`countDay`/`tallyText`).
 - **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`.
 
 CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
@@ -603,29 +604,31 @@ completes that work order, they log a stop in `index.html` with the **"Requested
 meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
 `oldJNumber`).
 
-**Computed on the phone (live), reconciled by the spine (end of day).** This split
-keeps the busy live write path cheap and does the heavy matching off-peak.
+**Flagged live, matched & pre-filled at end of day.** Logging stays a cheap
+append and the match runs once off-peak, when the phone can pull today's requests
+fresh.
 
-- **Live (client, `js/compute/dispatch.js`).** When a "Requested meter?" stop is
-  logged, the phone computes the wait itself: from today's `Dispatch` rows
-  (fetched best-effort via `?action=dispatch`, cached for offline) it finds the
-  latest pending request with the same oldJ at/before the stop's time →
-  **measured**; with no local request data it falls back to the cached running
-  average → **estimate**; with neither, nothing is added. The result is queued as
-  its own `DISPATCH` **`Downtime`** row (note `dispatch (measured)` or
-  `dispatch (avg est.)`) through the normal offline queue, so it works with no
-  signal. `addStop` on the spine no longer touches dispatch — it's a cheap append.
-- **Reconcile (spine, at `endOfDay`).** `endOfDay` runs `avgDispatchTime()` once
-  (the authoritative global match + `Metrics` refresh) and then
-  `reconcileDispatchDowntime(installer, date)`, which **upgrades** that day's
-  phone-written estimates to the true measured minutes where a match now exists
-  (idempotent; it never deletes an estimate that still has no match). This runs at
-  quitting time, off the morning rush.
+- **Live (client).** Ticking "Requested meter?" only sets a `requestedMeter` flag
+  on the stop (persisted as a `Stops` column). No dispatch row is written at log
+  time — at log time the phone usually has no request data to compare against
+  anyway.
+- **End of day (spine, `?action=idle` → `dispatchSuggestMin`).** When the EOD
+  travel review opens (on `index.html` *or* `edit.html`), the `idle` endpoint
+  computes the dispatch wait for each gap's arriving install and injects it into
+  that gap's `allocations` as an editable **`DISPATCH`** deduction — *pre-filled
+  in the travel-subtraction dropdown*, so it subtracts from that gap's travel
+  time. From today's `Dispatch` rows it takes the latest request at/before the
+  stop with the same `oldJ`: **same day** → the measured wait (install − request);
+  **cross-day** → `avg × 1.25` (don't count the overnight hours). A flagged stop
+  with *no* logged request falls back to the running **average**. It's only
+  suggested when the gap has no already-saved `DISPATCH` allocation, so re-opening
+  a closed day never doubles it.
 
-Either way the row is a normal `DISPATCH` `Downtime` entry, so it flows through
-`buildDaySummary` untouched — into the Tracker `dispatch` column, the daily-log
-PDF's Delays bucket, and the viewer counts. Checkbox **off** ⇒ nothing is added,
-even if a stray request exists.
+The crew can edit or remove the pre-filled minutes; `Finish` saves it through
+`saveTravel` as a normal gap-tagged `DISPATCH` `Downtime` row, so it flows through
+`buildDaySummary` untouched — subtracting from that gap's travel time **and**
+counting in the Tracker `dispatch` column / the daily-log PDF's Delays bucket /
+the viewer counts (exactly like a LUNCH or BREAK gap allocation).
 
 **Time format.** Both `requestTime` and the stop timestamp are naive Toronto-local
 `yyyy-MM-dd HH:mm:ss`; `parseLocal()` builds a component-wise `Date` from each so
@@ -638,19 +641,21 @@ the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
 **Avg dispatch time.** `avgDispatchTime()` in `Code.gs` is the **single source of
-truth for dispatch matching** — `endOfDay` runs it once at close (off-peak), and
-`reconcileDispatchDowntime` upgrades that day's downtime rows against its result
-(above). It pairs **every** requested meter (`Dispatch`) to the completed install
-(`Stops`, status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request
+truth for the global match + the running average** — `endOfDay` runs it once at
+close (off-peak). It pairs **every** requested meter (`Dispatch`) to the completed
+install (`Stops`, status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request
 claiming the earliest still-unused install at/after its `requestTime` — **fills**
 that `Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then
 writes the rounded mean wait in minutes to the **`Metrics`** tab (row
-`avgDispatchTime`) and returns it (`null` if nothing pairs). Keyed on the install
-record rather than a live flag, it is retroactive — it counts installs that were
-never tapped "Requested?" — and idempotent (re-runs converge; only changed rows
-are rewritten, unmatched rows are left alone). `?action=avgDispatchTime` is a pure
-read of the stored `Metrics` value; the phone caches it as the offline estimate
-for the live computation above.
+`avgDispatchTime`). The mean is built from **same-day pairs only**; a cross-day
+pair is still marked `matched` but its `minutes` are recorded as `avg × 1.25` and
+kept *out* of the mean, so an overnight wait can't inflate the average that the
+cross-day rule then multiplies. Keyed on the install record rather than a live
+flag, it is retroactive — it counts installs that were never tapped "Requested?"
+— and idempotent (re-runs converge; only changed rows are rewritten, unmatched
+rows are left alone). `?action=avgDispatchTime` is a pure read of the stored
+`Metrics` value; `?action=idle` reads it as the basis for a flagged stop's
+fallback estimate and the cross-day cap.
 
 **Known limit.** `addStop` now carries a client-generated `id` and the spine skips a
 duplicate id, so a timed-out-but-succeeded retry of a completed stop no longer

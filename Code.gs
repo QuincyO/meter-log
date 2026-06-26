@@ -74,7 +74,8 @@ function gapNoteTimes(note) {
 
 const STOPS_HEADERS = [
   'id','timestamp','installer','workOrderId','unit','address','lat','lng',
-  'newJNumber','oldJNumber','meterRead','status','utiReason','notes','noReadReason','meterReadReceived'
+  'newJNumber','oldJNumber','meterRead','status','utiReason','notes','noReadReason','meterReadReceived',
+  'requestedMeter'
 ];
 const DOWNTIME_HEADERS = [
   'id','timestamp','installer','category','minutes','workOrderId','note'
@@ -499,9 +500,21 @@ function doGet(e) {
     const allocFor = (a, z) => dt
       .filter(d => { const m = gapNoteTimes(d.note); return m && m[1] === a && m[2] === z; })
       .map(d => ({ id: d.id, category: d.category, minutes: Number(d.minutes) || 0 }));
-    return json({ ok: true, gaps: gaps.map(g => ({
-      start: g.start, end: g.end, idleMin: g.idleMin, toWO: g.toWO, toId: g.toId,
-      distM: g.distM, suggest: g.suggest, allocations: allocFor(g.start, g.end) })) });
+    // Pre-fill the dispatch wait as an editable DISPATCH deduction on the gap that
+    // arrives at the requested install — unless one's already been saved for it.
+    const avg = readMetric('avgDispatchTime');
+    const dispatchRows = rows('Dispatch');
+    const stopById = {};
+    stopsFor(installer, date).forEach(s => { stopById[String(s.id)] = s; });
+    return json({ ok: true, gaps: gaps.map(g => {
+      const allocs = allocFor(g.start, g.end);
+      if (!allocs.some(a => String(a.category).toUpperCase() === 'DISPATCH')) {
+        const dm = dispatchSuggestMin(stopById[String(g.toId)], dispatchRows, avg);
+        if (dm != null && dm > 0) allocs.push({ category: 'DISPATCH', minutes: dm });
+      }
+      return { start: g.start, end: g.end, idleMin: g.idleMin, toWO: g.toWO, toId: g.toId,
+        distM: g.distM, suggest: g.suggest, allocations: allocs };
+    }) });
   }
   return json({ ok: true, message: 'Meter Log spine is up.' });
 }
@@ -521,7 +534,8 @@ function addStop(b) {
     b.unit || '', b.address || '', numOrBlank(b.lat), numOrBlank(b.lng),
     b.newJNumber || '', b.oldJNumber || '', numOrBlank(b.meterRead),
     b.status || '', b.utiReason || '', b.notes || '', b.noReadReason || '',
-    numOrBlank(b.meterReadReceived)
+    numOrBlank(b.meterReadReceived),
+    b.requestedMeter ? 'Y' : ''   // "Requested meter?" flag → end-of-day dispatch deduction
   ];
 
   // Dedup: only INSTALLED stops with both a WO# and a new J# are checked.
@@ -543,54 +557,48 @@ function addStop(b) {
   }
 
   sh.appendRow(row);
-  // Dispatch downtime is now computed on the phone (js/compute/dispatch.js) and
-  // written as its own DISPATCH Downtime row, so the live write stays a cheap
-  // append — no Stops×Dispatch scan here. The authoritative global match +
-  // Metrics refresh + estimate→measured upgrade run once at endOfDay (off-peak):
-  // see avgDispatchTime() and reconcileDispatchDowntime().
+  // No dispatch work here — the live write stays a cheap append. A "Requested
+  // meter?" stop just carries the requestedMeter flag; the dispatch wait is
+  // matched and pre-filled as an editable travel deduction at end of day
+  // (?action=idle → dispatchSuggestMin), and avgDispatchTime() keeps the running
+  // average + matched Dispatch rows fresh once at endOfDay (off-peak).
   const res = { ok: true, id: id };
   if (flagged) { res.flagged = true; res.history = hist; }
   return res;
 }
 
-/** End-of-day reconcile (off-peak). The phone writes each requested stop's
- *  DISPATCH Downtime row live — measured when it had today's Dispatch data,
- *  otherwise an "avg est." estimate. Once avgDispatchTime() has run the
- *  authoritative global match, upgrade this day's auto dispatch rows to the
- *  measured minutes where a match now exists. Idempotent: it only rewrites a row
- *  whose value/note actually changes, and never deletes an estimate that still
- *  has no match. Call after avgDispatchTime() in endOfDay. */
-function reconcileDispatchDowntime(installer, date) {
+/** End-of-day dispatch deduction suggested for a gap's arriving install — the
+ *  wait between asking dispatch for a meter and getting on it. From today's
+ *  Dispatch rows (keyed on oldJ) it takes the latest request at/before the stop
+ *  carrying the same oldJ: same-day → the measured minutes (install − request);
+ *  cross-day → avg×1.25 (don't count the overnight hours). A stop flagged
+ *  "Requested meter?" with no logged request falls back to the running average.
+ *  Returns null when there's nothing to suggest. Surfaced by ?action=idle so the
+ *  EOD travel review pre-fills it as an editable DISPATCH deduction. */
+function dispatchSuggestMin(stop, dispatchRows, avg) {
+  if (!stop) return null;
   const norm = v => String(v == null ? '' : v).trim().toUpperCase();
-  const matched = rows('Dispatch').filter(r =>
-    String(r.matched).trim().toUpperCase() === 'Y'
-    && sameName(r.installer, installer) && dateOf(r.completedTime) === date);
-  if (!matched.length) return;
-  const dayStops = stopsFor(installer, date);
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime');
-  const data = sh.getDataRange().getValues();
-  const H = data[0]; const c = n => H.indexOf(n);
-  for (let i = 1; i < data.length; i++) {
-    if (norm(data[i][c('category')]) !== 'DISPATCH') continue;
-    if (!sameName(data[i][c('installer')], installer)) continue;
-    if (dateOf(data[i][c('timestamp')]) !== date) continue;
-    const note = String(data[i][c('note')] || '');
-    if (note.indexOf('dispatch (') !== 0) continue;   // only auto-written rows
-    const wo = String(data[i][c('workOrderId')] || '').trim();
-    const stop = dayStops.find(st => String(st.workOrderId || '').trim() === wo
-      && (norm(st.status) === 'INSTALLED' || norm(st.status) === 'UTI'));
-    if (!stop) continue;
-    const m = matched.find(r => norm(r.oldJNumber) === norm(stop.oldJNumber)
-      && localStamp(r.completedTime) === localStamp(stop.timestamp));
-    if (!m) continue;
-    const measured = Number(m.minutes);
-    if (isNaN(measured)) continue;
-    if (Number(data[i][c('minutes')]) !== measured || note !== 'dispatch (measured)') {
-      data[i][c('minutes')] = measured;
-      data[i][c('note')]    = 'dispatch (measured)';
-      sh.getRange(i + 1, 1, 1, H.length).setValues([data[i]]);
-    }
+  const st = norm(stop.status);
+  if (st !== 'INSTALLED' && st !== 'UTI') return null;
+  const key = norm(stop.oldJNumber);
+  const sMs = localMs(stop.timestamp);
+  let best = null;   // latest request at/before the stop carrying this oldJ
+  if (key && sMs != null) {
+    (dispatchRows || []).forEach(r => {
+      if (norm(r.oldJNumber) !== key) return;
+      const rMs = localMs(r.requestTime);
+      if (rMs == null || rMs > sMs) return;
+      if (!best || rMs > best.ms) best = { ms: rMs, ts: r.requestTime };
+    });
   }
+  if (best) {
+    if (dateOf(best.ts) === dateOf(stop.timestamp))
+      return Math.max(0, Math.round((sMs - best.ms) / 60000));   // measured, same day
+    return avg == null ? null : Math.round(avg * 1.25);          // cross-day cap
+  }
+  const flagged = ['Y', 'TRUE', '1'].indexOf(
+    String(stop.requestedMeter == null ? '' : stop.requestedMeter).trim().toUpperCase()) !== -1;
+  return (flagged && avg != null) ? avg : null;
 }
 
 function addDowntime(b) {
@@ -798,17 +806,14 @@ function buildDaySummary(b) {
  *  duplicating, so back-office regenerates (edit.html) stay clean. The Tracker row
  *  is written before the PDF so a PDF hiccup can't block closing the day. */
 function endOfDay(b) {
-  // Heavy dispatch reconcile runs once here (off-peak), not on every live write:
-  // pair every requested meter to its install + refresh the Metrics average, then
-  // upgrade this day's phone-written dispatch estimates to the measured value —
-  // BEFORE buildDaySummary tallies the Downtime rows.
-  const eodId  = String(b.installerId == null ? '' : b.installerId).trim();
-  const eodEmp = eodId ? employeeByH(eodId) : null;
-  const eodInstaller = eodEmp ? fullName(eodEmp) : (b.installer || '');
-  const eodDate = b.date || today();
+  // Refresh the global dispatch match once here (off-peak), not on every live
+  // write: pair every requested meter to its install, fill the matched Dispatch
+  // rows + the Metrics average. The dispatch wait itself was already pre-filled
+  // and saved as a gap-tagged DISPATCH travel deduction during the EOD review
+  // (saveTravel), so buildDaySummary tallies it like any other allocation.
   avgDispatchTime();
-  reconcileDispatchDowntime(eodInstaller, eodDate);
 
+  const eodId = String(b.installerId == null ? '' : b.installerId).trim();
   const s = buildDaySummary(b);
   const byCat = s.byCategory;
 
@@ -1506,12 +1511,17 @@ function avgDispatchTime() {
   const reqIdx = [];
   for (let r = 1; r < data.length; r++) {
     const t = localMs(data[r][c('requestTime')]);
-    if (norm(data[r][c('oldJNumber')]) && t != null) reqIdx.push({ r: r, t: t });
+    if (norm(data[r][c('oldJNumber')]) && t != null)
+      reqIdx.push({ r: r, t: t, reqDate: dateOf(data[r][c('requestTime')]) });
   }
   reqIdx.sort((a, b) => a.t - b.t);
 
-  const mins = [];
-  reqIdx.forEach(({ r, t }) => {
+  // First pass: pair each request to its earliest unused install. A pair whose
+  // install lands on a later day than the request is "cross-day" — its raw wait is
+  // many overnight hours, so it's kept out of the mean (and recorded below as
+  // avg×1.25, not the raw gap) so it can't inflate the running average.
+  const pairs = [];
+  reqIdx.forEach(({ r, t, reqDate }) => {
     const oldJ = norm(data[r][c('oldJNumber')]);
     let best = null;
     installs.forEach(inst => {
@@ -1520,9 +1530,18 @@ function avgDispatchTime() {
     });
     if (!best) return;
     best.used = true;
-    const minutes = Math.max(0, Math.round((best.t - t) / 60000));
-    mins.push(minutes);
-    // Fill the row only when something actually changes (keeps writes minimal).
+    pairs.push({ r: r, best: best, rawMin: Math.max(0, Math.round((best.t - t) / 60000)),
+                 sameDay: dateOf(best.ts) === reqDate });
+  });
+
+  // Mean from same-day pairs only; cross-day pairs are recorded at avg×1.25.
+  const ok = pairs.filter(p => p.sameDay && !isNaN(p.rawMin) && p.rawMin > 0).map(p => p.rawMin);
+  const avg = ok.length ? Math.round(ok.reduce((a, x) => a + x, 0) / ok.length) : null;
+  const crossMin = avg == null ? null : Math.round(avg * 1.25);
+
+  // Second pass: fill each matched row. Only writes a row whose value changes.
+  pairs.forEach(({ r, best, rawMin, sameDay }) => {
+    const minutes = sameDay ? rawMin : (crossMin == null ? rawMin : crossMin);
     if (String(data[r][c('matched')]).trim().toUpperCase() !== 'Y'
         || Number(data[r][c('minutes')]) !== minutes
         || localStamp(data[r][c('completedTime')]) !== best.ts
@@ -1535,8 +1554,6 @@ function avgDispatchTime() {
     }
   });
 
-  const ok = mins.filter(n => !isNaN(n) && n > 0);
-  const avg = ok.length ? Math.round(ok.reduce((a, x) => a + x, 0) / ok.length) : null;
   ensureMetricsTab();
   upsertByHeader('Metrics', 'metric', 'avgDispatchTime',
     { metric: 'avgDispatchTime', value: avg == null ? '' : avg, updated: now() });
