@@ -1,0 +1,60 @@
+/* Reusable component styles shared across pages: form controls, buttons,
+   bottom-sheet modals, editable stop cards, and tables. Page-specific layout
+   lives in each page's own stylesheet. */
+
+/* form controls */
+label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin:14px 2px 6px}
+input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:12px;
+   padding:0 14px;font-size:18px;background:var(--panel);color:var(--ink);font-family:inherit}
+input.mono,select.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.02em}
+textarea{padding:12px 14px;min-height:84px;line-height:1.4;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.hide{display:none !important}
+
+/* buttons */
+.primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--amber);
+   color:#1a1300;font-size:20px;font-weight:800;cursor:pointer;box-shadow:var(--shadow)}
+.primary:active{background:var(--amber-press)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.ghost{height:56px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
+   color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+   background:var(--ink);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:20;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* settings + downtime + lookup + end-of-day sheets */
+.sheet{position:fixed;inset:0;background:rgba(19,23,28,.45);display:flex;align-items:flex-end;
+   justify-content:center;z-index:30}
+.sheet .card{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;
+   padding:20px 16px 28px;max-height:90vh;overflow:auto}
+.card h2{margin:2px 2px 4px;font-size:18px}
+.card p{margin:0 2px 14px;color:var(--ink-soft);font-size:14px}
+.muted{color:var(--ink-soft);font-size:14px;margin:8px 2px}
+
+/* editable stop cards (shared by lookup + end of day) */
+.stopcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+   padding:12px;margin:10px 0;box-shadow:var(--shadow)}
+.sc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.sc-sum strong{font-size:16px}
+.sc-meta{display:block;font-size:13px;color:var(--ink-soft);margin-top:3px}
+.tag-ok{color:var(--install)} .tag-uti{color:var(--uti)}
+.tag-visit{color:var(--visited)} .tag-unacc{color:var(--unaccounted)}
+.mini{min-height:40px;height:40px;padding:0 16px;border:2px solid var(--line);border-radius:10px;
+   background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;flex:none}
+.sc-edit{margin-top:4px}
+.sc-edit label{margin-top:12px}
+.sc-save{height:54px;margin-top:16px}
+
+/* tables (Today / End of day) */
+.eod-tally{font-weight:800;font-size:16px;margin:2px 2px 6px}
+.tblwrap{overflow-x:auto;margin:6px 0 2px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;padding:6px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+.tbl td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr[data-i]{cursor:pointer}
+.tbl tr[data-i]:active{background:#EEF1F5}
+.tbl td.nowrap{white-space:nowrap}

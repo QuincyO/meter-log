@@ -10,8 +10,16 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v2';
-const SHELL = ['./', './index.html', './teams.html', './edit.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'meterlog-v3';
+const SHELL = [
+  './', './index.html', './teams.html', './edit.html', './manifest.json',
+  './icon-192.png', './icon-512.png',
+  // shared CSS
+  './css/tokens.css', './css/base.css', './css/capture.css',
+  // shared JS modules + the capture page entry point
+  './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
+  './js/api.js', './js/daycache.js', './js/queue.js', './js/pages/capture.js',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
