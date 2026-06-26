@@ -10,7 +10,7 @@ const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeathe
   ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
-let ALL = [], TRK = [], TIM = [], DISP = [], INSTALLER_NAMES = [];
+let ALL = [], TRK = [], TIM = [], DISP = [], BOATDAYS = [], INSTALLER_NAMES = [];
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
 
@@ -46,8 +46,8 @@ const instMatch = name => !state.installers.length || state.installers.includes(
 async function load(){
   $('pillstat').textContent = 'Loading…';
   try{
-    const [pd, td, md, dd] = await Promise.all([
-      apiGet('pins'), apiGet('tracker'), apiGet('timing'), apiGet('dispatch')
+    const [pd, td, md, dd, bd] = await Promise.all([
+      apiGet('pins'), apiGet('tracker'), apiGet('timing'), apiGet('dispatch'), apiGet('boatdays')
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
@@ -55,6 +55,7 @@ async function load(){
     TRK = td.tracker || [];
     TIM = md.timing || [];
     DISP = dd.dispatch || [];
+    BOATDAYS = bd.boatDays || [];
     buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
@@ -91,6 +92,38 @@ function avgOwnGap(statusSet){
     if(!statusSet.has(s.status)) return;
     const t = +new Date(s.timestamp); if(isNaN(t)) return;
     (byKey[s.installer+'|'+dateKey(s.timestamp)] ||= []).push(t);
+  });
+  let sum=0, n=0;
+  Object.values(byKey).forEach(ts => { ts.sort((a,b)=>a-b);
+    for(let i=1;i<ts.length;i++){ const m=(ts[i]-ts[i-1])/60000; if(m>0){ sum+=m; n++; } } });
+  return n ? Math.round(sum/n) : null;
+}
+// `date|installerName` → boatNumber, from the BoatDays daily snapshot — so each day's
+// stops can be grouped by the boat that installer actually crewed THAT day.
+function boatMembership(){
+  const idx = {};
+  BOATDAYS.forEach(r => {
+    const day = dateKey(r.date), boat = String(r.boatNumber||'').trim();
+    if(!day || !boat) return;
+    let names = []; try { names = JSON.parse(r.memberNames||'[]'); } catch { names = []; }
+    names.forEach(n => { const nm=String(n||'').trim(); if(nm) idx[day+'|'+nm]=boat; });
+  });
+  return idx;
+}
+// Boat-wide twin of avgOwnGap: the gap between consecutive logs by ANYONE sharing the
+// boat that day (any letter), pooled across the range. Stops are grouped by `boat|day`
+// using that day's BoatDays snapshot — so a boatmate's log between two of yours shortens
+// the gap. An installer with no boat that day falls back to a solo `installer|day` chain.
+function avgBoatGap(statusSet){
+  const mem = boatMembership();
+  const byKey = {};                       // `${boat|installer}|${day}` -> [ms,…]
+  pinsInScope().forEach(s => {
+    if(!statusSet.has(s.status)) return;
+    const t = +new Date(s.timestamp); if(isNaN(t)) return;
+    const day = dateKey(s.timestamp);
+    const name = String(s.installer||'').trim();
+    const grp = mem[day+'|'+name] || ('@'+name);   // boatNumber, else solo by name
+    (byKey[grp+'|'+day] ||= []).push(t);
   });
   let sum=0, n=0;
   Object.values(byKey).forEach(ts => { ts.sort((a,b)=>a-b);
@@ -176,6 +209,8 @@ function renderAnalytics(){
   // Cadence of MY own work only — partner logs not merged in (see avgOwnGap).
   const avgInst      = avgOwnGap(new Set(['INSTALLED']));            // install → install
   const avgCompleted = avgOwnGap(new Set(['INSTALLED','UTI']));      // completed WO → completed WO
+  // Boat-wide log→log: gap between consecutive logs by anyone sharing the boat that day.
+  const avgBoat = avgBoatGap(new Set(['INSTALLED','UTI','VISITED','UNACCOUNTED','DONE']));
 
   // Measured dispatch downtimes (Dispatch tab, matched='Y'), dated by completion.
   const disp = DISP.filter(r => String(r.matched).trim().toUpperCase()==='Y'
@@ -190,6 +225,7 @@ function renderAnalytics(){
     + tile(mins(avgInst),     'Avg install→install','')
     + tile(mins(avgCompleted),'Avg between completed WOs','')
     + tile(mins(avgLog),      'Avg log→log (w/ partner)','')
+    + tile(mins(avgBoat),     'Avg log→log (boat)','')
     + tile(mins(avgDispatch), 'Avg dispatch downtime','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');

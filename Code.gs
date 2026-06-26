@@ -116,6 +116,12 @@ const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distan
 // Return legs; persisting them (the field form used to discard them) is what lets
 // the back-office edit.html regenerate a correct daily log any time.
 const DAYS_HEADERS = ['date','installer','departure','returned'];
+// One row per BOAT per day — a snapshot of who crewed which boat that date, taken at
+// end-of-day (Teams is otherwise current-state only, with no membership history). It's
+// the historical record of daily boat teams AND the membership the viewer's boat-wide
+// "log→log" metric groups by. memberLetters/memberNames are JSON copies of the team's
+// {hNumber:"A"} map and the crew's display names at close time.
+const BOATDAYS_HEADERS = ['date','boatNumber','boatName','captainName','subName','memberLetters','memberNames'];
 // One row per dispatch request fired from the Apple Shortcut (action=dispatchRequest).
 // `requestTime`+`oldJNumber` are written when the request fires; the rest are filled
 // in place when a stop carrying the same oldJ is completed (see applyDispatchDowntime),
@@ -369,6 +375,7 @@ function setupSheets() {
   ensureTab(ss, 'Subs', SUBS_HEADERS);
   ensureTab(ss, 'Timing', TIMING_HEADERS);
   ensureTab(ss, 'Days', DAYS_HEADERS);
+  ensureTab(ss, 'BoatDays', BOATDAYS_HEADERS);
   ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
   ensureTab(ss, 'Metrics', METRICS_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
@@ -469,6 +476,7 @@ function doGet(e) {
   if (p.action === 'pins')    return json(pins());
   if (p.action === 'tracker') return json(tracker());
   if (p.action === 'timing')  return json(timing());
+  if (p.action === 'boatdays')return json(boatDays());
   if (p.action === 'dispatch')return json({ ok: true, dispatch: rows('Dispatch') });
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'roster')  return json(roster());
@@ -811,6 +819,13 @@ function endOfDay(b) {
               departure: s.departure, returned: s.returned });
   }
 
+  // Snapshot this installer's boat team for the day (BoatDays). Idempotent per
+  // (date, boatNumber): each crew member who closes re-upserts the same row, so it
+  // ends up reflecting the whole boat. Gives the viewer's boat-wide log→log metric
+  // its daily membership and a standing record of who crewed which boat.
+  const eodTeam = eodId ? teamForEmployee(eodId) : null;
+  if (eodTeam) recordBoatDay(s.date, eodTeam);
+
   // Upsert one Tracker row per (date, installer) — overwrite in place if it's
   // already closed, else append.
   upsertDayRow('Tracker', s.date, s.installer, [
@@ -835,6 +850,30 @@ function endOfDay(b) {
 
   const pdf = buildDailyLogPdf(s);
   return { ok: true, summary: s, pdf };
+}
+
+/** Snapshot a boat's crew for one day into BoatDays — one row per (date, boatNumber),
+ *  upserted in place so every member who closes (and any re-close) keeps it to a single
+ *  current row. memberNames is the display-name list so the viewer can group stops by
+ *  boat without the roster. Tolerates a not-yet-created tab (code can ship before
+ *  setupSheets() adds BoatDays) so it never blocks closing the day. */
+function recordBoatDay(date, team) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BoatDays');
+  if (!sh) return;
+  const boatNumber = String(team.boatNumber == null ? '' : team.boatNumber).trim();
+  if (!boatNumber) return;
+  const names = Object.keys(team.memberLetters).map(nameOfH).filter(Boolean);
+  const out = [date, boatNumber, team.boatName || '', team.captainName || '',
+              team.subName || '', JSON.stringify(team.memberLetters), JSON.stringify(names)];
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const dCol = H.indexOf('date'), bCol = H.indexOf('boatNumber');
+  for (let r = 1; r < data.length; r++) {
+    if (dateOf(data[r][dCol]) === date && String(data[r][bCol]).trim() === boatNumber) {
+      sh.getRange(r + 1, 1, 1, out.length).setValues([out]);
+      return;
+    }
+  }
+  sh.appendRow(out);
 }
 
 /** Overwrite the row matching (date, installer) in a date+installer-keyed tab
@@ -1348,6 +1387,15 @@ function tracker() {
  *  WO→WO gaps (type Travel / Flagged) on its side. */
 function timing() {
   return { ok: true, timing: rows('Timing') };
+}
+
+/** The daily boat-team snapshots (the BoatDays tab). Feeds the viewer's boat-wide
+ *  "log→log" metric (it groups stops by the boat each installer crewed that day) and
+ *  is the historical record of who crewed which boat. Empty array if the tab doesn't
+ *  exist yet (setupSheets() hasn't been re-run). */
+function boatDays() {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BoatDays')) return { ok: true, boatDays: [] };
+  return { ok: true, boatDays: rows('BoatDays') };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

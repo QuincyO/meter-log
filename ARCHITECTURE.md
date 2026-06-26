@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, eleven tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `Dispatch`, `Metrics`. This is the truth.
+One spreadsheet, twelve tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -116,6 +116,8 @@ backs the phone's offline "recent days" cache in a single call),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 (all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
+`boatdays` (all `BoatDays` rows — the daily boat-crew snapshots — for the viewer's
+"avg log→log (boat)" tile, which groups a day's logs by the boat that ran them),
 `dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
 `avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
 `endOfDay` keeps fresh by pairing every requested meter to its completed install
@@ -366,6 +368,28 @@ Upserted by `saveDay` (keyed on `date`+`installer`); also written by `endOfDay`
 when those times are supplied. `buildDaySummary` falls back to this row when a
 request omits the bookends, and `?action=day` returns it (plus a `closed` flag) so
 `edit.html` can pre-fill the inputs.
+
+### BoatDay  (one row per boat per day → tab "BoatDays")
+A snapshot of who crewed a boat on a given day, taken at end-of-day. `Teams` is
+current-state only, so this is the **only historical record of daily boat membership**
+— and it's what lets the viewer group a day's logs by the boat that ran them.
+| field           | type   | notes                                                          |
+|-----------------|--------|----------------------------------------------------------------|
+| `date`          | string | Toronto local `yyyy-MM-dd`                                     |
+| `boatNumber`    | string | the boat, e.g. `"11"` (match key with `date`)                 |
+| `boatName`      | string | display label, snapshotted from `Teams`                       |
+| `captainName`   | string | free-text, snapshotted                                        |
+| `subName`       | string | free-text, snapshotted                                        |
+| `memberLetters` | string | JSON `{hNumber:"A"}` map, copied from the team at close time  |
+| `memberNames`   | string | JSON array of crew display names (so the viewer can group by name) |
+
+Upserted by `recordBoatDay` (keyed on `date`+`boatNumber`), called from `endOfDay`
+for the closing installer's boat — so every crew member who closes re-upserts the same
+row to one current snapshot. `?action=boatdays` returns all rows; `js/pages/map.js`
+builds a `date|installer → boatNumber` index from `memberNames` and averages each
+boat's consecutive-log gaps for the **"avg log→log (boat)"** analytics tile (the
+boat-wide cadence — anyone sharing the boat that day, any letter; an installer with no
+boat that day falls back to a solo chain).
 
 ### Employee  (one row per crew member → tab "Employees")
 The crew roster, managed from `teams.html`. Keyed on the **employee number**
