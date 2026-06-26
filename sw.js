@@ -10,8 +10,21 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v2';
-const SHELL = ['./', './index.html', './teams.html', './edit.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'meterlog-v6';
+const SHELL = [
+  './', './index.html', './teams.html', './edit.html', './manifest.json',
+  './icon-192.png', './icon-512.png',
+  // CSS (capture page shares tokens+base; map/teams/edit are self-contained)
+  './css/tokens.css', './css/base.css', './css/capture.css',
+  './css/map.css', './css/teams.css', './css/edit.css',
+  // shared JS modules
+  './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
+  './js/api.js', './js/daycache.js', './js/queue.js', './js/geocode.js',
+  './js/compute/gaps.js', './js/compute/tally.js', './js/compute/dispatch.js',
+  // per-page entry points
+  './js/pages/capture.js', './js/pages/teams.js', './js/pages/edit.js',
+  // map.js intentionally omitted: it depends on CDN Leaflet/Chart that aren't cached
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(

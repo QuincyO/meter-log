@@ -1,0 +1,118 @@
+/* Crew & Boat Teams (teams.html). Self-contained: its own tokens (narrower tap,
+   wider page) + admin-specific components. tokens.css/base.css stay the capture
+   page's shared sheet; these pages keep their own styling to preserve layout. */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px; --tap:54px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 14px 48px;
+  max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+     background:var(--surface);z-index:5}
+.bar .title{font-size:18px;font-weight:800;flex:1}
+.pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+      padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.backlink{font-size:13px;font-weight:700;color:var(--ink-soft);text-decoration:none;
+          padding:8px 12px;border-radius:10px;background:var(--panel);box-shadow:var(--shadow)}
+.navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+        border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+.navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+
+h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;margin:26px 2px 4px}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+input,select{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
+   padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
+input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.hide{display:none !important}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+      padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+.card .head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+.card .head strong{font-size:17px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.grid3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0 12px}
+
+.btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
+     background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+.btn:active{transform:scale(.98)}
+.btn.primary{border:0;background:var(--amber);color:#1a1300}
+.btn.primary:active{background:var(--amber-press)}
+.btn.danger{border-color:#F1C3B4;color:var(--uti);background:#FFF4F0}
+.btn.full{width:100%}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.actions .btn{flex:1;min-width:120px}
+
+/* member checkbox grid */
+.members{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:6px}
+.chk{display:flex;align-items:center;gap:9px;padding:9px 11px;border:2px solid var(--line);
+     border-radius:10px;background:var(--surface);cursor:pointer;font-size:15px;font-weight:600}
+.chk input{width:20px;height:20px;min-height:0;flex:none;accent-color:var(--amber)}
+.chk.on{border-color:var(--amber);background:#FFF7E8}
+
+/* per-member team-letter assignment */
+.assignlist{margin-top:6px}
+.assignrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 11px;
+           border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:6px 0}
+.assignrow .who{font-weight:600;font-size:15px}
+.assignrow select{width:auto;flex:none;min-width:92px;min-height:44px;height:44px;font-weight:800}
+.assignrow.set{border-color:var(--amber);background:#FFF7E8}
+.assignsummary{font-size:14px;line-height:1.7;margin:10px 2px 2px}
+.assignsummary b{font-variant-numeric:tabular-nums}
+.assignrow .right{display:flex;align-items:center;gap:8px}
+.assignrow .x{height:40px;width:40px;min-height:0;font-size:14px;padding:0}
+.addmember{margin-top:8px;display:flex;gap:8px}
+.addmember select{font-weight:700}
+.addmember input{flex:1;min-height:46px}
+.addmember .btn{height:46px;min-height:46px;width:auto;padding:0 16px;flex:none}
+
+/* collapsible boat card */
+.head .toggle{height:38px;width:38px;min-height:0;font-size:18px;padding:0;line-height:1}
+.head strong{cursor:pointer;flex:1}
+.cardsummary{font-size:14px;line-height:1.8;color:var(--ink);margin:6px 2px 0}
+.cardsummary b{font-variant-numeric:tabular-nums}
+.cardsummary .muted{color:var(--ink-soft)}
+.cardbody{margin-top:4px}
+
+/* crew table */
+.crewrow{display:grid;grid-template-columns:1fr 1fr 0.9fr auto auto;gap:10px;align-items:end;
+         padding:10px 0;border-bottom:1px solid var(--line)}
+.crewrow:last-child{border-bottom:0}
+.crewrow .x{min-height:46px;height:46px;width:46px;padding:0;font-size:18px}
+.empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+
+/* captain / sub saved-name lists */
+.namerow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;
+         border:1px solid var(--line);border-radius:9px;background:var(--surface);margin:6px 0;font-weight:600}
+.namerow .x{height:34px;width:34px;min-height:0;font-size:14px;padding:0}
+.addname{display:flex;gap:8px;margin-top:8px}
+.addname input{min-height:46px}
+.addname .x{height:46px;min-height:46px;width:auto;padding:0 16px}
+.colhead{font-size:15px;font-weight:800;margin:2px 2px 8px}
+/* "add new…" box under a captain/sub dropdown */
+.newname{margin-top:8px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+   background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (max-width:520px){
+  .grid3,.crewrow{grid-template-columns:1fr}
+  .members{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}

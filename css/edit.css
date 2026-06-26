@@ -1,0 +1,79 @@
+/* Edit & Daily Log back-office (edit.html). Self-contained styling matching the
+   teams admin look (shared tap size + width). */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px; --tap:54px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 14px 48px;
+  max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+     background:var(--surface);z-index:5}
+.bar .title{font-size:18px;font-weight:800;flex:1}
+.pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+      padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+        border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+.navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+
+h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;margin:26px 2px 4px}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
+   padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
+textarea{min-height:70px;padding:10px 13px;line-height:1.4}
+input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.hide{display:none !important}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+      padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+
+.btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
+     background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+.btn:active{transform:scale(.98)}
+.btn.primary{border:0;background:var(--amber);color:#1a1300}
+.btn.primary:active{background:var(--amber-press)}
+.btn.full{width:100%}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.actions .btn{flex:1;min-width:120px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;
+       padding:4px 10px;border-radius:999px;background:#E7F5EE;color:var(--install)}
+.badge.open{background:#FFF4E6;color:var(--amber-press)}
+
+/* editable stop cards */
+.empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+.stopcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;
+          padding:12px 13px;margin:10px 0;box-shadow:var(--shadow)}
+.sc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.sc-sum strong{font-size:16px}
+.sc-meta{display:block;color:var(--ink-soft);font-size:13px;margin-top:2px}
+.tag-ok{color:var(--install)} .tag-uti{color:var(--uti)}
+.tag-visit{color:#7A5AF8} .tag-unacc{color:var(--ink-soft)}
+.mini{height:38px;min-height:0;padding:0 13px;border:2px solid var(--line);border-radius:10px;
+      background:var(--panel);font-size:14px;font-weight:700;cursor:pointer;flex:none}
+.sc-edit{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
+.sc-edit .primary{width:100%;margin-top:14px;border:0;background:var(--amber);color:#1a1300;
+      min-height:46px;height:46px;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+   background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}

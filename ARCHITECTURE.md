@@ -18,7 +18,7 @@ It is not Claude and not the form. Everything reads from or writes to it.
   work phone and any browser, offline-first: it stores stops locally in
   IndexedDB and syncs when there's signal (see "Client-side storage"). Each
   person sets only their **name**; the Web App URL and
-  access token are baked into the file, so there's nothing else to configure.
+  access token live in `js/config.js`, so there's nothing else to configure.
 - The **map + analytics viewer** (`map.html`) — a read-only window over the
   data: plots stops by GPS, filters (installer / status / date range), WO#/J#
   search, and trend charts.
@@ -110,14 +110,16 @@ fills the blanks),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
+`range` (one installer's stops + downtime over a from/to window, grouped by day —
+backs the phone's offline "recent days" cache in a single call),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
 the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 (all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
 `dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
 `avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
-the write path keeps fresh by pairing every requested meter to its completed
-install — see "Avg dispatch time"), `roster`
+`endOfDay` keeps fresh by pairing every requested meter to its completed install
+off-peak — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved, for the end-of-day subtraction step — see "Travel vs delay").
@@ -127,8 +129,10 @@ already saved, for the end-of-day subtraction step — see "Travel vs delay").
 ## Client-side storage (the phone)
 
 The capture PWA (`index.html`) is **offline-first**, and **IndexedDB is the
-durable store for everything that must survive with no signal**. One database,
-`meterlog`, with three object stores:
+durable store for everything that must survive with no signal**. The client logic
+lives in native ES modules under `js/` (see "Frontend module layout"); the
+IndexedDB wrapper is `js/idb.js` and the day-cache logic is `js/daycache.js`. One
+database, `meterlog`, with **four** object stores:
 
 - **`queue`** (keyPath `_seq`, auto-increment) — the **system of record for
   un-synced writes**. Every `addStop` / `addDowntime` / `updateStop` /
@@ -159,6 +163,23 @@ durable store for everything that must survive with no signal**. One database,
   all run against IndexedDB, so the list is fully editable offline. An order is
   marked done when its work order is **actually logged** (matched by WO#), not
   at prefill time.
+- **`addrCache`** (key = the coordinate rounded to ~11 m, e.g. `"44.9612,-79.9881"`)
+  — a coord→address cache so reverse-geocoding works offline. See "Offline
+  geocoding" below.
+
+**Records are schema-agnostic.** `applyOptimisticCache`/`reconcileCache` store the
+*whole* `addStop`/`addDowntime` payload by spread (`dataOf` strips only the
+transport keys `token`/`action`/`_seq`), so adding a new datapoint to a stop is
+cached automatically — there is no per-field list to keep in sync. The cached
+record is just the data.
+
+**Retention (~a week).** `pruneDayCache(keepDays=8)` runs on load and deletes
+`dayCache` entries whose date is older than the window, so the phone keeps roughly
+the installer's last week rather than an unbounded history. **Recent days:**
+`cacheRecentDays(7)` pulls the installer's own last week via the `range` GET (one
+request) into `dayCache`, and the "Recent days" sheet renders it — so prior days
+are viewable, and editable (each edit posts `updateStop`), with no signal. Older
+data not on the phone is fine; the Sheet remains the full record.
 
 **`localStorage` is reserved for trivial, synchronous device config only** —
 the person's name and H number (read synchronously by `cfg()` all over the UI).
@@ -168,10 +189,62 @@ forward: any durable offline state belongs in IndexedDB, not `localStorage`.**
 `migrateLegacyQueue()` drains it into the `queue` store on first load of the new
 build.)
 
-The service worker (`sw.js`) caches the **app shell** (HTML/icons) so the page
-opens with no signal; it deliberately lets the POST to the spine hit the network
-and fail when offline, so the IndexedDB `queue` owns retry. Don't add the
-endpoint to the SW cache.
+The service worker (`sw.js`) caches the **app shell** — the HTML pages, the
+`css/` stylesheets, and the `js/` modules — so the app opens with no signal. When
+you add a new module or stylesheet, add it to the `SHELL` list and bump `CACHE`.
+It deliberately lets the POST to the spine hit the network and fail when offline,
+so the IndexedDB `queue` owns retry — don't add the endpoint to the SW cache.
+(`js/pages/map.js` is intentionally not precached: it depends on CDN
+Leaflet/Chart that aren't cached either.)
+
+---
+
+## Frontend module layout
+
+No bundler, no build step — native ES modules + plain CSS, served as-is by GitHub
+Pages. Each HTML page is markup + `<link>`s + one `<script type="module">` entry
+point in `js/pages/`. Shared modules in `js/`:
+
+- **`config.js`** — `WEB_APP_URL` + `SHARED_TOKEN`, the single frontend copy
+  (imported everywhere). With `Code.gs` that's the only other place the token
+  lives — two, down from the previous five.
+- **`dom.js`** (`$`, `enc`, `esc`, `attr`, `toast`), **`time.js`** (`stamp`,
+  `localDate`, `localDateOffset`, `clockOf`, `hhmmMin`, `ordinal`, `parseLocalMs`).
+- **`store.js`** (`store` + `cfg()`), **`idb.js`** (IndexedDB wrapper +
+  `DB_VERSION`), **`api.js`** (`apiGet`/`apiPost` — inject token + URL).
+- **`queue.js`** (offline queue; UI side-effects via `setQueueHooks`),
+  **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
+  **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
+- **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
+  (`PRINTABLE`/`countDay`/`tallyText`), `dispatch.js` (client-side dispatch
+  downtime).
+- **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`.
+
+CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
+components) back the capture page; `css/{capture,map,teams,edit}.css` are
+per-page. `map.js` uses the CDN Leaflet (`L`) + Chart globals loaded by classic
+`<script>`s before its module.
+
+## Offline geocoding
+
+Reverse-geocoding can't be fully offline (that would need bundled map data), so
+`js/geocode.js` does **cache + backfill on sync**:
+
+- **Cache:** every resolved coordinate→address is stored in the `addrCache`
+  IndexedDB store, keyed by the coordinate rounded to ~11 m. A crew works the same
+  islands daily, so after the first online visit a spot resolves **instantly and
+  offline**. Hand-typed addresses are cached too (on log).
+- **`resolveAddress(lat,lng)`** returns a cache hit immediately; else, when
+  online, calls the spine `geocode`, caches the result, and returns it; else
+  returns `null` (the field stays blank, the GPS is still captured).
+- **Backfill:** a stop captured offline keeps its coordinates with no address.
+  `backfillAddresses()` runs on reconnect — for each cached stop with coords but no
+  address it resolves the address and posts an address-only `updateStop` (idempotent
+  via the stop id), then patches the cache. Capped per run; the rest are picked up
+  on the next online tick.
+
+The spine `geocode` action (Google Maps service, no API key) is unchanged — it's
+just the online resolver behind the cache now.
 
 ---
 
@@ -506,19 +579,26 @@ completes that work order, they log a stop in `index.html` with the **"Requested
 meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
 `oldJNumber`).
 
-Matching itself is owned by **`avgDispatchTime()`** (see "Avg dispatch time"
-below), which `addStop` runs right after appending any install carrying an oldJ —
-it pairs requests to installs and closes out the matched `Dispatch` rows.
-`addStop` → **`applyDispatchDowntime`** then only *reports* this stop's wait:
+**Computed on the phone (live), reconciled by the spine (end of day).** This split
+keeps the busy live write path cheap and does the heavy matching off-peak.
 
-- **Matched** — the reconciled `Dispatch` row for this stop (`matched=Y`, same
-  oldJ + `completedTime`) supplies the **true** measured `minutes`.
-- **Unmatched** — no pending request, so it falls back to the running average
-  (the `avgDispatchTime()` return / Metrics value) as an estimate. If nothing's
-  been measured yet, nothing is added.
+- **Live (client, `js/compute/dispatch.js`).** When a "Requested meter?" stop is
+  logged, the phone computes the wait itself: from today's `Dispatch` rows
+  (fetched best-effort via `?action=dispatch`, cached for offline) it finds the
+  latest pending request with the same oldJ at/before the stop's time →
+  **measured**; with no local request data it falls back to the cached running
+  average → **estimate**; with neither, nothing is added. The result is queued as
+  its own `DISPATCH` **`Downtime`** row (note `dispatch (measured)` or
+  `dispatch (avg est.)`) through the normal offline queue, so it works with no
+  signal. `addStop` on the spine no longer touches dispatch — it's a cheap append.
+- **Reconcile (spine, at `endOfDay`).** `endOfDay` runs `avgDispatchTime()` once
+  (the authoritative global match + `Metrics` refresh) and then
+  `reconcileDispatchDowntime(installer, date)`, which **upgrades** that day's
+  phone-written estimates to the true measured minutes where a match now exists
+  (idempotent; it never deletes an estimate that still has no match). This runs at
+  quitting time, off the morning rush.
 
-Either way the result is written as a normal `DISPATCH` **`Downtime`** row (note
-`dispatch (measured)` or `dispatch (avg est.)`), so it flows through
+Either way the row is a normal `DISPATCH` `Downtime` entry, so it flows through
 `buildDaySummary` untouched — into the Tracker `dispatch` column, the daily-log
 PDF's Delays bucket, and the viewer counts. Checkbox **off** ⇒ nothing is added,
 even if a stray request exists.
@@ -534,19 +614,19 @@ the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
 **Avg dispatch time.** `avgDispatchTime()` in `Code.gs` is the **single source of
-truth for dispatch matching** — `addStop` runs it after appending any install
-with an oldJ, and it is what `applyDispatchDowntime` reports against (above). It
-pairs **every** requested meter (`Dispatch`) to the completed install (`Stops`,
-status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request claiming the
-earliest still-unused install at/after its `requestTime` — **fills** that
-`Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then writes
-the rounded mean wait in minutes to the **`Metrics`** tab (row `avgDispatchTime`)
-and returns it (`null` if nothing pairs). Keyed on the install record rather than
-a live flag, it is retroactive — it counts installs that were never tapped
-"Requested?" — and idempotent (re-runs converge; only changed rows are rewritten,
-unmatched rows are left alone). `?action=avgDispatchTime` is a pure read of the
-stored `Metrics` value (kept fresh by the write path); the variable isn't wired
-into any UI yet.
+truth for dispatch matching** — `endOfDay` runs it once at close (off-peak), and
+`reconcileDispatchDowntime` upgrades that day's downtime rows against its result
+(above). It pairs **every** requested meter (`Dispatch`) to the completed install
+(`Stops`, status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request
+claiming the earliest still-unused install at/after its `requestTime` — **fills**
+that `Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then
+writes the rounded mean wait in minutes to the **`Metrics`** tab (row
+`avgDispatchTime`) and returns it (`null` if nothing pairs). Keyed on the install
+record rather than a live flag, it is retroactive — it counts installs that were
+never tapped "Requested?" — and idempotent (re-runs converge; only changed rows
+are rewritten, unmatched rows are left alone). `?action=avgDispatchTime` is a pure
+read of the stored `Metrics` value; the phone caches it as the offline estimate
+for the live computation above.
 
 **Known limit.** `addStop` now carries a client-generated `id` and the spine skips a
 duplicate id, so a timed-out-but-succeeded retry of a completed stop no longer
@@ -559,8 +639,9 @@ consistent with the rest of the app.
 
 ## Auth / config (current state)
 
-- **One shared token**, baked into both `index.html` and `map.html`, must match
-  `SHARED_TOKEN` in `Code.gs`. The Web App URL is likewise baked into both files.
+- **One shared token**, defined once in `js/config.js` (imported by every page),
+  must match `SHARED_TOKEN` in `Code.gs`. The Web App URL lives there too. That's
+  the only two places either value appears now (was five).
 - **No page-level login** on the viewer — a deliberate trade for "open the link
   and it works." The token sits in the page source, so anyone who opens either
   page can read it. Keeping the repo private is a sensible extra step.
