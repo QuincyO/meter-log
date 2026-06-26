@@ -11,6 +11,9 @@ import { apiGet, apiPost } from '../api.js';
 import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks } from '../queue.js';
 import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
+import { computeGapsLocal } from '../compute/gaps.js';
+import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
+import { refreshDispatch, computeDispatchDowntime } from '../compute/dispatch.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -198,6 +201,15 @@ $('logStop').onclick = () => {
   // Remember this coord→address (even a hand-typed one) so the same spot resolves
   // offline next time and feeds the backfill cache.
   if(base.lat!=null && base.lng!=null && base.address) cacheAddress(base.lat, base.lng, base.address);
+  // Dispatch downtime is computed on the phone (measured from today's Dispatch
+  // data, else the cached running average) and queued as its own DISPATCH row.
+  // The spine upgrades an estimate to the true measured value at end of day.
+  if(base.requestedMeter && base.oldJNumber){
+    const disp = computeDispatchDowntime(base.oldJNumber, base.timestamp);
+    if(disp) enqueue({ token:c.token, action:'addDowntime', installer:c.name, timestamp:base.timestamp,
+                       category:'DISPATCH', minutes:disp.minutes, workOrderId:base.workOrderId,
+                       note: disp.measured ? 'dispatch (measured)' : 'dispatch (avg est.)' });
+  }
   markWorklistDone(base.workOrderId);   // complete the matching planned order, if any
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
@@ -258,17 +270,6 @@ function locLabel(s){
   const addr = String(s.address==null?'':s.address).trim();
   if(!addr) return '';
   return unit ? (unit + ' ' + addr) : addr;
-}
-
-// Statuses that earn a row on the log / review lists (everything but the
-// coordinates-only DONE marker).
-const PRINTABLE = { INSTALLED:1, UTI:1, VISITED:1, UNACCOUNTED:1 };
-// Shared tally line for the End-of-day + Today sheets.
-function tallyText(t){
-  return `Installed ${t.installed} · UTI ${t.uti} · Downtime ${t.dtMin} min`
-    + (t.visited ? ` · Visited ${t.visited}` : '')
-    + (t.unaccounted ? ` · Unaccounted ${t.unaccounted}` : '')
-    + (t.done ? ` · ${t.done} already-installed` : '');
 }
 
 // ── editable stop card (shared by Look up + End of day) ────────────────────
@@ -522,46 +523,6 @@ function mergePending(serverArr, cachedArr){
   return out;
 }
 
-// Mirrors Code.gs gapNoteTimes(): pulls the two clock times out of a gap-tagged
-// downtime note ("gap HH:MM–HH:MM"), dash-char agnostic.
-function gapNoteTimes(note){ return String(note==null?'':note).match(/gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/); }
-
-// Compute the end-of-day WO→WO gaps client-side so the travel editor works with
-// no signal — the same per-consecutive-stop walk Code.gs computeIdle() does
-// (Launch/Return legs are handled separately by the Departure bookend in
-// renderStopTravel). Each gap is keyed to its arriving stop (toId) and carries
-// the deductions already entered: from `pending` (offline review not yet synced)
-// when present, otherwise from gap-tagged Downtime rows (server-synced). Times
-// use clockOf's zero-padded HH:MM, matching secToHHMM on the spine so saved
-// allocations round-trip. When online, loadDay overrides these with the
-// authoritative `idle` response (which also applies team-partner first-gap logic
-// this local pass intentionally skips).
-function computeGapsLocal(stops, downtime, pending){
-  const acts = (stops||[])
-    .map(s => ({ id:s.id, hhmm:clockOf(s.timestamp), min:hhmmMin(clockOf(s.timestamp)), wo:s.workOrderId }))
-    .filter(a => a.min!=null)
-    .sort((a,b)=> a.min - b.min);
-  const gaps = [];
-  for(let i=1;i<acts.length;i++){
-    const prev=acts[i-1], cur=acts[i];
-    if(cur.min - prev.min <= 0) continue;
-    gaps.push({ start:prev.hhmm, end:cur.hhmm, idleMin:cur.min-prev.min, toWO:cur.wo||'', toId:cur.id });
-  }
-  const dt = downtime||[];
-  gaps.forEach(g => {
-    if(pending && pending.length){
-      g.allocations = pending
-        .filter(a => a.fromTime===g.start && a.toTime===g.end)
-        .map(a => ({ category:a.category, minutes:Number(a.minutes)||0 }));
-    } else {
-      g.allocations = dt
-        .filter(d => { const m=gapNoteTimes(d.note); return m && m[1]===g.start && m[2]===g.end; })
-        .map(d => ({ category:d.category, minutes:Number(d.minutes)||0 }));
-    }
-  });
-  return gaps;
-}
-
 // Opens Today or EOD: renders from IDB cache immediately (instant), then
 // re-fetches from Sheets in the background and re-renders with fresh data.
 // Offline → shows cached data (or a "nothing cached" message).
@@ -638,15 +599,8 @@ function renderDayData(mode, stops, downtime, day, gaps){
 
 function renderEod(stops, downtime){
   eodData = { stops, downtime };
-  const editable    = stops.filter(s => PRINTABLE[s.status]);
-  const installed   = stops.filter(s => s.status==='INSTALLED').length;
-  const uti         = stops.filter(s => s.status==='UTI').length;
-  const visited     = stops.filter(s => s.status==='VISITED').length;
-  const unaccounted = stops.filter(s => s.status==='UNACCOUNTED').length;
-  const done        = stops.filter(s => s.status==='DONE').length;
-  const dtMin       = downtime.reduce((a,d)=>a+(Number(d.minutes)||0),0);
-
-  $('eodTally').textContent = tallyText({installed, uti, visited, unaccounted, done, dtMin});
+  const editable = stops.filter(s => PRINTABLE[s.status]);
+  $('eodTally').textContent = tallyText(countDay(stops, downtime));
 
   const list = $('eodList'); list.innerHTML='';
   updateLaunch = null;   // cleared each render; the 1st WO re-arms it if it has a launch leg
@@ -814,15 +768,8 @@ function dtForWO(wo, downtime){
 }
 
 function renderToday(stops, downtime){
-  const editable    = stops.filter(s => PRINTABLE[s.status]);
-  const installed   = stops.filter(s => s.status==='INSTALLED').length;
-  const uti         = stops.filter(s => s.status==='UTI').length;
-  const visited     = stops.filter(s => s.status==='VISITED').length;
-  const unaccounted = stops.filter(s => s.status==='UNACCOUNTED').length;
-  const done        = stops.filter(s => s.status==='DONE').length;
-  const dtMin       = (downtime||[]).reduce((a,d)=>a+(Number(d.minutes)||0),0);
-
-  $('todayTally').textContent = tallyText({installed, uti, visited, unaccounted, done, dtMin});
+  const editable = stops.filter(s => PRINTABLE[s.status]);
+  $('todayTally').textContent = tallyText(countDay(stops, downtime));
 
   $('todayEdit').innerHTML='';
   if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
@@ -890,15 +837,9 @@ async function renderRecent(){
 
 function renderRecentDay(d){
   const box = $('recentDay'); box.innerHTML='';
-  const installed   = d.stops.filter(s=>s.status==='INSTALLED').length;
-  const uti         = d.stops.filter(s=>s.status==='UTI').length;
-  const visited     = d.stops.filter(s=>s.status==='VISITED').length;
-  const unaccounted = d.stops.filter(s=>s.status==='UNACCOUNTED').length;
-  const done        = d.stops.filter(s=>s.status==='DONE').length;
-  const dtMin       = (d.downtime||[]).reduce((a,x)=>a+(Number(x.minutes)||0),0);
   const head = document.createElement('div');
   head.className='eod-tally'; head.style.marginTop='14px';
-  head.textContent = `${d.date} — ` + tallyText({installed,uti,visited,unaccounted,done,dtMin});
+  head.textContent = `${d.date} — ` + tallyText(countDay(d.stops, d.downtime));
   box.appendChild(head);
   const editable = d.stops.filter(s=>PRINTABLE[s.status])
     .sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
@@ -1076,7 +1017,7 @@ $('saveSettings').onclick = () => {
 
 // When signal returns: flush the queue, backfill any addresses captured offline,
 // and refresh the recent-days cache.
-function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); }
+function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); refreshDispatch(); }
 window.addEventListener('online', onReconnect);
 window.addEventListener('offline', paint);
 // also try to sync whenever the app comes back to the foreground
@@ -1087,7 +1028,7 @@ window.addEventListener('focus', flush);
 // addresses + pre-cache the recent days so they're viewable with no signal.
 migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
-  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
+  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); refreshDispatch(); }
 });
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 

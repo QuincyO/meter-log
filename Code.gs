@@ -535,49 +535,54 @@ function addStop(b) {
   }
 
   sh.appendRow(row);
-  // An install carrying an oldJ may complete a pending dispatch request, so
-  // reconcile the Dispatch sheet (fills matched rows + refreshes the Metrics
-  // avg) before reporting this stop's dispatch downtime against it.
-  const dispAvg = (b.oldJNumber && (b.status === 'INSTALLED' || b.status === 'UTI'))
-    ? avgDispatchTime() : null;
-  const disp = applyDispatchDowntime(b, dispAvg);   // null unless a "Requested meter?" stop matched/estimated
+  // Dispatch downtime is now computed on the phone (js/compute/dispatch.js) and
+  // written as its own DISPATCH Downtime row, so the live write stays a cheap
+  // append — no Stops×Dispatch scan here. The authoritative global match +
+  // Metrics refresh + estimate→measured upgrade run once at endOfDay (off-peak):
+  // see avgDispatchTime() and reconcileDispatchDowntime().
   const res = { ok: true, id: id };
   if (flagged) { res.flagged = true; res.history = hist; }
-  if (disp)    res.dispatch = disp;
   return res;
 }
 
-/** When a stop is flagged "Requested meter?" (b.requestedMeter) and carries an
- *  oldJ, turn the dispatch wait into a DISPATCH Downtime row. Matching itself is
- *  owned by avgDispatchTime() (run from addStop just before this), which closes
- *  out any pending request this stop completed — so here we only *report* it:
- *  if that reconciled row exists (matched='Y', same oldJ + completedTime) use its
- *  measured minutes, otherwise fall back to the running average `dispAvg`.
- *  Returns {minutes, measured} when a row was written, else null. */
-function applyDispatchDowntime(b, dispAvg) {
-  if (!b.requestedMeter) return null;
-  const oldJ = String(b.oldJNumber || '').trim();
-  if (!oldJ) return null;
+/** End-of-day reconcile (off-peak). The phone writes each requested stop's
+ *  DISPATCH Downtime row live — measured when it had today's Dispatch data,
+ *  otherwise an "avg est." estimate. Once avgDispatchTime() has run the
+ *  authoritative global match, upgrade this day's auto dispatch rows to the
+ *  measured minutes where a match now exists. Idempotent: it only rewrites a row
+ *  whose value/note actually changes, and never deletes an estimate that still
+ *  has no match. Call after avgDispatchTime() in endOfDay. */
+function reconcileDispatchDowntime(installer, date) {
   const norm = v => String(v == null ? '' : v).trim().toUpperCase();
-  const ts = localStamp(b.timestamp || now());
-  let minutes = null, measured = false;
-  rows('Dispatch').forEach(r => {
-    if (!measured
-        && norm(r.oldJNumber) === norm(oldJ)
-        && String(r.matched).trim().toUpperCase() === 'Y'
-        && localStamp(r.completedTime) === ts
-        && sameName(r.installer, b.installer)) {
-      minutes = Number(r.minutes); measured = !isNaN(minutes);
+  const matched = rows('Dispatch').filter(r =>
+    String(r.matched).trim().toUpperCase() === 'Y'
+    && sameName(r.installer, installer) && dateOf(r.completedTime) === date);
+  if (!matched.length) return;
+  const dayStops = stopsFor(installer, date);
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime');
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const c = n => H.indexOf(n);
+  for (let i = 1; i < data.length; i++) {
+    if (norm(data[i][c('category')]) !== 'DISPATCH') continue;
+    if (!sameName(data[i][c('installer')], installer)) continue;
+    if (dateOf(data[i][c('timestamp')]) !== date) continue;
+    const note = String(data[i][c('note')] || '');
+    if (note.indexOf('dispatch (') !== 0) continue;   // only auto-written rows
+    const wo = String(data[i][c('workOrderId')] || '').trim();
+    const stop = dayStops.find(st => String(st.workOrderId || '').trim() === wo
+      && (norm(st.status) === 'INSTALLED' || norm(st.status) === 'UTI'));
+    if (!stop) continue;
+    const m = matched.find(r => norm(r.oldJNumber) === norm(stop.oldJNumber)
+      && localStamp(r.completedTime) === localStamp(stop.timestamp));
+    if (!m) continue;
+    const measured = Number(m.minutes);
+    if (isNaN(measured)) continue;
+    if (Number(data[i][c('minutes')]) !== measured || note !== 'dispatch (measured)') {
+      data[i][c('minutes')] = measured;
+      data[i][c('note')]    = 'dispatch (measured)';
+      sh.getRange(i + 1, 1, 1, H.length).setValues([data[i]]);
     }
-  });
-  if (!measured) {
-    minutes = (dispAvg == null) ? avgDispatchTime() : dispAvg;
-    if (minutes == null) return null;
   }
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Downtime').appendRow([
-    newId(), ts, b.installer || '', 'DISPATCH',
-    minutes, b.workOrderId || '', measured ? 'dispatch (measured)' : 'dispatch (avg est.)' ]);
-  return { minutes: minutes, measured: measured };
 }
 
 function addDowntime(b) {
@@ -785,6 +790,17 @@ function buildDaySummary(b) {
  *  duplicating, so back-office regenerates (edit.html) stay clean. The Tracker row
  *  is written before the PDF so a PDF hiccup can't block closing the day. */
 function endOfDay(b) {
+  // Heavy dispatch reconcile runs once here (off-peak), not on every live write:
+  // pair every requested meter to its install + refresh the Metrics average, then
+  // upgrade this day's phone-written dispatch estimates to the measured value —
+  // BEFORE buildDaySummary tallies the Downtime rows.
+  const eodId  = String(b.installerId == null ? '' : b.installerId).trim();
+  const eodEmp = eodId ? employeeByH(eodId) : null;
+  const eodInstaller = eodEmp ? fullName(eodEmp) : (b.installer || '');
+  const eodDate = b.date || today();
+  avgDispatchTime();
+  reconcileDispatchDowntime(eodInstaller, eodDate);
+
   const s = buildDaySummary(b);
   const byCat = s.byCategory;
 

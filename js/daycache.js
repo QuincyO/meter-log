@@ -64,16 +64,8 @@ export async function reconcileCache(body, item){
       cached.stops.push({...dataOf(item), id:body.id});
       changed = true;
     }
-    // The spine's applyDispatchDowntime may have written a DISPATCH downtime row
-    // when the stop had requestedMeter=true. Mirror it in the cache.
-    if(body.dispatch){
-      cached.downtime.push({
-        id:`dispatch-${body.id}`, timestamp:item.timestamp, installer:item.installer,
-        category:'DISPATCH', minutes:body.dispatch.minutes, workOrderId:item.workOrderId,
-        note:body.dispatch.measured ? 'dispatch (measured)' : 'dispatch (avg est.)'
-      });
-      changed = true;
-    }
+    // (Dispatch downtime is now computed + enqueued client-side as its own
+    // addDowntime row, so there's no server-side dispatch side-effect to mirror.)
   } else if(item.action==='addDowntime' && body.ok && body.id){
     const idx = (cached.downtime||[]).findIndex(d => d.id===item.id);
     if(idx !== -1){

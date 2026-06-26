@@ -34,6 +34,14 @@ export function localDateOffset(offsetDays){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
+// Parse a naive Toronto-local stamp ("yyyy-MM-dd HH:mm:ss" / ISO-ish) to ms.
+// Both endpoints of any diff are parsed the same way, so the device's own zone
+// cancels out — mirrors parseLocal() on the spine. Returns null if unparseable.
+export function parseLocalMs(s){
+  const m = String(s||'').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6]||0)).getTime() : null;
+}
+
 // "…T09:00…" / "… 09:00 …" → "09:00"; "HH:MM" → minutes-of-day, or null.
 export function clockOf(ts){ const m = String(ts??'').match(/[ T](\d{2}):(\d{2})/); return m ? (m[1]+':'+m[2]) : ''; }
 export function hhmmMin(t){ const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'')); return m ? (+m[1])*60 + (+m[2]) : null; }
