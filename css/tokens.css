@@ -1,0 +1,21 @@
+/* Design tokens + base reset — shared by every page. Load this FIRST.
+   Custom properties cascade regardless of source order, but keeping tokens
+   first keeps the intent obvious. */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --visited:#2563EB; --unaccounted:#64748B;
+  --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px; --tap:60px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:17px; line-height:1.35; padding:env(safe-area-inset-top) 14px 32px;
+  max-width:520px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}

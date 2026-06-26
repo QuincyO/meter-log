@@ -1,0 +1,68 @@
+/* Capture page (index.html) specific layout: top bar, worklist cards, the
+   status segmented control, location/address rows, scan rows, and the
+   duplicate/conflict notice. */
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 16px;position:sticky;top:0;background:var(--surface);z-index:5}
+.pill{flex:1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+      padding:9px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.nav-wrap{position:relative;flex:none}
+.nav-btn{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
+         font-size:20px;cursor:pointer}
+.nav-menu{position:absolute;top:50px;right:0;background:var(--panel);border-radius:var(--r);
+          box-shadow:0 4px 20px rgba(19,23,28,.15);min-width:170px;overflow:hidden;z-index:50}
+.nav-menu button{display:block;width:100%;text-align:left;padding:14px 16px;border:0;background:0;
+                 font-size:16px;font-weight:600;cursor:pointer;color:var(--ink)}
+.nav-menu button:active{background:var(--surface)}
+
+/* worklist */
+.wl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--shadow)}
+.wl-done-card{opacity:.55}
+.wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px}
+.wl-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.wl-use{background:var(--amber);border:0;border-radius:10px;padding:0 18px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:#1a1300}
+.wl-edit{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 14px;height:38px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}
+.wl-del{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
+
+h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;margin:18px 2px 8px}
+
+/* segmented status — the one bold element */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.seg button{height:64px;border:2px solid var(--line);border-radius:var(--r);background:var(--panel);
+   font-size:17px;font-weight:800;letter-spacing:.01em;cursor:pointer;color:var(--ink-soft);
+   transition:transform .06s ease}
+.seg button:active{transform:scale(.98)}
+.seg button.on-install{border-color:var(--install);color:#fff;background:var(--install)}
+.seg button.on-uti{border-color:var(--uti);color:#fff;background:var(--uti)}
+.seg button.on-other{border-color:var(--unaccounted);color:#fff;background:var(--unaccounted)}
+.seg button.seg-wide{grid-column:1/-1}
+
+/* location + address rows */
+.loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
+.addrrow{display:flex;gap:10px;align-items:stretch}
+.addrrow #unit{flex:none;width:var(--tap);text-align:center;padding:0 8px}
+.addrrow #addr{flex:1}
+.locrow{display:flex;align-items:center;gap:10px;margin-top:6px}
+.locrow .loc{flex:1;margin:0}
+.locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;
+   background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;flex:none}
+.locbtn:active{transform:scale(.98)} .locbtn:disabled{opacity:.5}
+.scanrow{display:flex;gap:10px;align-items:stretch}
+.scanrow input{flex:1}
+.scanbtn{flex:none;min-height:var(--tap);height:var(--tap);padding:0 16px;border:2px solid var(--line);
+   border-radius:12px;background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+.scanbtn:active{transform:scale(.98)}
+.toggle-on{border-color:var(--amber) !important;background:#FFF7E8 !important;color:var(--amber-press) !important}
+
+/* duplicate / J# conflict notice */
+.notice{border-radius:var(--r);padding:12px 14px;margin-bottom:10px;display:none}
+.notice.show{display:block}
+.notice.dup{background:#FEECEC;border:1.5px solid var(--uti);color:#7A1A00}
+.notice.flag{background:#FFF3CD;border:1.5px solid var(--amber);color:#7A5800}
+.notice-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:14px;font-weight:700}
+.notice-dismiss{background:none;border:none;font-size:18px;cursor:pointer;flex:none;padding:0 2px;color:inherit;opacity:.6}
+.notice-rows{margin-top:8px;font-size:13px}
+.notice-row{padding:4px 0;border-top:1px solid rgba(0,0,0,.08)}
