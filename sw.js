@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v6';
+const CACHE = 'meterlog-v7';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './manifest.json',
   './icon-192.png', './icon-512.png',
@@ -48,6 +48,25 @@ self.addEventListener('fetch', e => {
   // POST to the Google Apps Script endpoint — is left to the network so the
   // page's queue can catch failures when offline.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
+  // The analytics viewer (map.js) is online-only anyway (CDN Leaflet/Chart) and not
+  // offline-critical, so serve it NETWORK-FIRST: a deploy shows up on the next load
+  // instead of one reload behind (stale-while-revalidate would serve the old copy
+  // first). Fall back to cache only when the network is unreachable.
+  if (new URL(req.url).pathname.endsWith('/js/pages/map.js')) {
+    e.respondWith(
+      caches.open(CACHE).then(async cache => {
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch {
+          return (await cache.match(req)) || cache.match('./index.html');
+        }
+      })
+    );
+    return;
+  }
 
   e.respondWith(
     caches.open(CACHE).then(async cache => {
