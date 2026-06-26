@@ -22,6 +22,18 @@ export function localDate(){
   return `${p.year}-${p.month}-${p.day}`;
 }
 
+// Toronto-local calendar date `offsetDays` from today, "YYYY-MM-DD". Negative =
+// past. Used for cache retention windows + the recent-days range. Lexically
+// comparable with localDate() since both are zero-padded YYYY-MM-DD.
+export function localDateOffset(offsetDays){
+  const d = new Date(Date.now() + offsetDays*86400000);
+  const p = {};
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone:'America/Toronto', year:'numeric', month:'2-digit', day:'2-digit'
+  }).formatToParts(d).forEach(x => p[x.type] = x.value);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 // "…T09:00…" / "… 09:00 …" → "09:00"; "HH:MM" → minutes-of-day, or null.
 export function clockOf(ts){ const m = String(ts??'').match(/[ T](\d{2}):(\d{2})/); return m ? (m[1]+':'+m[2]) : ''; }
 export function hhmmMin(t){ const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'')); return m ? (+m[1])*60 + (+m[2]) : null; }

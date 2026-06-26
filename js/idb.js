@@ -1,14 +1,16 @@
 // ── IndexedDB: the durable store for all offline data (falls back to null on error) ─
 // Stores:
-//   'dayCache' (key = "name|date", value = {stops,downtime,day,closed,cachedAt})
-//   'worklist' (keyPath 'id', installer-built planned orders)
-//   'queue'    (keyPath '_seq', autoIncrement → FIFO un-synced writes; the
-//               system of record until each write reaches the Sheet)
+//   'dayCache'  (key = "name|date", value = {stops,downtime,day,closed,cachedAt})
+//   'worklist'  (keyPath 'id', installer-built planned orders)
+//   'queue'     (keyPath '_seq', autoIncrement → FIFO un-synced writes; the
+//                system of record until each write reaches the Sheet)
+//   'addrCache' (key = rounded "lat,lng", value = {address, ts}) — coord→address
+//                cache so reverse-geocoding works offline (see geocode.js)
 //
 // Bumping the schema: raise DB_VERSION and add the new store inside
 // onupgradeneeded (guarded by `contains`, so it's additive and safe on upgrade).
 // This is separate from the sw.js CACHE version.
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const idb = (() => {
   let _db = null;
@@ -19,9 +21,10 @@ export const idb = (() => {
         const req = indexedDB.open('meterlog', DB_VERSION);
         req.onupgradeneeded = e => {
           const d = e.target.result;
-          if(!d.objectStoreNames.contains('dayCache')) d.createObjectStore('dayCache');
-          if(!d.objectStoreNames.contains('worklist')) d.createObjectStore('worklist', {keyPath:'id'});
-          if(!d.objectStoreNames.contains('queue'))    d.createObjectStore('queue', {keyPath:'_seq', autoIncrement:true});
+          if(!d.objectStoreNames.contains('dayCache'))  d.createObjectStore('dayCache');
+          if(!d.objectStoreNames.contains('worklist'))  d.createObjectStore('worklist', {keyPath:'id'});
+          if(!d.objectStoreNames.contains('queue'))     d.createObjectStore('queue', {keyPath:'_seq', autoIncrement:true});
+          if(!d.objectStoreNames.contains('addrCache')) d.createObjectStore('addrCache');
         };
         req.onsuccess = e => { _db = e.target.result; res(_db); };
         req.onerror   = e => rej(e.target.error);

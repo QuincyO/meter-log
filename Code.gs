@@ -456,6 +456,14 @@ function doGet(e) {
                   day: dayMeta(p.installer, date),
                   closed: dayClosed(p.installer, date) });
   }
+  if (p.action === 'range') {
+    // One installer's stops + downtime across a date window, grouped by day, in a
+    // single call — feeds the phone's offline "recent days" cache (≤ ~a week) so
+    // it isn't N separate `day` requests.
+    const from = p.from || today();
+    const to   = p.to   || today();
+    return json({ ok: true, days: rangeData(p.installer, from, to) });
+  }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
   if (p.action === 'pins')    return json(pins());
@@ -1266,6 +1274,25 @@ function stopsFor(installer, date) {
 function downtimeFor(installer, date) {
   return rows('Downtime').filter(r =>
     (!installer || sameName(r.installer, installer)) && dateOf(r.timestamp) === date);
+}
+
+/** One installer's stops + downtime over [from, to] (inclusive, Toronto dates),
+ *  grouped by day and sorted oldest→newest. Each `rows()` read is scanned once,
+ *  so this is one pass instead of a `day` call per date. Returns the same shape
+ *  the phone's dayCache stores. */
+function rangeData(installer, from, to) {
+  const inRange = ts => { const d = dateOf(ts); return d && d >= from && d <= to; };
+  const byDate = {};
+  const bucket = d => byDate[d] || (byDate[d] = { date: d, stops: [], downtime: [] });
+  rows('Stops').forEach(r => {
+    if ((!installer || sameName(r.installer, installer)) && inRange(r.timestamp))
+      bucket(dateOf(r.timestamp)).stops.push(r);
+  });
+  rows('Downtime').forEach(r => {
+    if ((!installer || sameName(r.installer, installer)) && inRange(r.timestamp))
+      bucket(dateOf(r.timestamp)).downtime.push(r);
+  });
+  return Object.keys(byDate).sort().map(d => byDate[d]);
 }
 
 function nearby(lat, lng, radiusM) {

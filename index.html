@@ -23,6 +23,7 @@
       <button class="nav-btn" id="navBtn" aria-label="Menu">☰</button>
       <div class="nav-menu hide" id="navMenu">
         <button id="navWorklist">📋 Worklist</button>
+        <button id="navRecent">🗓 Recent days</button>
         <button id="navSettings">⚙︎ Settings</button>
       </div>
     </div>
@@ -276,6 +277,16 @@
         </div>
       </div>
       <div id="wlList" style="margin-top:4px"></div>
+    </div>
+  </div>
+
+  <!-- Recent days sheet -->
+  <div class="sheet hide" id="recentSheet">
+    <div class="card">
+      <h2>Recent days</h2>
+      <p>Your last week of orders, saved on this device for offline viewing. Tap a day to review or fix a stop.</p>
+      <div id="recentList"></div>
+      <div id="recentDay"></div>
     </div>
   </div>
 

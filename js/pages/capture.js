@@ -9,6 +9,8 @@ import { stamp, localDate, clockOf, hhmmMin, ordinal } from '../time.js';
 import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
 import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks } from '../queue.js';
+import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
+import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -127,27 +129,21 @@ function getLocation(force){
     () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; if(btn) btn.disabled = false; },
     { enableHighAccuracy:true, timeout:8000 });
 }
-// Best-effort reverse geocode through the spine. In auto mode it fills the
-// address only when it's still empty (never clobbers what you typed); with
-// force it always replaces it. Offline or no result → leave it for manual
-// entry. The field stays editable either way.
+// Reverse geocode via resolveAddress (geocode.js): a cached coord resolves
+// instantly and OFFLINE; a new coord with signal hits the spine and is cached for
+// next time; offline + uncached → leave it for manual entry. In auto mode it
+// fills the address only when it's still empty (never clobbers what you typed);
+// with force it always replaces it. The field stays editable either way.
 async function fetchAddress(lat, lng, force){
-  const c = cfg();
-  if(!c.url || !c.token || !navigator.onLine){
-    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · offline — enter address manually`;
-    return;
-  }
   if(!force && $('addr').value.trim()) return;
-  try{
-    const d = await apiGet('geocode', { lat, lng });
-    if(d.ok && d.address && (force || !$('addr').value.trim())){
-      $('addr').value = d.address;
-      $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
-    } else if(force && !(d.ok && d.address)){
-      $('locText').textContent = `Location: ${lat}, ${lng} · no address found — enter manually`;
-    }
-  } catch {
-    if(force) $('locText').textContent = `Location: ${lat}, ${lng} · couldn't fetch address`;
+  const addr = await resolveAddress(lat, lng, { force });
+  if(addr && (force || !$('addr').value.trim())){
+    $('addr').value = addr;
+    $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
+  } else if(force){
+    $('locText').textContent = navigator.onLine
+      ? `Location: ${lat}, ${lng} · no address found — enter manually`
+      : `Location: ${lat}, ${lng} · offline — enter address manually`;
   }
 }
 
@@ -199,6 +195,9 @@ $('logStop').onclick = () => {
       oldJNumber: otherJ || null, noReadReason:null, utiReason:null });
   }
   enqueue(base);
+  // Remember this coord→address (even a hand-typed one) so the same spot resolves
+  // offline next time and feeds the backfill cache.
+  if(base.lat!=null && base.lng!=null && base.address) cacheAddress(base.lat, base.lng, base.address);
   markWorklistDone(base.workOrderId);   // complete the matching planned order, if any
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
@@ -854,6 +853,63 @@ function renderToday(stops, downtime){
   });
 }
 
+// ── recent days (offline-viewable history) ─────────────────────────────────
+// The installer's own last week, cached on the phone. Online open refreshes the
+// cache (cacheRecentDays); offline it reads whatever's stored. Editing a stop
+// from here routes through updateStop like Today/EOD do.
+async function openRecent(){
+  openSheet('recentSheet');
+  $('recentList').innerHTML = '<p class="muted">Loading…</p>';
+  $('recentDay').innerHTML = '';
+  if(navigator.onLine) await cacheRecentDays(7);   // best-effort refresh
+  await renderRecent();
+}
+
+async function renderRecent(){
+  const days = await loadRecentDays(7);
+  const list = $('recentList'); list.innerHTML='';
+  if(!days.some(d => d.stops.length || d.downtime.length)){
+    list.innerHTML = '<p class="muted">No recent days cached yet. Open this online once to download your week.</p>';
+    return;
+  }
+  days.forEach(d => {
+    const installed = d.stops.filter(s=>s.status==='INSTALLED').length;
+    const uti       = d.stops.filter(s=>s.status==='UTI').length;
+    const editable  = d.stops.filter(s=>PRINTABLE[s.status]).length;
+    const btn = document.createElement('button');
+    btn.className = 'ghost';
+    btn.style.cssText = 'width:100%;text-align:left;margin-top:8px;height:auto;padding:12px 14px';
+    const label = d.date===localDate() ? `${d.date} · Today` : d.date;
+    btn.innerHTML = `<strong>${esc(label)}</strong><br>`
+      + `<span class="sc-meta">Installed ${installed} · UTI ${uti}`
+      + `${d.closed?' · closed':''}${editable?'':' · nothing logged'}</span>`;
+    btn.onclick = () => renderRecentDay(d);
+    list.appendChild(btn);
+  });
+}
+
+function renderRecentDay(d){
+  const box = $('recentDay'); box.innerHTML='';
+  const installed   = d.stops.filter(s=>s.status==='INSTALLED').length;
+  const uti         = d.stops.filter(s=>s.status==='UTI').length;
+  const visited     = d.stops.filter(s=>s.status==='VISITED').length;
+  const unaccounted = d.stops.filter(s=>s.status==='UNACCOUNTED').length;
+  const done        = d.stops.filter(s=>s.status==='DONE').length;
+  const dtMin       = (d.downtime||[]).reduce((a,x)=>a+(Number(x.minutes)||0),0);
+  const head = document.createElement('div');
+  head.className='eod-tally'; head.style.marginTop='14px';
+  head.textContent = `${d.date} — ` + tallyText({installed,uti,visited,unaccounted,done,dtMin});
+  box.appendChild(head);
+  const editable = d.stops.filter(s=>PRINTABLE[s.status])
+    .sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
+  if(!editable.length){
+    const p=document.createElement('p'); p.className='muted'; p.textContent='Nothing logged this day.';
+    box.appendChild(p); return;
+  }
+  editable.forEach(s => box.appendChild(makeStopCard(s, () => renderRecentDay(d))));
+  box.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
 // ── settings + sheets plumbing ──────────────────────────────────────────────
 function openSheet(id){
   if(id==='settingsSheet'){
@@ -870,6 +926,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 $('navBtn').onclick = e => { e.stopPropagation(); $('navMenu').classList.toggle('hide'); };
 document.addEventListener('click', () => { const m=$('navMenu'); if(m) m.classList.add('hide'); });
 $('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorklist(); };
+$('navRecent').onclick    = () => { $('navMenu').classList.add('hide'); openRecent(); };
 $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
 
 // ── worklist ──────────────────────────────────────────────────────────────────
@@ -1017,13 +1074,21 @@ $('saveSettings').onclick = () => {
   closeSheets(); toast('Saved ✓');
 };
 
-window.addEventListener('online', flush);
+// When signal returns: flush the queue, backfill any addresses captured offline,
+// and refresh the recent-days cache.
+function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); }
+window.addEventListener('online', onReconnect);
 window.addEventListener('offline', paint);
 // also try to sync whenever the app comes back to the foreground
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
 window.addEventListener('focus', flush);
-// Drain any pre-IDB localStorage queue into the durable store, then paint + sync.
-migrateLegacyQueue().then(() => { paint(); flush(); });
+// Drain any pre-IDB localStorage queue into the durable store, then paint + sync,
+// prune cache to ~a week, and (when online with a name set) backfill offline
+// addresses + pre-cache the recent days so they're viewable with no signal.
+migrateLegacyQueue().then(() => {
+  paint(); flush(); pruneDayCache();
+  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
+});
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.
