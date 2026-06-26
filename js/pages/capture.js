@@ -13,7 +13,6 @@ import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
-import { refreshDispatch, computeDispatchDowntime } from '../compute/dispatch.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -91,7 +90,7 @@ $('nrReason').onchange = e => {
   $('nrOtherLabel').classList.toggle('hide', !other);
 };
 
-// ── requested-meter toggle (adds dispatch downtime on save) ────────────────
+// ── requested-meter toggle (flags the WO; dispatch wait is pre-filled at EOD) ──
 let requested = false;
 $('requestedMeter').onclick = () => setRequested(!requested);
 function setRequested(on){
@@ -201,15 +200,10 @@ $('logStop').onclick = () => {
   // Remember this coord→address (even a hand-typed one) so the same spot resolves
   // offline next time and feeds the backfill cache.
   if(base.lat!=null && base.lng!=null && base.address) cacheAddress(base.lat, base.lng, base.address);
-  // Dispatch downtime is computed on the phone (measured from today's Dispatch
-  // data, else the cached running average) and queued as its own DISPATCH row.
-  // The spine upgrades an estimate to the true measured value at end of day.
-  if(base.requestedMeter && base.oldJNumber){
-    const disp = computeDispatchDowntime(base.oldJNumber, base.timestamp);
-    if(disp) enqueue({ token:c.token, action:'addDowntime', installer:c.name, timestamp:base.timestamp,
-                       category:'DISPATCH', minutes:disp.minutes, workOrderId:base.workOrderId,
-                       note: disp.measured ? 'dispatch (measured)' : 'dispatch (avg est.)' });
-  }
+  // Dispatch downtime isn't written live — "Requested meter?" only sets the
+  // requestedMeter flag on the stop. The spine matches the request to this install
+  // at end of day and pre-fills the wait as an editable DISPATCH travel deduction
+  // (?action=idle), so logging stays a cheap append.
   markWorklistDone(base.workOrderId);   // complete the matching planned order, if any
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
@@ -1017,7 +1011,7 @@ $('saveSettings').onclick = () => {
 
 // When signal returns: flush the queue, backfill any addresses captured offline,
 // and refresh the recent-days cache.
-function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); refreshDispatch(); }
+function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); }
 window.addEventListener('online', onReconnect);
 window.addEventListener('offline', paint);
 // also try to sync whenever the app comes back to the foreground
@@ -1028,7 +1022,7 @@ window.addEventListener('focus', flush);
 // addresses + pre-cache the recent days so they're viewable with no signal.
 migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
-  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); refreshDispatch(); }
+  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
 });
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
