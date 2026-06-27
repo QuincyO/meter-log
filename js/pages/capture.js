@@ -609,6 +609,7 @@ let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 
 $('finishDay').onclick = async () => {
   const c = cfg();
+  const btn = $('finishDay');
   // Storage-first: never lose the travel/downtime review or the bookend times.
   await persistEodReview();
 
@@ -626,14 +627,17 @@ $('finishDay').onclick = async () => {
     return;
   }
 
-  let weather = '';
-  const withCoord = (eodData.stops||[]).find(s =>
-    s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
-  if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
-  // Flush first so any queued stops / manual downtime are written before the spine
-  // tallies the day.
-  await flush();
+  // Building the PDF on the spine blocks for a few seconds — show a spinner on the
+  // button (and block double-taps) until it returns.
+  btn.classList.add('loading'); btn.disabled = true;
   try{
+    let weather = '';
+    const withCoord = (eodData.stops||[]).find(s =>
+      s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
+    if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
+    // Flush first so any queued stops / manual downtime are written before the spine
+    // tallies the day.
+    await flush();
     // Persist the per-gap travel deductions first (replaces this day's prior set), so
     // the daily log the spine builds next already reflects the subtracted travel times.
     await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
@@ -655,6 +659,7 @@ $('finishDay').onclick = async () => {
       toast(d.pdf && d.pdf.error ? ('Day closed · PDF failed') : 'Day closed ✓');
     }
   } catch { toast('Could not reach the sheet'); }
+  finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
 
 // weather (Open-Meteo, keyless) ------------------------------------------------
@@ -695,7 +700,9 @@ function downloadBase64Pdf(b64, name){
 $('genLog').onclick = async () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
+  const btn = $('genLog');
   toast('Building daily log…');
+  btn.classList.add('loading'); btn.disabled = true;
   await flush();
   try{
     const d = await apiPost({ action:'previewDailyLog',
@@ -708,6 +715,7 @@ $('genLog').onclick = async () => {
       toast(d.pdf && d.pdf.error ? 'Daily log failed to build' : 'No stops logged today yet');
     }
   } catch { toast('Could not reach the sheet'); }
+  finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
 
 // ── today's orders: a quick table of what's logged today ───────────────────

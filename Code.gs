@@ -116,7 +116,7 @@ const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distan
 // (left dock) and Returned (back to land). These anchor the daily log's Launch /
 // Return legs; persisting them (the field form used to discard them) is what lets
 // the back-office edit.html regenerate a correct daily log any time.
-const DAYS_HEADERS = ['date','installer','departure','returned'];
+const DAYS_HEADERS = ['date','installer','departure','returned','dispatchMin','boatDispatchMin'];
 // One row per BOAT per day — a snapshot of who crewed which boat that date, taken at
 // end-of-day (Teams is otherwise current-state only, with no membership history). It's
 // the historical record of daily boat teams AND the membership the viewer's boat-wide
@@ -153,7 +153,8 @@ const ANCHORS = {
   weather:'G2',
   delayTime:'D5',                                   // total same-island meter-to-meter delay
   departure:'D6', returned:'E7',                    // anchors the launch / return travel legs
-  travelTime:'D8'                                   // total island-to-island travel
+  travelTime:'D8',                                  // total island-to-island travel
+  boatDispatch:'G8'                                 // whole-boat dispatch downtime (shared by the crew)
 };
 
 /** Builds the template tab to match the paper daily log. Re-run any time the
@@ -185,7 +186,8 @@ function setupDailyLogTemplate() {
   sh.getRange('E3:F3').merge(); L('E3','Safety Concerns:');
   sh.getRange('E4:F5').merge().setVerticalAlignment('top');
   sh.getRange('E6:F6').merge(); L('E6','Returned to Land:');
-  sh.getRange('E7:F7').merge(); sh.getRange('E8:F8').merge();
+  sh.getRange('E7:F7').merge();
+  sh.getRange('E8:F8').merge(); L('E8','Boat Dispatch:');
   // header — right G:H
   sh.getRange('G1:H1').merge(); L('G1','Weather / Wind & Direction:');
   sh.getRange('G2:H2').merge();
@@ -253,6 +255,7 @@ function buildDailyLogPdf(s) {
     put(ANCHORS.date,    s.date);
     put(ANCHORS.weather,    s.weather  || '');
     put(ANCHORS.delayTime, showDT ? (s.downtimeTotalMin || 0) : '');  // categorized downtime total (excl. Travel Time)
+    put(ANCHORS.boatDispatch, showDT ? (s.boatDispatchMin || 0) : '');  // whole-boat dispatch downtime (shared)
     put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
     put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
     // Travel Time box is summed from the per-row column below, so the two always
@@ -747,6 +750,10 @@ function buildDaySummary(b) {
 
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
+  // Whole-boat dispatch downtime for the PDF (sum of every crew member's own
+  // DISPATCH downtime that day). May be stale if a teammate hasn't closed yet —
+  // the Days sheet (updateBoatDispatch) is the always-current source of truth.
+  const boatDispatchMin = team ? boatDispatchSum(team, date) : 0;
 
   // Sum the per-gap deductions, keyed by the gap's two clock times (dash-char
   // agnostic), so each gap's net travel = its raw minutes minus what was subtracted
@@ -791,7 +798,7 @@ function buildDaySummary(b) {
     includeDelays: b.includeDelays !== false,
     downtimeTotalMin: downtimeTotal, byCategory: byCat,
     breaksTotalMin: breaksTotal, byBreak: byBreak, miscTravelMin: miscTravelTotal,
-    travelMinutes: travelMinutes,
+    travelMinutes: travelMinutes, boatDispatchMin: boatDispatchMin,
     perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
     notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
     departure: departure, returned: returned,
@@ -830,6 +837,11 @@ function endOfDay(b) {
   // its daily membership and a standing record of who crewed which boat.
   const eodTeam = eodId ? teamForEmployee(eodId) : null;
   if (eodTeam) recordBoatDay(s.date, eodTeam);
+
+  // Recompute the boat's shared dispatch downtime and write it (+ each member's
+  // own total) onto every crew member's Days row, so the backend stays in sync
+  // even when teammates close at different times.
+  if (eodTeam) updateBoatDispatch(s.date, eodTeam);
 
   // Upsert one Tracker row per (date, installer) — overwrite in place if it's
   // already closed, else append.
@@ -966,6 +978,59 @@ function dayMeta(installer, date) {
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days')) return { departure: '', returned: '' };
   const r = rows('Days').filter(x => sameName(x.installer, installer) && dateOf(x.date) === date)[0];
   return { departure: r ? clockHHMM(r.departure) : '', returned: r ? clockHHMM(r.returned) : '' };
+}
+
+/** One installer's own dispatch downtime for a day = the sum of their
+ *  DISPATCH-category Downtime rows (the editable gap deductions the EOD review
+ *  writes via saveTravel). Mirrors buildDaySummary's byCategory.DISPATCH. */
+function dispatchMinFor(installer, date) {
+  return downtimeFor(installer, date)
+    .filter(d => String(d.category).toUpperCase() === 'DISPATCH')
+    .reduce((a, d) => a + (parseInt(d.minutes, 10) || 0), 0);
+}
+
+/** The whole-boat dispatch downtime for a day = the sum of every member's own
+ *  dispatchMinFor. Dispatch waits stall the whole boat, so the crew share one
+ *  number. Members are all H numbers on the boat that day (any letter). */
+function boatDispatchSum(team, date) {
+  if (!team) return 0;
+  return Object.keys(team.memberLetters)
+    .map(nameOfH).filter(Boolean)
+    .reduce((a, name) => a + dispatchMinFor(name, date), 0);
+}
+
+/** Header-aware partial upsert of a Days row: set only the named columns on the
+ *  (date, installer) row, preserving everything else (bookends). Appends a fresh
+ *  row if none exists yet — a teammate may not have closed their own day. */
+function setDayFields(date, installer, fields) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days');
+  if (!sh) return;
+  const data = sh.getDataRange().getValues();
+  const H = data[0]; const dCol = H.indexOf('date'), iCol = H.indexOf('installer');
+  for (let r = 1; r < data.length; r++) {
+    if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) {
+      Object.keys(fields).forEach(k => { const c = H.indexOf(k); if (c >= 0) data[r][c] = fields[k]; });
+      sh.getRange(r + 1, 1, 1, H.length).setValues([data[r]]);
+      return;
+    }
+  }
+  const out = H.map(h => h === 'date' ? date : h === 'installer' ? installer
+    : (k => k in fields ? fields[k] : '')(h));
+  sh.appendRow(out);
+}
+
+/** Recompute the boat's shared dispatch downtime for a day and write it (plus
+ *  each member's own total) onto every member's Days row. Called at endOfDay so
+ *  the backend converges to the correct boat sum as each member closes — the
+ *  last to close sees the most complete picture; earlier closers' PDFs may be
+ *  stale, but the Days sheet always reflects the latest edit. */
+function updateBoatDispatch(date, team) {
+  if (!team) return;
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days')) return;
+  const members = Object.keys(team.memberLetters).map(nameOfH).filter(Boolean);
+  const own = {}; let sum = 0;
+  members.forEach(name => { const m = dispatchMinFor(name, date); own[name] = m; sum += m; });
+  members.forEach(name => setDayFields(date, name, { dispatchMin: own[name], boatDispatchMin: sum }));
 }
 
 /** True when a Tracker row already exists for (installer, date) — the day is closed. */

@@ -218,6 +218,22 @@ function renderAnalytics(){
   const avgDispatch = disp.length
     ? Math.round(disp.reduce((a,r)=>a+(trkNum(r.minutes)||0),0)/disp.length) : null;
 
+  // Dispatch downtime from each installer's own end-of-day total (Tracker `dispatch`
+  // column = their edited DISPATCH deductions). Total = every installer's summed.
+  const totalDispatch = trk.reduce((a,r)=>a+trkNum(r.dispatch),0);
+  // Avg boat dispatch downtime: pool each boat-day's members (BoatDays membership,
+  // solo fallback like avgBoatGap), sum their dispatch, then average across boat-days.
+  const memD = boatMembership();
+  const boatDisp = {};
+  trk.forEach(r => {
+    const day = dateKey(r.date), name = String(r.installer||'').trim();
+    const grp = memD[day+'|'+name] || ('@'+name);
+    boatDisp[grp+'|'+day] = (boatDisp[grp+'|'+day]||0) + trkNum(r.dispatch);
+  });
+  const boatDispVals = Object.values(boatDisp);
+  const avgBoatDispatch = boatDispVals.length
+    ? Math.round(boatDispVals.reduce((a,v)=>a+v,0)/boatDispVals.length) : null;
+
   const mins = v => v==null ? '—' : (v+' min');
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
@@ -227,6 +243,8 @@ function renderAnalytics(){
     + tile(mins(avgLog),      'Avg log→log (w/ partner)','')
     + tile(mins(avgBoat),     'Avg log→log (boat)','')
     + tile(mins(avgDispatch), 'Avg dispatch downtime','')
+    + tile(mins(avgBoatDispatch), 'Avg boat dispatch downtime','')
+    + tile(totalDispatch+' min', 'Total dispatch downtime','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
 
