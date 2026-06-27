@@ -320,7 +320,9 @@ On the **map/viewer** they keep their own status chips, colors, and the `visited
 **Downtime categories:**
 - **Delays** (`CATEGORIES` in `Code.gs`, each gets a Tracker column): `NEXT_GEN`,
   `CELL_SIGNAL`, `BAD_WEATHER`, `WAREHOUSE`, `TOOLS_MATERIAL`, `DISPATCH`,
-  `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`.
+  `TRUCK_ISSUES`, `ASSIST`, `URGENT_EER`, `OTHER`. (`DISPATCH` is **not** selectable
+  in the manual *Add downtime* form — it's added only via the EOD review; see
+  "Dispatch downtime".)
 - **Breaks** (`BREAK_CATS`): `LUNCH`, `BREAK` — summed on the log's "Breaks:" line,
   kept out of `downtimeTotalMin`.
 - **Travel adjustments** (`TRAVEL_ADJ_CATS`): `MISC_TRAVEL` — summed on the log's
@@ -358,17 +360,34 @@ sheets migrate cleanly via `ensureTab` — re-run `setupSheets()` once after dep
 The day's **bookend clock times**, persisted so the daily log can always be rebuilt
 with them — the field end-of-day form used to send `departure`/`returned` only
 transiently and discard them after the PDF.
-| field       | type   | notes                                  |
-|-------------|--------|----------------------------------------|
-| `date`      | string | Toronto local `yyyy-MM-dd`             |
-| `installer` | string | display name                           |
-| `departure` | string | `"HH:mm"` — left the dock (Launch leg) |
-| `returned`  | string | `"HH:mm"` — back to land (Return leg)  |
+| field             | type   | notes                                                  |
+|-------------------|--------|--------------------------------------------------------|
+| `date`            | string | Toronto local `yyyy-MM-dd`                             |
+| `installer`       | string | display name                                          |
+| `departure`       | string | `"HH:mm"` — left the dock (Launch leg)                |
+| `returned`        | string | `"HH:mm"` — back to land (Return leg)                 |
+| `dispatchMin`     | number | this installer's own dispatch downtime for the day    |
+| `boatDispatchMin` | number | whole-boat dispatch downtime, shared by the crew      |
 
-Upserted by `saveDay` (keyed on `date`+`installer`); also written by `endOfDay`
+Upserted by `saveDay` (keyed on `date`+`installer`, which writes only the first
+four columns and leaves the dispatch columns intact); also written by `endOfDay`
 when those times are supplied. `buildDaySummary` falls back to this row when a
 request omits the bookends, and `?action=day` returns it (plus a `closed` flag) so
 `edit.html` can pre-fill the inputs.
+
+`dispatchMin`/`boatDispatchMin` were **appended** after `returned`, so add the two
+header cells to an existing `Days` tab (re-run `setupSheets()` won't add columns to
+an existing tab). At end-of-day `updateBoatDispatch(date, team)` recomputes the
+boat's shared dispatch sum — `dispatchMinFor` (sum of each member's `DISPATCH`
+`Downtime` rows) across every crew member on the boat that day — and writes each
+member's own total + the shared sum onto their `Days` row via `setDayFields`
+(header-aware partial upsert that preserves bookends and creates a row for a
+teammate who hasn't closed yet). It runs on every close, so the `Days` sheet
+converges to the latest edit even when teammates close at different times; an
+installer who closes first may print a stale boat total on their PDF (see "Dispatch
+downtime"). The shared total is also printed on the daily-log PDF (`boatDispatch`
+anchor) and surfaced in `map.html` analytics ("Avg boat dispatch downtime" + "Total
+dispatch downtime").
 
 ### BoatDay  (one row per boat per day → tab "BoatDays")
 A snapshot of who crewed a boat on a given day, taken at end-of-day. `Teams` is
@@ -629,6 +648,27 @@ The crew can edit or remove the pre-filled minutes; `Finish` saves it through
 `buildDaySummary` untouched — subtracting from that gap's travel time **and**
 counting in the Tracker `dispatch` column / the daily-log PDF's Delays bucket /
 the viewer counts (exactly like a LUNCH or BREAK gap allocation).
+
+**The EOD review is the *only* place to add/edit dispatch downtime.** The manual
+*Add downtime* form no longer offers a `DISPATCH` reason — it was double-counting
+against the pre-filled gap deduction. `CATEGORIES` in `Code.gs` still includes
+`DISPATCH` so the EOD deduction tallies normally; the field form just stops
+emitting it.
+
+**Boat-shared total.** A dispatch wait stalls the whole boat, so the crew share
+one number. At end-of-day `updateBoatDispatch(date, team)` sums every boat
+member's own `DISPATCH` `Downtime` (via `dispatchMinFor`) and writes each
+member's own total + the shared boat sum onto their `Days` row (`dispatchMin` /
+`boatDispatchMin`; see "Day" above). It recomputes from the live `Downtime` rows
+on every close, so editing dispatch downtime and re-finishing updates the sum for
+the whole crew. The shared sum prints on the daily-log PDF (`boatDispatch`
+anchor) — an installer closing before teammates may print a stale (smaller)
+number, which is acceptable since the `Days` backend is the source of truth and
+always converges. `map.html` analytics shows "Avg boat dispatch downtime" (mean
+of boat-day sums, from Tracker `dispatch` + `BoatDays` membership) and "Total
+dispatch downtime" (every installer's own total summed). This is distinct from
+the existing "Avg dispatch downtime" tile, which is the measured request→install
+wait from the `Dispatch` tab.
 
 **Time format.** Both `requestTime` and the stop timestamp are naive Toronto-local
 `yyyy-MM-dd HH:mm:ss`; `parseLocal()` builds a component-wise `Date` from each so

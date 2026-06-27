@@ -19,6 +19,14 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .ghost{height:56px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
    color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
 
+/* loading state — hides the label and shows a spinner while an async action
+   (e.g. building the daily-log PDF) runs, so the button is visibly busy. */
+@keyframes spin{to{transform:rotate(360deg)}}
+button.loading{position:relative;color:transparent !important;pointer-events:none}
+button.loading::after{content:"";position:absolute;top:50%;left:50%;width:22px;height:22px;
+   margin:-11px 0 0 -11px;border:3px solid rgba(26,19,0,.3);border-top-color:#1a1300;
+   border-radius:50%;animation:spin .7s linear infinite}
+
 /* toast */
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
    background:var(--ink);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;
