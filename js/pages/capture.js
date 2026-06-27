@@ -114,22 +114,61 @@ function setSolar(on){
 // ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
 
+// Collect up to `samples` GPS fixes over `maxMs`, then return one
+// accuracy-weighted average { lat, lng, accuracy }. The first fix a phone hands
+// back is usually a coarse/cached one with a big accuracy radius; it only
+// refines as the chip settles. watchPosition streams those refining fixes
+// (back-to-back getCurrentPosition calls just re-return the cached one), and the
+// 1/accuracy² weighting lets the tight late fixes dominate — so a single tap
+// lands close instead of needing several. Resolves with whatever arrived before
+// the timeout (≥1 sample); rejects only if no GPS or no sample at all.
+function sampleLocation({ samples = 10, maxMs = 12000, onProgress } = {}){
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation){ reject(new Error('no-gps')); return; }
+    const pts = [];
+    let done = false;
+    const finish = () => {
+      if(done) return; done = true;
+      clearTimeout(timer); navigator.geolocation.clearWatch(id);
+      if(!pts.length){ reject(new Error('no-fix')); return; }
+      let sw = 0, slat = 0, slng = 0, sacc = 0;
+      for(const c of pts){
+        const w = 1 / Math.pow(Math.max(c.accuracy || 0, 1), 2);
+        sw += w; slat += c.latitude * w; slng += c.longitude * w; sacc += (c.accuracy || 0) * w;
+      }
+      resolve({ lat:+(slat/sw).toFixed(6), lng:+(slng/sw).toFixed(6), accuracy: Math.round(sacc/sw) });
+    };
+    const id = navigator.geolocation.watchPosition(
+      p => {
+        pts.push(p.coords);
+        if(onProgress) onProgress(pts.length, samples);
+        if(pts.length >= samples) finish();
+      },
+      err => { if(!pts.length){ done = true; clearTimeout(timer); navigator.geolocation.clearWatch(id); reject(err); } },
+      { enableHighAccuracy:true, maximumAge:0, timeout:maxMs });
+    const timer = setTimeout(finish, maxMs);
+  });
+}
+
 // force = true when the Refresh button is tapped: re-read GPS and overwrite the
 // address even if one is already there. Auto calls (on load / after a stop)
 // pass nothing, so they only fill the address when it's still empty.
-function getLocation(force){
+async function getLocation(force){
   if(!navigator.geolocation){ $('locText').textContent = 'Location: no GPS on this device'; return; }
   const btn = $('refreshLoc'); if(btn) btn.disabled = true;
-  $('locText').textContent = 'Location: getting…';
-  navigator.geolocation.getCurrentPosition(
-    async p => {
-      coords = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6) };
-      $('locText').textContent = `Location: ${coords.lat}, ${coords.lng}`;
-      if(force) await fetchAddress(coords.lat, coords.lng, true);
-      if(btn) btn.disabled = false;
-    },
-    () => { $('locText').textContent = 'Location: unavailable (saved without coords)'; if(btn) btn.disabled = false; },
-    { enableHighAccuracy:true, timeout:8000 });
+  $('locText').textContent = 'Location: sampling…';
+  try {
+    const c = await sampleLocation({ onProgress: (n, total) => {
+      $('locText').textContent = `Location: sampling ${n}/${total}…`;
+    }});
+    coords = { lat:c.lat, lng:c.lng };
+    $('locText').textContent = `Location: ${coords.lat}, ${coords.lng} (±${c.accuracy} m)`;
+    if(force) await fetchAddress(coords.lat, coords.lng, true);
+  } catch {
+    $('locText').textContent = 'Location: unavailable (saved without coords)';
+  } finally {
+    if(btn) btn.disabled = false;
+  }
 }
 // Reverse geocode via resolveAddress (geocode.js): a cached coord resolves
 // instantly and OFFLINE; a new coord with signal hits the spine and is cached for
@@ -221,19 +260,19 @@ $('logStop').onclick = () => {
 // the install + UTI counts (it isn't your work), and it feeds the map's
 // "already done?" check. Goes through the same offline queue, so no signal is
 // fine.
-$('markDone').onclick = () => {
+$('markDone').onclick = async () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   if(!navigator.geolocation){ toast('No GPS on this device'); return; }
   toast('Getting location…');
-  navigator.geolocation.getCurrentPosition(
-    p => { enqueue({ token:c.token, action:'addStop', installer:c.name,
-                     timestamp:stamp(),
-                     lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6),
-                     status:'DONE' });
-           toast('Marked — already installed ✓'); },
-    () => toast("Couldn't get GPS — try again"),
-    { enableHighAccuracy:true, timeout:8000 });
+  try {
+    const loc = await sampleLocation();
+    enqueue({ token:c.token, action:'addStop', installer:c.name,
+              timestamp:stamp(), lat:loc.lat, lng:loc.lng, status:'DONE' });
+    toast('Marked — already installed ✓');
+  } catch {
+    toast("Couldn't get GPS — try again");
+  }
 };
 
 // ── downtime ────────────────────────────────────────────────────────────
