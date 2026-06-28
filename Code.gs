@@ -1837,6 +1837,46 @@ function githubCommitFiles(files, message) {
   return commit.sha;
 }
 
+// Diagnostic — run from the editor when exportSheetToGithub() 404s. It probes,
+// in order: the GITHUB_REPO/token props, who the token authenticates as, whether
+// the token can see the repo, and what the repo's default branch ref is. Each
+// line in the log isolates one cause (bad repo string / token lacks repo access /
+// default branch isn't 'main'). Never writes anything.
+function githubDiag() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('GITHUB_TOKEN');
+  const repo  = props.getProperty('GITHUB_REPO');
+  Logger.log('GITHUB_REPO  = ' + JSON.stringify(repo) + (repo && repo.trim() !== repo ? '  ⚠ has surrounding whitespace' : ''));
+  Logger.log('GITHUB_TOKEN = ' + (token ? (token.slice(0, 7) + '… (' + token.length + ' chars)') : 'MISSING'));
+  if (!token || !repo) { Logger.log('→ set both in Project Settings ▸ Script Properties'); return; }
+
+  function probe(label, url) {
+    const res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github+json',
+                 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    const code = res.getResponseCode();
+    let note = '';
+    try { const b = JSON.parse(res.getContentText());
+          note = b.login || b.full_name || b.default_branch || b.message || ''; } catch (e) {}
+    Logger.log(label + ' → ' + code + (note ? '  ' + note : ''));
+    return code === 200 ? JSON.parse(res.getContentText()) : null;
+  }
+
+  probe('GET /user (who the token is)        ', 'https://api.github.com/user');
+  const r = probe('GET /repos/' + repo + ' (can token see repo)', 'https://api.github.com/repos/' + repo.trim());
+  if (r) {
+    Logger.log('repo default_branch = ' + r.default_branch +
+      (r.default_branch !== 'main' ? "  ⚠ NOT 'main' — the export targets main; rename the branch or change the code" : ''));
+    Logger.log('repo permissions    = ' + JSON.stringify(r.permissions || {}) +
+      ((r.permissions && r.permissions.push) ? '' : '  ⚠ no push/write — PAT needs Contents: Read AND write'));
+  } else {
+    Logger.log("→ 404/403 on the repo means the fine-grained PAT wasn't granted access to THIS repo. " +
+      "Fix: the PAT's Resource owner = QuincyO, Repository access = select meter-log, Permissions ▸ Contents = Read and write.");
+  }
+}
+
 // Trigger entry point: snapshot every tab and push it to main in one commit.
 function exportSheetToGithub() {
   const files = buildExportFiles();
