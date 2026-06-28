@@ -81,6 +81,9 @@ export async function reconcileCache(body, item){
     delete cached.eodTravel;
     changed = true;
   }
+  // The spine returns boatMeta (team header + whole-boat dispatch) on every log —
+  // cache it so the offline daily-log PDF always has those values fresh.
+  if(body.boatMeta){ cached.boatMeta = body.boatMeta; changed = true; }
   if(changed) await idb.put('dayCache', cached, key);
 }
 
@@ -106,7 +109,9 @@ export async function cacheRecentDays(days = 7){
   const c = cfg(); if(!c.name || !c.url || !navigator.onLine) return;
   const from = localDateOffset(-(days-1)), to = localDate();
   let res;
-  try { res = await apiGet('range', { installer:c.name, from, to }); }
+  // installerId lets the spine attach boatMeta (team header + whole-boat dispatch)
+  // per day, so a recent-days pull seeds the offline daily-log cache too.
+  try { res = await apiGet('range', { installer:c.name, installerId:c.hNumber, from, to }); }
   catch { return; }
   if(!res || !res.ok || !Array.isArray(res.days)) return;
   for(const d of res.days){
@@ -117,6 +122,7 @@ export async function cacheRecentDays(days = 7){
     await idb.put('dayCache', {
       stops, downtime,
       day:(d.day || (local && local.day) || {}),
+      boatMeta: d.boatMeta || (local && local.boatMeta) || null,
       closed: d.closed != null ? !!d.closed : !!(local && local.closed),
       cachedAt: stamp(),
       eodTravel: local && local.eodTravel

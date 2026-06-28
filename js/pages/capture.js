@@ -13,6 +13,8 @@ import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
+import { buildLocalSummary } from '../compute/summary.js';
+import { downloadDailyLog } from '../dailylog.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -206,7 +208,7 @@ $('logStop').onclick = () => {
   const otherJ = $('otherOldJ').value.trim();
   const outStatus = status==='OTHER' ? (otherJ ? 'VISITED' : 'UNACCOUNTED') : status;
   const base = {
-    token:c.token, action:'addStop', installer:c.name,
+    token:c.token, action:'addStop', installer:c.name, installerId:c.hNumber,
     timestamp:stamp(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
@@ -543,6 +545,26 @@ async function persistEodReview(){
 let _eodPersistTimer;
 function schedulePersistEod(){ clearTimeout(_eodPersistTimer); _eodPersistTimer = setTimeout(persistEodReview, 700); }
 
+// Build the daily-log summary from the phone's cached day (stops + downtime +
+// bookends + boatMeta) — the offline source the PDF renderer draws from. Online
+// we prefer the spine's higher-fidelity summary (merged-boat travel); this is the
+// no-signal fallback.
+async function buildSummaryFromCache(includeDelays, weather){
+  const c = cfg();
+  const key = `${c.name}|${localDate()}`;
+  const cached = (await idb.get('dayCache', key)) || { stops:[], downtime:[], day:{}, boatMeta:null };
+  const cd = cached.day || {};
+  return buildLocalSummary({
+    installer:c.name, installerId:c.hNumber, date:localDate(),
+    stops:cached.stops||[], downtime:cached.downtime||[],
+    day:{ departure: $('eodDeparture').value || cd.departure || '',
+          returned:  $('eodReturned').value  || cd.returned  || '' },
+    boatMeta:cached.boatMeta,
+    includeDelays, weather:weather||'', notes:$('eodNotes').value.trim(),
+    pendingTravel: collectGapAllocations(eodGaps)
+  });
+}
+
 // ── cached day loader (stale-while-revalidate) ─────────────────────────────
 // Merge a fresh server list with locally-pending entries. The server is
 // authoritative for anything it already knows about (matched by id); any cached
@@ -588,7 +610,7 @@ async function loadDay(mode){
   }
 
   try{
-    const d = await apiGet('day', { installer:c.name });
+    const d = await apiGet('day', { installer:c.name, installerId:c.hNumber });
     // Re-read the cache (an enqueue may have run since the top of this fn) and
     // merge, so locally-pending stops/downtime survive the server pull.
     const local = await idb.get('dayCache', key);
@@ -597,7 +619,8 @@ async function loadDay(mode){
     const pendingTravel = local && local.eodTravel;   // offline review not yet synced
     await idb.put('dayCache', {
       stops, downtime,
-      day:d.day||{}, closed:!!d.closed, cachedAt:stamp(),
+      day:d.day||{}, boatMeta: d.boatMeta || (local && local.boatMeta) || null,
+      closed:!!d.closed, cachedAt:stamp(),
       eodTravel: pendingTravel   // preserved so a brief reconnect can't wipe an un-synced review
     }, key);
     // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
@@ -652,22 +675,26 @@ $('finishDay').onclick = async () => {
   // Storage-first: never lose the travel/downtime review or the bookend times.
   await persistEodReview();
 
-  // No signal → the PDF/close can't be built (the spine does that). Queue the
-  // review (travel deductions + bookends) so it syncs, and tell the installer to
-  // tap Finish again once online to generate the PDF.
+  // No signal → render the PDF on the phone from the cached day and queue the
+  // close (travel deductions + bookends + endOfDay) so the Sheet catches up when
+  // online. The PDF no longer needs a connection.
   if(!navigator.onLine){
     enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
               allocations: collectGapAllocations(eodGaps) });
     if($('eodDeparture').value || $('eodReturned').value)
       enqueue({ token:c.token, action:'saveDay', installer:c.name,
                 departure:$('eodDeparture').value, returned:$('eodReturned').value });
+    // Queue the close itself (idempotent on date+installer) so the Tracker/Timing
+    // rows get written once the queue drains — weather backfills on the re-send.
+    enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
+              notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
+              departure:$('eodDeparture').value, returned:$('eodReturned').value });
+    try{ downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, '')); }catch{}
     closeSheets();
-    toast('Saved offline — reconnect and tap Finish to get the PDF');
+    toast('Day closed offline ✓ · PDF downloaded — will sync when online');
     return;
   }
 
-  // Building the PDF on the spine blocks for a few seconds — show a spinner on the
-  // button (and block double-taps) until it returns.
   btn.classList.add('loading'); btn.disabled = true;
   try{
     let weather = '';
@@ -678,7 +705,7 @@ $('finishDay').onclick = async () => {
     // tallies the day.
     await flush();
     // Persist the per-gap travel deductions first (replaces this day's prior set), so
-    // the daily log the spine builds next already reflects the subtracted travel times.
+    // the summary the spine returns already reflects the subtracted travel times.
     await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
                     allocations: collectGapAllocations(eodGaps) });
     const d = await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
@@ -691,12 +718,9 @@ $('finishDay').onclick = async () => {
     const cc = await idb.get('dayCache', key);
     if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
     closeSheets();
-    if (d.pdf && d.pdf.base64) {
-      downloadBase64Pdf(d.pdf.base64, d.pdf.name);
-      toast('Day closed ✓ · PDF downloaded');
-    } else {
-      toast(d.pdf && d.pdf.error ? ('Day closed · PDF failed') : 'Day closed ✓');
-    }
+    // Render the PDF on the phone from the spine's summary (high-fidelity travel).
+    if (d.summary) { downloadDailyLog(d.summary); toast('Day closed ✓ · PDF downloaded'); }
+    else toast('Day closed ✓');
   } catch { toast('Could not reach the sheet'); }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
@@ -721,39 +745,34 @@ async function fetchWeather(lat,lng){
     return parts.join(' · ');
   } catch { return ''; }
 }
-// download the PDF the spine returns
-function downloadBase64Pdf(b64, name){
-  try{
-    const bin = atob(b64), bytes = new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
-    const a = document.createElement('a'); a.href=url; a.download=name||'DailyLog.pdf';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  } catch { toast("PDF ready, but download was blocked — it's also in Drive"); }
-}
-
 // ── generate a draft daily log WITHOUT closing the day ─────────────────────
-// Builds + downloads the PDF from today's stops only. Writes nothing (no Tracker
-// row); departure / return / weather stay blank — the real End of day fills them.
+// Renders + downloads the PDF on the phone from today's stops only. Writes nothing
+// (no Tracker row); weather stays blank — the real End of day fills it. Online we
+// use the spine's summary (merged-boat travel); offline we build it from cache.
 $('genLog').onclick = async () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   const btn = $('genLog');
   toast('Building daily log…');
   btn.classList.add('loading'); btn.disabled = true;
-  await flush();
   try{
-    const d = await apiPost({ action:'previewDailyLog',
-                              installer:c.name, installerId:c.hNumber,
-                              includeDelays:$('eodIncludeDelays').checked });
-    if (d.pdf && d.pdf.base64) {
-      downloadBase64Pdf(d.pdf.base64, d.pdf.name);
+    let summary = null;
+    if(navigator.onLine){
+      await flush();
+      try{
+        const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
+                                  includeDelays:$('eodIncludeDelays').checked });
+        summary = d.summary || null;
+      } catch {}
+    }
+    if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
+    if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
+      downloadDailyLog(summary);
       toast('Daily log downloaded — draft (day not closed)');
     } else {
-      toast(d.pdf && d.pdf.error ? 'Daily log failed to build' : 'No stops logged today yet');
+      toast('No stops logged today yet');
     }
-  } catch { toast('Could not reach the sheet'); }
+  } catch { toast('Could not build the daily log'); }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
 

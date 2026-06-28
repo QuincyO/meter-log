@@ -5,8 +5,10 @@
 import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
+import { buildLocalSummary } from '../compute/summary.js';
+import { downloadDailyLog } from '../dailylog.js';
 
-let state = { employees:[], installer:'', installerId:'', date:'', stops:[] };
+let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null };
 
 const CAT_LABEL = {
   NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
@@ -69,11 +71,13 @@ $('loadBtn').onclick = async () => {
   state.installer = fullName(emp); state.installerId = h; state.date = date;
   setStatus('wait','Loading…');
   try{
-    const d = await apiGet('day', { installer:state.installer, date });
+    const d = await apiGet('day', { installer:state.installer, installerId:state.installerId, date });
     if(!d.ok) throw new Error(d.error||'load failed');
     setStatus('ok','Synced');
     // DONE markers are coordinates-only and never print on the log — leave them out.
     state.stops = (d.stops||[]).filter(s => s.status !== 'DONE');
+    state.downtime = d.downtime || [];        // for the offline daily-log fallback
+    state.boatMeta = d.boatMeta || null;       // team header + whole-boat dispatch
     $('departure').value = (d.day && d.day.departure) || '';
     $('returned').value  = (d.day && d.day.returned)  || '';
     renderClosed(d.closed);
@@ -300,15 +304,16 @@ $('saveTimes').onclick = async () => {
 // Re-draw the 1st WO's launch leg as the Departure time is typed.
 $('departure').addEventListener('input', () => { if(updateLaunch) updateLaunch(); });
 
-function downloadBase64Pdf(b64, name){
-  try{
-    const bin = atob(b64), bytes = new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
-    const a = document.createElement('a'); a.href=url; a.download=name||'DailyLog.pdf';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  } catch { toast('PDF ready, but download was blocked — it’s also in Drive'); }
+// Build the daily-log summary from the loaded day for the offline render path —
+// uses the on-screen bookends + travel deductions + the cached team/boat meta.
+function localSummary(){
+  return buildLocalSummary({
+    installer:state.installer, installerId:state.installerId, date:state.date,
+    stops:state.stops, downtime:state.downtime,
+    day:{ departure:$('departure').value, returned:$('returned').value },
+    boatMeta:state.boatMeta, includeDelays:$('includeDelays').checked,
+    pendingTravel: collectGapAllocations(gapData)
+  });
 }
 
 // Save the on-screen bookends + travel deductions (so the PDF / close reflect them)
@@ -319,19 +324,25 @@ async function persistEdits(){
                date:state.date, allocations: collectGapAllocations(gapData) });
 }
 
-// Generate = PDF only. previewDailyLog builds the PDF without closing the day
-// (no Tracker / Timing rows). Use "Close day" to finalize.
+// Generate = PDF only, rendered on the device. previewDailyLog returns the summary
+// (no Tracker / Timing rows) which we draw; falls back to a local summary if the
+// save/preview can't reach the Sheet. Use "Close day" to finalize.
 $('genLog').onclick = async () => {
   if(!state.installer){ toast('Load a day first'); return; }
   setStatus('wait','Generating…');
   try{
-    await persistEdits();
-    const d = await post({ action:'previewDailyLog', installer:state.installer, installerId:state.installerId,
-                           date:state.date, departure:$('departure').value, returned:$('returned').value,
-                           includeDelays:$('includeDelays').checked });
-    setStatus('ok','Synced');
-    if(d.pdf && d.pdf.base64){ downloadBase64Pdf(d.pdf.base64, d.pdf.name); toast('Daily log ready ✓ · day not closed'); }
-    else toast(d.pdf && d.pdf.error ? 'PDF failed' : 'Daily log built ✓');
+    let summary = null;
+    try{
+      await persistEdits();
+      const d = await post({ action:'previewDailyLog', installer:state.installer, installerId:state.installerId,
+                             date:state.date, departure:$('departure').value, returned:$('returned').value,
+                             includeDelays:$('includeDelays').checked });
+      summary = d.summary || null;
+      setStatus('ok','Synced');
+    } catch { summary = localSummary(); setStatus('off','Offline — local draft'); }
+    if(!summary) summary = localSummary();
+    downloadDailyLog(summary);
+    toast('Daily log ready ✓ · day not closed');
   } catch(err){ setStatus('off','Error'); toast(err.message || 'Could not generate'); }
 };
 

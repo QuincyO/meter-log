@@ -139,232 +139,8 @@ const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
 ];
 
-// ── Daily-log PDF (Phase 1) ────────────────────────────────────────────────
-const TEMPLATE_TAB = 'DailyLog Template';
-const PDF_FOLDER   = 'Meter Log — Daily Logs';
-const BODY_START   = 10;   // first stop row in the template
-const BODY_ROWS    = 18;   // printed blank rows, like the paper form
-
-// Where each header value lands. Must match setupDailyLogTemplate() below —
-// if you move a box there, update its anchor here.
-const ANCHORS = {
-  name:'B1', partner:'B2', captain:'B3',           // crew, auto-filled from the boat team
-  boatTeam:'D1', boatName:'D2', date:'D3', sub:'D4',
-  weather:'G2',
-  delayTime:'D5',                                   // total same-island meter-to-meter delay
-  departure:'D6', returned:'E7',                    // anchors the launch / return travel legs
-  travelTime:'D8',                                  // total island-to-island travel
-  boatDispatch:'G8'                                 // whole-boat dispatch downtime (shared by the crew)
-};
-
-/** Builds the template tab to match the paper daily log. Re-run any time the
- *  layout changes (it deletes + rebuilds the tab). */
-function setupDailyLogTemplate() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName(TEMPLATE_TAB);
-  if (sh) ss.deleteSheet(sh);
-  sh = ss.insertSheet(TEMPLATE_TAB);
-
-  const COLS = 8, FOOTER = BODY_START + BODY_ROWS;   // 28
-  [34, 84, 96, 168, 168, 120, 104, 76].forEach((w,i)=> sh.setColumnWidth(i+1, w));
-  sh.getRange(1,1,FOOTER,COLS).setFontFamily('Arial').setFontSize(9)
-    .setVerticalAlignment('middle').setWrap(true);
-
-  const L = (a1, txt) => sh.getRange(a1).setValue(txt).setFontWeight('bold').setFontSize(8);
-
-  // header — left A:B
-  L('A1','Name:'); L('A2','Partner:'); L('A3','Captain:');
-  sh.getRange('A4:B4').merge(); L('A4','Describe AM Delays:');
-  sh.getRange('A5:B8').merge().setVerticalAlignment('top');
-  // header — center-left C:D
-  L('C1','Boat Team:'); L('C2','Boat Name:'); L('C3','Date:'); L('C4','Sub:');
-  L('C5','Delay Time:'); L('C6','Departure Time:'); L('C7','Lunch Time:');
-  L('C8','Travel Time:');
-  // header — center-right E:F
-  sh.getRange('E1:F1').merge(); L('E1','Launch / Body of Water:');
-  sh.getRange('E2:F2').merge();
-  sh.getRange('E3:F3').merge(); L('E3','Safety Concerns:');
-  sh.getRange('E4:F5').merge().setVerticalAlignment('top');
-  sh.getRange('E6:F6').merge(); L('E6','Returned to Land:');
-  sh.getRange('E7:F7').merge();
-  sh.getRange('E8:F8').merge(); L('E8','Boat Dispatch:');
-  // header — right G:H
-  sh.getRange('G1:H1').merge(); L('G1','Weather / Wind & Direction:');
-  sh.getRange('G2:H2').merge();
-  sh.getRange('G3:H3').merge(); L('G3','Needed on Boat Teams:');
-  sh.getRange('G4:H5').merge().setVerticalAlignment('top');
-  sh.getRange('G6:H6').merge(); L('G6','Ride to 1st WO:');
-  sh.getRange('G7:H7').merge(); sh.getRange('G8:H8').merge();
-
-  // table header (row 9)
-  sh.getRange(9,1,1,COLS)
-    .setValues([['#','WO#','Old J #','New J # (or UTI reason)','Address','Island Name','Meter Read','Travel (min)']])
-    .setFontWeight('bold').setFontSize(8).setHorizontalAlignment('center').setBackground('#EEF1F5');
-
-  // footer (row 28)
-  L('A'+FOOTER,'Total Installed:'); L('C'+FOOTER,"Total UTI's:");
-  sh.getRange('E'+FOOTER+':H'+FOOTER).merge();
-
-  // borders + heights
-  sh.getRange(1,1,8,COLS).setBorder(true,true,true,true,true,true);
-  sh.getRange(9,1,1+BODY_ROWS,COLS).setBorder(true,true,true,true,true,true);
-  sh.getRange(FOOTER,1,1,COLS).setBorder(true,true,true,true,true,true);
-  sh.setRowHeight(9,26); sh.setRowHeight(FOOTER,26);
-  for (let r=BODY_START; r<FOOTER; r++) sh.setRowHeight(r,22);
-  sh.getRange(BODY_START,1,BODY_ROWS,1).setHorizontalAlignment('center');
-  sh.getRange(BODY_START,7,BODY_ROWS,2).setHorizontalAlignment('center');
-  return sh;
-}
-
-/** Fills a copy of the template with the day, exports it to PDF, saves a copy
- *  to Drive, and returns the bytes (base64) so the phone downloads instantly. */
-function buildDailyLogPdf(s) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tpl = ss.getSheetByName(TEMPLATE_TAB);
-  if (!tpl) return { error: 'template tab missing — run setupDailyLogTemplate()' };
-
-  // Only the work that earns a body line: installs and UTIs. The "Other"-button
-  // outcomes (VISITED / UNACCOUNTED) and DONE markers stay off the body and are
-  // rolled into a single "Visited" tally in the footer — every one means the
-  // crew still went and checked the island, which is worth noting.
-  const editable    = (s.stops||[]).filter(x => x.status==='INSTALLED' || x.status==='UTI');
-  const installed   = (s.stops||[]).filter(x => x.status==='INSTALLED').length;
-  const uti         = (s.stops||[]).filter(x => x.status==='UTI').length;
-  const visited     = (s.stops||[]).filter(x => x.status==='VISITED').length;
-  const unaccounted = (s.stops||[]).filter(x => x.status==='UNACCOUNTED').length;
-  const done        = (s.stops||[]).filter(x => x.status==='DONE').length;
-
-  // When false (the End-of-day "Include delays & travel time" box was unchecked),
-  // the PDF prints installs/UTIs only: Delay Time box, Travel Time box, per-stop
-  // Travel column, and the Delays/Breaks/Misc footer line are all suppressed.
-  // The day's totals are still computed and recorded — this only gates rendering.
-  const showDT = s.includeDelays !== false;
-
-  const copy = tpl.copyTo(ss).setName('_tmp_' + Date.now());
-  try {
-    const FOOTER0 = BODY_START + BODY_ROWS;
-    const n = editable.length;
-    const put = (a1, v) => copy.getRange(a1).setValue(v == null ? '' : v);
-
-    put(ANCHORS.name,    s.installer);
-    put(ANCHORS.partner, s.partner  || '');   // other crew on the boat team
-    put(ANCHORS.captain, s.captain  || '');
-    put(ANCHORS.sub,     s.sub      || '');
-    put(ANCHORS.boatTeam,s.boatTeam || '');    // boat number + team letter, e.g. "11A"
-    put(ANCHORS.boatName,s.boatName || '');
-    put(ANCHORS.date,    s.date);
-    put(ANCHORS.weather,    s.weather  || '');
-    put(ANCHORS.delayTime, showDT ? (s.downtimeTotalMin || 0) : '');  // categorized downtime total (excl. Travel Time)
-    put(ANCHORS.boatDispatch, showDT ? (s.boatDispatchMin || 0) : '');  // whole-boat dispatch downtime (shared)
-    put(ANCHORS.departure, s.departure || '');     // anchors the launch travel leg
-    put(ANCHORS.returned,  s.returned  || '');     // anchors the return travel leg
-    // Travel Time box is summed from the per-row column below, so the two always
-    // reconcile on the page. The column shows every stop's full arrival gap, so this
-    // total can overlap with the Delay Time box by design. s.travelMinutes (Tracker)
-    // is now the same per-person total — both sum this installer's own arrival gaps.
-    let travelColSum = 0;
-
-    let footerRow = FOOTER0;
-    if (n > BODY_ROWS) {                       // grow if a big day
-      const extra = n - BODY_ROWS;
-      copy.insertRowsAfter(FOOTER0 - 1, extra);
-      copy.getRange(BODY_START,1,1,8).copyTo(copy.getRange(FOOTER0,1,extra,8), {formatOnly:true});
-      footerRow = FOOTER0 + extra;
-    }
-
-    editable.forEach((x, i) => {
-      const r = BODY_START + i;
-      const reads = (x.meterRead || x.meterRead === 0)
-        ? (x.meterRead + ((x.meterReadReceived || x.meterReadReceived === 0) ? (' / ' + x.meterReadReceived) : ''))
-        : (x.noReadReason ? 'no read' : '');
-      // The New-J# column doubles as the outcome column: J# for an install, the
-      // reason for a UTI. Only installs and UTIs reach the body now; the "Other"
-      // attendance outcomes are summarized in the footer instead.
-      const note4 = x.status === 'UTI' ? (x.utiReason || 'UTI') : (x.newJNumber || '');
-      // Travel column = full minutes to reach this stop, i.e. the arrival gap from
-      // the previous activity (first row = launch leg). Every stop with a preceding
-      // gap gets a number, including one reached after a flagged delay. The Travel
-      // Time box is the running sum of this column.
-      const t = showDT && s.perStopTravel && x.id != null ? s.perStopTravel[x.id] : undefined;
-      const travel = (t == null || t === 0) ? '' : t;   // '~' for launch, number otherwise, blank when 0/none
-      if (typeof travel === 'number') travelColSum += travel;
-      copy.getRange(r,1,1,8).setValues([[
-        i+1, x.workOrderId || '', x.oldJNumber || '',
-        note4,
-        locLabelSrv(x), '',                    // Island Name blank in Phase 1
-        x.status === 'INSTALLED' ? reads : '',
-        travel
-      ]]);
-    });
-    put(ANCHORS.travelTime, showDT ? travelColSum : '');
-
-    copy.getRange(footerRow, 2).setValue(installed);
-    copy.getRange(footerRow, 4).setValue(uti);
-    // Every "Other"-button outcome plus DONE rolls into one Visited tally —
-    // each one is an island the crew took the time to go and check.
-    const visitedTotal = visited + unaccounted + done;
-    const extraCounts = visitedTotal ? ('Visited ' + visitedTotal + '  ·  ') : '';
-    // Three independent lenses, each summing its own category set: real work delays,
-    // lunch/breaks, and miscellaneous (non-WO→WO) travel. Breaks & Misc Travel were
-    // subtracted from the WO→WO travel above, so they're reported separately here.
-    const delays = (s.downtime||[]).filter(d => CATEGORIES.indexOf(d.category) >= 0);
-    const breaks = (s.downtime||[]).filter(d => BREAK_CATS.indexOf(d.category) >= 0);
-    const misc   = (s.downtime||[]).filter(d => TRAVEL_ADJ_CATS.indexOf(d.category) >= 0);
-    const segs = ['Delays:  ' + downtimeSummary(delays)];
-    if (breaks.length) segs.push('Breaks:  ' + downtimeSummary(breaks));
-    if (misc.length)   segs.push('Misc Travel:  ' + downtimeSummary(misc));
-    // showDT off → footer carries only the Visited/Unaccounted counts, no delay segments.
-    copy.getRange(footerRow, 5).setValue(showDT
-      ? (extraCounts + segs.join('   ·   '))
-      : extraCounts.replace(/\s*·\s*$/, ''));
-    SpreadsheetApp.flush();
-
-    // FirstNameLastName_Date_DailyLog.pdf — e.g. SamRivera_2026-06-21_DailyLog.pdf
-    const who  = String(s.installer||'').replace(/[^A-Za-z0-9]+/g,'') || 'Installer';
-    const name = who + '_' + s.date + '_DailyLog.pdf';
-    const blob = exportSheetPdf(ss.getId(), copy.getSheetId(), name);
-    const file = getOrCreateFolder(PDF_FOLDER).createFile(blob);
-    return { base64: Utilities.base64Encode(blob.getBytes()), url: file.getUrl(), name: name };
-  } catch (err) {
-    return { error: String(err) };
-  } finally {
-    ss.deleteSheet(copy);
-  }
-}
-
-function exportSheetPdf(ssId, gid, name) {
-  const params = ['format=pdf','gid='+gid,'size=letter','portrait=false','fitw=true',
-    'gridlines=false','sheetnames=false','printtitle=false','pagenumbers=false',
-    'top_margin=0.3','bottom_margin=0.3','left_margin=0.3','right_margin=0.3'].join('&');
-  const res = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/'+ssId+'/export?'+params,
-    { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-  return res.getBlob().setName(name);
-}
-function getOrCreateFolder(name) {
-  const it = DriveApp.getFoldersByName(name);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
-}
-function locLabelSrv(s) {
-  const unit = String(s.unit==null?'':s.unit).trim(), addr = String(s.address==null?'':s.address).trim();
-  if (!addr) return '';
-  return unit ? (unit + ' ' + addr) : addr;
-}
-const CAT_LABEL_SRV = { NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
-  WAREHOUSE:'Warehouse', TOOLS_MATERIAL:'Tools/Material', DISPATCH:'Dispatch',
-  TRUCK_ISSUES:'Truck Issues', ASSIST:'Assist', URGENT_EER:'Urgent/EER', OTHER:'Other',
-  LUNCH:'Lunch', BREAK:'Break', MISC_TRAVEL:'Misc Travel',
-  // Logged like a downtime reason but counts as TRAVEL, not downtime (see buildDaySummary).
-  TRAVEL_TIME:'Travel Time' };
-function downtimeSummary(downtime) {
-  const byCat = {}; let total = 0;
-  (downtime||[]).forEach(d => { const c=d.category||'OTHER', m=Number(d.minutes)||0; byCat[c]=(byCat[c]||0)+m; total+=m; });
-  const parts = Object.keys(byCat).map(c => (CAT_LABEL_SRV[c]||c)+' '+byCat[c]);
-  return parts.length ? (parts.join(' · ') + ' · Total ' + total + ' min') : '0 min';
-}
-
-// Run once from the editor to grant the new Drive + external-request scopes.
+// Run once from the editor to grant the external-request scope (weather lookup).
 function grantPermissions() {
-  getOrCreateFolder(PDF_FOLDER);
   UrlFetchApp.fetch('https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m');
 }
 
@@ -393,7 +169,6 @@ function setupSheets() {
   // timestamp column to text so it stays the naive Toronto string it was written as.
   ss.getSheetByName('Stops').getRange('B2:B').setNumberFormat('@');     // timestamp
   ss.getSheetByName('Downtime').getRange('B2:B').setNumberFormat('@');  // timestamp
-  setupDailyLogTemplate();
 }
 
 function ensureTab(ss, name, headers) {
@@ -467,19 +242,25 @@ function doGet(e) {
     const date = p.date || today();
     // `day` (bookend times) + `closed` (a Tracker row already exists) let edit.html
     // pre-fill the Departure/Returned inputs and show whether the day is closed.
+    // `boatMeta` (team header + whole-boat dispatch) seeds the offline daily-log
+    // cache on a fresh load, when installerId is supplied (collision-safe by H#).
     return json({ ok: true,
                   stops: stopsFor(p.installer, date),
                   downtime: downtimeFor(p.installer, date),
                   day: dayMeta(p.installer, date),
+                  boatMeta: p.installerId ? boatMetaFor(p.installerId, date) : null,
                   closed: dayClosed(p.installer, date) });
   }
   if (p.action === 'range') {
     // One installer's stops + downtime across a date window, grouped by day, in a
     // single call — feeds the phone's offline "recent days" cache (≤ ~a week) so
-    // it isn't N separate `day` requests.
+    // it isn't N separate `day` requests. boatMeta (when installerId given) lets a
+    // recent-days pull seed the daily-log cache for each day too.
     const from = p.from || today();
     const to   = p.to   || today();
-    return json({ ok: true, days: rangeData(p.installer, from, to) });
+    const days = rangeData(p.installer, from, to);
+    if (p.installerId) days.forEach(d => { d.boatMeta = boatMetaFor(p.installerId, d.date); });
+    return json({ ok: true, days: days });
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
@@ -538,7 +319,13 @@ function addStop(b) {
   // Idempotency: if the client sent an id we already appended, this is a retry of
   // a write that actually succeeded (the client just never saw the response). Ack
   // it without writing a second row. Dispatch downtime already ran the first time.
-  if (b.id && idExists(sh, b.id)) return { ok: true, id: b.id };
+  if (b.id && idExists(sh, b.id)) {
+    // Idempotent retry — still refresh the boat meta so a late re-send keeps the
+    // phone's offline daily-log cache current.
+    const r = { ok: true, id: b.id };
+    if (b.installerId) r.boatMeta = boatMetaFor(b.installerId, dateOf(b.timestamp || now()));
+    return r;
+  }
   b.timestamp = b.timestamp || now();   // resolve once so the Stops row, the
   // reconciled Dispatch completedTime, and applyDispatchDowntime all agree.
   const row = [
@@ -576,6 +363,9 @@ function addStop(b) {
   // average + matched Dispatch rows fresh once at endOfDay (off-peak).
   const res = { ok: true, id: id };
   if (flagged) { res.flagged = true; res.history = hist; }
+  // Whole-boat dispatch + team header for the phone's offline daily-log cache.
+  // One team-scoped read per log — keeps a value in cache as the crew works.
+  if (b.installerId) res.boatMeta = boatMetaFor(b.installerId, dateOf(b.timestamp));
   return res;
 }
 
@@ -812,7 +602,7 @@ function buildDaySummary(b) {
   if (gi.isFirst && gi.firstId != null) perStopTravel[gi.firstId] = '~';
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
-    // PDF-only flag: when false, buildDailyLogPdf omits the delay/travel cells.
+    // PDF-only flag: when false, the phone renderer omits the delay/travel cells.
     // It never affects the Tracker/Timing writes — analytics always gets full data.
     includeDelays: b.includeDelays !== false,
     downtimeTotalMin: downtimeTotal, byCategory: byCat,
@@ -884,8 +674,9 @@ function endOfDay(b) {
     }
   }
 
-  const pdf = buildDailyLogPdf(s);
-  return { ok: true, summary: s, pdf };
+  // The PDF is rendered on the phone from this summary (offline-capable) — the
+  // spine no longer builds it. Return the summary only.
+  return { ok: true, summary: s };
 }
 
 /** Snapshot a boat's crew for one day into BoatDays — one row per (date, boatNumber),
@@ -1018,6 +809,21 @@ function boatDispatchSum(team, date) {
     .reduce((a, name) => a + dispatchMinFor(name, date), 0);
 }
 
+/** The daily-log header block + whole-boat dispatch number for one installer's
+ *  boat on a date — the bits the phone can't derive from its own cached stops.
+ *  Returned on every addStop and the day/range reads so an offline daily-log PDF
+ *  always has team names + the shared dispatch minutes already in cache. Returns
+ *  null when no installerId is given (the caller leaves the cache untouched). */
+function boatMetaFor(installerId, date) {
+  const id = String(installerId == null ? '' : installerId).trim();
+  if (!id) return null;
+  const team = teamForEmployee(id);
+  const hdr  = teamHeader(team, id);
+  return { partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
+           boatTeam: hdr.boatTeam, boatName: hdr.boatName,
+           boatDispatchMin: team ? boatDispatchSum(team, date || today()) : 0 };
+}
+
 /** Header-aware partial upsert of a Days row: set only the named columns on the
  *  (date, installer) row, preserving everything else (bookends). Appends a fresh
  *  row if none exists yet — a teammate may not have closed their own day. */
@@ -1062,8 +868,10 @@ function dayClosed(installer, date) {
  *  return fall back to the persisted Days row. The real endOfDay later fills the
  *  blanks. */
 function previewDailyLog(b) {
-  const s = buildDaySummary(b);
-  return { ok: true, summary: s, pdf: buildDailyLogPdf(s) };
+  // Returns the summary the phone renders the PDF from — no Tracker/Timing write,
+  // no server-side PDF. Weather / notes stay blank unless the form sends them;
+  // departure / return fall back to the persisted Days row.
+  return { ok: true, summary: buildDaySummary(b) };
 }
 
 /** The activity list for ONE installer's gap calc — the WHOLE boat's logs (every

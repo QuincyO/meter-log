@@ -102,9 +102,9 @@ and works even with no signal (queued up on the phone).
 **Write actions (POST):** `addStop`, `addDowntime`,
 `dispatchRequest` (Apple Shortcut: log a pending meter request — see "Dispatch downtime"),
 `updateStop`, `endOfDay`,
-`previewDailyLog` (build the daily-log PDF on demand from today's stops **without**
-writing a Tracker row or requiring departure/return — the real `endOfDay` later
-fills the blanks),
+`previewDailyLog` (return the day `summary` on demand from today's stops **without**
+writing a Tracker row or requiring departure/return — the phone renders the PDF
+from it; the real `endOfDay` later fills the blanks),
 `saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
 `saveDay`,
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
@@ -159,9 +159,10 @@ database, `meterlog`, with **four** object stores:
   so the network `idle` fetch isn't needed to show or edit travel time), and the
   in-progress deductions + Departure/Returned bookends are stashed in the cache
   field `eodTravel` (cleared once `saveTravel` syncs). Finishing the day with no
-  signal queues `saveTravel` + `saveDay` and tells the installer to tap Finish
-  again online for the PDF (the spine builds it, so closing the day needs a
-  connection); when online the authoritative `idle` overrides the local gaps.
+  signal queues `saveTravel` + `saveDay` + `endOfDay` and **renders the PDF on the
+  device** from the cached day (the phone draws it with jsPDF — no connection
+  needed; see "Daily-log PDF"); when online the authoritative `idle` overrides the
+  local gaps.
 - **`worklist`** (keyPath `id`) — the installer's locally-built **planned
   orders** (a personal to-do list, never sent to the Sheet). Add / edit / delete
   all run against IndexedDB, so the list is fully editable offline. An order is
@@ -579,7 +580,8 @@ the PDF footer, so adding them needed **no sheet-schema change**.
 
 **Clean-log toggle (`includeDelays`).** Both end-of-day surfaces carry an "Include
 delays & travel time on PDF" checkbox (checked by default). The `endOfDay` /
-`previewDailyLog` request body sends `includeDelays`; when `false`, `buildDailyLogPdf`
+`previewDailyLog` request body sends `includeDelays`; it rides in the `summary` as
+`includeDelays`, and when `false` the phone renderer (`js/dailylog.js`)
 suppresses the "Delay Time:" box, the "Travel Time:" box, the per-stop Travel (min)
 column, and the whole Delays/Breaks/Misc Travel footer line — leaving an installs/UTIs
 log (Departure/Returned still print). The flag is **PDF-only**: `buildDaySummary` still
