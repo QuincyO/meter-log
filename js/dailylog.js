@@ -139,8 +139,11 @@ export function renderDailyLog(summary){
   // ── table header ─────────────────────────────────────────────────────────
   let y = headTop + HEAD_ROWS*HROW_H;
   const drawTableHead = (yy) => {
-    doc.setFillColor(238, 241, 245);
     TABLE_COLS.forEach((t, i) => {
+      // Re-set the fill before EVERY cell: drawing text emits `0 g` (black) which
+      // becomes the current fill colour, so a single set-before-loop would leave
+      // every cell after the first filled black.
+      doc.setFillColor(238, 241, 245);
       doc.rect(colX[i], yy, colW[i], THEAD_H, 'FD');
       put(colX[i], yy, colW[i], THEAD_H, t, { bold:true, size:7.5, align:'center' });
     });
