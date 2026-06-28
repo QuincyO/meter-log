@@ -1711,3 +1711,76 @@ function dateOf(ts) {
   // Otherwise it's already a local string (now() output) or a plain date → first 10 chars.
   return s.slice(0, 10);
 }
+
+// ── GitHub markdown export ─────────────────────────────────────────────────
+// Nightly snapshot of every data tab to data/*.md, committed to `main` in one
+// atomic commit via the GitHub Git Data API. Trigger-driven — see
+// createDailyExportTrigger(). Auth is a fine-grained PAT in Script Properties
+// (GITHUB_TOKEN + GITHUB_REPO); a real secret, never hardcoded here.
+
+// Escape one cell value for a GitHub-flavored-markdown table. Date cells (some
+// columns hold real Date objects) render as Toronto 'yyyy-MM-dd HH:mm:ss'.
+function mdEscapeCell(value) {
+  let s;
+  if (value == null) s = '';
+  else if (Object.prototype.toString.call(value) === '[object Date]')
+    s = Utilities.formatDate(value, TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+  else s = String(value);
+  return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+}
+
+// Render one tab as: H1 + "_<n> rows · exported <ts> <tz>_" + GFM table (or
+// "_(no rows)_" when there is no data). Trailing newline so files end clean.
+function tabToMarkdown(name, headers, dataRows, exportedAt) {
+  const meta = '_' + dataRows.length + ' row' + (dataRows.length === 1 ? '' : 's') +
+    ' · exported ' + exportedAt + ' ' + TIMEZONE + '_';
+  let body;
+  if (!dataRows.length) {
+    body = '_(no rows)_';
+  } else {
+    const head = '| ' + headers.map(mdEscapeCell).join(' | ') + ' |';
+    const sep  = '| ' + headers.map(function () { return '---'; }).join(' | ') + ' |';
+    const lines = dataRows.map(function (r) {
+      return '| ' + headers.map(function (_, i) { return mdEscapeCell(r[i]); }).join(' | ') + ' |';
+    });
+    body = [head, sep].concat(lines).join('\n');
+  }
+  return '# ' + name + '\n\n' + meta + '\n\n' + body + '\n';
+}
+
+// The data/README.md index: timestamp + a bullet per tab linking its file.
+function buildIndexMarkdown(index, exportedAt) {
+  const lines = index.map(function (t) {
+    return '- [' + t.name + '](' + t.name + '.md) — ' +
+      t.count + ' row' + (t.count === 1 ? '' : 's');
+  });
+  return '# Sheet export\n\n_Exported ' + exportedAt + ' ' + TIMEZONE + '_\n\n' +
+    'Nightly Markdown snapshot of the meter-log Google Sheet.\n\n' +
+    lines.join('\n') + '\n';
+}
+
+// ── GitHub markdown export — self-tests (run from the editor) ───────────────
+function test_markdownFormatting() {
+  if (mdEscapeCell('a|b') !== 'a\\|b')   throw new Error('pipe not escaped');
+  if (mdEscapeCell('a\nb') !== 'a<br>b') throw new Error('newline not escaped');
+  if (mdEscapeCell('a\\b') !== 'a\\\\b') throw new Error('backslash not escaped');
+  if (mdEscapeCell(null) !== '')         throw new Error('null should be empty string');
+  if (mdEscapeCell(0) !== '0')           throw new Error('0 should stringify');
+
+  const md = tabToMarkdown('T', ['x', 'y'], [[1, 2]], '2026-06-28 03:00');
+  if (md.indexOf('# T') !== 0)            throw new Error('missing H1');
+  if (md.indexOf('1 row ') === -1)       throw new Error('singular row count');
+  if (md.indexOf('| x | y |') === -1)    throw new Error('missing header row');
+  if (md.indexOf('| --- | --- |') === -1) throw new Error('missing separator row');
+  if (md.indexOf('| 1 | 2 |') === -1)    throw new Error('missing data row');
+
+  const empty = tabToMarkdown('E', ['x'], [], '2026-06-28 03:00');
+  if (empty.indexOf('0 rows') === -1)    throw new Error('plural row count');
+  if (empty.indexOf('_(no rows)_') === -1) throw new Error('empty tab body');
+
+  const idx = buildIndexMarkdown([{ name: 'Stops', count: 3 }], '2026-06-28 03:00');
+  if (idx.indexOf('[Stops](Stops.md)') === -1) throw new Error('index link');
+  if (idx.indexOf('3 rows') === -1)      throw new Error('index row count');
+
+  Logger.log('test_markdownFormatting OK');
+}
