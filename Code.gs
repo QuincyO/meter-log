@@ -1837,6 +1837,26 @@ function githubCommitFiles(files, message) {
   return commit.sha;
 }
 
+// Trigger entry point: snapshot every tab and push it to main in one commit.
+function exportSheetToGithub() {
+  const files = buildExportFiles();
+  const sha = githubCommitFiles(files, 'Nightly sheet export — ' + today());
+  Logger.log('Pushed export commit ' + sha + ' (' + files.length + ' files).');
+  return sha;
+}
+
+// Run ONCE by hand from the editor to install the nightly (~3am Toronto)
+// trigger. Idempotent: deletes any existing exportSheetToGithub trigger first,
+// so re-running doesn't stack duplicates.
+function createDailyExportTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'exportSheetToGithub') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('exportSheetToGithub')
+    .timeBased().atHour(3).everyDays(1).inTimezone(TIMEZONE).create();
+  Logger.log('Daily export trigger installed (~3am ' + TIMEZONE + ').');
+}
+
 // ── GitHub markdown export — self-tests (run from the editor) ───────────────
 function test_markdownFormatting() {
   if (mdEscapeCell('a|b') !== 'a\\|b')   throw new Error('pipe not escaped');

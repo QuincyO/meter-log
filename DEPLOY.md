@@ -69,3 +69,22 @@ functions.
 - **The `/exec` URL changed** — someone created a new deployment instead of
   redeploying. Put the old deployment's ID back, or update `DEPLOYMENT_ID` in the
   workflow **and** `WEB_APP_URL` in all three HTML files to match.
+
+## Nightly Sheet → Markdown export (one-time setup)
+
+`exportSheetToGithub()` (in `Code.gs`) snapshots every sheet tab into `data/*.md`
+on `main` nightly. It needs two one-time manual steps in the bound Apps Script
+project — the code can't do these for you:
+
+1. **Create a GitHub fine-grained PAT** scoped to `QuincyO/meter-log` with
+   **Contents: Read and write**. Copy the token.
+2. **Apps Script ▸ Project Settings ▸ Script Properties**, add:
+   - `GITHUB_TOKEN` = the PAT from step 1
+   - `GITHUB_REPO` = `QuincyO/meter-log`
+3. **Install the trigger:** in the editor, run `createDailyExportTrigger()` once
+   (authorize when prompted). It installs a ~3am America/Toronto daily trigger
+   and is safe to re-run (it de-dupes its own trigger).
+
+To take a snapshot on demand, run `exportSheetToGithub()` from the editor — the
+execution log prints the new commit SHA. The PAT is a real secret and lives only
+in Script Properties, never in `Code.gs`.
