@@ -5,7 +5,7 @@
 // dayCache / worklist); see the imported modules.
 import { cfg, store } from '../store.js';
 import { $, enc, esc, attr, toast } from '../dom.js';
-import { stamp, localDate, clockOf, hhmmMin, ordinal } from '../time.js';
+import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
 import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks } from '../queue.js';
@@ -639,7 +639,7 @@ function renderEod(stops, downtime){
   updateLaunch = null;   // cleared each render; the 1st WO re-arms it if it has a launch leg
   if(!editable.length){ list.innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
-  const ordered = editable.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
+  const ordered = editable.slice().sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
   ordered.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true })));
 }
@@ -883,7 +883,7 @@ function renderRecentDay(d){
   head.textContent = `${d.date} — ` + tallyText(countDay(d.stops, d.downtime));
   box.appendChild(head);
   const editable = d.stops.filter(s=>PRINTABLE[s.status])
-    .sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
+    .sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   if(!editable.length){
     const p=document.createElement('p'); p.className='muted'; p.textContent='Nothing logged this day.';
     box.appendChild(p); return;

@@ -4,7 +4,7 @@
 // (previewDailyLog) or close the day (endOfDay). Read-mostly — no offline queue.
 import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
-import { clockOf, hhmmMin, ordinal } from '../time.js';
+import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 
 let state = { employees:[], installer:'', installerId:'', date:'', stops:[] };
 
@@ -105,7 +105,9 @@ function renderStops(){
   box.innerHTML = '';
   updateLaunch = null;   // cleared each render; the 1st WO re-arms it if it has a launch leg
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
-  const ordered = state.stops.slice().sort((a,b)=> String(a.timestamp).localeCompare(String(b.timestamp)));
+  // Sort by parsed time, not the raw string: a lexicographic compare puts an
+  // unpadded-hour stamp ("…8:52") after "…11:11" because '8' > '1'.
+  const ordered = state.stops.slice().sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
   ordered.forEach(s => box.appendChild(stopCard(s, posById[s.id])));
 }
