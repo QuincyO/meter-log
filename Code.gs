@@ -1791,6 +1791,52 @@ function buildExportFiles() {
   return files;
 }
 
+// Push every file in `files` to `main` in ONE atomic commit via the Git Data
+// API (ref → base commit → new tree → new commit → move ref). Returns the new
+// commit SHA. Throws (with the response body) on any non-2xx, so a partial push
+// can never happen — the ref only moves after every blob/tree/commit succeeds.
+function githubCommitFiles(files, message) {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('GITHUB_TOKEN');
+  const repo  = props.getProperty('GITHUB_REPO');
+  if (!token || !repo)
+    throw new Error('Set GITHUB_TOKEN and GITHUB_REPO in Script Properties (Project Settings ▸ Script Properties).');
+
+  const api = 'https://api.github.com/repos/' + repo + '/git';
+  function gh(path, method, payload) {
+    const opt = {
+      method: method,
+      muteHttpExceptions: true,
+      headers: {
+        Authorization: 'token ' + token,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    };
+    if (payload) { opt.contentType = 'application/json'; opt.payload = JSON.stringify(payload); }
+    const res = UrlFetchApp.fetch(api + path, opt);
+    const code = res.getResponseCode();
+    if (code < 200 || code >= 300)
+      throw new Error('GitHub ' + method + ' ' + path + ' → ' + code + ': ' + res.getContentText());
+    return JSON.parse(res.getContentText());
+  }
+
+  const ref        = gh('/ref/heads/main', 'get');
+  const baseSha    = ref.object.sha;
+  const baseCommit = gh('/commits/' + baseSha, 'get');
+  const tree = gh('/trees', 'post', {
+    base_tree: baseCommit.tree.sha,
+    tree: files.map(function (f) {
+      return { path: f.path, mode: '100644', type: 'blob', content: f.content };
+    })
+  });
+  const commit = gh('/commits', 'post', {
+    message: message, tree: tree.sha, parents: [baseSha]
+  });
+  gh('/refs/heads/main', 'patch', { sha: commit.sha });
+  return commit.sha;
+}
+
 // ── GitHub markdown export — self-tests (run from the editor) ───────────────
 function test_markdownFormatting() {
   if (mdEscapeCell('a|b') !== 'a\\|b')   throw new Error('pipe not escaped');
@@ -1830,4 +1876,21 @@ function test_buildExportFiles() {
       throw new Error('empty content: ' + f.path);
   });
   Logger.log('test_buildExportFiles OK — ' + files.length + ' files: ' + paths.join(', '));
+}
+
+// Verifies the missing-config guard WITHOUT hitting GitHub. Safe to run anytime.
+function test_githubConfigGuard() {
+  const props = PropertiesService.getScriptProperties();
+  const savedToken = props.getProperty('GITHUB_TOKEN');
+  const savedRepo  = props.getProperty('GITHUB_REPO');
+  props.deleteProperty('GITHUB_TOKEN');
+  props.deleteProperty('GITHUB_REPO');
+  let threw = false;
+  try { githubCommitFiles([{ path: 'data/x.md', content: 'x' }], 'msg'); }
+  catch (e) { threw = (e.message.indexOf('Script Properties') !== -1); }
+  // restore whatever was there so we don't clobber real config
+  if (savedToken != null) props.setProperty('GITHUB_TOKEN', savedToken);
+  if (savedRepo  != null) props.setProperty('GITHUB_REPO', savedRepo);
+  if (!threw) throw new Error('expected a clear Script Properties error');
+  Logger.log('test_githubConfigGuard OK');
 }
