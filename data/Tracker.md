@@ -1,0 +1,21 @@
+# Tracker
+
+_15 rows · exported 2026-06-28 02:05 America/Toronto_
+
+| date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-06-22 00:00:00 | Quincy Orta | 5 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · N 8 km/h · 15°C |  | 0 | 0 |  | 110 |  |
+| 2026-06-22 00:00:00 | Phillip Monteiro | 6 | 0 | 135 | 30 | 0 | 0 | 15 | 30 | 60 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 110 |  |
+| 2026-06-23 00:00:00 | Quincy Orta | 7 | 2 | 20 | 10 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 0 | Clear · N 16 km/h · 23°C |  | 0 | 2 |  | 272 |  |
+| 2026-06-23 00:00:00 | Phillip Monteiro | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | ! |  |
+| 2026-06-24 00:00:00 | Quincy Orta | 4 | 0 | 60 | 0 | 0 | 0 | 0 | 0 | 60 | 0 | 0 | 0 | 0 | Overcast · W 16 km/h · 21°C |  | 0 | 2 |  | 256 |  |
+| 2026-06-24 00:00:00 | Phillip Monteiro | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Overcast · W 17 km/h · 21°C |  | 1 | 1 |  | 414 |  |
+| 2026-06-24 00:00:00 | Brody D | 3 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 1 | 0 |  | 470 |  |
+| 2026-06-25 00:00:00 | Quincy Orta | 5 | 1 | 45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 45 | 0 | 0 | Overcast · E 5 km/h · 18°C |  | 0 | 0 |  | 263 |  |
+| 2026-06-25 00:00:00 | Brody D | 6 | 0 | 69 | 0 | 0 | 0 | 0 | 0 | 69 | 0 | 0 | 0 | 0 |  |  | 1 | 0 |  | 418 |  |
+| 2026-06-25 00:00:00 | Phillip Monteiro | 5 | 0 | 75 | 0 | 0 | 0 | 0 | 0 | 75 | 0 | 0 | 0 | 0 |  |  | 1 | 0 |  | 349 |  |
+| 2026-06-26 00:00:00 | Phillip Monteiro | 7 | 0 | 257 | 0 | 0 | 0 | 0 | 0 | 257 | 0 | 0 | 0 | 0 | Overcast · W 12 km/h · 20°C |  | 0 | 1 |  | 314 |  |
+| 2026-06-26 00:00:00 | Quincy Orta | 5 | 0 | 43 | 0 | 0 | 0 | 0 | 0 | 43 | 0 | 0 | 0 | 0 | Mainly clear · W 12 km/h · 21°C |  | 0 | 0 |  | 362 |  |
+| 2026-06-26 00:00:00 | Brody D | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 385 |  |
+| 2026-06-27 00:00:00 | Quincy Orta | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · W 12 km/h · 24°C |  | 0 | 1 |  | 302 |  |
+| 2026-06-27 00:00:00 | Bradley Davis | 8 | 0 | 11 | 0 | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 0 | 0 | Clear · W 12 km/h · 24°C |  | 0 | 0 |  | 415 |  |
