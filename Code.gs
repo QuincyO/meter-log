@@ -387,6 +387,11 @@ function setupSheets() {
   // date instead of a clock time on the daily log).
   const days = ss.getSheetByName('Days');
   days.getRange('C2:D').setNumberFormat('@');   // departure, returned (cols 3-4)
+  // Same coercion bites the stop/downtime timestamps: a naive "2026-06-27 08:52:57"
+  // string gets turned into a Date, which JSON serializes as UTC ("…Z"). Pin the
+  // timestamp column to text so it stays the naive Toronto string it was written as.
+  ss.getSheetByName('Stops').getRange('B2:B').setNumberFormat('@');     // timestamp
+  ss.getSheetByName('Downtime').getRange('B2:B').setNumberFormat('@');  // timestamp
   setupDailyLogTemplate();
 }
 
@@ -1487,7 +1492,12 @@ function rows(tabName) {
   const headers = data.shift();
   return data.map(row => {
     const o = {};
-    headers.forEach((h, i) => o[h] = row[i]);
+    // Sheets silently coerces a naive timestamp string into a Date in the cell;
+    // JSON.stringify would then serialize it as UTC ("…Z"), leaking the Toronto↔UTC
+    // offset into every reader. Normalize any Date back to the app's naive
+    // Toronto-local string contract here, at the single read boundary.
+    headers.forEach((h, i) => o[h] = (row[i] instanceof Date)
+      ? Utilities.formatDate(row[i], TIMEZONE, 'yyyy-MM-dd HH:mm:ss') : row[i]);
     return o;
   });
 }
