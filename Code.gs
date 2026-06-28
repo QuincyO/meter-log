@@ -285,8 +285,9 @@ function buildDailyLogPdf(s) {
       // the previous activity (first row = launch leg). Every stop with a preceding
       // gap gets a number, including one reached after a flagged delay. The Travel
       // Time box is the running sum of this column.
-      const travel = showDT ? ((s.perStopTravel && x.id != null && s.perStopTravel[x.id]) || '') : '';
-      if (travel) travelColSum += travel;
+      const t = showDT && s.perStopTravel && x.id != null ? s.perStopTravel[x.id] : undefined;
+      const travel = (t == null || t === 0) ? '' : t;   // '~' for launch, number otherwise, blank when 0/none
+      if (typeof travel === 'number') travelColSum += travel;
       copy.getRange(r,1,1,8).setValues([[
         i+1, x.workOrderId || '', x.oldJNumber || '',
         note4,
@@ -494,14 +495,17 @@ function doGet(e) {
     const id   = String(p.installerId == null ? '' : p.installerId).trim();
     const emp  = id ? employeeByH(id) : null;
     const installer = emp ? fullName(emp) : (p.installer || '');
-    // Every meter-to-meter gap (short hops included) is offered for review so a break
-    // can be subtracted from any of them. Gaps run between this installer's own
-    // consecutive meters; a non-first installer's first gap (from the team's first
-    // install) is included so its delays can be labelled too. (Launch/Return legs need
-    // the bookend times, not known when this opens, so they aren't listed here.)
+    // Every meter-to-meter gap (short hops included) that arrives at one of THIS
+    // installer's own stops is offered for review so a break can be subtracted from any
+    // of them. Gaps run on the merged boat timeline — measured from the most recent boat
+    // log — so a non-first installer's first gap (from a partner's prior log) is included
+    // and labellable. (The boat-first stop has no incoming gap, so its dock launch '~'
+    // isn't listed; Launch/Return legs need bookend times not known when this opens.)
     const gi = installerGapStops(id, installer, date);
+    const ownIds = gi.ownIds;
     const gaps = computeIdle(gi.stops).gaps
-      .filter(g => g.type === 'Travel' || g.type === 'Flagged');
+      .filter(g => (g.type === 'Travel' || g.type === 'Flagged')
+                && g.toId !== '' && g.toId != null && ownIds[g.toId]);
     // Attach any already-saved allocations (gap-tagged Downtime rows) so re-opening a
     // day from either surface pre-fills what was entered.
     const dt = downtimeFor(installer, date);
@@ -725,8 +729,8 @@ function buildDaySummary(b) {
   const stops = stopsFor(installer, date);
   // The installer's own printable stops (same statuses the PDF prints as rows). Travel
   // is attributed per-person: only the gaps that land on one of these count toward this
-  // installer's total — so a partner who installs first "owns" the morning launch leg,
-  // and the other partner's first-stop travel starts from the team's prior install.
+  // installer's total — so on the merged boat timeline each segment belongs to whoever
+  // arrived at it (a partner who logs first "owns" the dock launch, shown as '~').
   const ownPrintableIds = {};
   stops.filter(x => x.status === 'INSTALLED' || x.status === 'UTI'
                  || x.status === 'VISITED'  || x.status === 'UNACCOUNTED')
@@ -773,29 +777,39 @@ function buildDaySummary(b) {
   });
 
   // Per-stop Travel column + the "Travel Time:" box now show NET travel (the raw gap
-  // minus the downtime subtracted from it — exactly the number saved). Gaps run between
-  // this installer's OWN consecutive meters; only their first stop is anchored to the
-  // team's first install (or the dock, if they installed first) — see installerGapStops.
+  // minus the downtime subtracted from it — exactly the number saved). Gaps run on the
+  // merged boat timeline: travel to a stop is measured from the most recent boat log
+  // (any member, any status), so a partner's installs cap the gap — see installerGapStops.
   // `travelMinutes` (Tracker `travelMin`) is the per-person net total: only gaps that
-  // land on this installer's OWN printable stops (incl. their own launch leg; the
-  // row-less Return leg has no toId, so it's never counted). This mirrors the PDF box,
+  // land on this installer's OWN printable stops (the dock launch '~' and the row-less
+  // Return leg are both excluded). This mirrors the PDF box,
   // which sums the same per-stop column. A gap with no deductions is full travel; a
   // fully-consumed gap nets to 0 (prints blank), which reproduces old whole-gap days.
   const gi = installerGapStops(installerId, installer, date);
   const timing = computeIdle(gi.stops, gi.isFirst ? departure : '', returned);
+  const ownIds = gi.ownIds;
   const perStopTravel = {};
   let travelMinutes = 0;
-  const timingRows = timing.gaps.map(g => {
-    const ded = dedByGap[gapKey(g.fromHHMM, g.toHHMM)] || 0;
-    const net = Math.max(0, g.minutes - ded);
-    const bucket = (g.minutes > 0 && ded >= g.minutes) ? 'delay' : (ded > 0 ? 'mixed' : 'travel');
-    if (g.toId !== '' && g.toId != null) perStopTravel[g.toId] = net;
-    if (g.type !== 'Return' && g.toId != null && g.toId !== '' && ownPrintableIds[g.toId])
-      travelMinutes += net;
-    return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
-             distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO,
-             fromStatus: g.fromStatus, toStatus: g.toStatus };
-  });
+  // Keep only the boat segments that arrive at THIS installer's own stops (plus their
+  // row-less Return leg) so a partner's segments aren't written under this installer or
+  // double-counted when the partner also closes their day.
+  const timingRows = timing.gaps
+    .filter(g => g.type === 'Return' || (g.toId !== '' && g.toId != null && ownIds[g.toId]))
+    .map(g => {
+      const ded = dedByGap[gapKey(g.fromHHMM, g.toHHMM)] || 0;
+      const net = Math.max(0, g.minutes - ded);
+      const bucket = (g.minutes > 0 && ded >= g.minutes) ? 'delay' : (ded > 0 ? 'mixed' : 'travel');
+      // Launch is the dock ride → shown as '~' below, excluded from the per-stop number AND the total.
+      if (g.type !== 'Launch' && g.toId !== '' && g.toId != null) perStopTravel[g.toId] = net;
+      if (g.type !== 'Launch' && g.type !== 'Return' && g.toId != null && g.toId !== ''
+          && ownPrintableIds[g.toId]) travelMinutes += net;
+      return { fromTime: g.fromHHMM, toTime: g.toHHMM, minutes: g.minutes,
+               distanceM: g.distM == null ? '' : g.distM, type: g.type, bucket: bucket, workOrderId: g.toWO,
+               fromStatus: g.fromStatus, toStatus: g.toStatus };
+    });
+  // The boat's first log shows '~' in its Travel cell — the morning ride is tracked
+  // (Timing/Days) but never a meter-to-meter number, even with no Departure time set.
+  if (gi.isFirst && gi.firstId != null) perStopTravel[gi.firstId] = '~';
 
   return { date, installer, installerId, installed, uti, visited, unaccounted,
     // PDF-only flag: when false, buildDailyLogPdf omits the delay/travel cells.
@@ -1052,28 +1066,30 @@ function previewDailyLog(b) {
   return { ok: true, summary: s, pdf: buildDailyLogPdf(s) };
 }
 
-/** The activity list for ONE installer's gap calc. Their own stops drive every gap
- *  (so a partner installing mid-island never splits a gap), EXCEPT the first gap: when
- *  this installer isn't the team's first that day, we prepend a marker at the team's
- *  first install so their first stop's travel runs from the first person's meter, not
- *  the dock. `isFirst` tells the caller whether to anchor a Launch leg from departure. */
+/** The activity list for ONE installer's gap calc — the WHOLE boat's logs (every
+ *  member, every status), merged into one timeline. Travel to any of this installer's
+ *  stops is then measured from the most recent boat log, so a partner's installs cap
+ *  the gap instead of inflating it. `ownIds` lets callers attribute each computed
+ *  segment to the installer who arrived at it; `isFirst`/`firstId` mark whether this
+ *  installer owns the boat's first log of the day (the dock launch → shown as '~'). */
 function installerGapStops(installerId, installer, date) {
   const own = stopsFor(installer, date);
+  const ownIds = {}; own.forEach(s => { if (s.id != null) ownIds[s.id] = true; });
   const team = installerId ? teamForEmployee(installerId) : null;
   const partners = teamPartnerNames(team, installerId);
-  if (!partners.length) return { stops: own, isFirst: true };
-  const ownSecs = own.map(s => secOfDay(s.timestamp)).filter(x => x != null);
-  const ownFirst = ownSecs.length ? Math.min.apply(null, ownSecs) : null;
-  let teamFirst = null, teamFirstSec = null;
-  [own].concat(partners.map(n => stopsFor(n, date))).forEach(arr => arr.forEach(s => {
-    const sec = secOfDay(s.timestamp); if (sec == null) return;
-    if (teamFirstSec == null || sec < teamFirstSec) { teamFirstSec = sec; teamFirst = s; }
-  }));
-  // Installed first (or tied) → launch from the dock; else first gap from the first
-  // person's install (no Launch leg of their own).
-  if (teamFirst == null || ownFirst == null || ownFirst <= teamFirstSec)
-    return { stops: own, isFirst: true };
-  return { stops: [teamFirst].concat(own), isFirst: false };
+  // Merge the whole boat's logs (all members, all statuses) so EVERY gap is measured
+  // from the most recent boat log — a partner's installs cap the gap instead of
+  // inflating it. No partners → just this installer's own stops.
+  const merged = partners.length
+    ? own.concat.apply(own, partners.map(n => stopsFor(n, date)))
+    : own.slice();
+  merged.sort((a, b) => (secOfDay(a.timestamp) || 0) - (secOfDay(b.timestamp) || 0));
+  // This installer owns the boat's first log (ties → own) → they own the dock launch
+  // ('~'); else their first gap runs from a partner's prior log.
+  const firstSec = merged.length ? secOfDay(merged[0].timestamp) : null;
+  const ownAtFirst = firstSec != null ? own.find(s => secOfDay(s.timestamp) === firstSec) : null;
+  return { stops: merged, isFirst: !!ownAtFirst, ownIds: ownIds,
+           firstId: ownAtFirst ? ownAtFirst.id : null };
 }
 
 /** The display names of the installer's same-letter boat-team partners (the
