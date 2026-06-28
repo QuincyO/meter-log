@@ -1759,6 +1759,38 @@ function buildIndexMarkdown(index, exportedAt) {
     lines.join('\n') + '\n';
 }
 
+// Tabs exported, in order. Explicit (NOT ss.getSheets()) so the "DailyLog
+// Template" tab is never exported. Headers still come live from each sheet, so
+// a column reorder needs no change here — only adding a brand-new tab does.
+const EXPORT_TABS = [
+  'Stops', 'Downtime', 'Tracker', 'Employees', 'Teams', 'Captains', 'Subs',
+  'Timing', 'Days', 'BoatDays', 'Dispatch', 'Metrics'
+];
+
+// Read every EXPORT_TABS tab into [{path, content}] markdown files, plus the
+// data/README.md index. A missing tab is skipped (run setupSheets() to create
+// it). Header row + raw cell values come straight from the live sheet.
+function buildExportFiles() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const exportedAt = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const files = [];
+  const index = [];
+  EXPORT_TABS.forEach(function (name) {
+    const sh = ss.getSheetByName(name);
+    if (!sh) return;
+    const values = sh.getDataRange().getValues();
+    const headers = values.length ? values[0] : [];
+    const dataRows = values.slice(1);
+    files.push({
+      path: 'data/' + name + '.md',
+      content: tabToMarkdown(name, headers, dataRows, exportedAt)
+    });
+    index.push({ name: name, count: dataRows.length });
+  });
+  files.push({ path: 'data/README.md', content: buildIndexMarkdown(index, exportedAt) });
+  return files;
+}
+
 // ── GitHub markdown export — self-tests (run from the editor) ───────────────
 function test_markdownFormatting() {
   if (mdEscapeCell('a|b') !== 'a\\|b')   throw new Error('pipe not escaped');
@@ -1783,4 +1815,19 @@ function test_markdownFormatting() {
   if (idx.indexOf('3 rows') === -1)      throw new Error('index row count');
 
   Logger.log('test_markdownFormatting OK');
+}
+
+function test_buildExportFiles() {
+  const files = buildExportFiles();
+  // 12 tabs that actually exist + the index. setupSheets() must have run.
+  if (!files.length) throw new Error('no files produced');
+  const paths = files.map(function (f) { return f.path; });
+  if (paths.indexOf('data/README.md') === -1) throw new Error('missing index file');
+  if (paths.indexOf('data/Stops.md') === -1)  throw new Error('missing Stops file');
+  files.forEach(function (f) {
+    if (f.path.indexOf('data/') !== 0) throw new Error('bad path: ' + f.path);
+    if (typeof f.content !== 'string' || !f.content.length)
+      throw new Error('empty content: ' + f.path);
+  });
+  Logger.log('test_buildExportFiles OK — ' + files.length + ' files: ' + paths.join(', '));
 }
