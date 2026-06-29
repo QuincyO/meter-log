@@ -116,15 +116,21 @@ function setSolar(on){
 // ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
 
-// Collect up to `samples` GPS fixes over `maxMs`, then return one
-// accuracy-weighted average { lat, lng, accuracy }. The first fix a phone hands
-// back is usually a coarse/cached one with a big accuracy radius; it only
+// Stream GPS fixes and stop as soon as the position is confidently tight —
+// when a fix reports `accuracy <= targetAccuracy` metres (the API gives accuracy
+// as a 68%-confidence radius) — rather than after a fixed count. Returns one
+// 1/accuracy²-weighted average { lat, lng, accuracy }. The first fix a phone
+// hands back is usually a coarse/cached one with a big accuracy radius; it only
 // refines as the chip settles. watchPosition streams those refining fixes
 // (back-to-back getCurrentPosition calls just re-return the cached one), and the
-// 1/accuracy² weighting lets the tight late fixes dominate — so a single tap
-// lands close instead of needing several. Resolves with whatever arrived before
-// the timeout (≥1 sample); rejects only if no GPS or no sample at all.
-function sampleLocation({ samples = 10, maxMs = 12000, onProgress } = {}){
+// 1/accuracy² weighting lets the tight late fixes dominate. In good signal this
+// finishes in a couple of fixes; in poor signal the chip may never reach the
+// target, so `maxMs` is a hard cap that resolves with the best average so far.
+// `maxSamples` is just a memory ceiling for a very long fix. onProgress(count,
+// currentAccuracy) reports the latest individual fix's accuracy. Resolves with
+// whatever arrived before the cap (≥1 sample); rejects only if no GPS or no
+// sample at all.
+function sampleLocation({ targetAccuracy = 5, maxMs = 15000, maxSamples = 30, onProgress } = {}){
   return new Promise((resolve, reject) => {
     if(!navigator.geolocation){ reject(new Error('no-gps')); return; }
     const pts = [];
@@ -143,8 +149,12 @@ function sampleLocation({ samples = 10, maxMs = 12000, onProgress } = {}){
     const id = navigator.geolocation.watchPosition(
       p => {
         pts.push(p.coords);
-        if(onProgress) onProgress(pts.length, samples);
-        if(pts.length >= samples) finish();
+        const acc = p.coords.accuracy;
+        if(onProgress) onProgress(pts.length, acc);
+        // Early exit once a fix is tight enough — but require ≥2 fixes so a
+        // single coarse/cached first fix can't end it on its own. maxSamples is
+        // just a safety ceiling; the real fallback is the maxMs timer.
+        if((acc != null && acc <= targetAccuracy && pts.length >= 2) || pts.length >= maxSamples) finish();
       },
       err => { if(!pts.length){ done = true; clearTimeout(timer); navigator.geolocation.clearWatch(id); reject(err); } },
       { enableHighAccuracy:true, maximumAge:0, timeout:maxMs });
@@ -160,8 +170,10 @@ async function getLocation(force){
   const btn = $('refreshLoc'); if(btn) btn.disabled = true;
   $('locText').textContent = 'Location: sampling…';
   try {
-    const c = await sampleLocation({ onProgress: (n, total) => {
-      $('locText').textContent = `Location: sampling ${n}/${total}…`;
+    const c = await sampleLocation({ onProgress: (n, acc) => {
+      $('locText').textContent = acc != null
+        ? `Location: sampling… ±${Math.round(acc)} m`
+        : 'Location: sampling…';
     }});
     coords = { lat:c.lat, lng:c.lng };
     $('locText').textContent = `Location: ${coords.lat}, ${coords.lng} (±${c.accuracy} m)`;
