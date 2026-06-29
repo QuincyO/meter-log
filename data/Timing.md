@@ -1,6 +1,6 @@
 # Timing
 
-_129 rows · exported 2026-06-28 03:52 America/Toronto_
+_129 rows · exported 2026-06-29 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -125,11 +125,11 @@ _129 rows · exported 2026-06-28 03:52 America/Toronto_
 | 2026-06-27 00:00:00 | Quincy Orta | 1899-12-30 13:54:00 | 1899-12-30 14:25:00 | 31 | 70 | Flagged | travel | 573221 | INSTALLED | INSTALLED |
 | 2026-06-27 00:00:00 | Quincy Orta | 1899-12-30 14:25:00 | 1899-12-30 16:15:00 | 110 |  | Return | travel |  | INSTALLED |  |
 | 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 07:30:00 | 1899-12-30 08:52:00 | 83 |  | Launch | travel | 572303 |  | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 08:52:00 | 1899-12-30 09:27:00 | 35 | 531 | Flagged | travel | 572166 | INSTALLED | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 09:27:00 | 1899-12-30 09:53:00 | 26 | 195 | Flagged | travel | 572529 | INSTALLED | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 09:53:00 | 1899-12-30 11:11:00 | 78 | 1121 | Flagged | travel | 570626 | INSTALLED | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 11:11:00 | 1899-12-30 11:55:00 | 44 | 234 | Flagged | travel | 581271 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 09:13:00 | 1899-12-30 09:27:00 | 14 | 127 | Travel | travel | 572166 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 09:42:00 | 1899-12-30 09:53:00 | 11 | 53 | Travel | travel | 572529 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 10:30:00 | 1899-12-30 11:11:00 | 41 | 665 | Flagged | travel | 570626 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 11:44:00 | 1899-12-30 11:55:00 | 11 | 119 | Travel | travel | 581271 | UNACCOUNTED | INSTALLED |
 | 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 11:55:00 | 1899-12-30 13:33:00 | 98 | 196 | Flagged | mixed | 573070 | INSTALLED | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 13:33:00 | 1899-12-30 14:11:00 | 38 | 182 | Flagged | travel | 573239 | INSTALLED | INSTALLED |
-| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 14:11:00 | 1899-12-30 15:05:00 | 54 | 379 | Flagged | mixed | 584144 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 13:54:00 | 1899-12-30 14:11:00 | 17 | 84 | Travel | travel | 573239 | INSTALLED | INSTALLED |
+| 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 14:25:00 | 1899-12-30 15:05:00 | 40 | 420 | Flagged | mixed | 584144 | INSTALLED | INSTALLED |
 | 2026-06-27 00:00:00 | Bradley Davis | 1899-12-30 15:05:00 | 1899-12-30 16:15:00 | 70 |  | Return | travel |  | INSTALLED |  |

@@ -1,11 +1,11 @@
 # Sheet export
 
-_Exported 2026-06-28 03:52 America/Toronto_
+_Exported 2026-06-29 03:52 America/Toronto_
 
 Nightly Markdown snapshot of the meter-log Google Sheet.
 
 - [Stops](Stops.md) — 105 rows
-- [Downtime](Downtime.md) — 46 rows
+- [Downtime](Downtime.md) — 45 rows
 - [Tracker](Tracker.md) — 15 rows
 - [Employees](Employees.md) — 4 rows
 - [Teams](Teams.md) — 2 rows

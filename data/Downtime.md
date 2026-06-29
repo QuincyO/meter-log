@@ -1,6 +1,6 @@
 # Downtime
 
-_46 rows · exported 2026-06-28 03:52 America/Toronto_
+_45 rows · exported 2026-06-29 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -32,7 +32,7 @@ _46 rows · exported 2026-06-28 03:52 America/Toronto_
 | 1782445871842-j3iv2c | 2026-06-25 12:00:00 | Phillip Monteiro | BREAK | 15 | 571009 | gap 11:44–14:08 |
 | 1782445871842-nbuc1l | 2026-06-25 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 571009 | gap 11:44–14:08 |
 | 1782445871842-4x872f | 2026-06-25 12:00:00 | Phillip Monteiro | BREAK | 15 |  | gap 14:08–15:43 |
-| 1782481779973-36xcaf | 2026-06-26 09:49:39 | Phillip Monteiro | DISPATCH | 10 | 573767 |  |
+| 1782481779973-36xcaf | 2026-06-26 9:49:39 | Phillip Monteiro | DISPATCH | 10 | 573767 |  |
 | 1782486790435-jmf0c4 | 2026-06-26 11:13:10 | Phillip Monteiro | DISPATCH | 134 | 574387 | dispatch (avg est.) |
 | 1782494668740-aa4wh8 | 2026-06-26 13:24:28 | Phillip Monteiro | DISPATCH | 19 | 581468 | dispatch (avg est.) |
 | 1782497031045-ukwaqh | 2026-06-26 14:03:51 | Phillip Monteiro | DISPATCH | 19 | 573044 | dispatch (avg est.) |
@@ -47,6 +47,5 @@ _46 rows · exported 2026-06-28 03:52 America/Toronto_
 | 1782505348341-ye0vvn | 2026-06-26 12:00:00 | Quincy Orta | LUNCH | 30 | 574318 | gap 12:40–14:09 |
 | 1782505348341-i936pm | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 15 | 573570 | gap 14:09–15:30 |
 | 1782505348341-57vo3z | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 28 | 572080 | gap 16:31–18:23 |
-| 1782591201122-a5e4a2 | 2026-06-27 12:00:00 | Quincy Orta | LUNCH | 30 | 573908 | gap 11:44–13:47 |
-| 1782591213882-l1mosp | 2026-06-27 12:00:00 | Bradley Davis | LUNCH | 30 | 573070 | gap 11:55–13:33 |
-| 1782591213882-92gv5l | 2026-06-27 12:00:00 | Bradley Davis | DISPATCH | 11 | 584144 | gap 14:11–15:05 |
+| 1782682643916-gqcpju | 2026-06-27 12:00:00 | Bradley Davis | LUNCH | 30 | 573070 | gap 11:55–13:33 |
+| 1782682643916-4wm7qp | 2026-06-27 12:00:00 | Bradley Davis | DISPATCH | 11 | 584144 | gap 14:25–15:05 |

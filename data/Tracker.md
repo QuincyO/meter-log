@@ -1,6 +1,6 @@
 # Tracker
 
-_15 rows · exported 2026-06-28 03:52 America/Toronto_
+_15 rows · exported 2026-06-29 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -18,4 +18,4 @@ _15 rows · exported 2026-06-28 03:52 America/Toronto_
 | 2026-06-26 00:00:00 | Quincy Orta | 5 | 0 | 43 | 0 | 0 | 0 | 0 | 0 | 43 | 0 | 0 | 0 | 0 | Mainly clear · W 12 km/h · 21°C |  | 0 | 0 |  | 362 |  |
 | 2026-06-26 00:00:00 | Brody D | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 385 |  |
 | 2026-06-27 00:00:00 | Quincy Orta | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · W 12 km/h · 24°C |  | 0 | 1 |  | 302 |  |
-| 2026-06-27 00:00:00 | Bradley Davis | 8 | 0 | 11 | 0 | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 0 | 0 | Clear · W 12 km/h · 24°C |  | 0 | 0 |  | 415 |  |
+| 2026-06-27 00:00:00 | Bradley Davis | 8 | 0 | 11 | 0 | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 191 |  |
