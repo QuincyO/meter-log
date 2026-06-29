@@ -134,6 +134,24 @@ const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completed
 // avgDispatchTime() runs (each install capture + the editor). Room for more later.
 const METRICS_HEADERS = ['metric','value','updated'];
 
+// ── Auth (see "Auth layer" section below + ARCHITECTURE.md §"Auth") ──────────
+// One row per login. Passwords are never stored: `hash` is an iterated, salted,
+// server-PEPPERED HMAC (see hashPassword) so a leaked Sheet can't be cracked
+// without AUTH_PEPPER (a Script Property, not in the Sheet). `hNumber`/`displayName`
+// link the login to its Employees identity — the session carries the display name
+// used to filter Stops/Tracker, which is how installer-ownership checks compare.
+// failCount/lockUntil back login throttling. Provision via the editor-only
+// createUser()/setPassword() — there is deliberately NO public self-signup action.
+const USERS_HEADERS = ['username','displayName','hNumber','role','salt','hash',
+                       'iterations','active','createdAt','lastLogin','failCount','lockUntil'];
+// The EDITABLE access policy: one row per role. `actions`/`pages` are space- or
+// comma-separated lists (or `*` for all); `tokenDays` is a number of days OR the
+// literal `monday` (expire next Monday 00:00 Toronto). Changing who-can-do-what is
+// a Sheet edit — no redeploy. A missing/empty tab falls back to DEFAULT_ACCESS, so
+// a blank policy can never lock anyone out. `editAnyInstaller` is a capability-only
+// pseudo-action (it gates the installer-ownership bypass; supervisors hold it).
+const ACCESS_HEADERS = ['role','actions','pages','tokenDays','active'];
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -159,6 +177,13 @@ function setupSheets() {
   ensureTab(ss, 'BoatDays', BOATDAYS_HEADERS);
   ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
   ensureTab(ss, 'Metrics', METRICS_HEADERS);
+  ensureTab(ss, 'Users', USERS_HEADERS);
+  ensureTab(ss, 'Access', ACCESS_HEADERS);
+  // Keep the base64 salt/hash and the timestamp columns as literal text so Sheets
+  // can't coerce them into numbers/Dates (a mangled hash would lock the user out).
+  const users = ss.getSheetByName('Users');
+  users.getRange('E2:F').setNumberFormat('@');   // salt, hash
+  users.getRange('I2:J').setNumberFormat('@');   // createdAt, lastLogin
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).
@@ -188,6 +213,279 @@ function ensureTab(ss, name, headers) {
   return sh;
 }
 
+// ── Auth layer ─────────────────────────────────────────────────────────────
+// The REAL security boundary. The static pages ship SHARED_TOKEN + the /exec URL
+// in public source, so anyone can POST; SHARED_TOKEN is only a crude first filter.
+// Real protection: each protected action requires a signed session token whose
+// role the (editable) Access policy permits. The signing key + pepper live in
+// Script Properties — never shipped to the browser — so a session token is signed,
+// not secret: visible in client storage but impossible to forge or privilege-edit.
+// Enforcement is staged behind the ENFORCE_AUTH Script Property so the code can
+// ship dormant and be switched on with no redeploy. See ARCHITECTURE.md §"Auth".
+
+const DEFAULT_ITERATIONS = 2000;     // password hash stretch; tune via benchmarkHash() — runs under the doPost lock
+const LOGIN_MAX_FAILS    = 5;        // wrong attempts before a temporary lock
+const LOGIN_LOCK_SEC     = 15 * 60;  // lock duration
+
+function prop_(k)      { return PropertiesService.getScriptProperties().getProperty(k); }
+function authEnforced(){ return isTruthy(prop_('ENFORCE_AUTH'), false); }
+function pepper_()     { const v = prop_('AUTH_PEPPER');      if (!v) throw new Error('AUTH_PEPPER not set — run generateAuthSecrets()'); return v; }
+function signingKey_() { const v = prop_('AUTH_SIGNING_KEY'); if (!v) throw new Error('AUTH_SIGNING_KEY not set — run generateAuthSecrets()'); return v; }
+function hasTab_(name) { return !!SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name); }
+
+// Run ONCE from the editor. Generates the two server-only secrets if absent and
+// never overwrites them (overwriting AUTH_SIGNING_KEY logs everyone out; AUTH_PEPPER
+// invalidates every password). Keeping them separate lets you rotate the signing
+// key to kill all sessions without breaking stored passwords.
+function generateAuthSecrets() {
+  const props = PropertiesService.getScriptProperties();
+  ['AUTH_PEPPER', 'AUTH_SIGNING_KEY'].forEach(k => {
+    if (props.getProperty(k)) return;
+    const seed = Utilities.getUuid() + Utilities.getUuid() + new Date().getTime() + Math.random();
+    props.setProperty(k, Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed)));
+  });
+  return 'AUTH_PEPPER + AUTH_SIGNING_KEY ensured (existing values left intact).';
+}
+function benchmarkHash() {
+  const salt = makeSalt(), t0 = new Date().getTime();
+  hashPassword('benchmark-password', salt, DEFAULT_ITERATIONS);
+  return DEFAULT_ITERATIONS + ' iterations took ' + (new Date().getTime() - t0) + ' ms';
+}
+
+// Constant-time string compare — no early exit on the first differing char.
+function constantTimeEq(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= (a.charCodeAt(i) ^ b.charCodeAt(i));
+  return d === 0;
+}
+function makeSalt() {
+  return Utilities.base64Encode(Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + ':' + new Date().getTime())).slice(0, 24);
+}
+// Salted + peppered + iterated HMAC-SHA256. Every round is String→String (the
+// running base64 mac is re-HMAC'd) so it uses one stable overload. The pepper is
+// the key, so an exfiltrated Sheet can't be cracked offline without it.
+function hashPassword(password, saltB64, iterations) {
+  const key = pepper_();
+  const n = Number(iterations) > 0 ? Number(iterations) : DEFAULT_ITERATIONS;
+  let mac = Utilities.base64Encode(Utilities.computeHmacSha256Signature(saltB64 + ':' + password, key));
+  for (let i = 1; i < n; i++) mac = Utilities.base64Encode(Utilities.computeHmacSha256Signature(mac, key));
+  return mac;
+}
+
+// Next Monday 00:00 in Toronto, as epoch seconds. Relies on the script timezone
+// being America/Toronto — the same assumption parseLocal()/now() already make.
+function nextMondayEpochSec() {
+  const now = new Date();
+  const dow = parseInt(Utilities.formatDate(now, TIMEZONE, 'u'), 10);   // 1=Mon … 7=Sun (Toronto)
+  let add = (8 - dow) % 7; if (add === 0) add = 7;                       // 1..7 days to the NEXT Monday
+  const ymd = Utilities.formatDate(now, TIMEZONE, 'yyyy-MM-dd').split('-');
+  return Math.floor(new Date(+ymd[0], +ymd[1] - 1, +ymd[2] + add, 0, 0, 0, 0).getTime() / 1000);
+}
+// tokenSpec: the literal 'monday' (expire next Monday 00:00) or a number of days.
+function mintToken(user, tokenSpec) {
+  const nowS = Math.floor(Date.now() / 1000);
+  const exp = String(tokenSpec).toLowerCase() === 'monday'
+    ? nextMondayEpochSec()
+    : nowS + (Number(tokenSpec) > 0 ? Number(tokenSpec) : 14) * 86400;
+  const payload = { u: user.username, r: user.role, n: user.displayName, h: user.hNumber, iat: nowS, exp: exp };
+  const pB64 = Utilities.base64EncodeWebSafe(JSON.stringify(payload));
+  const sig  = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(pB64, signingKey_()));
+  return pB64 + '.' + sig;
+}
+// Returns the payload {u,r,n,h,iat,exp} or null (bad signature / tampered / expired).
+function verifyToken(token) {
+  token = String(token == null ? '' : token);
+  const dot = token.indexOf('.');
+  if (dot < 1) return null;
+  const pB64 = token.slice(0, dot), sig = token.slice(dot + 1);
+  let expected;
+  try { expected = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(pB64, signingKey_())); }
+  catch (e) { return null; }
+  if (!constantTimeEq(expected, sig)) return null;                       // forged / tampered
+  let payload;
+  try { payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(pB64)).getDataAsString()); }
+  catch (e) { return null; }
+  if (!payload || !payload.exp || Math.floor(Date.now() / 1000) > Number(payload.exp)) return null;  // expired
+  return payload;
+}
+
+function userByUsername(username) {
+  if (!hasTab_('Users')) return null;
+  username = String(username == null ? '' : username).trim().toLowerCase();
+  if (!username) return null;
+  return rows('Users').filter(r => String(r.username == null ? '' : r.username).trim().toLowerCase() === username)[0] || null;
+}
+
+// ── Editable access policy (Access tab → role → {actions, pages, tokenSpec}) ──
+// Parsed once per execution (a top-level `let` is re-initialised each request, so
+// this caches for exactly the life of one doGet/doPost — one Access read per call).
+let _accessCache = null;
+function parseList(s) {
+  s = String(s == null ? '' : s).trim();
+  if (s === '*') return '*';
+  const arr = s.split(/[\s,]+/).filter(Boolean);
+  return arr.indexOf('*') >= 0 ? '*' : arr;
+}
+function tokenSpecOf(v) {
+  if (String(v == null ? '' : v).trim().toLowerCase() === 'monday') return 'monday';
+  return Number(v) > 0 ? Number(v) : 14;
+}
+// Hardcoded fallback when the Access tab is missing/empty, so a blank policy can
+// never lock anyone out and the app works the instant setupSheets() runs.
+function defaultAccess_() {
+  return {
+    supervisor: { actions: '*', pages: '*', tokenSpec: 30 },
+    installer: {
+      actions: parseList('addStop addDowntime dispatchRequest updateStop endOfDay previewDailyLog ' +
+        'saveTravel saveDay saveEmployee day range lookup geocode nearby idle roster ' +
+        'pins tracker timing boatdays dispatch avgDispatchTime'),
+      pages: parseList('index map edit'),
+      tokenSpec: 'monday'
+    }
+  };
+}
+function accessPolicy() {
+  if (_accessCache) return _accessCache;
+  let map = {};
+  if (hasTab_('Access')) {
+    try {
+      rows('Access').forEach(r => {
+        const role = String(r.role == null ? '' : r.role).trim();
+        if (!role || !isTruthy(r.active, true)) return;
+        map[role] = { actions: parseList(r.actions), pages: parseList(r.pages), tokenSpec: tokenSpecOf(r.tokenDays) };
+      });
+    } catch (e) { map = {}; }
+  }
+  if (!Object.keys(map).length) map = defaultAccess_();
+  _accessCache = map;
+  return map;
+}
+function actionAllowed(role, action) {
+  const p = accessPolicy()[String(role == null ? '' : role).trim()];
+  if (!p) return false;
+  return p.actions === '*' || p.actions.indexOf(action) >= 0;
+}
+// The supervisor capability: may read/write ANY installer's logs. Editable — it's
+// just the pseudo-action `editAnyInstaller` in the role's action list.
+function canActOnOthers(auth) { return !!auth && actionAllowed(auth.r, 'editAnyInstaller'); }
+
+const OPEN_ACTIONS = { login: true, logout: true };   // reachable before you hold a session
+function requireAuth(carrier, action) {
+  if (OPEN_ACTIONS[action]) return { ok: true, payload: null };
+  const payload = verifyToken(carrier && carrier.session);
+  if (!payload) return { ok: false, error: 'auth' };
+  if (!actionAllowed(payload.r, action)) return { ok: false, error: 'forbidden' };
+  return { ok: true, payload: payload };
+}
+
+// Installer-ownership: these actions carry a target installer (installerId/installer
+// in the request). An installer may only touch their OWN identity; a supervisor
+// (editAnyInstaller) bypasses. updateStop is handled in-function (its target lives
+// on the stored stop, not the request). Returns an error object to short-circuit, or null.
+const OWN_SCOPED = { endOfDay: 1, previewDailyLog: 1, saveTravel: 1, saveDay: 1, day: 1, range: 1, idle: 1 };
+function ownScopedGuard(carrier, action, auth) {
+  if (!auth || !OWN_SCOPED[action] || canActOnOthers(auth)) return null;
+  const h   = String(carrier.installerId == null ? '' : carrier.installerId).trim();
+  const emp = h ? employeeByH(h) : null;
+  const name = emp ? fullName(emp) : String(carrier.installer == null ? '' : carrier.installer).trim();
+  const okName = name && auth.n && sameName(name, auth.n);
+  const okH    = h && auth.h && String(h) === String(auth.h);
+  return (okName || okH) ? null : { ok: false, error: 'forbidden' };
+}
+
+// ── Login + editor-only provisioning (NO public self-signup endpoint) ────────
+function login(b) {
+  const nowS = Math.floor(Date.now() / 1000);
+  const u = userByUsername(b.username);
+  if (u && u.lockUntil && nowS < Number(u.lockUntil))
+    return { ok: false, error: 'locked', retryAfter: Number(u.lockUntil) - nowS };
+  const iters = Number(u && u.iterations) || DEFAULT_ITERATIONS;
+  const good = !!u && isTruthy(u.active, true) && !!u.hash &&
+    constantTimeEq(hashPassword(String(b.password == null ? '' : b.password), String(u.salt), iters), String(u.hash));
+  if (!good) {
+    if (u) {
+      const fc = (Number(u.failCount) || 0) + 1;
+      upsertByHeader('Users', 'username', u.username,
+        fc >= LOGIN_MAX_FAILS ? { failCount: 0, lockUntil: nowS + LOGIN_LOCK_SEC } : { failCount: fc });
+    }
+    Utilities.sleep(250);
+    return { ok: false, error: 'bad credentials' };
+  }
+  upsertByHeader('Users', 'username', u.username, { failCount: 0, lockUntil: '', lastLogin: now() });
+  const role = String(u.role == null ? '' : u.role).trim();
+  const pol  = accessPolicy()[role] || {};
+  const token = mintToken(
+    { username: u.username, role: role, displayName: u.displayName, hNumber: u.hNumber },
+    pol.tokenSpec != null ? pol.tokenSpec : 'monday');
+  const payload = verifyToken(token);
+  return { ok: true, session: token, role: role, displayName: u.displayName, hNumber: u.hNumber,
+           exp: payload ? payload.exp : null, access: { pages: pol.pages || [] },
+           editAny: actionAllowed(role, 'editAnyInstaller') };   // client uses this for role-tailored UI
+}
+
+function createUser(username, password, role, displayName, hNumber) {
+  username = String(username == null ? '' : username).trim().toLowerCase();
+  if (!username) throw new Error('username required');
+  if (!password || String(password).length < 6) throw new Error('password must be at least 6 characters');
+  role        = String(role == null ? '' : role).trim() || 'installer';
+  hNumber     = String(hNumber == null ? '' : hNumber).trim();
+  displayName = String(displayName == null ? '' : displayName).trim() || (hNumber ? nameOfH(hNumber) : username);
+  if (userByUsername(username)) throw new Error('user already exists: ' + username);
+  const salt = makeSalt();
+  upsertByHeader('Users', 'username', username, {
+    username: username, displayName: displayName, hNumber: hNumber, role: role,
+    salt: salt, hash: hashPassword(String(password), salt, DEFAULT_ITERATIONS),
+    iterations: DEFAULT_ITERATIONS, active: true, createdAt: now(), lastLogin: '', failCount: 0, lockUntil: '' });
+  return 'created user "' + username + '" (' + role + (hNumber ? ', H#' + hNumber : '') + ')';
+}
+function setPassword(username, newPassword) {
+  username = String(username == null ? '' : username).trim().toLowerCase();
+  if (!userByUsername(username)) throw new Error('no such user: ' + username);
+  if (!newPassword || String(newPassword).length < 6) throw new Error('password must be at least 6 characters');
+  const salt = makeSalt();
+  upsertByHeader('Users', 'username', username,
+    { salt: salt, hash: hashPassword(String(newPassword), salt, DEFAULT_ITERATIONS),
+      iterations: DEFAULT_ITERATIONS, failCount: 0, lockUntil: '' });
+  return 'password reset for ' + username;
+}
+function setRole(username, role) {
+  username = String(username == null ? '' : username).trim().toLowerCase();
+  if (!userByUsername(username)) throw new Error('no such user: ' + username);
+  upsertByHeader('Users', 'username', username, { role: String(role == null ? '' : role).trim() });
+  return 'role of ' + username + ' set to ' + role;
+}
+function deactivateUser(username) {
+  username = String(username == null ? '' : username).trim().toLowerCase();
+  if (!userByUsername(username)) throw new Error('no such user: ' + username);
+  upsertByHeader('Users', 'username', username, { active: false });
+  return 'deactivated ' + username;
+}
+function listUsers() {
+  if (!hasTab_('Users')) return [];
+  return rows('Users').map(r => ({ username: r.username, displayName: r.displayName,
+    hNumber: r.hNumber, role: r.role, active: isTruthy(r.active, true), lastLogin: r.lastLogin }));
+}
+
+// Editor smoke tests (View ▸ Logs after running).
+function testLogin(username, password) {
+  const r = login({ username: username, password: password });
+  Logger.log(JSON.stringify(r));
+  if (r.ok) Logger.log('verifyToken → ' + JSON.stringify(verifyToken(r.session)));
+  return r;
+}
+function testForged(username, password) {
+  const r = login({ username: username, password: password });
+  if (!r.ok) return 'login failed: ' + r.error;
+  const tok = r.session, forged = (tok[0] === 'A' ? 'B' : 'A') + tok.slice(1);
+  const out = 'valid → ' + (verifyToken(tok) ? 'accepted' : 'rejected') +
+              ' | forged → ' + (verifyToken(forged) ? 'ACCEPTED (BUG!)' : 'rejected');
+  Logger.log(out); return out;
+}
+
 // ── POST: capture layer sends JSON here ────────────────────────────────────
 function doPost(e) {
   // Serialize all writes. Apps Script web apps can run concurrently, and several
@@ -203,7 +501,22 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
 
+    // Auth gate, staged behind ENFORCE_AUTH so the code ships dormant and is
+    // switched on (no redeploy) once everyone can log in. When on, every action
+    // except login/logout needs a valid session whose role the Access policy
+    // permits; installer-scoped actions additionally must target the caller's own
+    // identity. body._auth carries the verified payload for in-action self-guards.
+    if (authEnforced()) {
+      const auth = requireAuth(body, body.action);
+      if (!auth.ok) return json({ ok: false, error: auth.error });
+      body._auth = auth.payload || null;
+      const own = ownScopedGuard(body, body.action, body._auth);
+      if (own) return json(own);
+    }
+
     switch (body.action) {
+      case 'login':          return json(login(body));
+      case 'logout':         return json({ ok: true });   // stateless: the client just drops its token
       case 'addStop':        return json(addStop(body));
       case 'addDowntime':    return json(addDowntime(body));
       case 'dispatchRequest':return json(dispatchRequest(body));
@@ -233,6 +546,16 @@ function doPost(e) {
 function doGet(e) {
   const p = e.parameter || {};
   if (p.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+
+  // Same staged auth gate as doPost. GET requests carry the session as &session=.
+  // Installer-scoped reads (day/range/idle) must target the caller's own installer.
+  if (authEnforced()) {
+    const auth = requireAuth(p, p.action);
+    if (!auth.ok) return json({ ok: false, error: auth.error });
+    p._auth = auth.payload || null;
+    const own = ownScopedGuard(p, p.action, p._auth);
+    if (own) return json(own);
+  }
 
   if (p.action === 'nearby') {
     return json(nearby(parseFloat(p.lat), parseFloat(p.lng),
@@ -445,6 +768,11 @@ function updateStop(b) {
     if (String(data[i][idCol]) === String(b.id)) {
       const row = {};
       headers.forEach((h, j) => row[h] = data[i][j]);
+
+      // Installer-ownership: an installer may only edit their own stops (the target
+      // lives on the stored row, so it's checked here, not in the central gate).
+      if (b._auth && !canActOnOthers(b._auth) && !sameName(row.installer, b._auth.n))
+        return { ok: false, error: 'forbidden' };
 
       STOP_EDITABLE.forEach(k => { if (k in b) row[k] = b[k] == null ? '' : b[k]; });
       if ('meterRead' in b) row.meterRead = numOrBlank(b.meterRead);
@@ -1043,6 +1371,10 @@ function teamsList() {
 function saveEmployee(b) {
   const h = String(b.hNumber == null ? '' : b.hNumber).trim();
   if (!h) return { ok: false, error: 'employee number (H#) required' };
+  // An unprivileged caller (installer) may only create/update their OWN record, so
+  // the capture-page self-registration keeps working but can't edit anyone else.
+  if (b._auth && !canActOnOthers(b._auth) && String(h) !== String(b._auth.h))
+    return { ok: false, error: 'forbidden' };
   const first = String(b.firstName == null ? '' : b.firstName).trim();
   const last  = String(b.lastName  == null ? '' : b.lastName ).trim();
   if (!first || !last) return { ok: false, error: 'first and last name required' };

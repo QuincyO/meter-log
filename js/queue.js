@@ -11,9 +11,9 @@ import { applyOptimisticCache, reconcileCache } from './daycache.js';
 
 const queueAll = async () => (await idb.all('queue')) || [];
 
-// A page registers UI side-effects here (e.g. the duplicate/conflict notice).
-// Keeps the queue page-agnostic — no import back into a specific page.
-let _hooks = { onResult: null };
+// A page registers UI side-effects here (e.g. the duplicate/conflict notice, the
+// session-expired prompt). Keeps the queue page-agnostic — no import back into a page.
+let _hooks = { onResult: null, onAuthFail: null };
 export function setQueueHooks(h){ Object.assign(_hooks, h); }
 
 // Client-generated id so a write is idempotent: the same queued item keeps its
@@ -52,11 +52,20 @@ export async function flush(){
       const {_seq, ...body} = item; // _seq is an internal key — don't send it
       let resp;
       try{
+        // Inject the CURRENT session fresh on every attempt (not at enqueue time):
+        // a write may have sat queued for days, so a re-login heals the backlog.
+        const send = Object.assign({}, body, { token:cfg().token, session:cfg().session });
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
-                                    body: JSON.stringify(body) });   // text/plain dodges CORS preflight
+                                    body: JSON.stringify(send) });   // text/plain dodges CORS preflight
       } catch { break; }            // genuine network failure — keep the whole queue for next trigger
       let respBody = null;
       try { respBody = await resp.json(); } catch {}
+      // A rejected session keeps the item (it's never dropped) and asks the page to
+      // prompt a re-login; once signed in, the next flush attaches the new token.
+      if(respBody && (respBody.error === 'auth' || respBody.error === 'forbidden')){
+        if(_hooks.onAuthFail) _hooks.onAuthFail(respBody);
+        break;
+      }
       // Only a real 2xx with a recognized result counts as delivered. An HTTP error
       // (500 / quota / timeout page) or a transient {ok:false} is KEPT and retried —
       // a busy-window failure must never silently drop a logged stop. The client id

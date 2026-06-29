@@ -7,6 +7,15 @@ import { apiGet, apiPost } from '../api.js';
 import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
+import { requireLogin, mountAuthBar, isSupervisor, getSession } from '../auth.js';
+
+requireLogin('edit');
+mountAuthBar();
+// Installers may only work their OWN logs (the spine enforces this too); the picker
+// below is locked to them. Supervisors get the full installer list. Drop the
+// supervisor-only "Crew & Teams" nav option for installers so it isn't a dead end.
+const SUP = isSupervisor();
+if(!SUP){ const o = document.querySelector('#navSel option[value="teams"]'); if(o) o.remove(); }
 
 let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null };
 
@@ -48,11 +57,24 @@ async function loadRoster(){
     const d = await apiGet('roster');
     if(!d.ok) throw new Error(d.error||'load failed');
     state.employees = (d.employees||[]).filter(e => e.active !== false);
+    // Installers can only edit their own day: narrow the roster to themselves and
+    // lock the picker (a supervisor sees everyone). Fall back to the session identity
+    // if their Employees row somehow isn't in the roster.
+    if(!SUP){
+      const sess = getSession() || {};
+      const myH = String(sess.hNumber || '');
+      state.employees = state.employees.filter(e => String(e.hNumber) === myH);
+      if(!state.employees.length && myH){
+        const nm = String(sess.displayName || 'Me').split(/\s+/);
+        state.employees = [{ hNumber:myH, firstName:nm[0]||'Me', lastName:nm.slice(1).join(' '), active:true }];
+      }
+    }
     const sel = $('who');
     state.employees.slice()
       .sort((a,b)=> (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
       .forEach(e => { const o=document.createElement('option');
         o.value=e.hNumber; o.textContent=`${fullName(e)} (${e.hNumber})`; sel.appendChild(o); });
+    if(!SUP && state.employees.length){ sel.value = state.employees[0].hNumber; sel.disabled = true; }
     setStatus('ok','Synced');
   } catch(e){ setStatus('off','Offline — can’t load'); toast('Couldn’t load crew — check the connection'); }
 }

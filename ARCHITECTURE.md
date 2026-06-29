@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, twelve tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`. This is the truth.
+One spreadsheet, fourteen tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `Users`, `Access`. (`Users` + `Access` back the login layer — see §"Auth".) This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -496,6 +496,35 @@ A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
 | `value`   | number/string | the stored value (`''` when not yet computable)      |
 | `updated` | string        | Toronto-local timestamp of the last refresh          |
 
+### User  (one row per login → tab "Users")
+Backs the login layer (see §"Auth"). Provision from the editor only
+(`createUser`/`setPassword`/…); never written over HTTP. Passwords are never stored.
+| field         | type    | notes                                                          |
+|---------------|---------|----------------------------------------------------------------|
+| `username`    | string  | unique key, lower-cased                                        |
+| `displayName` | string  | shown in the UI; **must match the person's `Employees` full name** so installer-ownership matches |
+| `hNumber`     | string  | links to `Employees` — the identity carried in the session    |
+| `role`        | string  | `installer` / `supervisor` (or any role with an `Access` row)  |
+| `salt`        | string  | per-user base64 salt                                          |
+| `hash`        | string  | iterated, salted, peppered HMAC-SHA256 of the password         |
+| `iterations`  | number  | hash rounds used (stored per-user so the default can change)   |
+| `active`      | boolean | `FALSE` disables the login without deleting it                 |
+| `createdAt`   | string  | Toronto-local timestamp                                        |
+| `lastLogin`   | string  | Toronto-local timestamp of the last successful login          |
+| `failCount`   | number  | consecutive failed attempts (throttling)                      |
+| `lockUntil`   | number  | epoch-sec until which login is locked after too many fails     |
+
+### Access policy  (one row per role → tab "Access")
+The editable who-can-do-what. Empty/missing → `DEFAULT_ACCESS` in `Code.gs`. Edited
+in the Sheet, no redeploy.
+| field       | type    | notes                                                              |
+|-------------|---------|-------------------------------------------------------------------|
+| `role`      | string  | matches `Users.role`                                              |
+| `actions`   | string  | space/comma list of allowed `doPost`/`doGet` actions, or `*`. Include the pseudo-action `editAnyInstaller` to let a role edit anyone's logs |
+| `pages`     | string  | which pages the frontend gate allows: `index map teams edit`, or `*` |
+| `tokenDays` | string  | session length: a number of days, **or** `monday` (expire next Monday 00:00 Toronto) |
+| `active`    | boolean | `FALSE` ignores the row                                           |
+
 ---
 
 ## Sample stop (the JSON the form posts)
@@ -708,18 +737,67 @@ consistent with the rest of the app.
 
 ---
 
-## Auth / config (current state)
+## Auth
 
-- **One shared token**, defined once in `js/config.js` (imported by every page),
-  must match `SHARED_TOKEN` in `Code.gs`. The Web App URL lives there too. That's
-  the only two places either value appears now (was five).
-- **No page-level login** on the viewer — a deliberate trade for "open the link
-  and it works." The token sits in the page source, so anyone who opens either
-  page can read it. Keeping the repo private is a sensible extra step.
-- **Identity = self-registration** (first name, last name, H number) on first
-  open of `index.html`. The form enqueues a `saveEmployee` call through the
-  offline queue, so the employee record is created even with no signal at
-  registration time. Good enough for a small crew; see the limits below.
+The real security boundary is the **spine**, not the pages. Because the site is
+GitHub-Pages static, `SHARED_TOKEN` + the `/exec` URL ship in public source, so
+anyone who finds the URL can POST. `SHARED_TOKEN` is therefore only a crude first
+filter; **per-user logins enforced in `Code.gs` are the actual gate.**
+
+**Secrets (server-only).** Two Script Properties, set once via `generateAuthSecrets()`:
+`AUTH_PEPPER` (peppers password hashes) and `AUTH_SIGNING_KEY` (signs session
+tokens). Kept separate so rotating the signing key logs everyone out **without**
+invalidating stored passwords. Neither ever ships to the browser.
+
+**Users tab.** One row per login. Passwords are never stored — `hash` is a salted,
+peppered, iterated HMAC-SHA256 (`hashPassword`, `DEFAULT_ITERATIONS` rounds), so a
+leaked Sheet can't be cracked without the pepper. `hNumber`/`displayName` link the
+login to its `Employees` identity, so the session carries the display name used to
+filter `Stops`/`Tracker` (this is what installer-ownership checks compare). Provision
+**only from the editor** — `createUser` / `setPassword` / `setRole` / `deactivateUser`.
+There is deliberately **no public self-signup action** (it would be a hole).
+
+**Session token.** `login` verifies the password and mints a signed mini-JWT:
+`base64url(payload) + "." + base64url(HMAC-SHA256(payload, AUTH_SIGNING_KEY))`,
+payload `{u,r,n,h,iat,exp}`. The client stores it (localStorage `auth` key, via
+`js/auth.js`) and sends it as `session` on every request (POST body / GET
+`&session=` — never an `Authorization` header, so the `text/plain` no-CORS-preflight
+trick still holds). `verifyToken` re-computes the signature (constant-time compare)
+and checks expiry. It's **signed, not secret**: visible in client storage but
+impossible to forge or privilege-edit (any tamper breaks the HMAC) — the same
+property `SHARED_TOKEN` relies on.
+
+**Roles + editable policy.** Two roles ship by default — `installer` and
+`supervisor` — but roles are free text. The **Access tab** (one row per role:
+`actions`, `pages`, `tokenDays`, `active`) is the editable who-can-do-what; changing
+it is a Sheet edit, no redeploy. A missing/empty tab falls back to `DEFAULT_ACCESS`,
+so a blank policy can never lock anyone out. `requireAuth(carrier, action)` verifies
+the token then checks `actionAllowed(role, action)`. `tokenDays` is a number of days
+**or** the literal `monday` (expire next Monday 00:00 Toronto) — installers re-log
+weekly; supervisors get 30 days.
+
+**Installer-ownership.** Beyond per-action gating, installer-scoped actions
+(`endOfDay`, `saveTravel`, `saveDay`, `day`, `range`, `idle`, and in-function
+`updateStop` + `saveEmployee`) require an installer's request to target their **own**
+identity; a supervisor (the `editAnyInstaller` capability) bypasses. So an installer
+can use `edit.html` on their own day but can't touch anyone else's logs.
+
+**Map privacy is UI-only (by request).** `map.js` hides other installers' specific
+numbers from an installer (locks the installer filter to self, swaps the per-installer
+table for fleet averages) — but the spine still sends the raw data, so this is a UI
+hide, not a backend filter. It does not weaken the write-protection above.
+
+**Staged rollout.** Enforcement is gated on the `ENFORCE_AUTH` Script Property: the
+auth code ships **dormant** (every existing call still works) and is switched on with
+no redeploy once everyone can log in — and switched off again instantly if anything
+goes wrong.
+
+**Offline.** Installer tokens are long-lived (to next Monday), so an offline day
+never outlives the token. The session injects fresh at **flush** time, so a write
+that sat queued for days picks up a re-login. If a token expires while offline the
+gate still lets the crew keep logging (queued, held until re-login — never dropped);
+when online again, an `auth`-rejected flush keeps the backlog and prompts re-login,
+then drains it.
 
 ---
 
@@ -768,9 +846,13 @@ is not built for ~200, and the gaps are worth recording before they bite:
   filtered/attributed by the display name (not the H number), so same-name
   collisions remain possible in the `Stops`/`Tracker` tallies until those rows
   also carry `installerId`.
-- **One shared token, in public files.** No way to revoke one person without
-  rotating everyone's. **Planned fix:** per-installer credentials tied to the
-  employee number.
+- **One shared token, in public files.** **Addressed:** `SHARED_TOKEN` is now only
+  a coarse first filter — per-user logins (the `Users` tab + signed session tokens,
+  enforced in `Code.gs`) are the real gate (see §"Auth"). Revoke one person by
+  setting their `Users.active` to `FALSE` (takes effect at their next login or token
+  expiry); rotate `AUTH_SIGNING_KEY` to force-log-out everyone at once. **Caveat:**
+  session tokens are stateless, so a deactivation/role change only takes hold when
+  the current token expires (≤ a week for installers) unless you rotate the key.
 - **Write de-duplication (queued appends).** `addStop`/`addDowntime` now carry a
   client-generated `id`; the spine's `idExists()` skips a row already written under
   that id, so a request that times out client-side *after* the server wrote the row no

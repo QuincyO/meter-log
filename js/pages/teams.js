@@ -3,6 +3,10 @@
 // the save*/delete* writes. Read-mostly admin page — no offline queue.
 import { $, enc, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { requireLogin, mountAuthBar } from '../auth.js';
+
+requireLogin('teams');   // supervisor-only — installers are bounced to the capture page
+mountAuthBar();
 
 let state = { employees:[], teams:[], captains:[], subs:[] };
 

@@ -15,11 +15,17 @@ import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
+import { requireLogin, mountAuthBar, promptRelogin } from '../auth.js';
 
-// ── duplicate / J# conflict notice ──────────────────────────────────────────
-// The queue calls this hook once the server acks a write, so a duplicate /
-// conflict surfaces even for a stop that synced long after it was logged.
-setQueueHooks({ onResult: (body, item) => {
+requireLogin('index');   // installer or supervisor; expired-while-offline keeps logging
+mountAuthBar();
+
+// ── duplicate / J# conflict notice + session-expired prompt ─────────────────
+// onResult fires once the server acks a write (so a duplicate / conflict surfaces
+// even for a stop that synced long after it was logged); onAuthFail fires when a
+// queued write is rejected for a bad/expired session — the durable queue keeps the
+// write, and the prompt lets the user re-sign-in so the next flush drains it.
+setQueueHooks({ onAuthFail: promptRelogin, onResult: (body, item) => {
   if (!body.duplicate && !body.flagged) return;
   const wo = item.workOrderId || '?';
   const newJ = item.newJNumber || '';

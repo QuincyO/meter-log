@@ -4,6 +4,18 @@
 // Chart (`Chart`) come from the CDN <script>s loaded before this module.
 import { $, esc, toast } from '../dom.js';
 import { apiGet } from '../api.js';
+import { requireLogin, mountAuthBar, isSupervisor, displayName } from '../auth.js';
+
+requireLogin('map');
+mountAuthBar();
+// Privacy (UI-level, per spec): an installer sees their OWN stats + map, plus a
+// FLEET-AVERAGES summary — but no other named installer's specific numbers. So we
+// lock the installer filter to them and swap the per-installer table for averages.
+// A supervisor sees everyone. (The raw data is still delivered — this is deliberately
+// a UI hide, not a backend filter; the write-protection is what's hard-enforced.)
+const INSTALLER_ONLY = !isSupervisor();
+const MY_NAME = displayName();
+if(INSTALLER_ONLY){ const o = document.querySelector('#viewSel option[value="teams"]'); if(o) o.remove(); }
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
@@ -57,6 +69,13 @@ async function load(){
     DISP = dd.dispatch || [];
     BOATDAYS = bd.boatDays || [];
     buildInstallerList();
+    if(INSTALLER_ONLY){
+      // Scope every view to this installer and hide the installer filter so they
+      // can't isolate a colleague. Their own averages show in the tiles; fleet
+      // averages show where the per-installer table would be.
+      state.installers = MY_NAME ? [MY_NAME] : [];
+      const fb = $('instWrap'); if(fb) fb.style.display = 'none';
+    }
     drawMarkers(true);
     renderAnalytics();
     updatePill();
@@ -169,9 +188,10 @@ function doSearch(){
   const matches = ALL.filter(s => norm(s.workOrderId)===q || norm(s.newJNumber)===q || norm(s.oldJNumber)===q);
   if(!matches.length){ toast('No match for that WO# or J#'); return; }
 
-  // clear every filter so a match is never hidden, then locate it
+  // clear every filter so a match is never hidden, then locate it (an installer
+  // stays locked to their own pins — they can't reveal a colleague's stop via search)
   state.statuses = { INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true };
-  state.installers = []; state.from=''; state.to='';
+  state.installers = INSTALLER_ONLY ? (MY_NAME ? [MY_NAME] : []) : []; state.from=''; state.to='';
   syncControls(); drawMarkers(false); renderAnalytics();
 
   const located = matches.filter(hasCoords);
@@ -287,26 +307,66 @@ function renderAnalytics(){
       scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:false} } }, plugins:{ legend:{ display:false } } }
   });
 
-  // by installer
-  const byI = {};
-  trk.forEach(r => { const n=(r.installer||'—');
-    (byI[n]=byI[n]||{i:0,u:0,d:0,v:0,n:0,idle:0});
-    byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin);
-    byI[n].v+=trkNum(r.visited); byI[n].n+=trkNum(r.unaccounted); byI[n].idle+=trkNum(r.autoIdleMin); });
-  // Per-installer avg gap, from the same WO→WO gaps as the tile.
-  const gapByI = {};
-  gaps.forEach(r => { const n=(r.installer||'—'); (gapByI[n]=gapByI[n]||{sum:0,cnt:0});
-    gapByI[n].sum+=trkNum(r.minutes); gapByI[n].cnt++; });
-  const avgGapFor = n => (gapByI[n] && gapByI[n].cnt) ? Math.round(gapByI[n].sum/gapByI[n].cnt)+'m' : '—';
-  const names = Object.keys(byI).sort();
-  if(!names.length){ $('byInst').innerHTML = '<div class="empty">No end-of-day totals in this range.</div>'; }
-  else{
-    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th>'
-          + '<th class="num">Visited</th><th class="num">Unacc.</th><th class="num">Downtime</th><th class="num">Avg gap</th><th class="num">Auto-idle</th></tr></thead><tbody>';
-    names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td>`
-      + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${avgGapFor(n)}</td><td class="num">${byI[n].idle}</td></tr>`);
-    $('byInst').innerHTML = h + '</tbody></table>';
+  // by installer — supervisors get the per-person table; installers get ONLY the
+  // fleet averages (their own numbers are already in the tiles above). This is the
+  // privacy line: no colleague's individual figures are ever shown to an installer.
+  if(INSTALLER_ONLY){
+    const head = $('byInst').closest('.card') && $('byInst').closest('.card').querySelector('h3');
+    if(head) head.textContent = 'Fleet averages';
+    const cell = v => v==null ? '—' : (v+' min');
+    const fa = [
+      ['Avg install→install',       fleetAvgOwnGap(new Set(['INSTALLED']))],
+      ['Avg between completed WOs',  fleetAvgOwnGap(new Set(['INSTALLED','UTI']))],
+      ['Avg log→log (w/ partner)',   fleetAvgLog()],
+      ['Avg dispatch downtime',      fleetAvgDispatch()]
+    ];
+    $('byInst').innerHTML =
+      '<table class="byinst"><thead><tr><th>All installers</th><th class="num">Average</th></tr></thead><tbody>'
+      + fa.map(([k,v]) => `<tr><td>${esc(k)}</td><td class="num">${cell(v)}</td></tr>`).join('')
+      + '</tbody></table>';
+  } else {
+    const byI = {};
+    trk.forEach(r => { const n=(r.installer||'—');
+      (byI[n]=byI[n]||{i:0,u:0,d:0,v:0,n:0,idle:0});
+      byI[n].i+=trkNum(r.installed); byI[n].u+=trkNum(r.uti); byI[n].d+=trkNum(r.downtimeTotalMin);
+      byI[n].v+=trkNum(r.visited); byI[n].n+=trkNum(r.unaccounted); byI[n].idle+=trkNum(r.autoIdleMin); });
+    // Per-installer avg gap, from the same WO→WO gaps as the tile.
+    const gapByI = {};
+    gaps.forEach(r => { const n=(r.installer||'—'); (gapByI[n]=gapByI[n]||{sum:0,cnt:0});
+      gapByI[n].sum+=trkNum(r.minutes); gapByI[n].cnt++; });
+    const avgGapFor = n => (gapByI[n] && gapByI[n].cnt) ? Math.round(gapByI[n].sum/gapByI[n].cnt)+'m' : '—';
+    const names = Object.keys(byI).sort();
+    if(!names.length){ $('byInst').innerHTML = '<div class="empty">No end-of-day totals in this range.</div>'; }
+    else{
+      let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Installed</th><th class="num">UTI</th>'
+            + '<th class="num">Visited</th><th class="num">Unacc.</th><th class="num">Downtime</th><th class="num">Avg gap</th><th class="num">Auto-idle</th></tr></thead><tbody>';
+      names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td>`
+        + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${avgGapFor(n)}</td><td class="num">${byI[n].idle}</td></tr>`);
+      $('byInst').innerHTML = h + '</tbody></table>';
+    }
   }
+}
+
+// Fleet-wide (all installers) averages, range-filtered only — shown to an installer
+// so they see team averages without any individual colleague's numbers.
+function rangePins(){ return ALL.filter(s => inRange(dateKey(s.timestamp))); }
+function fleetAvgOwnGap(statusSet){
+  const byKey = {};
+  rangePins().forEach(s => { if(!statusSet.has(s.status)) return;
+    const t = +new Date(s.timestamp); if(isNaN(t)) return;
+    (byKey[s.installer+'|'+dateKey(s.timestamp)] ||= []).push(t); });
+  let sum=0, n=0;
+  Object.values(byKey).forEach(ts => { ts.sort((a,b)=>a-b);
+    for(let i=1;i<ts.length;i++){ const m=(ts[i]-ts[i-1])/60000; if(m>0){ sum+=m; n++; } } });
+  return n ? Math.round(sum/n) : null;
+}
+function fleetAvgLog(){
+  const g = TIM.filter(r => inRange(dateKey(r.date)) && (r.type==='Travel' || r.type==='Flagged'));
+  return g.length ? Math.round(g.reduce((a,r)=>a+trkNum(r.minutes),0)/g.length) : null;
+}
+function fleetAvgDispatch(){
+  const d = DISP.filter(r => String(r.matched).trim().toUpperCase()==='Y' && inRange(dateKey(r.completedTime)));
+  return d.length ? Math.round(d.reduce((a,r)=>a+(trkNum(r.minutes)||0),0)/d.length) : null;
 }
 function tile(n,k,cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }
 function blank(id,msg){ const el=$(id); el.textContent=msg; el.style.display = msg ? 'flex' : 'none'; }

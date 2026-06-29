@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meter Log">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Meter Log — Sign in</title>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  .login-wrap{margin-top:13vh}
+  .login-wrap h1{font-size:24px;margin:0 2px 4px}
+  .login-wrap p.sub{color:var(--ink-soft);font-size:14px;margin:0 2px 18px}
+  .login-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+     padding:18px 16px 22px;box-shadow:var(--shadow)}
+  .err{display:none;margin-top:14px;background:#FDECEC;border:1px solid #F5B5B5;color:#7A1F1F;
+     padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600}
+  .err.show{display:block}
+</style>
+</head>
+<body>
+  <div class="login-wrap">
+    <h1>Meter Log</h1>
+    <p class="sub">Sign in to continue.</p>
+    <form class="login-card" id="loginForm" autocomplete="on">
+      <label for="u">Username</label>
+      <input id="u" name="username" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="current-password">
+      <div class="err" id="err"></div>
+      <button class="primary" id="loginBtn" type="submit">Sign in</button>
+    </form>
+  </div>
+<script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { enc } from './dom.js';
 export async function apiGet(action, params = {}){
   const c = cfg();
   let u = `${c.url}?token=${enc(c.token)}&action=${enc(action)}`;
+  if(c.session) u += `&session=${enc(c.session)}`;
   for(const k in params){
     const v = params[k];
     if(v !== undefined && v !== null) u += `&${k}=${enc(v)}`;
@@ -17,12 +18,13 @@ export async function apiGet(action, params = {}){
   return (await fetch(u)).json();
 }
 
-// POST {token, ...body}. text/plain dodges the CORS preflight.
+// POST {token, session, ...body}. text/plain (no custom headers) dodges the CORS
+// preflight — the session rides in the body, never an Authorization header.
 export async function apiPost(body){
   const c = cfg();
   const resp = await fetch(c.url, {
     method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify(Object.assign({ token:c.token }, body))
+    body: JSON.stringify(Object.assign({ token:c.token, session:c.session }, body))
   });
   return resp.json();
 }
