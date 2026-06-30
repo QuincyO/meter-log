@@ -427,6 +427,8 @@ $('endDay').onclick = async () => {
   await flush();
   $('eodNotes').value=''; $('eodTally').textContent='Loading…'; $('eodList').innerHTML='';
   $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML=''; eodGaps=[];
+  // Fresh review → drop any prior day's prefetched high-fidelity summary.
+  eodServerSummary = null; eodSummaryJob = null;
   openSheet('eodSheet');
   await loadDay('eod');
 };
@@ -555,7 +557,56 @@ async function persistEodReview(){
   await idb.put('dayCache', cached, key);
 }
 let _eodPersistTimer;
-function schedulePersistEod(){ clearTimeout(_eodPersistTimer); _eodPersistTimer = setTimeout(persistEodReview, 700); }
+function schedulePersistEod(){
+  clearTimeout(_eodPersistTimer);
+  // After the edit settles: stash it locally, then refresh the prefetched server
+  // summary so it reflects the new deductions/bookends by the time Finish is tapped.
+  _eodPersistTimer = setTimeout(async () => { await persistEodReview(); prefetchEodSummary(); }, 700);
+}
+
+// ── high-fidelity summary prefetch (so the close PDF is instant) ────────────
+// The online daily-log PDF is drawn from the spine's summary (merged-boat travel,
+// which the local builder can't reproduce). Building it needs a saveTravel +
+// previewDailyLog round-trip, so we run it in the background while the installer
+// reviews — by the time they tap Finish it's usually ready. eodServerSummary holds
+// the last good result; eodSummaryJob is the in-flight build (for the submit race).
+let eodServerSummary = null;   // { key, summary }
+let eodSummaryJob = null;      // { key, promise }
+
+// Stable fingerprint of everything the summary depends on — lets us know whether a
+// prefetched summary still matches the installer's current edits.
+function eodStateKey(){
+  return JSON.stringify(collectGapAllocations(eodGaps))
+       + '|' + ($('eodDeparture').value||'') + '|' + ($('eodReturned').value||'')
+       + '|' + ($('eodNotes').value||'') + '|' + (!!$('eodIncludeDelays').checked);
+}
+
+// Best-effort background build of the spine summary for the current edit state.
+// Returns the in-flight Promise (or undefined when offline). Dedupes against an
+// already-cached or already-running build for the same key. A failure is swallowed
+// — the submit path just falls back to the local cache summary.
+function prefetchEodSummary(){
+  const c = cfg();
+  if(!navigator.onLine || !c.name || !c.url || !c.token) return;
+  const key = eodStateKey();
+  if(eodServerSummary && eodServerSummary.key === key) return;       // already have it
+  if(eodSummaryJob && eodSummaryJob.key === key) return eodSummaryJob.promise;  // already building
+  const job = { key, promise: (async () => {
+    try{
+      await flush();
+      await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
+                      allocations: collectGapAllocations(eodGaps) });
+      const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
+                                includeDelays:$('eodIncludeDelays').checked });
+      // Only adopt the result if a newer edit hasn't superseded this build, so a
+      // slow stale job can't clobber a fresher summary.
+      if(d && d.summary && eodSummaryJob === job) eodServerSummary = { key, summary:d.summary };
+    } catch {/* fall back to cache at submit */}
+    finally { if(eodSummaryJob === job) eodSummaryJob = null; }  // only clear if still current
+  })() };
+  eodSummaryJob = job;
+  return job.promise;
+}
 
 // Build the daily-log summary from the phone's cached day (stops + downtime +
 // bookends + boatMeta) — the offline source the PDF renderer draws from. Online
@@ -644,6 +695,9 @@ async function loadDay(mode){
       } catch {}
     }
     renderDayData(mode, stops, downtime, d.day||{}, gaps);
+    // Gaps/bookends are now authoritative — start building the high-fidelity
+    // close summary in the background so the Finish PDF is instant.
+    if(mode==='eod') prefetchEodSummary();
   } catch {
     if(!renderedFromCache){
       const msg = '<p class="muted">Couldn\'t load — check the connection.</p>';
@@ -709,18 +763,37 @@ $('finishDay').onclick = async () => {
 
   btn.classList.add('loading'); btn.disabled = true;
   try{
+    // 1. Get the PDF out instantly. Prefer the high-fidelity summary the review
+    // already prefetched (merged-boat travel); if it isn't ready for the current
+    // edits yet, wait up to 5s; only then fall back to the local cache summary.
+    const stateKey = eodStateKey();
+    let summary = null;
+    if(eodServerSummary && eodServerSummary.key === stateKey){
+      summary = eodServerSummary.summary;
+    } else {
+      const job = prefetchEodSummary();
+      if(job) await Promise.race([ job, new Promise(r => setTimeout(r, 5000)) ]);
+      if(eodServerSummary && eodServerSummary.key === stateKey) summary = eodServerSummary.summary;
+    }
+    const fromServer = !!summary;
+    if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
+    downloadDailyLog(summary);
+    closeSheets();
+    toast('Day closed ✓ · PDF downloaded');
+
+    // 2. Finalize the close on the Sheet (the PDF is already delivered). Weather is
+    // recorded on the Sheet but intentionally left off the instant PDF.
     let weather = '';
     const withCoord = (eodData.stops||[]).find(s =>
       s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
     if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
-    // Flush first so any queued stops / manual downtime are written before the spine
-    // tallies the day.
     await flush();
-    // Persist the per-gap travel deductions first (replaces this day's prior set), so
-    // the summary the spine returns already reflects the subtracted travel times.
-    await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
-                    allocations: collectGapAllocations(eodGaps) });
-    const d = await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
+    // The prefetch already saved these exact allocations when its summary matched;
+    // otherwise write them now so endOfDay tallies the subtracted travel.
+    if(!fromServer)
+      await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
+                      allocations: collectGapAllocations(eodGaps) });
+    await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
                     notes:$('eodNotes').value.trim(), weather,
                     includeDelays:$('eodIncludeDelays').checked,
                     departure:$('eodDeparture').value, returned:$('eodReturned').value });
@@ -729,11 +802,7 @@ $('finishDay').onclick = async () => {
     const key = `${c.name}|${localDate()}`;
     const cc = await idb.get('dayCache', key);
     if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
-    closeSheets();
-    // Render the PDF on the phone from the spine's summary (high-fidelity travel).
-    if (d.summary) { downloadDailyLog(d.summary); toast('Day closed ✓ · PDF downloaded'); }
-    else toast('Day closed ✓');
-  } catch { toast('Could not reach the sheet'); }
+  } catch { toast('Day closed locally — will retry sync'); }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
 
