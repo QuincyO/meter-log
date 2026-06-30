@@ -1,6 +1,6 @@
 # Tracker
 
-_15 rows · exported 2026-06-29 03:52 America/Toronto_
+_17 rows · exported 2026-06-30 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -15,7 +15,9 @@ _15 rows · exported 2026-06-29 03:52 America/Toronto_
 | 2026-06-25 00:00:00 | Brody D | 6 | 0 | 69 | 0 | 0 | 0 | 0 | 0 | 69 | 0 | 0 | 0 | 0 |  |  | 1 | 0 |  | 418 |  |
 | 2026-06-25 00:00:00 | Phillip Monteiro | 5 | 0 | 75 | 0 | 0 | 0 | 0 | 0 | 75 | 0 | 0 | 0 | 0 |  |  | 1 | 0 |  | 349 |  |
 | 2026-06-26 00:00:00 | Phillip Monteiro | 7 | 0 | 257 | 0 | 0 | 0 | 0 | 0 | 257 | 0 | 0 | 0 | 0 | Overcast · W 12 km/h · 20°C |  | 0 | 1 |  | 314 |  |
-| 2026-06-26 00:00:00 | Quincy Orta | 5 | 0 | 43 | 0 | 0 | 0 | 0 | 0 | 43 | 0 | 0 | 0 | 0 | Mainly clear · W 12 km/h · 21°C |  | 0 | 0 |  | 362 |  |
+| 2026-06-26 00:00:00 | Quincy Orta | 4 | 1 | 44 | 0 | 0 | 0 | 0 | 0 | 44 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 128 |  |
 | 2026-06-26 00:00:00 | Brody D | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 385 |  |
 | 2026-06-27 00:00:00 | Quincy Orta | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · W 12 km/h · 24°C |  | 0 | 1 |  | 302 |  |
 | 2026-06-27 00:00:00 | Bradley Davis | 8 | 0 | 11 | 0 | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 191 |  |
+| 2026-06-29 00:00:00 | Brody D | 9 | 0 | 58 | 0 | 0 | 0 | 0 | 0 | 58 | 0 | 0 | 0 | 0 | Partly cloudy · S 12 km/h · 27°C |  | 0 | 0 |  | 139 |  |
+| 2026-06-29 00:00:00 | Quincy Orta | 5 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · E 7 km/h · 21°C |  | 0 | 0 |  | 236 |  |

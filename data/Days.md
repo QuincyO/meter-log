@@ -1,6 +1,6 @@
 # Days
 
-_15 rows · exported 2026-06-29 03:52 America/Toronto_
+_17 rows · exported 2026-06-30 03:52 America/Toronto_
 
 | date | installer | departure | returned | dispatchMin | boatDispatchMin |
 | --- | --- | --- | --- | --- | --- |
@@ -15,7 +15,9 @@ _15 rows · exported 2026-06-29 03:52 America/Toronto_
 | 2026-06-25 00:00:00 | Brody D | 08:00 | 16:00 |  |  |
 | 2026-06-25 00:00:00 | Phillip Monteiro | 08:00 | 16:10 |  |  |
 | 2026-06-26 00:00:00 | Phillip Monteiro | 8:00 | 16:10 |  |  |
-| 2026-06-26 00:00:00 | Quincy Orta | 8:00 | 16:10 |  |  |
-| 2026-06-26 00:00:00 | Brody D | 8:16 | 16:10 |  |  |
+| 2026-06-26 00:00:00 | Quincy Orta | 08:00 | 16:10 | 44 | 44 |
+| 2026-06-26 00:00:00 | Brody D | 8:16 | 16:10 | 0 | 44 |
 | 2026-06-27 00:00:00 | Quincy Orta | 07:30 | 16:15 | 0 | 11 |
 | 2026-06-27 00:00:00 | Bradley Davis | 07:30 | 16:15 | 11 | 11 |
+| 2026-06-29 00:00:00 | Brody D |   | 1899-12-30 16:10:00 | 58 | 58 |
+| 2026-06-29 00:00:00 | Quincy Orta | 07:30 | 16:15 | 0 | 58 |

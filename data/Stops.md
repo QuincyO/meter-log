@@ -1,6 +1,6 @@
 # Stops
 
-_105 rows · exported 2026-06-29 03:52 America/Toronto_
+_120 rows · exported 2026-06-30 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -80,7 +80,7 @@ _105 rows · exported 2026-06-29 03:52 America/Toronto_
 | 1782484061853-cvbzyt | 2026-06-26 10:27:41 | Brody D | 581273 |  | 1 Island 43c, Carling, ON P0G 1G0, Canada | 45.402486 | -80.213624 | J4759997 | J3062338 | 63549 | INSTALLED |  |  |  |  |  |
 | 1782485301369-tw7rq7 | 2026-06-26 10:48:21 | Phillip Monteiro |  |  | 77 Calow Rd, Carling, ON P0G 1G0, Canada | 45.403544 | -80.216435 |  |  |  | UNACCOUNTED |  | Road access |  |  |  |
 | 1782486790423-p81ahp | 2026-06-26 11:13:10 | Phillip Monteiro | 574387 |  | 33 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.3990329 | -80.2195287 | J4760007 | J3910286 | 25410 | INSTALLED |  |  |  |  | Y |
-| 1782487833986-lt3nc9 | 2026-06-26 11:30:33 | Quincy Orta | 573570 |  | 35 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.399651 | -80.220788 | J4759996 | J3062388 | 87637 | INSTALLED |  |  |  |  |  |
+| 1782487833986-lt3nc9 | 2026-06-26 11:30:00 | Quincy Orta | 573570 |  | 35 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.399651 | -80.220788 |  | J3062388 | 87637 | UTI | Emergency Electrical Repair  |  |  |  |  |
 | 1782489607117-vwx6lr | 2026-06-26 12:00:07 | Brody D | 572350 |  | 36 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.399284 | -80.221647 | J4759995 | J3062387 | 41813 | INSTALLED |  |  |  |  | Y |
 | 1782491475113-ldegu2 | 2026-06-26 12:31:15 | Quincy Orta | 573146 |  | 31 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.399104 | -80.217788 | J4694774 | J3062381 | 52410 | INSTALLED |  |  |  |  |  |
 | 1782492040383-nmw9ji | 2026-06-26 12:40:40 | Phillip Monteiro | 571351 |  | 32 Wa Zone F, Carling, ON P0G 1G0, Canada | 45.398666 | -80.218961 | J4759994 | J3249868 | 6900 | INSTALLED |  |  |  |  |  |
@@ -109,3 +109,18 @@ _105 rows · exported 2026-06-29 03:52 America/Toronto_
 | 1782583881604-iagbk6 | 2026-06-27 14:11:21 | Bradley Davis | 573239 |  | 5 A4 Is, Archipelago, ON P0G 1K0, Canada | 45.586665 | -80.401065 | J4761303 | J3594157 | 4597 | INSTALLED |  |  |  |  |  |
 | 1782584728856-pxv501 | 2026-06-27 14:25:28 | Quincy Orta | 573221 |  | 7 A4 Is, The Archipelago, ON P0G 1K0, Canada | 45.586804 | -80.401892 | J4761304 | J3062450 | 23414 | INSTALLED |  |  |  |  |  |
 | 1782587104865-wts0fz | 2026-06-27 15:05:04 | Bradley Davis | 584144 |  | 1 A1 Is, The Archipelago, ON P0G 1K0, Canada | 45.588953 | -80.397459 | J4761305 | J3061992 | 39991 | INSTALLED |  |  |  |  |  |
+| 1782736045025-evk6zd | 2026-06-29 08:27:25 | Brody D | 573746 |  | 13 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.395248 | -80.228059 | J4760266 | J3062369 | 59680 | INSTALLED |  |  |  |  | Y |
+| 1782737522331-i9de2h | 2026-06-29 08:52:02 | Quincy Orta | 570993 |  | 41 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.39764 | -80.212815 |  | CANT VERIFY |  | UTI | Inside Meter - Need Appointment |  |  |  |  |
+| 1782739341640-i570bn | 2026-06-29 09:22:21 | Quincy Orta | 573752 |  | 1 Island 39c, Carling, ON P0G 1G0, Canada | 45.376004 | -80.19196 | J4760269 | J3062017 | 30170 | INSTALLED |  |  |  |  |  |
+| 1782742048325-0bi63r | 2026-06-29 10:07:28 | Brody D | 572064 |  | 1 Island 26c, Carling, ON P0G 1G0, Canada | 45.377925 | -80.162309 | J4760268 | J3786232 | 10754 | INSTALLED |  |  |  |  | Y |
+| 1782744225884-2sgx8u | 2026-06-29 10:43:45 | Brody D | 588946 |  | 1 MARY Is, McDougall, ON P2A 2W9, Canada | 45.379788 | -80.082851 | J4760267 | J4240002 | 406 | INSTALLED |  |  |  |  |  |
+| 1782744700627-klbtn9 | 2026-06-29 10:51:40 | Brody D | 588781 |  | 1 MARY Is, McDougall, ON P2A 2W9, Canada | 45.379547 | -80.083011 | J4760262 | J2124244 | 38491 | INSTALLED |  |  |  |  |  |
+| 1782746759118-x9afg0 | 2026-06-29 11:25:59 | Quincy Orta | 600384 |  | 2 Mary Is, McDougall, ON P2A 2W9, Canada | 45.379223 | -80.081727 | J4760263 | J2124234 | 37324 | INSTALLED |  |  |  |  | Y |
+| 1782748277741-w4pvi1 | 2026-06-29 11:51:17 | Brody D | 600347 |  | 27 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.380301 | -80.079034 | J4760265 | J2124236 | 30304 | INSTALLED |  |  |  |  | Y |
+| 1782749457281-2wyvxp | 2026-06-29 12:10:57 | Brody D | 586512 |  | 21 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381927 | -80.077209 | J4761341 | J3941476 | 4190 | INSTALLED |  |  |  |  |  |
+| 1782749884632-nfptom | 2026-06-29 12:18:04 | Brody D | 585724 |  | 22 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381506 | -80.077298 | J4761339 | J3314995 | 2581 | INSTALLED |  |  |  |  |  |
+| 1782750456833-usnasq | 2026-06-29 12:27:36 | Brody D | 585963 |  | 20 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.38258 | -80.07704 | J4760264 | J2124242 | 20962 | INSTALLED |  |  |  |  |  |
+| 1782757871897-2v90lr | 2026-06-29 14:31:11 | Quincy Orta | 600644 |  | 29 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.382083 | -80.082147 | J4761338 | J4240003 | 1235 | INSTALLED |  |  |  |  | Y |
+| 1782758690988-1stfhm | 2026-06-29 14:44:50 | Brody D | 583185 |  | 33 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381828 | -80.083295 | J4761340 | J3158657 | 84586 | INSTALLED |  |  |  |  |  |
+| 1782758776339-pyk0e2 | 2026-06-29 14:46:16 | Quincy Orta | 585964 |  | 31 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381778 | -80.082484 | J4761334 | J3158659 | 35460 | INSTALLED |  |  |  |  | Y |
+| 1782760122965-5103nn | 2026-06-29 15:08:42 | Quincy Orta | 588962 |  | 9W9J+67 McDougall, ON, Canada | 45.368033 | -80.069317 | J4761348 | J3158660 | 39084 | INSTALLED |  |  |  |  |  |

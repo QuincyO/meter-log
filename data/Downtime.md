@@ -1,6 +1,6 @@
 # Downtime
 
-_45 rows · exported 2026-06-29 03:52 America/Toronto_
+_49 rows · exported 2026-06-30 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -44,8 +44,12 @@ _45 rows · exported 2026-06-29 03:52 America/Toronto_
 | 1782504557036-pyzrbg | 2026-06-26 12:00:00 | Phillip Monteiro | DISPATCH | 9 | 581468 | gap 12:40–13:24 |
 | 1782504557036-b1h3ql | 2026-06-26 12:00:00 | Phillip Monteiro | DISPATCH | 7 | 573044 | gap 13:24–14:03 |
 | 1782504557036-gcckjb | 2026-06-26 12:00:00 | Phillip Monteiro | DISPATCH | 17 | 571014 | gap 14:03–15:13 |
-| 1782505348341-ye0vvn | 2026-06-26 12:00:00 | Quincy Orta | LUNCH | 30 | 574318 | gap 12:40–14:09 |
-| 1782505348341-i936pm | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 15 | 573570 | gap 14:09–15:30 |
-| 1782505348341-57vo3z | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 28 | 572080 | gap 16:31–18:23 |
 | 1782682643916-gqcpju | 2026-06-27 12:00:00 | Bradley Davis | LUNCH | 30 | 573070 | gap 11:55–13:33 |
 | 1782682643916-4wm7qp | 2026-06-27 12:00:00 | Bradley Davis | DISPATCH | 11 | 584144 | gap 14:25–15:05 |
+| 1782736045036-uut8ir | 2026-06-29 08:27:25 | Brody D | DISPATCH | 16 | 573746 | dispatch (avg est.) |
+| 1782742048327-kxhbw9 | 2026-06-29 10:07:28 | Brody D | DISPATCH | 16 | 572064 | dispatch (avg est.) |
+| 1782764095552-xgkvyz | 2026-06-29 12:00:00 | Brody D | DISPATCH | 16 | 572064 | gap 09:22–10:07 |
+| 1782764095552-lmjp78 | 2026-06-29 12:00:00 | Brody D | DISPATCH | 10 | 600347 | gap 11:25–11:51 |
+| 1782776855977-tpq4z6 | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 6 | 573570 | gap 10:27–11:30 |
+| 1782776855978-haqu49 | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 10 | 573146 | gap 12:00–12:31 |
+| 1782776855979-9p28wr | 2026-06-26 12:00:00 | Quincy Orta | DISPATCH | 28 | 572080 | gap 13:45–14:23 |
