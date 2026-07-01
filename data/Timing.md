@@ -1,6 +1,6 @@
 # Timing
 
-_145 rows · exported 2026-06-30 03:52 America/Toronto_
+_158 rows · exported 2026-07-01 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -149,3 +149,16 @@ _145 rows · exported 2026-06-30 03:52 America/Toronto_
 | 2026-06-29 00:00:00 | Quincy Orta | 1899-12-30 14:44:00 | 1899-12-30 14:46:00 | 1 | 64 | Travel | travel | 585964 | INSTALLED | INSTALLED |
 | 2026-06-29 00:00:00 | Quincy Orta | 1899-12-30 14:46:00 | 1899-12-30 15:08:00 | 22 | 1842 | Flagged | travel | 588962 | INSTALLED | INSTALLED |
 | 2026-06-29 00:00:00 | Quincy Orta | 1899-12-30 15:08:00 | 1899-12-30 16:15:00 | 66 |  | Return | travel |  | INSTALLED |  |
+| 2026-06-30 00:00:00 | Quincy Orta | 1899-12-30 08:00:00 | 1899-12-30 09:49:00 | 110 |  | Launch | travel |  |  | DONE |
+| 2026-06-30 00:00:00 | Quincy Orta | 1899-12-30 09:57:00 | 1899-12-30 10:58:00 | 61 | 1211 | Flagged | travel | 574770 | UTI | INSTALLED |
+| 2026-06-30 00:00:00 | Quincy Orta | 1899-12-30 11:49:00 | 1899-12-30 12:39:00 | 50 | 1848 | Flagged | travel | 574259 | INSTALLED | INSTALLED |
+| 2026-06-30 00:00:00 | Quincy Orta | 1899-12-30 12:39:00 | 1899-12-30 16:00:00 | 201 |  | Return | travel |  | INSTALLED |  |
+| 2026-06-30 00:00:00 | Brody D | 1899-12-30 09:49:00 | 1899-12-30 09:57:00 | 8 | 31 | Travel | travel | 571484 | DONE | UTI |
+| 2026-06-30 00:00:00 | Brody D | 1899-12-30 10:58:00 | 1899-12-30 11:31:00 | 33 | 4625 | Flagged | travel | 571873 | INSTALLED | INSTALLED |
+| 2026-06-30 00:00:00 | Brody D | 1899-12-30 11:31:00 | 1899-12-30 11:49:00 | 17 | 159 | Travel | travel | 581484 | INSTALLED | INSTALLED |
+| 2026-06-30 00:00:00 | Brody D | 1899-12-30 12:39:00 | 1899-12-30 16:00:00 | 201 |  | Return | travel |  | INSTALLED |  |
+| 2026-06-30 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 08:45:00 | 76 |  | Launch | travel | 586580 |  | INSTALLED |
+| 2026-06-30 00:00:00 | Phillip Monteiro | 1899-12-30 08:45:00 | 1899-12-30 14:38:00 | 353 | 1637 | Flagged | mixed |  | INSTALLED | UNACCOUNTED |
+| 2026-06-30 00:00:00 | Phillip Monteiro | 1899-12-30 14:38:00 | 1899-12-30 15:03:00 | 25 | 3296 | Flagged | travel |  | UNACCOUNTED | VISITED |
+| 2026-06-30 00:00:00 | Phillip Monteiro | 1899-12-30 15:03:00 | 1899-12-30 15:09:00 | 6 | 236 | Travel | travel | 600188 | VISITED | INSTALLED |
+| 2026-06-30 00:00:00 | Phillip Monteiro | 1899-12-30 15:09:00 | 1899-12-30 16:00:00 | 51 |  | Return | travel |  | INSTALLED |  |

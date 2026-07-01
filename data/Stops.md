@@ -1,6 +1,6 @@
 # Stops
 
-_120 rows · exported 2026-06-30 03:52 America/Toronto_
+_130 rows · exported 2026-07-01 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -124,3 +124,13 @@ _120 rows · exported 2026-06-30 03:52 America/Toronto_
 | 1782758690988-1stfhm | 2026-06-29 14:44:50 | Brody D | 583185 |  | 33 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381828 | -80.083295 | J4761340 | J3158657 | 84586 | INSTALLED |  |  |  |  |  |
 | 1782758776339-pyk0e2 | 2026-06-29 14:46:16 | Quincy Orta | 585964 |  | 31 Elizabeth Is, McDougall, ON P2A 2W9, Canada | 45.381778 | -80.082484 | J4761334 | J3158659 | 35460 | INSTALLED |  |  |  |  | Y |
 | 1782760122965-5103nn | 2026-06-29 15:08:42 | Quincy Orta | 588962 |  | 9W9J+67 McDougall, ON, Canada | 45.368033 | -80.069317 | J4761348 | J3158660 | 39084 | INSTALLED |  |  |  |  |  |
+| 1782823530070-zw2y94 | 2026-06-30 08:45:30 | Phillip Monteiro | 586580 |  | 1 Robertson Is, McDougall, ON P2A 2W9, Canada | 45.375532 | -80.070908 | J4763790 | J3366214 | 13062 | INSTALLED |  |  |  |  | Y |
+| 1782827382510-tphrqh | 2026-06-30 09:49:42 | Quincy Orta |  |  | Snug Harbour Lighthouse, Carling, ON P0G 1G0, Canada | 45.373856 | -80.310939 |  |  |  | DONE |  |  |  |  |  |
+| 1782827878383-87cjba | 2026-06-30 09:57:58 | Brody D | 571484 |  | Snug Harbour Lighthouse, Carling, ON P0G 1G0, Canada | 45.373638 | -80.311176 |  | J3158890 |  | UTI | No Power | Service disconnected |  |  |  |
+| 1782831533642-8cqtwt | 2026-06-30 10:58:53 | Quincy Orta | 574770 |  | 32 Wa Zone P, Carling, ON P0G 1G0, Canada | 45.384116 | -80.315393 | J4763793 | J3713629 | 7507 | INSTALLED |  |  |  |  |  |
+| 1782833498649-c38e9s | 2026-06-30 11:31:38 | Brody D | 571873 |  | 1 Island 326c, Carling, ON P0G 1G0, Canada | 45.42324 | -80.335497 | J4763791 | J3158958 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1782834547644-qw0ww7 | 2026-06-30 11:49:07 | Brody D | 581484 |  | CMF6+9X Carling, ON, Canada | 45.423459 | -80.337504 | J4763786 | J3270499 | 17123 | INSTALLED |  |  |  |  |  |
+| 1782837549050-ihv4ws | 2026-06-30 12:39:09 | Quincy Orta | 574259 |  | 1 Island 271c, Carling, ON P0G 1G0, Canada | 45.424457 | -80.31387 | J4763788 | J3158231 | 23744 | INSTALLED |  |  |  |  |  |
+| 1782844725781-r0xxdx | 2026-06-30 14:38:45 | Phillip Monteiro |  |  | 1 Island 3 W, McDougall, ON P2A 2W9, Canada | 45.385633 | -80.086164 |  |  |  | UNACCOUNTED |  | No meter here |  |  |  |
+| 1782846215088-hxcoe4 | 2026-06-30 15:03:35 | Phillip Monteiro |  |  | 11 Island 15c, Carling, ON P0G 1G0, Canada | 45.395128 | -80.126152 |  | J2608342 |  | VISITED |  | Requested but next gen down, moved on |  |  |  |
+| 1782846570097-eunsij | 2026-06-30 15:09:30 | Phillip Monteiro | 600188 |  | 10 Island 15c, Carling, ON P0G 1G0, Canada | 45.393018 | -80.125854 | J4763792 | J3061912 |  | INSTALLED |  |  | Missing segments |  |  |
