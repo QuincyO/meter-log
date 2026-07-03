@@ -42,19 +42,40 @@ function locLabel(s){
 }
 
 // ── server I/O ─────────────────────────────────────────────────────────────
+// Fill the installer picker from a roster payload (shared by the cached paint
+// and the fresh fetch — the fetch repaints in place).
+function paintRoster(d){
+  state.employees = (d.employees||[]).filter(e => e.active !== false);
+  const sel = $('who');
+  const keep = sel.value;
+  while(sel.options.length > 1) sel.remove(1);   // keep the placeholder option
+  state.employees.slice()
+    .sort((a,b)=> (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
+    .forEach(e => { const o=document.createElement('option');
+      o.value=e.hNumber; o.textContent=`${fullName(e)} (${e.hNumber})`; sel.appendChild(o); });
+  if(keep) sel.value = keep;
+}
 async function loadRoster(){
-  setStatus('wait','Loading…');
+  // Paint instantly from the last-fetched copy, then refresh from the Sheet.
+  // sessionStorage on purpose (not IndexedDB): this is a per-tab convenience
+  // cache, not durable offline state, so the IndexedDB storage policy in
+  // CLAUDE.md doesn't apply to it.
+  let painted = false;
+  try{
+    const cached = JSON.parse(sessionStorage.getItem('rosterCache') || 'null');
+    if(cached && cached.ok){ paintRoster(cached); painted = true; setStatus('wait','Refreshing…'); }
+  } catch {}
+  if(!painted) setStatus('wait','Loading…');
   try{
     const d = await apiGet('roster');
     if(!d.ok) throw new Error(d.error||'load failed');
-    state.employees = (d.employees||[]).filter(e => e.active !== false);
-    const sel = $('who');
-    state.employees.slice()
-      .sort((a,b)=> (a.lastName+a.firstName).localeCompare(b.lastName+b.firstName))
-      .forEach(e => { const o=document.createElement('option');
-        o.value=e.hNumber; o.textContent=`${fullName(e)} (${e.hNumber})`; sel.appendChild(o); });
+    try{ sessionStorage.setItem('rosterCache', JSON.stringify(d)); } catch {}
+    paintRoster(d);
     setStatus('ok','Synced');
-  } catch(e){ setStatus('off','Offline — can’t load'); toast('Couldn’t load crew — check the connection'); }
+  } catch(e){
+    if(painted){ setStatus('ok','Cached crew list'); return; }
+    setStatus('off','Offline — can’t load'); toast('Couldn’t load crew — check the connection');
+  }
 }
 async function post(payload){
   const d = await apiPost(payload);   // injects token; text/plain dodges CORS preflight
@@ -71,7 +92,15 @@ $('loadBtn').onclick = async () => {
   state.installer = fullName(emp); state.installerId = h; state.date = date;
   setStatus('wait','Loading…');
   try{
-    const d = await apiGet('day', { installer:state.installer, installerId:state.installerId, date });
+    // Both reads depend only on installer+date, so they run in parallel — the
+    // load used to pay the two round-trips back to back.
+    const [d, idata] = await Promise.all([
+      apiGet('day', { installer:state.installer, installerId:state.installerId, date }),
+      // Travel review: every WO→WO gap (team-aware) plus any deductions already
+      // saved. Non-blocking — the day still loads/generates if this call fails.
+      apiGet('idle', { installerId:state.installerId, installer:state.installer, date })
+        .catch(() => ({ gaps: [] }))
+    ]);
     if(!d.ok) throw new Error(d.error||'load failed');
     setStatus('ok','Synced');
     // DONE markers are coordinates-only and never print on the log — leave them out.
@@ -81,15 +110,9 @@ $('loadBtn').onclick = async () => {
     $('departure').value = (d.day && d.day.departure) || '';
     $('returned').value  = (d.day && d.day.returned)  || '';
     renderClosed(d.closed);
-    // Travel review: every WO→WO gap (team-aware) plus any deductions already saved.
-    // Fetch BEFORE rendering stops so each work-order card can show its incoming
-    // travel. Non-blocking — the day still loads/generates if this call fails.
-    let gaps = [];
-    try{
-      const idata = await apiGet('idle', { installerId:state.installerId, installer:state.installer, date });
-      gaps = idata.gaps || [];
-    } catch {}
-    setGapData(gaps);
+    // Gap data is set BEFORE rendering stops so each work-order card can show
+    // its incoming travel.
+    setGapData(idata.gaps || []);
     renderStops();
     $('daySection').classList.remove('hide');
   } catch(e){ setStatus('off','Offline'); toast('Couldn’t load that day'); }
@@ -341,7 +364,7 @@ $('genLog').onclick = async () => {
       setStatus('ok','Synced');
     } catch { summary = localSummary(); setStatus('off','Offline — local draft'); }
     if(!summary) summary = localSummary();
-    downloadDailyLog(summary);
+    await downloadDailyLog(summary);
     toast('Daily log ready ✓ · day not closed');
   } catch(err){ setStatus('off','Error'); toast(err.message || 'Could not generate'); }
 };

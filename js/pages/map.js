@@ -1,7 +1,8 @@
 // ── Map & Analytics viewer (map.html) ───────────────────────────────────────
 // Read-only window over the data: plots stops by GPS (Leaflet), filters, WO#/J#
 // search, and Tracker/Timing/Dispatch trend charts (Chart.js). Leaflet (`L`) and
-// Chart (`Chart`) come from the CDN <script>s loaded before this module.
+// Chart (`Chart`) come from the vendored classic <script>s loaded before this
+// module (js/vendor/leaflet.js, js/vendor/chart.umd.min.js).
 import { $, esc, toast } from '../dom.js';
 import { apiGet } from '../api.js';
 
@@ -11,8 +12,16 @@ const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeathe
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
 let ALL = [], TRK = [], TIM = [], DISP = [], BOATDAYS = [], INSTALLER_NAMES = [];
+// The viewer opens on the last 60 days (fetched server-side, see load()) —
+// pulling every stop ever logged on each open stops scaling once the crew
+// grows. The "All" preset still loads the full history on demand.
+const DEFAULT_DAYS = 59;
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
+// What load() last fetched: {from,to} when windowed, 'all' after a full pull,
+// null before the first load. Narrowing inside the fetched window is filtered
+// client-side (instant); widening past it refetches.
+let FETCHED = null;
 
 // ── helpers shared with the form's logic ──────────────────────────────────
 function locLabel(s){
@@ -43,11 +52,18 @@ const inRange = k => (!state.from || k>=state.from) && (!state.to || k<=state.to
 const instMatch = name => !state.installers.length || state.installers.includes(String(name||'').trim());
 
 // ── load ────────────────────────────────────────────────────────────────────
+// Fetches the current state.from/to window from the spine (all five reads take
+// the same optional from/to params); an empty range means the full history.
 async function load(){
-  $('pillstat').textContent = 'Loading…';
+  const win = {};
+  if(state.from) win.from = state.from;
+  if(state.to)   win.to   = state.to;
+  const full = !win.from && !win.to;
+  $('pillstat').textContent = full ? 'Loading full history…' : 'Loading…';
   try{
     const [pd, td, md, dd, bd] = await Promise.all([
-      apiGet('pins'), apiGet('tracker'), apiGet('timing'), apiGet('dispatch'), apiGet('boatdays')
+      apiGet('pins', win), apiGet('tracker', win), apiGet('timing', win),
+      apiGet('dispatch', win), apiGet('boatdays', win)
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
@@ -56,11 +72,32 @@ async function load(){
     TIM = md.timing || [];
     DISP = dd.dispatch || [];
     BOATDAYS = bd.boatDays || [];
+    _boatMemIdx = null;   // BOATDAYS replaced — rebuild the membership index lazily
+    FETCHED = full ? 'all' : { from: win.from || '', to: win.to || '' };
     buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
     updatePill();
   } catch { $('pillstat').textContent=''; toast('Couldn’t reach the sheet — check WEB_APP_URL and that the deployment is current.'); }
+}
+
+// True when the data already on hand covers the current state range — an
+// open-ended bound needs the full history.
+function fetchedCovers(){
+  if(FETCHED === 'all') return true;
+  if(!FETCHED) return false;
+  if(!state.from && FETCHED.from) return false;
+  if(!state.to && FETCHED.to) return false;
+  return (!FETCHED.from || (state.from && state.from >= FETCHED.from))
+      && (!FETCHED.to   || (state.to   && state.to   <= FETCHED.to));
+}
+
+// Every date-range change lands here: refetch when the new range reaches past
+// what's loaded, otherwise just re-filter client-side (instant).
+function onRangeChange(fit){
+  syncControls();
+  if(!fetchedCovers()){ load(); return; }   // load() redraws when the data lands
+  drawMarkers(fit); renderAnalytics();
 }
 function updatePill(){
   const located = ALL.filter(hasCoords).length;
@@ -100,7 +137,11 @@ function avgOwnGap(statusSet){
 }
 // `date|installerName` → boatNumber, from the BoatDays daily snapshot — so each day's
 // stops can be grouped by the boat that installer actually crewed THAT day.
+// Memoized — it's called twice per renderAnalytics and JSON.parses every
+// BoatDays row, so rebuild only when a load() replaces BOATDAYS.
+let _boatMemIdx = null;
 function boatMembership(){
+  if(_boatMemIdx) return _boatMemIdx;
   const idx = {};
   BOATDAYS.forEach(r => {
     const day = dateKey(r.date), boat = String(r.boatNumber||'').trim();
@@ -108,7 +149,7 @@ function boatMembership(){
     let names = []; try { names = JSON.parse(r.memberNames||'[]'); } catch { names = []; }
     names.forEach(n => { const nm=String(n||'').trim(); if(nm) idx[day+'|'+nm]=boat; });
   });
-  return idx;
+  return (_boatMemIdx = idx);
 }
 // Boat-wide twin of avgOwnGap: the gap between consecutive logs by ANYONE sharing the
 // boat that day (any letter), pooled across the range. Stops are grouped by `boat|day`
@@ -133,7 +174,9 @@ function avgBoatGap(statusSet){
 
 // ── map ─────────────────────────────────────────────────────────────────────
 function initMap(){
-  map = L.map('map', { zoomControl:true }).setView([44.5,-79.5], 7);
+  // preferCanvas: one <canvas> instead of an SVG node per circleMarker — keeps
+  // pan/zoom smooth with thousands of stops plotted.
+  map = L.map('map', { zoomControl:true, preferCanvas:true }).setView([44.5,-79.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 }
@@ -167,11 +210,19 @@ function doSearch(){
   const q = norm($('search').value);
   if(!q){ toast('Type a WO# or J#'); return; }
   const matches = ALL.filter(s => norm(s.workOrderId)===q || norm(s.newJNumber)===q || norm(s.oldJNumber)===q);
-  if(!matches.length){ toast('No match for that WO# or J#'); return; }
+  if(!matches.length){
+    toast(FETCHED==='all' ? 'No match for that WO# or J#'
+                          : 'No match in the loaded range — tap “All” to load full history');
+    return;
+  }
 
-  // clear every filter so a match is never hidden, then locate it
+  // clear every filter so a match is never hidden, then locate it — the date
+  // range opens up to the whole FETCHED window (the search already ran over all
+  // loaded data; widening past it would trigger a refetch mid-highlight)
   state.statuses = { INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true };
-  state.installers = []; state.from=''; state.to='';
+  state.installers = [];
+  if(FETCHED && FETCHED !== 'all'){ state.from = FETCHED.from; state.to = FETCHED.to; }
+  else { state.from=''; state.to=''; }
   syncControls(); drawMarkers(false); renderAnalytics();
 
   const located = matches.filter(hasCoords);
@@ -310,7 +361,14 @@ function renderAnalytics(){
 }
 function tile(n,k,cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }
 function blank(id,msg){ const el=$(id); el.textContent=msg; el.style.display = msg ? 'flex' : 'none'; }
-function remake(inst, canvas, conf){ if(inst){ inst.destroy(); } return conf ? new Chart(canvas, conf) : null; }
+// Update an existing chart in place (each canvas keeps one type, so swapping
+// `data` + update() is safe) instead of destroy+recreate — no flicker and no
+// re-layout on every filter change. Destroy only when the chart empties out.
+function remake(inst, canvas, conf){
+  if(!conf){ if(inst) inst.destroy(); return null; }
+  if(inst){ inst.data = conf.data; inst.update(); return inst; }
+  return new Chart(canvas, conf);
+}
 
 // ── controls ────────────────────────────────────────────────────────────────
 function buildInstallerList(){
@@ -331,16 +389,18 @@ function renderInstChips(){
     .map(n => `<option value="${esc(n)}"></option>`).join('');
   $('instInput').placeholder = state.installers.length ? 'Add another…' : 'All installers — type a name…';
 }
+// Installer chips redraw without re-fitting the viewport — a filter tweak
+// shouldn't yank the map away from where the user is looking.
 function addInstaller(typed){
   const t = String(typed||'').trim(); if(!t) return;
   const match = INSTALLER_NAMES.find(n => n.toLowerCase() === t.toLowerCase());
   if(!match || state.installers.includes(match)) return;
   state.installers.push(match);
-  syncControls(); drawMarkers(true); renderAnalytics();
+  syncControls(); drawMarkers(false); renderAnalytics();
 }
 function removeInstaller(name){
   state.installers = state.installers.filter(n => n !== name);
-  syncControls(); drawMarkers(true); renderAnalytics();
+  syncControls(); drawMarkers(false); renderAnalytics();
 }
 function syncControls(){
   renderInstChips();
@@ -367,12 +427,16 @@ document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
 document.querySelectorAll('.preset').forEach(b => b.onclick = () => {
-  if(b.dataset.days==='all'){ state.from=''; state.to=''; }
+  if(b.dataset.days==='all'){ state.from=''; state.to=''; }   // "All" = load full history
   else { state.to=torontoToday(); state.from=daysAgo(Number(b.dataset.days)); }
-  syncControls(); drawMarkers(true); renderAnalytics();
+  onRangeChange(true);
 });
-$('fromDate').onchange = e => { state.from=e.target.value; syncControls(); drawMarkers(true); renderAnalytics(); };
-$('toDate').onchange   = e => { state.to=e.target.value;   syncControls(); drawMarkers(true); renderAnalytics(); };
+// Typed dates settle for a beat before acting — no refetch/redraw per keystroke,
+// and no viewport re-fit for a manual date tweak.
+let _rangeTimer;
+const scheduleRangeChange = () => { clearTimeout(_rangeTimer); _rangeTimer = setTimeout(() => onRangeChange(false), 250); };
+$('fromDate').onchange = e => { state.from=e.target.value; scheduleRangeChange(); };
+$('toDate').onchange   = e => { state.to=e.target.value;   scheduleRangeChange(); };
 $('searchBtn').onclick = doSearch;
 $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
 
@@ -391,8 +455,11 @@ window.addEventListener('pageshow', () => {
   $('viewSel').value = $('analytics').classList.contains('on') ? 'analytics' : 'map';
 });
 
-// go
+// go — open on the last 60 days (the "All" preset loads full history on demand)
+state.to = torontoToday();
+state.from = daysAgo(DEFAULT_DAYS);
 initMap();
+syncControls();
 load();
 
 // deep-link: map.html#analytics opens the analytics view (used by the teams nav)

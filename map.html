@@ -6,7 +6,11 @@
 <meta name="theme-color" content="#13171C">
 <title>Meter Log — Map &amp; Analytics</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- Leaflet + Chart.js are vendored (js/vendor, css/vendor) — no CDN, so the
+     page shell loads offline and first paint never waits on a third party.
+     Only the OSM tiles are remote; preconnect warms that handshake. -->
+<link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin>
+<link rel="stylesheet" href="css/vendor/leaflet.css">
 <link rel="stylesheet" href="css/map.css">
 </head>
 <body>
@@ -39,7 +43,8 @@
       <input type="date" class="f-date" id="toDate" aria-label="To date">
       <button class="preset" data-days="6">7d</button>
       <button class="preset" data-days="29">30d</button>
-      <button class="preset on" data-days="all">All</button>
+      <button class="preset" data-days="59">60d</button>
+      <button class="preset" data-days="all">All</button>
     </div>
     <div class="chips" id="statusChips">
       <span class="chip on c-install" data-st="INSTALLED"><span class="sw sw-install"></span>Installed</span>
@@ -78,8 +83,11 @@
 
   <div class="toast" id="toast"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<!-- Classic scripts stay before the module: map.js reads the L/Chart globals.
+     defer keeps them off the parser's critical path (defer + module preserve
+     this execution order). -->
+<script defer src="js/vendor/leaflet.js"></script>
+<script defer src="js/vendor/chart.umd.min.js"></script>
 <script type="module" src="js/pages/map.js"></script>
 </body>
 </html>

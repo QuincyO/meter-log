@@ -113,15 +113,19 @@ from it; the real `endOfDay` later fills the blanks),
 `range` (one installer's stops + downtime over a from/to window, grouped by day —
 backs the phone's offline "recent days" cache in a single call),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
-`nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
-the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
-(all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
-`boatdays` (all `BoatDays` rows — the daily boat-crew snapshots — for the viewer's
+`nearby` ("is a meter already here?" proximity check), `pins` (stops, for
+the map), `tracker` (end-of-day rows, for the viewer's trends), `timing`
+(per-gap `Timing` rows, for the analytics "avg time between meters" metric),
+`boatdays` (`BoatDays` rows — the daily boat-crew snapshots — for the viewer's
 "avg log→log (boat)" tile, which groups a day's logs by the boat that ran them),
-`dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
+`dispatch` (`Dispatch` rows, for the analytics "avg dispatch downtime" tile).
+These five viewer reads accept an **optional `from`/`to`** date window
+(`yyyy-MM-dd`, Toronto, inclusive; omitted = the whole tab): `pins` windows on
+the stop `timestamp`, `tracker`/`timing`/`boatdays` on `date`, `dispatch` on
+`completedTime` falling back to `requestTime`. Remaining reads:
 `avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
-`endOfDay` keeps fresh by pairing every requested meter to its completed install
-off-peak — see "Avg dispatch time"), `roster`
+the hourly `avgDispatchTimeJob` trigger keeps fresh by pairing every requested
+meter to its completed install — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved — plus a pre-filled `DISPATCH` deduction on a requested install's
@@ -199,8 +203,9 @@ The service worker (`sw.js`) caches the **app shell** — the HTML pages, the
 you add a new module or stylesheet, add it to the `SHELL` list and bump `CACHE`.
 It deliberately lets the POST to the spine hit the network and fail when offline,
 so the IndexedDB `queue` owns retry — don't add the endpoint to the SW cache.
-(`js/pages/map.js` is intentionally not precached: it depends on CDN
-Leaflet/Chart that aren't cached either.)
+(`map.html` + `js/pages/map.js` + the vendored Leaflet/Chart files are
+precached too, so the viewer shell opens offline; only the OSM tiles need a
+connection.)
 
 ---
 
@@ -226,8 +231,9 @@ point in `js/pages/`. Shared modules in `js/`:
 
 CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
 components) back the capture page; `css/{capture,map,teams,edit}.css` are
-per-page. `map.js` uses the CDN Leaflet (`L`) + Chart globals loaded by classic
-`<script>`s before its module.
+per-page (plus `css/vendor/leaflet.css`). `map.js` uses the Leaflet (`L`) +
+Chart globals loaded by classic `<script>`s before its module — vendored at
+`js/vendor/leaflet.js` + `js/vendor/chart.umd.min.js`, no CDN.
 
 ## Offline geocoding
 
@@ -626,8 +632,8 @@ meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
 `oldJNumber`).
 
 **Flagged live, matched & pre-filled at end of day.** Logging stays a cheap
-append and the match runs once off-peak, when the phone can pull today's requests
-fresh.
+append and the global match runs hourly in the background, off every request's
+critical path.
 
 - **Live (client).** Ticking "Requested meter?" only sets a `requestedMeter` flag
   on the stop (persisted as a `Stops` column). No dispatch row is written at log
@@ -683,8 +689,12 @@ the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
 **Avg dispatch time.** `avgDispatchTime()` in `Code.gs` is the **single source of
-truth for the global match + the running average** — `endOfDay` runs it once at
-close (off-peak). It pairs **every** requested meter (`Dispatch`) to the completed
+truth for the global match + the running average** — it runs from an **hourly time
+trigger** (`avgDispatchTimeJob`; installed once via `createAvgDispatchTrigger()`),
+not inside `endOfDay`: the O(Stops × Dispatch) pairing is the most expensive
+computation in the spine, and holding the write lock with it while the whole crew
+closes at quitting time was the sharpest scaling bottleneck. The job skips
+quietly if a write holds the lock (the next hourly run converges). It pairs **every** requested meter (`Dispatch`) to the completed
 install (`Stops`, status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request
 claiming the earliest still-unused install at/after its `requestTime` — **fills**
 that `Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then

@@ -556,12 +556,20 @@ async function persistEodReview(){
     { departure:$('eodDeparture').value, returned:$('eodReturned').value });
   await idb.put('dayCache', cached, key);
 }
-let _eodPersistTimer;
+let _eodPersistTimer, _eodPrefetchTimer;
 function schedulePersistEod(){
+  // Two debounces on purpose: the local IndexedDB stash is cheap and
+  // safety-critical (an offline review must survive a reload), so it fires
+  // quickly; the server prefetch costs a saveTravel write (which takes the
+  // spine's global lock) + a previewDailyLog round-trip, so it waits for a
+  // longer lull — with the whole crew editing deductions at quitting time,
+  // per-keystroke lock traffic is what melts the spine. Finish still awaits
+  // the in-flight build (or falls back to the local summary), so the longer
+  // debounce never loses an edit.
   clearTimeout(_eodPersistTimer);
-  // After the edit settles: stash it locally, then refresh the prefetched server
-  // summary so it reflects the new deductions/bookends by the time Finish is tapped.
-  _eodPersistTimer = setTimeout(async () => { await persistEodReview(); prefetchEodSummary(); }, 700);
+  _eodPersistTimer = setTimeout(() => { persistEodReview(); }, 700);
+  clearTimeout(_eodPrefetchTimer);
+  _eodPrefetchTimer = setTimeout(() => { prefetchEodSummary(); }, 2000);
 }
 
 // ── high-fidelity summary prefetch (so the close PDF is instant) ────────────
@@ -673,6 +681,12 @@ async function loadDay(mode){
   }
 
   try{
+    // Fire `idle` alongside `day` (not after it) — the EOD open used to pay the
+    // two round-trips back to back. The day render lands first with local gaps;
+    // the authoritative `idle` gaps re-render when they arrive.
+    const idleP = mode==='eod'
+      ? apiGet('idle', { installerId:c.hNumber, installer:c.name }).catch(() => null)
+      : null;
     const d = await apiGet('day', { installer:c.name, installerId:c.hNumber });
     // Re-read the cache (an enqueue may have run since the top of this fn) and
     // merge, so locally-pending stops/downtime survive the server pull.
@@ -689,10 +703,8 @@ async function loadDay(mode){
     // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
     let gaps = mode==='eod' ? computeGapsLocal(stops, downtime, pendingTravel) : [];
     if(mode==='eod'){
-      try{
-        const idata = await apiGet('idle', { installerId:c.hNumber, installer:c.name });
-        if(idata.gaps) gaps = idata.gaps;
-      } catch {}
+      const idata = await idleP;
+      if(idata && idata.gaps) gaps = idata.gaps;
     }
     renderDayData(mode, stops, downtime, d.day||{}, gaps);
     // Gaps/bookends are now authoritative — start building the high-fidelity
@@ -755,7 +767,7 @@ $('finishDay').onclick = async () => {
     enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
               notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
               departure:$('eodDeparture').value, returned:$('eodReturned').value });
-    try{ downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, '')); }catch{}
+    try{ await downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, '')); }catch{}
     closeSheets();
     toast('Day closed offline ✓ · PDF downloaded — will sync when online');
     return;
@@ -777,7 +789,7 @@ $('finishDay').onclick = async () => {
     }
     const fromServer = !!summary;
     if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
-    downloadDailyLog(summary);
+    await downloadDailyLog(summary);
     closeSheets();
     toast('Day closed ✓ · PDF downloaded');
 
@@ -848,7 +860,7 @@ $('genLog').onclick = async () => {
     }
     if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
     if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
-      downloadDailyLog(summary);
+      await downloadDailyLog(summary);
       toast('Daily log downloaded — draft (day not closed)');
     } else {
       toast('No stops logged today yet');
@@ -949,8 +961,11 @@ async function openRecent(){
   openSheet('recentSheet');
   $('recentList').innerHTML = '<p class="muted">Loading…</p>';
   $('recentDay').innerHTML = '';
-  if(navigator.onLine) await cacheRecentDays(7);   // best-effort refresh
+  // Cache-first: paint whatever's stored immediately, then refresh from the
+  // Sheet in the background and repaint — opening the sheet never waits on the
+  // `range` round-trip.
   await renderRecent();
+  if(navigator.onLine) cacheRecentDays(7).then(renderRecent).catch(()=>{});
 }
 
 async function renderRecent(){

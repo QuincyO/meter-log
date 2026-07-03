@@ -18,18 +18,43 @@ const empByH   = h => state.employees.find(e => e.hNumber===h) || null;
 const labelH   = h => { const e=empByH(h); return e ? `${fullName(e)} (${e.hNumber})` : h; };
 
 // ── server I/O ─────────────────────────────────────────────────────────────
+function adoptRoster(d){
+  state.employees = (d.employees||[]);
+  state.teams     = (d.teams||[]);
+  state.captains  = (d.captains||[]);
+  state.subs      = (d.subs||[]);
+}
 async function load(){
-  setStatus('wait','Loading…');
+  // Paint instantly from the last-fetched copy, then refresh from the Sheet.
+  // sessionStorage on purpose (not IndexedDB): a per-tab convenience cache,
+  // not durable offline state, so the IndexedDB storage policy in CLAUDE.md
+  // doesn't apply to it.
+  // Cached paint on the initial open only — the post-save reloads must never
+  // flash the pre-save roster.
+  const initial = !state.employees.length && !state.teams.length;
+  let painted = false;
+  if(initial) try{
+    const cached = JSON.parse(sessionStorage.getItem('rosterCache') || 'null');
+    if(cached && cached.ok){
+      adoptRoster(cached);
+      renderCrew(); renderCaptainsSubs(); renderTeams();
+      painted = true; setStatus('wait','Refreshing…');
+    }
+  } catch {}
+  if(!painted) setStatus('wait','Loading…');
   try{
     const d = await apiGet('roster');
     if(!d.ok) throw new Error(d.error||'load failed');
-    state.employees = (d.employees||[]);
-    state.teams     = (d.teams||[]);
-    state.captains  = (d.captains||[]);
-    state.subs      = (d.subs||[]);
+    try{ sessionStorage.setItem('rosterCache', JSON.stringify(d)); } catch {}
+    adoptRoster(d);
     setStatus('ok','Synced');
-    renderCrew(); renderCaptainsSubs(); renderTeams();
+    // Don't clobber a boat card someone already expanded (mid-edit) with the
+    // background repaint — the fresh state still lands in `state` above.
+    if(!(painted && document.querySelector('.cardbody:not(.hide)'))){
+      renderCrew(); renderCaptainsSubs(); renderTeams();
+    }
   } catch(e){
+    if(painted){ setStatus('ok','Cached roster'); return; }
     setStatus('off','Offline — can’t load');
     toast('Couldn’t load crew — check the connection');
   }
