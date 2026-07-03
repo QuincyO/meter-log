@@ -10,13 +10,18 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v9';
+const CACHE = 'meterlog-v10';
 const SHELL = [
-  './', './index.html', './teams.html', './edit.html', './manifest.json',
+  './', './index.html', './teams.html', './edit.html', './map.html', './manifest.json',
   './icon-192.png', './icon-512.png',
   // CSS (capture page shares tokens+base; map/teams/edit are self-contained)
   './css/tokens.css', './css/base.css', './css/capture.css',
   './css/map.css', './css/teams.css', './css/edit.css',
+  // vendored Leaflet CSS + its sprite images (map.html)
+  './css/vendor/leaflet.css',
+  './css/vendor/images/marker-icon.png', './css/vendor/images/marker-icon-2x.png',
+  './css/vendor/images/marker-shadow.png',
+  './css/vendor/images/layers.png', './css/vendor/images/layers-2x.png',
   // shared JS modules
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
   './js/api.js', './js/daycache.js', './js/queue.js', './js/geocode.js',
@@ -24,9 +29,12 @@ const SHELL = [
   './js/compute/summary.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)
   './js/dailylog.js', './js/vendor/jspdf.umd.min.js',
+  // vendored Leaflet + Chart.js (map.html — no more CDN, so the map shell
+  // opens offline too; the OSM tiles themselves still need a connection)
+  './js/vendor/leaflet.js', './js/vendor/chart.umd.min.js',
   // per-page entry points
   './js/pages/capture.js', './js/pages/teams.js', './js/pages/edit.js',
-  // map.js intentionally omitted: it depends on CDN Leaflet/Chart that aren't cached
+  './js/pages/map.js',
 ];
 
 self.addEventListener('install', e => {
@@ -52,25 +60,9 @@ self.addEventListener('fetch', e => {
   // page's queue can catch failures when offline.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
 
-  // The analytics viewer (map.js) is online-only anyway (CDN Leaflet/Chart) and not
-  // offline-critical, so serve it NETWORK-FIRST: a deploy shows up on the next load
-  // instead of one reload behind (stale-while-revalidate would serve the old copy
-  // first). Fall back to cache only when the network is unreachable.
-  if (new URL(req.url).pathname.endsWith('/js/pages/map.js')) {
-    e.respondWith(
-      caches.open(CACHE).then(async cache => {
-        try {
-          const res = await fetch(req);
-          if (res && res.ok) cache.put(req, res.clone());
-          return res;
-        } catch {
-          return (await cache.match(req)) || cache.match('./index.html');
-        }
-      })
-    );
-    return;
-  }
-
+  // map.js used to be network-first because it depended on CDN Leaflet/Chart;
+  // those are vendored + cached now, so it rides the same stale-while-revalidate
+  // as the rest of the shell.
   e.respondWith(
     caches.open(CACHE).then(async cache => {
       const cached = await cache.match(req);

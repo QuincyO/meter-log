@@ -1,7 +1,8 @@
 // ── Map & Analytics viewer (map.html) ───────────────────────────────────────
 // Read-only window over the data: plots stops by GPS (Leaflet), filters, WO#/J#
 // search, and Tracker/Timing/Dispatch trend charts (Chart.js). Leaflet (`L`) and
-// Chart (`Chart`) come from the CDN <script>s loaded before this module.
+// Chart (`Chart`) come from the vendored classic <script>s loaded before this
+// module (js/vendor/leaflet.js, js/vendor/chart.umd.min.js).
 import { $, esc, toast } from '../dom.js';
 import { apiGet } from '../api.js';
 
@@ -56,6 +57,7 @@ async function load(){
     TIM = md.timing || [];
     DISP = dd.dispatch || [];
     BOATDAYS = bd.boatDays || [];
+    _boatMemIdx = null;   // BOATDAYS replaced — rebuild the membership index lazily
     buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
@@ -100,7 +102,11 @@ function avgOwnGap(statusSet){
 }
 // `date|installerName` → boatNumber, from the BoatDays daily snapshot — so each day's
 // stops can be grouped by the boat that installer actually crewed THAT day.
+// Memoized — it's called twice per renderAnalytics and JSON.parses every
+// BoatDays row, so rebuild only when a load() replaces BOATDAYS.
+let _boatMemIdx = null;
 function boatMembership(){
+  if(_boatMemIdx) return _boatMemIdx;
   const idx = {};
   BOATDAYS.forEach(r => {
     const day = dateKey(r.date), boat = String(r.boatNumber||'').trim();
@@ -108,7 +114,7 @@ function boatMembership(){
     let names = []; try { names = JSON.parse(r.memberNames||'[]'); } catch { names = []; }
     names.forEach(n => { const nm=String(n||'').trim(); if(nm) idx[day+'|'+nm]=boat; });
   });
-  return idx;
+  return (_boatMemIdx = idx);
 }
 // Boat-wide twin of avgOwnGap: the gap between consecutive logs by ANYONE sharing the
 // boat that day (any letter), pooled across the range. Stops are grouped by `boat|day`
@@ -133,7 +139,9 @@ function avgBoatGap(statusSet){
 
 // ── map ─────────────────────────────────────────────────────────────────────
 function initMap(){
-  map = L.map('map', { zoomControl:true }).setView([44.5,-79.5], 7);
+  // preferCanvas: one <canvas> instead of an SVG node per circleMarker — keeps
+  // pan/zoom smooth with thousands of stops plotted.
+  map = L.map('map', { zoomControl:true, preferCanvas:true }).setView([44.5,-79.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 }
@@ -310,7 +318,14 @@ function renderAnalytics(){
 }
 function tile(n,k,cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }
 function blank(id,msg){ const el=$(id); el.textContent=msg; el.style.display = msg ? 'flex' : 'none'; }
-function remake(inst, canvas, conf){ if(inst){ inst.destroy(); } return conf ? new Chart(canvas, conf) : null; }
+// Update an existing chart in place (each canvas keeps one type, so swapping
+// `data` + update() is safe) instead of destroy+recreate — no flicker and no
+// re-layout on every filter change. Destroy only when the chart empties out.
+function remake(inst, canvas, conf){
+  if(!conf){ if(inst) inst.destroy(); return null; }
+  if(inst){ inst.data = conf.data; inst.update(); return inst; }
+  return new Chart(canvas, conf);
+}
 
 // ── controls ────────────────────────────────────────────────────────────────
 function buildInstallerList(){
@@ -331,16 +346,18 @@ function renderInstChips(){
     .map(n => `<option value="${esc(n)}"></option>`).join('');
   $('instInput').placeholder = state.installers.length ? 'Add another…' : 'All installers — type a name…';
 }
+// Installer chips redraw without re-fitting the viewport — a filter tweak
+// shouldn't yank the map away from where the user is looking.
 function addInstaller(typed){
   const t = String(typed||'').trim(); if(!t) return;
   const match = INSTALLER_NAMES.find(n => n.toLowerCase() === t.toLowerCase());
   if(!match || state.installers.includes(match)) return;
   state.installers.push(match);
-  syncControls(); drawMarkers(true); renderAnalytics();
+  syncControls(); drawMarkers(false); renderAnalytics();
 }
 function removeInstaller(name){
   state.installers = state.installers.filter(n => n !== name);
-  syncControls(); drawMarkers(true); renderAnalytics();
+  syncControls(); drawMarkers(false); renderAnalytics();
 }
 function syncControls(){
   renderInstChips();

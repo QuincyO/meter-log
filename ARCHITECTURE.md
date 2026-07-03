@@ -203,8 +203,9 @@ The service worker (`sw.js`) caches the **app shell** — the HTML pages, the
 you add a new module or stylesheet, add it to the `SHELL` list and bump `CACHE`.
 It deliberately lets the POST to the spine hit the network and fail when offline,
 so the IndexedDB `queue` owns retry — don't add the endpoint to the SW cache.
-(`js/pages/map.js` is intentionally not precached: it depends on CDN
-Leaflet/Chart that aren't cached either.)
+(`map.html` + `js/pages/map.js` + the vendored Leaflet/Chart files are
+precached too, so the viewer shell opens offline; only the OSM tiles need a
+connection.)
 
 ---
 
@@ -230,8 +231,9 @@ point in `js/pages/`. Shared modules in `js/`:
 
 CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
 components) back the capture page; `css/{capture,map,teams,edit}.css` are
-per-page. `map.js` uses the CDN Leaflet (`L`) + Chart globals loaded by classic
-`<script>`s before its module.
+per-page (plus `css/vendor/leaflet.css`). `map.js` uses the Leaflet (`L`) +
+Chart globals loaded by classic `<script>`s before its module — vendored at
+`js/vendor/leaflet.js` + `js/vendor/chart.umd.min.js`, no CDN.
 
 ## Offline geocoding
 
