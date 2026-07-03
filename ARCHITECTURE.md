@@ -113,12 +113,16 @@ from it; the real `endOfDay` later fills the blanks),
 `range` (one installer's stops + downtime over a from/to window, grouped by day —
 backs the phone's offline "recent days" cache in a single call),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
-`nearby` ("is a meter already here?" proximity check), `pins` (every stop, for
-the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
-(all per-gap `Timing` rows, for the analytics "avg time between meters" metric),
-`boatdays` (all `BoatDays` rows — the daily boat-crew snapshots — for the viewer's
+`nearby` ("is a meter already here?" proximity check), `pins` (stops, for
+the map), `tracker` (end-of-day rows, for the viewer's trends), `timing`
+(per-gap `Timing` rows, for the analytics "avg time between meters" metric),
+`boatdays` (`BoatDays` rows — the daily boat-crew snapshots — for the viewer's
 "avg log→log (boat)" tile, which groups a day's logs by the boat that ran them),
-`dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
+`dispatch` (`Dispatch` rows, for the analytics "avg dispatch downtime" tile).
+These five viewer reads accept an **optional `from`/`to`** date window
+(`yyyy-MM-dd`, Toronto, inclusive; omitted = the whole tab): `pins` windows on
+the stop `timestamp`, `tracker`/`timing`/`boatdays` on `date`, `dispatch` on
+`completedTime` falling back to `requestTime`. Remaining reads:
 `avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
 the hourly `avgDispatchTimeJob` trigger keeps fresh by pairing every requested
 meter to its completed install — see "Avg dispatch time"), `roster`

@@ -274,11 +274,14 @@ function doGet(e) {
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
-  if (p.action === 'pins')    return json(pins());
-  if (p.action === 'tracker') return json(tracker());
-  if (p.action === 'timing')  return json(timing());
-  if (p.action === 'boatdays')return json(boatDays());
-  if (p.action === 'dispatch')return json({ ok: true, dispatch: rows('Dispatch') });
+  // The five viewer reads accept an OPTIONAL from/to date window (yyyy-MM-dd,
+  // Toronto, inclusive) so the map can pull "the last 60 days" instead of the
+  // whole history every open. No params → the full tab, exactly as before.
+  if (p.action === 'pins')    return json(pins(p.from, p.to));
+  if (p.action === 'tracker') return json(tracker(p.from, p.to));
+  if (p.action === 'timing')  return json(timing(p.from, p.to));
+  if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
+  if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
@@ -1303,8 +1306,17 @@ function nearby(lat, lng, radiusM) {
  *  GPS still counts toward installs/UTIs, it just can't be pinned). DONE
  *  markers are included so the map can show "already installed" spots — the
  *  viewer leaves them out of the install/UTI tallies. */
-function pins() {
-  return { ok: true, pins: rows('Stops').map(r => ({
+// True when a row's Toronto date lands inside the optional [from, to] window.
+// Blank/missing bounds are open-ended, so windowless calls keep returning
+// everything. Always compare via dateOf() — never a raw string slice.
+function inWindow(d, from, to) {
+  return !!d && (!from || d >= from) && (!to || d <= to);
+}
+
+function pins(from, to) {
+  return { ok: true, pins: rows('Stops')
+    .filter(r => (!from && !to) || inWindow(dateOf(r.timestamp), from, to))
+    .map(r => ({
     id: r.id, timestamp: r.timestamp, installer: r.installer,
     workOrderId: r.workOrderId, unit: r.unit, address: r.address,
     lat: (r.lat === '' || r.lat == null) ? null : Number(r.lat),
@@ -1315,26 +1327,40 @@ function pins() {
   })) };
 }
 
-/** All Tracker rows (the end-of-day running totals), for the viewer's trend
- *  charts. The viewer filters by installer + date range on its side. */
-function tracker() {
-  return { ok: true, tracker: rows('Tracker') };
+/** Tracker rows (the end-of-day running totals), for the viewer's trend
+ *  charts, optionally windowed by [from, to]. The viewer still filters by
+ *  installer + narrows the date range on its side. */
+function tracker(from, to) {
+  return { ok: true, tracker: rows('Tracker')
+    .filter(r => (!from && !to) || inWindow(dateOf(r.date), from, to)) };
 }
 
-/** Every per-gap audit row (the Timing tab). Feeds the analytics "avg time between
- *  meters" metric — the viewer filters by installer + date range and averages the
- *  WO→WO gaps (type Travel / Flagged) on its side. */
-function timing() {
-  return { ok: true, timing: rows('Timing') };
+/** Per-gap audit rows (the Timing tab), optionally windowed by [from, to].
+ *  Feeds the analytics "avg time between meters" metric — the viewer filters
+ *  by installer and averages the WO→WO gaps (type Travel / Flagged) on its side. */
+function timing(from, to) {
+  return { ok: true, timing: rows('Timing')
+    .filter(r => (!from && !to) || inWindow(dateOf(r.date), from, to)) };
 }
 
-/** The daily boat-team snapshots (the BoatDays tab). Feeds the viewer's boat-wide
- *  "log→log" metric (it groups stops by the boat each installer crewed that day) and
- *  is the historical record of who crewed which boat. Empty array if the tab doesn't
- *  exist yet (setupSheets() hasn't been re-run). */
-function boatDays() {
+/** The daily boat-team snapshots (the BoatDays tab), optionally windowed by
+ *  [from, to]. Feeds the viewer's boat-wide "log→log" metric (it groups stops by
+ *  the boat each installer crewed that day) and is the historical record of who
+ *  crewed which boat. Empty array if the tab doesn't exist yet (setupSheets()
+ *  hasn't been re-run). */
+function boatDays(from, to) {
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BoatDays')) return { ok: true, boatDays: [] };
-  return { ok: true, boatDays: rows('BoatDays') };
+  return { ok: true, boatDays: rows('BoatDays')
+    .filter(r => (!from && !to) || inWindow(dateOf(r.date), from, to)) };
+}
+
+/** Dispatch rows, optionally windowed by [from, to]. A matched row is dated by
+ *  its completedTime, an unmatched (still-pending) one by its requestTime —
+ *  the same way map.html dates them for the "avg dispatch downtime" tile. */
+function dispatchRows(from, to) {
+  return { ok: true, dispatch: rows('Dispatch')
+    .filter(r => (!from && !to)
+      || inWindow(dateOf(r.completedTime || r.requestTime), from, to)) };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1891,4 +1917,25 @@ function test_rowsMemo() {
   }
   bustRows('Metrics');
   Logger.log('test_rowsMemo OK');
+}
+
+// Verifies the viewer reads' optional from/to window: no params returns the
+// full tab, a window returns only in-range rows, and the two partitions add
+// back up. Pure reads — safe to run anytime from the editor.
+function test_dateWindow() {
+  const all = pins().pins;
+  const from = '2000-01-01', mid = today();
+  const windowed = pins(from, mid).pins;
+  windowed.forEach(r => {
+    const d = dateOf(r.timestamp);
+    if (!d || d < from || d > mid) throw new Error('out-of-window pin: ' + r.id);
+  });
+  const dateless = all.filter(r => !dateOf(r.timestamp)).length;
+  if (windowed.length + dateless !== all.length)
+    throw new Error('window [2000-01-01, today] should cover every dated pin: '
+      + windowed.length + ' + ' + dateless + ' dateless ≠ ' + all.length);
+  if (tracker().tracker.length < tracker(mid, mid).tracker.length)
+    throw new Error('windowed tracker larger than full tracker');
+  Logger.log('test_dateWindow OK — ' + all.length + ' pins, '
+    + windowed.length + ' in window, ' + dateless + ' dateless');
 }
