@@ -12,8 +12,16 @@ const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeathe
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
 let ALL = [], TRK = [], TIM = [], DISP = [], BOATDAYS = [], INSTALLER_NAMES = [];
+// The viewer opens on the last 60 days (fetched server-side, see load()) —
+// pulling every stop ever logged on each open stops scaling once the crew
+// grows. The "All" preset still loads the full history on demand.
+const DEFAULT_DAYS = 59;
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
 let map, markersLayer, highlightLayer, chDay, chDown, chReason;
+// What load() last fetched: {from,to} when windowed, 'all' after a full pull,
+// null before the first load. Narrowing inside the fetched window is filtered
+// client-side (instant); widening past it refetches.
+let FETCHED = null;
 
 // ── helpers shared with the form's logic ──────────────────────────────────
 function locLabel(s){
@@ -44,11 +52,18 @@ const inRange = k => (!state.from || k>=state.from) && (!state.to || k<=state.to
 const instMatch = name => !state.installers.length || state.installers.includes(String(name||'').trim());
 
 // ── load ────────────────────────────────────────────────────────────────────
+// Fetches the current state.from/to window from the spine (all five reads take
+// the same optional from/to params); an empty range means the full history.
 async function load(){
-  $('pillstat').textContent = 'Loading…';
+  const win = {};
+  if(state.from) win.from = state.from;
+  if(state.to)   win.to   = state.to;
+  const full = !win.from && !win.to;
+  $('pillstat').textContent = full ? 'Loading full history…' : 'Loading…';
   try{
     const [pd, td, md, dd, bd] = await Promise.all([
-      apiGet('pins'), apiGet('tracker'), apiGet('timing'), apiGet('dispatch'), apiGet('boatdays')
+      apiGet('pins', win), apiGet('tracker', win), apiGet('timing', win),
+      apiGet('dispatch', win), apiGet('boatdays', win)
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
@@ -58,11 +73,31 @@ async function load(){
     DISP = dd.dispatch || [];
     BOATDAYS = bd.boatDays || [];
     _boatMemIdx = null;   // BOATDAYS replaced — rebuild the membership index lazily
+    FETCHED = full ? 'all' : { from: win.from || '', to: win.to || '' };
     buildInstallerList();
     drawMarkers(true);
     renderAnalytics();
     updatePill();
   } catch { $('pillstat').textContent=''; toast('Couldn’t reach the sheet — check WEB_APP_URL and that the deployment is current.'); }
+}
+
+// True when the data already on hand covers the current state range — an
+// open-ended bound needs the full history.
+function fetchedCovers(){
+  if(FETCHED === 'all') return true;
+  if(!FETCHED) return false;
+  if(!state.from && FETCHED.from) return false;
+  if(!state.to && FETCHED.to) return false;
+  return (!FETCHED.from || (state.from && state.from >= FETCHED.from))
+      && (!FETCHED.to   || (state.to   && state.to   <= FETCHED.to));
+}
+
+// Every date-range change lands here: refetch when the new range reaches past
+// what's loaded, otherwise just re-filter client-side (instant).
+function onRangeChange(fit){
+  syncControls();
+  if(!fetchedCovers()){ load(); return; }   // load() redraws when the data lands
+  drawMarkers(fit); renderAnalytics();
 }
 function updatePill(){
   const located = ALL.filter(hasCoords).length;
@@ -175,11 +210,19 @@ function doSearch(){
   const q = norm($('search').value);
   if(!q){ toast('Type a WO# or J#'); return; }
   const matches = ALL.filter(s => norm(s.workOrderId)===q || norm(s.newJNumber)===q || norm(s.oldJNumber)===q);
-  if(!matches.length){ toast('No match for that WO# or J#'); return; }
+  if(!matches.length){
+    toast(FETCHED==='all' ? 'No match for that WO# or J#'
+                          : 'No match in the loaded range — tap “All” to load full history');
+    return;
+  }
 
-  // clear every filter so a match is never hidden, then locate it
+  // clear every filter so a match is never hidden, then locate it — the date
+  // range opens up to the whole FETCHED window (the search already ran over all
+  // loaded data; widening past it would trigger a refetch mid-highlight)
   state.statuses = { INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true };
-  state.installers = []; state.from=''; state.to='';
+  state.installers = [];
+  if(FETCHED && FETCHED !== 'all'){ state.from = FETCHED.from; state.to = FETCHED.to; }
+  else { state.from=''; state.to=''; }
   syncControls(); drawMarkers(false); renderAnalytics();
 
   const located = matches.filter(hasCoords);
@@ -384,12 +427,16 @@ document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
 document.querySelectorAll('.preset').forEach(b => b.onclick = () => {
-  if(b.dataset.days==='all'){ state.from=''; state.to=''; }
+  if(b.dataset.days==='all'){ state.from=''; state.to=''; }   // "All" = load full history
   else { state.to=torontoToday(); state.from=daysAgo(Number(b.dataset.days)); }
-  syncControls(); drawMarkers(true); renderAnalytics();
+  onRangeChange(true);
 });
-$('fromDate').onchange = e => { state.from=e.target.value; syncControls(); drawMarkers(true); renderAnalytics(); };
-$('toDate').onchange   = e => { state.to=e.target.value;   syncControls(); drawMarkers(true); renderAnalytics(); };
+// Typed dates settle for a beat before acting — no refetch/redraw per keystroke,
+// and no viewport re-fit for a manual date tweak.
+let _rangeTimer;
+const scheduleRangeChange = () => { clearTimeout(_rangeTimer); _rangeTimer = setTimeout(() => onRangeChange(false), 250); };
+$('fromDate').onchange = e => { state.from=e.target.value; scheduleRangeChange(); };
+$('toDate').onchange   = e => { state.to=e.target.value;   scheduleRangeChange(); };
 $('searchBtn').onclick = doSearch;
 $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
 
@@ -408,8 +455,11 @@ window.addEventListener('pageshow', () => {
   $('viewSel').value = $('analytics').classList.contains('on') ? 'analytics' : 'map';
 });
 
-// go
+// go — open on the last 60 days (the "All" preset loads full history on demand)
+state.to = torontoToday();
+state.from = daysAgo(DEFAULT_DAYS);
 initMap();
+syncControls();
 load();
 
 // deep-link: map.html#analytics opens the analytics view (used by the teams nav)
