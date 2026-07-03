@@ -130,8 +130,8 @@ const BOATDAYS_HEADERS = ['date','boatNumber','boatName','captainName','subName'
 const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completedTime','minutes','matched'];
 
 // Key/value summary metrics, one row per metric (keyed on `metric`). Currently
-// just `avgDispatchTime` — the reconciled avg dispatch wait, refreshed whenever
-// avgDispatchTime() runs (each install capture + the editor). Room for more later.
+// just `avgDispatchTime` — the reconciled avg dispatch wait, refreshed by the
+// hourly avgDispatchTimeJob trigger (and any editor run). Room for more later.
 const METRICS_HEADERS = ['metric','value','updated'];
 
 // Fields the web form is allowed to change on an existing stop.
@@ -172,6 +172,7 @@ function setupSheets() {
 }
 
 function ensureTab(ss, name, headers) {
+  bustRows(name);
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
   if (sh.getLastRow() === 0) {
@@ -356,11 +357,12 @@ function addStop(b) {
   }
 
   sh.appendRow(row);
+  bustRows('Stops');
   // No dispatch work here — the live write stays a cheap append. A "Requested
   // meter?" stop just carries the requestedMeter flag; the dispatch wait is
   // matched and pre-filled as an editable travel deduction at end of day
-  // (?action=idle → dispatchSuggestMin), and avgDispatchTime() keeps the running
-  // average + matched Dispatch rows fresh once at endOfDay (off-peak).
+  // (?action=idle → dispatchSuggestMin), and the hourly avgDispatchTime trigger
+  // keeps the running average + matched Dispatch rows fresh off the hot path.
   const res = { ok: true, id: id };
   if (flagged) { res.flagged = true; res.history = hist; }
   // Whole-boat dispatch + team header for the phone's offline daily-log cache.
@@ -414,6 +416,7 @@ function addDowntime(b) {
     (b.category || 'OTHER').toUpperCase(), parseInt(b.minutes, 10) || 0,
     b.workOrderId || '', b.note || ''
   ]);
+  bustRows('Downtime');
   return { ok: true, id: id };
 }
 
@@ -425,6 +428,7 @@ function dispatchRequest(b) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
   if (!sh) return { ok: false, error: 'Dispatch tab missing' };
   sh.appendRow([ newId(), b.time || now(), String(b.oldJ).trim(), '', '', '', '' ]);
+  bustRows('Dispatch');
   return { ok: true };
 }
 
@@ -461,6 +465,7 @@ function updateStop(b) {
 
       const out = headers.map(h => row[h]);
       sh.getRange(i + 1, 1, 1, headers.length).setValues([out]);   // i is 0=header, so sheet row = i+1
+      bustRows('Stops');
       return { ok: true, id: b.id };
     }
   }
@@ -622,12 +627,13 @@ function buildDaySummary(b) {
  *  duplicating, so back-office regenerates (edit.html) stay clean. The Tracker row
  *  is written before the PDF so a PDF hiccup can't block closing the day. */
 function endOfDay(b) {
-  // Refresh the global dispatch match once here (off-peak), not on every live
-  // write: pair every requested meter to its install, fill the matched Dispatch
-  // rows + the Metrics average. The dispatch wait itself was already pre-filled
-  // and saved as a gap-tagged DISPATCH travel deduction during the EOD review
-  // (saveTravel), so buildDaySummary tallies it like any other allocation.
-  avgDispatchTime();
+  // The global dispatch match (avgDispatchTime) is NOT run here — with the
+  // whole crew closing near quitting time it was the single longest hold on
+  // the write lock (O(Stops × Dispatch)). It now runs on an hourly time
+  // trigger (avgDispatchTimeJob — install once via createAvgDispatchTrigger).
+  // The dispatch wait itself was already pre-filled and saved as a gap-tagged
+  // DISPATCH travel deduction during the EOD review (saveTravel), so
+  // buildDaySummary tallies it like any other allocation.
 
   const eodId = String(b.installerId == null ? '' : b.installerId).trim();
   const s = buildDaySummary(b);
@@ -697,10 +703,12 @@ function recordBoatDay(date, team) {
   for (let r = 1; r < data.length; r++) {
     if (dateOf(data[r][dCol]) === date && String(data[r][bCol]).trim() === boatNumber) {
       sh.getRange(r + 1, 1, 1, out.length).setValues([out]);
+      bustRows('BoatDays');
       return;
     }
   }
   sh.appendRow(out);
+  bustRows('BoatDays');
 }
 
 /** Overwrite the row matching (date, installer) in a date+installer-keyed tab
@@ -712,10 +720,12 @@ function upsertDayRow(tab, date, installer, out) {
   for (let r = 1; r < data.length; r++) {
     if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) {
       sh.getRange(r + 1, 1, 1, out.length).setValues([out]);
+      bustRows(tab);
       return;
     }
   }
   sh.appendRow(out);
+  bustRows(tab);
 }
 
 /** Delete every row matching (date, installer) from a date+installer-keyed tab,
@@ -727,6 +737,7 @@ function deleteDayRows(tab, date, installer) {
   for (let r = data.length - 1; r >= 1; r--) {
     if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) sh.deleteRow(r + 1);
   }
+  bustRows(tab);
 }
 
 /** Replaces a day's gap-allocation Downtime rows (the per-gap travel deductions —
@@ -752,6 +763,7 @@ function saveTravel(b) {
     if (sameName(data[r][iCol], installer) && dateOf(data[r][tsCol]) === date
         && gapNoteTimes(data[r][nCol])) sh.deleteRow(r + 1);
   }
+  bustRows('Downtime');
 
   // Append the new allocations. Each carries the arriving WO + a `gap HH:MM–HH:MM`
   // note so buildDaySummary can attribute it back to the right gap.
@@ -763,6 +775,7 @@ function saveTravel(b) {
       allocs.map(a => [ newId(), ts, installer, String(a.category).toUpperCase(),
         parseInt(a.minutes, 10) || 0, a.workOrderId || '',
         'gap ' + a.fromTime + '–' + a.toTime ]));
+    bustRows('Downtime');
   }
   return { ok: true, count: allocs.length };
 }
@@ -836,12 +849,14 @@ function setDayFields(date, installer, fields) {
     if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) {
       Object.keys(fields).forEach(k => { const c = H.indexOf(k); if (c >= 0) data[r][c] = fields[k]; });
       sh.getRange(r + 1, 1, 1, H.length).setValues([data[r]]);
+      bustRows('Days');
       return;
     }
   }
   const out = H.map(h => h === 'date' ? date : h === 'installer' ? installer
     : (k => k in fields ? fields[k] : '')(h));
   sh.appendRow(out);
+  bustRows('Days');
 }
 
 /** Recompute the boat's shared dispatch downtime for a day and write it (plus
@@ -995,6 +1010,7 @@ function ensureName(tab, name) {
     if (String(data[i][col]).trim().toLowerCase() === name.toLowerCase()) return;
   }
   sh.appendRow([name]);
+  bustRows(tab);
 }
 function saveName(tab, name) {
   name = String(name == null ? '' : name).trim();
@@ -1011,6 +1027,7 @@ function deleteName(tab, name) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][col]).trim().toLowerCase() === name.toLowerCase()) {
       sh.deleteRow(i + 1);
+      bustRows(tab);
       return { ok: true, name: name, deleted: true };
     }
   }
@@ -1065,6 +1082,7 @@ function deleteEmployee(b) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][hCol]).trim() === h) {
       sh.deleteRow(i + 1);
+      bustRows('Employees');
       removeEmployeeFromTeams(h);
       return { ok: true, hNumber: h, deleted: true };
     }
@@ -1148,6 +1166,7 @@ function deleteTeam(b) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][idCol]) === String(b.id)) {
       sh.deleteRow(i + 1);
+      bustRows('Teams');
       return { ok: true, id: b.id, deleted: true };
     }
   }
@@ -1167,13 +1186,25 @@ function removeEmployeeFromTeams(h) {
       delete obj[h];
       sh.getRange(i + 1, memCol + 1).setValue(JSON.stringify(obj));
       SpreadsheetApp.flush();
+      bustRows('Teams');
     }
   }
 }
 
 // Crew/team lookups used by endOfDay's auto-fill.
 function fullName(e) { return e ? (e.firstName + ' ' + e.lastName).trim() : ''; }
-function employeeByH(h) { h = String(h).trim(); return employeesList().filter(e => e.hNumber === h)[0] || null; }
+// hNumber → employee index, built once per request (bustRows('Employees')
+// clears it). nameOfH/employeeByH get called inside per-member loops
+// (teamHeader, boatDispatchSum, recordBoatDay), so an O(1) lookup here keeps
+// those loops from re-scanning the Employees tab every iteration.
+function empIndex() {
+  if (!EMP_IDX) {
+    EMP_IDX = {};
+    employeesList().forEach(e => { EMP_IDX[e.hNumber] = e; });
+  }
+  return EMP_IDX;
+}
+function employeeByH(h) { return empIndex()[String(h).trim()] || null; }
 function nameOfH(h) { return fullName(employeeByH(h)); }
 function teamForEmployee(h) {
   h = String(h).trim();
@@ -1310,11 +1341,23 @@ function idExists(sh, id) {
   return false;
 }
 
+// Request-scoped memo for rows(): Apps Script re-initializes globals on every
+// execution, so this caches within ONE doGet/doPost only — a `day` read that
+// touches Stops six times scans the sheet once. Every write site must call
+// bustRows(tab) so a read-after-write inside the same request stays fresh.
+const ROWS_MEMO = {};
+let EMP_IDX = null;   // hNumber → employee, rebuilt lazily (see empIndex)
+function bustRows(tabName) {
+  delete ROWS_MEMO[tabName];
+  if (tabName === 'Employees') EMP_IDX = null;
+}
+
 function rows(tabName) {
+  if (ROWS_MEMO[tabName]) return ROWS_MEMO[tabName];
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
   const data = sh.getDataRange().getValues();
   const headers = data.shift();
-  return data.map(row => {
+  return (ROWS_MEMO[tabName] = data.map(row => {
     const o = {};
     // Sheets silently coerces a naive timestamp string into a Date in the cell;
     // JSON.stringify would then serialize it as UTC ("…Z"), leaking the Toronto↔UTC
@@ -1323,7 +1366,7 @@ function rows(tabName) {
     headers.forEach((h, i) => o[h] = (row[i] instanceof Date)
       ? Utilities.formatDate(row[i], TIMEZONE, 'yyyy-MM-dd HH:mm:ss') : row[i]);
     return o;
-  });
+  }));
 }
 
 /** Write a record keyed by header NAME, not column position, so a reordered
@@ -1344,11 +1387,13 @@ function upsertByHeader(tabName, keyField, keyValue, fields) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][keyCol]).trim() === String(keyValue).trim()) {
         sh.getRange(i + 1, 1, 1, headers.length).setValues([build(data[i])]);
+        bustRows(tabName);
         return { created: false };
       }
     }
   }
   sh.appendRow(build(null));
+  bustRows(tabName);
   return { created: true };
 }
 
@@ -1450,6 +1495,7 @@ function avgDispatchTime() {
       data[r][c('minutes')]       = minutes;
       data[r][c('matched')]       = 'Y';
       sh.getRange(r + 1, 1, 1, H.length).setValues([data[r]]);
+      bustRows('Dispatch');
     }
   });
 
@@ -1719,6 +1765,31 @@ function exportSheetToGithub() {
   return sha;
 }
 
+// Trigger entry point: refresh the dispatch request↔install match + the Metrics
+// average. Runs hourly (see createAvgDispatchTrigger) instead of inside
+// endOfDay, so the O(Stops × Dispatch) pairing never sits in the write lock
+// while the whole crew is closing. Skips quietly if a write holds the lock —
+// the next hourly run catches up (avgDispatchTime is idempotent/retroactive).
+function avgDispatchTimeJob() {
+  const lock = LockService.getScriptLock();
+  try {
+    if (!lock.tryLock(5000)) { Logger.log('avgDispatchTimeJob: lock busy, skipped'); return; }
+  } catch (e0) { /* lock service unavailable — proceed unlocked */ }
+  try { avgDispatchTime(); } finally { try { lock.releaseLock(); } catch (e1) {} }
+}
+
+// Run ONCE by hand from the editor to install the hourly dispatch-average
+// trigger. Idempotent: deletes any existing avgDispatchTimeJob trigger first,
+// so re-running doesn't stack duplicates.
+function createAvgDispatchTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'avgDispatchTimeJob') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('avgDispatchTimeJob')
+    .timeBased().everyHours(1).create();
+  Logger.log('Hourly avgDispatchTime trigger installed.');
+}
+
 // Run ONCE by hand from the editor to install the nightly (~3am Toronto)
 // trigger. Idempotent: deletes any existing exportSheetToGithub trigger first,
 // so re-running doesn't stack duplicates.
@@ -1787,4 +1858,28 @@ function test_githubConfigGuard() {
   if (savedRepo  != null) props.setProperty('GITHUB_REPO', savedRepo);
   if (!threw) throw new Error('expected a clear Script Properties error');
   Logger.log('test_githubConfigGuard OK');
+}
+
+// Verifies the request-scoped rows() memo: repeat reads hit the memo, and a
+// write (via upsertByHeader → bustRows) makes the next read see fresh data.
+// Writes one throwaway Metrics row and deletes it after. Run from the editor.
+function test_rowsMemo() {
+  ensureMetricsTab();
+  const a = rows('Metrics');
+  if (rows('Metrics') !== a) throw new Error('rows() not memoized within a request');
+  upsertByHeader('Metrics', 'metric', '_memoTest',
+    { metric: '_memoTest', value: '1', updated: now() });
+  const b = rows('Metrics');
+  if (b === a) throw new Error('write did not bust the memo');
+  if (!b.some(r => String(r.metric) === '_memoTest'))
+    throw new Error('read-after-write missed the new row');
+  // cleanup the throwaway row
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Metrics');
+  const data = sh.getDataRange().getValues();
+  const mCol = data[0].indexOf('metric');
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][mCol]) === '_memoTest') sh.deleteRow(i + 1);
+  }
+  bustRows('Metrics');
+  Logger.log('test_rowsMemo OK');
 }

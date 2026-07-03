@@ -70,6 +70,20 @@ functions.
   redeploying. Put the old deployment's ID back, or update `DEPLOYMENT_ID` in the
   workflow **and** `WEB_APP_URL` in all three HTML files to match.
 
+## Hourly dispatch-average refresh (one-time setup)
+
+`avgDispatchTime()` (the global dispatch request↔install match + the `Metrics`
+average) no longer runs inside `endOfDay` — with the whole crew closing at
+quitting time it was the longest hold on the write lock. It now runs from an
+hourly time trigger:
+
+- **Install the trigger:** in the editor, run `createAvgDispatchTrigger()` once.
+  Safe to re-run (it de-dupes its own trigger). Without it, matched `Dispatch`
+  rows and the `Metrics` average simply stop refreshing — same-day dispatch
+  suggestions at end-of-day still work (they're computed live from raw
+  `Dispatch` rows), but the map's "avg dispatch downtime" tile and the
+  cross-day/fallback estimates go stale.
+
 ## Nightly Sheet → Markdown export (one-time setup)
 
 `exportSheetToGithub()` (in `Code.gs`) snapshots every sheet tab into `data/*.md`

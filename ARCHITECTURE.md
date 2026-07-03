@@ -120,8 +120,8 @@ the map), `tracker` (all end-of-day rows, for the viewer's trends), `timing`
 "avg log→log (boat)" tile, which groups a day's logs by the boat that ran them),
 `dispatch` (all `Dispatch` rows, for the analytics "avg dispatch downtime" tile),
 `avgDispatchTime` (a pure read of the stored `Metrics` avg dispatch time, which
-`endOfDay` keeps fresh by pairing every requested meter to its completed install
-off-peak — see "Avg dispatch time"), `roster`
+the hourly `avgDispatchTimeJob` trigger keeps fresh by pairing every requested
+meter to its completed install — see "Avg dispatch time"), `roster`
 (the full crew + teams, for `teams.html` and the installer's name picker), `idle`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved — plus a pre-filled `DISPATCH` deduction on a requested install's
@@ -626,8 +626,8 @@ meter?"** checkbox ticked (shown on INSTALLED + UTI, which both already send
 `oldJNumber`).
 
 **Flagged live, matched & pre-filled at end of day.** Logging stays a cheap
-append and the match runs once off-peak, when the phone can pull today's requests
-fresh.
+append and the global match runs hourly in the background, off every request's
+critical path.
 
 - **Live (client).** Ticking "Requested meter?" only sets a `requestedMeter` flag
   on the stop (persisted as a `Stops` column). No dispatch row is written at log
@@ -683,8 +683,12 @@ the `matched=Y` ones (scoped by the page's installer + date filters, dated by
 `completedTime`) into the "Avg dispatch downtime" tile.
 
 **Avg dispatch time.** `avgDispatchTime()` in `Code.gs` is the **single source of
-truth for the global match + the running average** — `endOfDay` runs it once at
-close (off-peak). It pairs **every** requested meter (`Dispatch`) to the completed
+truth for the global match + the running average** — it runs from an **hourly time
+trigger** (`avgDispatchTimeJob`; installed once via `createAvgDispatchTrigger()`),
+not inside `endOfDay`: the O(Stops × Dispatch) pairing is the most expensive
+computation in the spine, and holding the write lock with it while the whole crew
+closes at quitting time was the sharpest scaling bottleneck. The job skips
+quietly if a write holds the lock (the next hourly run converges). It pairs **every** requested meter (`Dispatch`) to the completed
 install (`Stops`, status `INSTALLED`/`UTI`) carrying the same `oldJ` — each request
 claiming the earliest still-unused install at/after its `requestTime` — **fills**
 that `Dispatch` row (`installer`/`completedTime`/`minutes`/`matched=Y`), then
