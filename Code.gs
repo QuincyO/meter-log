@@ -1382,17 +1382,46 @@ function idExists(sh, id) {
 // bustRows(tab) so a read-after-write inside the same request stays fresh.
 const ROWS_MEMO = {};
 let EMP_IDX = null;   // hNumber → employee, rebuilt lazily (see empIndex)
+
+// On top of the per-request memo, the small slow-changing tabs also sit in
+// CacheService ACROSS requests (6h TTL, ~90KB guard vs the 100KB/key limit —
+// 75 employees is ~6KB). Roster data is read by nearly every action (name
+// lookups, team joins, the roster GET) but only changes when an admin saves,
+// so the write sites' bustRows() also evicts the CacheService copy. A
+// cross-instance race can serve a roster a few seconds stale right after an
+// admin edit — accepted: teams.html re-fetches after each save anyway, and no
+// field write depends on second-level roster freshness. The big/hot tabs
+// (Stops, Downtime, …) are deliberately NOT here: too large for the 100KB cap
+// and written on every log.
+const CACHED_TABS = { Employees: 1, Teams: 1, Captains: 1, Subs: 1, Metrics: 1 };
+const CACHED_TABS_TTL_S = 21600;   // 6h, the CacheService max
+function scriptCache() {
+  try { return CacheService.getScriptCache(); } catch (e) { return null; }
+}
+
 function bustRows(tabName) {
   delete ROWS_MEMO[tabName];
   if (tabName === 'Employees') EMP_IDX = null;
+  if (CACHED_TABS[tabName]) {
+    const c = scriptCache();
+    if (c) try { c.remove('rows:' + tabName); } catch (e) {}
+  }
 }
 
 function rows(tabName) {
   if (ROWS_MEMO[tabName]) return ROWS_MEMO[tabName];
+  const cacheable = !!CACHED_TABS[tabName];
+  if (cacheable) {
+    const c = scriptCache();
+    const hit = c && c.get('rows:' + tabName);
+    if (hit) {
+      try { return (ROWS_MEMO[tabName] = JSON.parse(hit)); } catch (e) {}
+    }
+  }
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
   const data = sh.getDataRange().getValues();
   const headers = data.shift();
-  return (ROWS_MEMO[tabName] = data.map(row => {
+  const mapped = data.map(row => {
     const o = {};
     // Sheets silently coerces a naive timestamp string into a Date in the cell;
     // JSON.stringify would then serialize it as UTC ("…Z"), leaking the Toronto↔UTC
@@ -1401,7 +1430,15 @@ function rows(tabName) {
     headers.forEach((h, i) => o[h] = (row[i] instanceof Date)
       ? Utilities.formatDate(row[i], TIMEZONE, 'yyyy-MM-dd HH:mm:ss') : row[i]);
     return o;
-  }));
+  });
+  if (cacheable) {
+    const c = scriptCache();
+    if (c) {
+      const s = JSON.stringify(mapped);
+      if (s.length < 90000) try { c.put('rows:' + tabName, s, CACHED_TABS_TTL_S); } catch (e) {}
+    }
+  }
+  return (ROWS_MEMO[tabName] = mapped);
 }
 
 /** Write a record keyed by header NAME, not column position, so a reordered
