@@ -8,9 +8,12 @@
 // boxes (row 1-8), the table header, body rows (one per INSTALLED/UTI stop), and
 // a totals footer. The 8 columns keep the template's width proportions.
 //
-// jsPDF ships as a UMD bundle loaded by a classic <script> before the page module
-// (its ESM build isn't self-contained — it bare-imports @babel/runtime). It
-// exposes `window.jspdf.jsPDF`; we read it lazily so import order can't bite.
+// jsPDF ships as a UMD bundle (its ESM build isn't self-contained — it
+// bare-imports @babel/runtime) exposing `window.jspdf.jsPDF`. It is ~350KB the
+// page only needs at PDF time, so it is NOT a <script> tag anymore: ensureJsPDF
+// injects it on demand (downloadDailyLog awaits it). The file stays in the
+// service-worker SHELL, so the injected script resolves from cache offline and
+// the no-signal end-of-day PDF keeps working.
 import { parseLocalMs } from './time.js';
 import { CATEGORIES, BREAK_CATS, TRAVEL_ADJ_CATS, downtimeSummary } from './compute/categories.js';
 
@@ -18,6 +21,21 @@ function getJsPDF(){
   const ns = (typeof window !== 'undefined' && window.jspdf) || (typeof self !== 'undefined' && self.jspdf);
   if(!ns || !ns.jsPDF) throw new Error('jsPDF not loaded — include js/vendor/jspdf.umd.min.js');
   return ns.jsPDF;
+}
+
+let jspdfLoading = null;
+function ensureJsPDF(){
+  if(typeof window !== 'undefined' && window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+  if(!jspdfLoading){
+    jspdfLoading = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'js/vendor/jspdf.umd.min.js';
+      s.onload = res;
+      s.onerror = () => { jspdfLoading = null; rej(new Error('couldn’t load the PDF library')); };
+      document.head.appendChild(s);
+    });
+  }
+  return jspdfLoading;
 }
 
 const MARGIN = 21.6;                 // 0.3" like the old export
@@ -212,8 +230,10 @@ export function renderDailyLog(summary){
   return { blob: doc.output('blob'), name: pdfName(s) };
 }
 
-// Render + trigger a download. Returns the file name.
-export function downloadDailyLog(summary){
+// Render + trigger a download (loading jsPDF on demand first). Returns the
+// file name.
+export async function downloadDailyLog(summary){
+  await ensureJsPDF();
   const { blob, name } = renderDailyLog(summary);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = name;

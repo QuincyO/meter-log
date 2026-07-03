@@ -289,8 +289,8 @@
     </div>
   </div>
 
-<!-- jsPDF (UMD) for on-device daily-log rendering — classic script loads before the module -->
-<script src="js/vendor/jspdf.umd.min.js"></script>
+<!-- jsPDF is injected on demand by js/dailylog.js (ensureJsPDF) — only needed
+     at PDF time, so it no longer blocks the page load. -->
 <script type="module" src="js/pages/capture.js"></script>
 </body>
 </html>
