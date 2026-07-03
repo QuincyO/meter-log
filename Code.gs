@@ -192,25 +192,34 @@ function ensureTab(ss, name, headers) {
 // ── POST: capture layer sends JSON here ────────────────────────────────────
 function doPost(e) {
   // Serialize all writes. Apps Script web apps can run concurrently, and several
-  // actions read-modify-write the sheet (applyDispatchDowntime, upsertDayRow,
-  // saveTravel, the addStop dedup). A script lock keeps those atomic. If the lock
-  // can't be had quickly we return a transient error so the client's offline queue
-  // keeps the item and retries (it never drops it) — see index.html flush().
+  // actions read-modify-write the sheet (upsertDayRow, saveTravel, the addStop
+  // dedup). A script lock keeps those atomic. If the lock can't be had quickly we
+  // return a transient error so the client's offline queue keeps the item and
+  // retries (it never drops it) — see js/queue.js flush().
+  // previewDailyLog is the one POST that writes nothing (buildDaySummary is a
+  // pure read), so it skips the lock entirely: the phones re-request it on every
+  // settled EOD edit while prefetching the Finish summary, and at quitting time
+  // that traffic must not queue behind the whole crew's real writes.
+  let body;
+  try { body = JSON.parse(e.postData.contents); }
+  catch (err) { return json({ ok: false, error: String(err) }); }
+  if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+  if (body.action === 'previewDailyLog') {
+    try { return json(previewDailyLog(body)); }
+    catch (err) { return json({ ok: false, error: String(err) }); }
+  }
+
   const lock = LockService.getScriptLock();
   try {
     if (!lock.tryLock(25000)) return json({ ok: false, error: 'busy, retry' });
   } catch (e0) { /* lock service unavailable — proceed unlocked rather than block */ }
   try {
-    const body = JSON.parse(e.postData.contents);
-    if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
-
     switch (body.action) {
       case 'addStop':        return json(addStop(body));
       case 'addDowntime':    return json(addDowntime(body));
       case 'dispatchRequest':return json(dispatchRequest(body));
       case 'updateStop':     return json(updateStop(body));
       case 'endOfDay':       return json(endOfDay(body));
-      case 'previewDailyLog':return json(previewDailyLog(body));
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
       case 'saveEmployee':   return json(saveEmployee(body));
