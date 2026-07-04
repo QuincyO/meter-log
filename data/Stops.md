@@ -1,6 +1,6 @@
 # Stops
 
-_130 rows · exported 2026-07-03 03:52 America/Toronto_
+_144 rows · exported 2026-07-04 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -134,3 +134,17 @@ _130 rows · exported 2026-07-03 03:52 America/Toronto_
 | 1782844725781-r0xxdx | 2026-06-30 14:38:45 | Phillip Monteiro |  |  | 1 Island 3 W, McDougall, ON P2A 2W9, Canada | 45.385633 | -80.086164 |  |  |  | UNACCOUNTED |  | No meter here |  |  |  |
 | 1782846215088-hxcoe4 | 2026-06-30 15:03:35 | Phillip Monteiro |  |  | 11 Island 15c, Carling, ON P0G 1G0, Canada | 45.395128 | -80.126152 |  | J2608342 |  | VISITED |  | Requested but next gen down, moved on |  |  |  |
 | 1782846570097-eunsij | 2026-06-30 15:09:30 | Phillip Monteiro | 600188 |  | 10 Island 15c, Carling, ON P0G 1G0, Canada | 45.393018 | -80.125854 | J4763792 | J3061912 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783080147096-lw8tsa | 2026-07-03 08:02:27 | Quincy Orta | 572106 |  | 22 Island 20c, Carling, ON P0G 1G0, Canada | 45.383667 | -80.141585 | J4609845 | J3061719 | 93123 | INSTALLED |  |  |  |  |  |
+| 1783081383018-wk3duc | 2026-07-03 08:23:03 | Phillip Monteiro | 574134 |  | 3 Island 29c, Carling, ON P0G 1G0, Canada | 45.369203 | -80.153421 | J4609846 | J3062402 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783082672179-wtncqi | 2026-07-03 08:44:32 | Quincy Orta | 572687 |  | 1 Island 38c, Carling, ON P0G 1G0, Canada | 45.372795 | -80.175023 | J4609848 | J3817140 | 25652 | INSTALLED |  |  |  |  |  |
+| 1783084855541-et7k5v | 2026-07-03 09:20:55 | Phillip Monteiro |  |  | 1 Island 27c, Carling, ON P0G 1G0, Canada | 45.371376 | -80.148783 |  |  |  | UNACCOUNTED |  | Looking for meter. |  |  |  |
+| 1783085147394-w1ct29 | 2026-07-03 09:25:47 | Phillip Monteiro |  |  | 5 Island 29c, Carling, ON P0G 1G0, Canada | 45.370696 | -80.147339 |  | J4575487 |  | VISITED |  | Checking meter read. Special request. |  |  |  |
+| 1783087103516-g6u1ya | 2026-07-03 09:58:23 | Phillip Monteiro | 600205 |  | 11 Island 15c, Carling, ON P0G 1G0, Canada | 45.395071 | -80.126106 | J4609847 | J2608342 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783090676977-omoxf0 | 2026-07-03 10:57:56 | Quincy Orta |  |  | 63 Alves Rd, Carling, ON P0G 1G0, Canada | 45.400381 | -80.193385 |  |  |  | DONE |  |  |  |  |  |
+| 1783090705178-34yz84 | 2026-07-03 10:58:25 | Phillip Monteiro |  |  | 63 Alves Rd, Carling, ON P0G 1G0, Canada | 45.400355 | -80.193394 |  |  |  | DONE |  |  |  |  |  |
+| 1783091459588-m84uut | 2026-07-03 11:10:59 | Quincy Orta | 570753 |  | 61 Alves Rd, Carling, ON P0G 1G0, Canada | 45.400728 | -80.196968 | J4609849 | J3062355 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783092952430-v0gdy3 | 2026-07-03 11:35:52 | Quincy Orta | 573871 |  | 12 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.393928 | -80.227785 | J4609852 | J3903955 | 38535 | INSTALLED |  |  |  |  |  |
+| 1783094167578-hzla47 | 2026-07-03 11:56:07 | Phillip Monteiro | 581473 |  | 10 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.393125 | -80.226756 | J4609851 | J3062385 | 30088 | INSTALLED |  |  |  |  |  |
+| 1783096069817-t1n8mc | 2026-07-03 12:27:49 | Phillip Monteiro | 572353 |  | 10 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.392314 | -80.226766 | J4609850 | J3062371 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783102697809-ffz2om | 2026-07-03 14:18:17 | Quincy Orta | 600191 |  | 4 Island 109c, Carling, ON P0G 1G0, Canada | 45.285602 | -80.231529 | J4609859 | J3918941 | 6239 | INSTALLED |  |  |  |  |  |
+| 1783105683469-5h2cjq | 2026-07-03 15:08:03 | Phillip Monteiro | 570513 |  | 1 B436 Is, Archipelago, ON P0G 1G0, Canada | 45.207298 | -80.181663 | J4609858 | J3921024 | 6447 | INSTALLED |  |  |  |  |  |

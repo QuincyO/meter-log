@@ -1,6 +1,6 @@
 # BoatDays
 
-_7 rows · exported 2026-07-03 03:52 America/Toronto_
+_8 rows · exported 2026-07-04 03:52 America/Toronto_
 
 | date | boatNumber | boatName | captainName | subName | memberLetters | memberNames |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -11,3 +11,4 @@ _7 rows · exported 2026-07-03 03:52 America/Toronto_
 | 2026-06-27 00:00:00 | 14 | Complex Pulsecraft | Jenna | Steve | {"H629528":"A","E58251":"A"} | ["Quincy Orta","Bradley Davis"] |
 | 2026-06-29 00:00:00 | 11 | Stanley 23 | Bryant | Jason | {"E58606":"A","H629528":"A"} | ["Brody D","Quincy Orta"] |
 | 2026-06-30 00:00:00 | 11 | Stanley 23 | Bryant | Jason | {"E58606":"A","H629528":"A"} | ["Brody D","Quincy Orta"] |
+| 2026-07-03 00:00:00 | 11 | Stanley 23 | Bryant | Jason | {"E58606":"A","H629528":"A"} | ["Brody D","Quincy Orta"] |
