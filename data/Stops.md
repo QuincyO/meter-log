@@ -1,6 +1,6 @@
 # Stops
 
-_144 rows · exported 2026-07-04 03:52 America/Toronto_
+_149 rows · exported 2026-07-05 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -148,3 +148,8 @@ _144 rows · exported 2026-07-04 03:52 America/Toronto_
 | 1783096069817-t1n8mc | 2026-07-03 12:27:49 | Phillip Monteiro | 572353 |  | 10 Wa Zone G, Carling, ON P0G 1G0, Canada | 45.392314 | -80.226766 | J4609850 | J3062371 |  | INSTALLED |  |  | Missing segments |  |  |
 | 1783102697809-ffz2om | 2026-07-03 14:18:17 | Quincy Orta | 600191 |  | 4 Island 109c, Carling, ON P0G 1G0, Canada | 45.285602 | -80.231529 | J4609859 | J3918941 | 6239 | INSTALLED |  |  |  |  |  |
 | 1783105683469-5h2cjq | 2026-07-03 15:08:03 | Phillip Monteiro | 570513 |  | 1 B436 Is, Archipelago, ON P0G 1G0, Canada | 45.207298 | -80.181663 | J4609858 | J3921024 | 6447 | INSTALLED |  |  |  |  |  |
+| 1783167370510-d18xul | 2026-07-04 08:16:10 | Quincy Orta | 574793 |  | 1 Island 323c, Carling, ON P0G 1K0, Canada | 45.424635 | -80.366937 | J4611317 | J4165772 | 550 | INSTALLED |  |  |  |  |  |
+| 1783170716313-d3jkbd | 2026-07-04 09:11:56 | Quincy Orta | 572363 |  | 1 Island 363c, Carling, ON P0G 1K0, Canada | 45.424739 | -80.368557 | J4611318 | J3158214 |  | INSTALLED |  |  | Missing segments |  |  |
+| 1783174271394-cpcfph | 2026-07-04 10:11:11 | Quincy Orta |  |  | 1 Island 334c, Carling, ON P0G 1K0, Canada | 45.405292 | -80.370795 |  |  |  | UNACCOUNTED |  | Can't find building on this island |  |  |  |
+| 1783174639122-qfzshc | 2026-07-04 10:17:19 | Quincy Orta | 574795 |  | 1 Island 334c, Carling, ON P0G 1K0, Canada | 45.405091 | -80.369288 | J4611319 | J3111970 | 9630 | INSTALLED |  |  |  |  |  |
+| 1783180280803-cpa1z0 | 2026-07-04 11:51:20 | Quincy Orta | 581314 |  | 1 Island 381c, Carling, ON P0G 1K0, Canada | 45.430961 | -80.36637 | J4611320 | J3158281 | 43078 | INSTALLED |  |  |  |  |  |
