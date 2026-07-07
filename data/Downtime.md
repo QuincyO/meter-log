@@ -1,6 +1,6 @@
 # Downtime
 
-_58 rows · exported 2026-07-06 03:52 America/Toronto_
+_62 rows · exported 2026-07-07 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -62,3 +62,7 @@ _58 rows · exported 2026-07-06 03:52 America/Toronto_
 | 1783107998642-trzgty | 2026-07-03 12:00:00 | Phillip Monteiro | BREAK | 15 | 570513 | gap 12:27–15:08 |
 | 1783107998642-c8ucb1 | 2026-07-03 12:00:00 | Phillip Monteiro | LUNCH | 30 | 570513 | gap 12:27–15:08 |
 | 1783110674692-n61wuu | 2026-07-03 12:00:00 | Quincy Orta | LUNCH | 30 | 600191 | gap 11:35–14:18 |
+| 1783368303688-c0kdra | 2026-07-06 12:00:00 | Brody D | DISPATCH | 16 | 570279 | gap 08:19–08:54 |
+| 1783368303688-o0s800 | 2026-07-06 12:00:00 | Brody D | DISPATCH | 16 | 581354 | gap 09:11–09:31 |
+| 1783368303688-asl9tz | 2026-07-06 12:00:00 | Brody D | DISPATCH | 16 | 572782 | gap 10:27–11:20 |
+| 1783368303688-zu10w6 | 2026-07-06 12:00:00 | Brody D | DISPATCH | 16 | 574012 | gap 13:10–13:51 |

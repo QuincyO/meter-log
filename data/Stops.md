@@ -1,6 +1,6 @@
 # Stops
 
-_149 rows · exported 2026-07-06 03:52 America/Toronto_
+_161 rows · exported 2026-07-07 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -153,3 +153,15 @@ _149 rows · exported 2026-07-06 03:52 America/Toronto_
 | 1783174271394-cpcfph | 2026-07-04 10:11:11 | Quincy Orta |  |  | 1 Island 334c, Carling, ON P0G 1K0, Canada | 45.405292 | -80.370795 |  |  |  | UNACCOUNTED |  | Can't find building on this island |  |  |  |
 | 1783174639122-qfzshc | 2026-07-04 10:17:19 | Quincy Orta | 574795 |  | 1 Island 334c, Carling, ON P0G 1K0, Canada | 45.405091 | -80.369288 | J4611319 | J3111970 | 9630 | INSTALLED |  |  |  |  |  |
 | 1783180280803-cpa1z0 | 2026-07-04 11:51:20 | Quincy Orta | 581314 |  | 1 Island 381c, Carling, ON P0G 1K0, Canada | 45.430961 | -80.36637 | J4611320 | J3158281 | 43078 | INSTALLED |  |  |  |  |  |
+| 1783340353138-qaphul | 2026-07-06 08:19:13 | Quincy Orta | 570240 |  | 138 Snug Harbour Rd, Carling, ON P0G 1G0, Canada | 45.37478 | -80.301419 | J4611900 | J3158908 | 86806 | INSTALLED |  |  |  |  |  |
+| 1783342451842-zyiujb | 2026-07-06 08:54:11 | Brody D | 570279 |  | 132 Snug Harbour Rd, Carling, ON P0G 1G0, Canada | 45.37448 | -80.297228 | J4730832 | J3061602 | 52360 | INSTALLED |  |  |  |  | Y |
+| 1783343472913-1wbumr | 2026-07-06 09:11:12 | Quincy Orta |  |  | 132 Snug Harbour Rd, Carling, ON P0G 1G0, Canada | 45.374218 | -80.297031 |  | J3061823 |  | VISITED |  | No record of meter, building G |  |  |  |
+| 1783344671019-1ahsfw | 2026-07-06 09:31:11 | Brody D | 581354 |  | 5 Snug Haven Rd, Carling, ON P0G 1G0, Canada | 45.372963 | -80.299716 | J4730835 | J3298477 | 12095 | INSTALLED |  |  |  |  | Y |
+| 1783345001344-86axtn | 2026-07-06 09:36:41 | Quincy Orta | 573369 | B | 132 Snug Harbour Rd, Carling, ON P0G 1G0, Canada | 45.373465 | -80.298678 | J4611897 | J4235996 | 0 | INSTALLED |  |  |  |  |  |
+| 1783347209499-igv1ic | 2026-07-06 10:13:29 | Quincy Orta | 570270 |  | 1 Island 252c, Carling, ON P0G 1G0, Canada | 45.372244 | -80.309315 |  |  |  | UNACCOUNTED |  | Stealing power |  |  |  |
+| 1783348029421-rx0gk5 | 2026-07-06 10:27:09 | Quincy Orta | 570270 |  | 1 Island 252c, Carling, ON P0G 1G0, Canada | 45.372126 | -80.309506 | J4611898 | J3158220 | 44832 | INSTALLED |  |  |  |  |  |
+| 1783351204236-bxu9un | 2026-07-06 11:20:04 | Brody D | 572782 |  | 1 Island 46c, Carling, ON P0G 1G0, Canada | 45.300637 | -80.255077 | J4730834 | J4042441 | 6856 | INSTALLED |  |  |  |  | Y |
+| 1783357856067-su1mck | 2026-07-06 13:10:56 | Quincy Orta | 570317 |  | 87 B704 Is, Archipelago, ON P2A 1S3, Canada | 45.255134 | -80.121648 | J4730833 | J3158386 | 53698 | INSTALLED |  |  |  |  |  |
+| 1783360298702-ubh6zh | 2026-07-06 13:51:38 | Brody D | 574012 |  | 80 B704 Is, Archipelago, ON P2A 1S3, Canada | 45.254642 | -80.12024 | J4611875 | J3158315 | 31832 | INSTALLED |  |  |  |  | Y |
+| 1783361179416-doxx4i | 2026-07-06 14:06:19 | Quincy Orta | 570297 |  | 78 B704 Is, Archipelago, ON P0G 1G0, Canada | 45.25583 | -80.119803 | J4611876 | J3158314 | 19885 | INSTALLED |  |  |  |  |  |
+| 1783363444376-711mad | 2026-07-06 14:44:04 | Quincy Orta | 571418 |  | 290 B704 Is, The Archipelago, ON P2A 1S3, Canada | 45.276254 | -80.095271 | J4611873 | J3391026 | 46711 | INSTALLED |  |  |  |  |  |

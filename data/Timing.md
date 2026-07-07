@@ -1,6 +1,6 @@
 # Timing
 
-_180 rows · exported 2026-07-06 03:52 America/Toronto_
+_194 rows · exported 2026-07-07 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -184,3 +184,17 @@ _180 rows · exported 2026-07-06 03:52 America/Toronto_
 | 2026-07-04 00:00:00 | Quincy Orta | 1899-12-30 10:11:00 | 1899-12-30 10:17:00 | 6 | 120 | Travel | travel | 574795 | UNACCOUNTED | INSTALLED |
 | 2026-07-04 00:00:00 | Quincy Orta | 1899-12-30 10:17:00 | 1899-12-30 11:51:00 | 94 | 2886 | Flagged | travel | 581314 | INSTALLED | INSTALLED |
 | 2026-07-04 00:00:00 | Quincy Orta | 1899-12-30 11:51:00 | 1899-12-30 16:00:00 | 249 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-06 00:00:00 | Brody D | 1899-12-30 08:19:00 | 1899-12-30 08:54:00 | 35 | 329 | Flagged | mixed | 570279 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Brody D | 1899-12-30 09:11:00 | 1899-12-30 09:31:00 | 20 | 252 | Travel | mixed | 581354 | VISITED | INSTALLED |
+| 2026-07-06 00:00:00 | Brody D | 1899-12-30 10:27:00 | 1899-12-30 11:20:00 | 53 | 9016 | Flagged | mixed | 572782 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Brody D | 1899-12-30 13:10:00 | 1899-12-30 13:51:00 | 41 | 123 | Flagged | mixed | 574012 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Brody D | 1899-12-30 14:44:00 | 1899-12-30 16:00:00 | 76 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 08:19:00 | 49 |  | Launch | travel | 570240 |  | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 08:54:00 | 1899-12-30 09:11:00 | 17 | 33 | Travel | travel |  | INSTALLED | VISITED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 09:31:00 | 1899-12-30 09:36:00 | 6 | 98 | Travel | travel | 573369 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 09:36:00 | 1899-12-30 10:13:00 | 37 | 842 | Flagged | travel | 570270 | INSTALLED | UNACCOUNTED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 10:13:00 | 1899-12-30 10:27:00 | 14 | 20 | Travel | travel | 570270 | UNACCOUNTED | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 11:20:00 | 1899-12-30 13:10:00 | 111 | 11602 | Flagged | travel | 570317 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 13:51:00 | 1899-12-30 14:06:00 | 15 | 136 | Travel | travel | 570297 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 14:06:00 | 1899-12-30 14:44:00 | 38 | 2974 | Flagged | travel | 571418 | INSTALLED | INSTALLED |
+| 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 14:44:00 | 1899-12-30 16:00:00 | 76 |  | Return | travel |  | INSTALLED |  |

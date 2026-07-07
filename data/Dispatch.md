@@ -1,6 +1,6 @@
 # Dispatch
 
-_27 rows · exported 2026-07-06 03:52 America/Toronto_
+_28 rows · exported 2026-07-07 03:52 America/Toronto_
 
 | id | requestTime | oldJNumber | installer | completedTime | minutes | matched |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -31,3 +31,4 @@ _27 rows · exported 2026-07-06 03:52 America/Toronto_
 | 1782757322174-wlvbwb | 2026-06-29 14:21:52 | J4240003 | Quincy Orta | 2026-06-29 14:31:11 | 9 | Y |
 | 1782823101974-pnkvex | 2026-06-30 08:38:20 | J3366214 | Phillip Monteiro | 2026-06-30 08:45:30 | 7 | Y |
 | 1783095178733-dl2oby | 2026-07-03 12:12:55 | J3062371 | Phillip Monteiro | 2026-07-03 12:27:49 | 15 | Y |
+| 1783342222942-krnfdc | 2026-07-06 08:50:20 | J3061823 |  |  |  |  |
