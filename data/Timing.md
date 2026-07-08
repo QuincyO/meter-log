@@ -1,6 +1,6 @@
 # Timing
 
-_194 rows · exported 2026-07-07 03:52 America/Toronto_
+_201 rows · exported 2026-07-08 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -198,3 +198,10 @@ _194 rows · exported 2026-07-07 03:52 America/Toronto_
 | 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 13:51:00 | 1899-12-30 14:06:00 | 15 | 136 | Travel | travel | 570297 | INSTALLED | INSTALLED |
 | 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 14:06:00 | 1899-12-30 14:44:00 | 38 | 2974 | Flagged | travel | 571418 | INSTALLED | INSTALLED |
 | 2026-07-06 00:00:00 | Quincy Orta | 1899-12-30 14:44:00 | 1899-12-30 16:00:00 | 76 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-07 00:00:00 | Phillip Monteiro | 1899-12-30 08:30:00 | 1899-12-30 09:11:00 | 41 |  | Launch | travel | 593221 |  | INSTALLED |
+| 2026-07-07 00:00:00 | Phillip Monteiro | 1899-12-30 09:11:00 | 1899-12-30 14:13:00 | 302 | 34004 | Flagged | mixed | 582652 | INSTALLED | INSTALLED |
+| 2026-07-07 00:00:00 | Phillip Monteiro | 1899-12-30 14:13:00 | 1899-12-30 15:30:00 | 77 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 09:28:00 | 1899-12-30 09:32:00 | 4 | 34990 | Travel | travel | 594645 | INSTALLED | INSTALLED |
+| 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 09:32:00 | 1899-12-30 09:54:00 | 23 | 755 | Flagged | travel | 591923 | INSTALLED | INSTALLED |
+| 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 09:54:00 | 1899-12-30 15:30:00 | 335 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-07 00:00:00 | Brody D | 1899-12-30 09:28:00 | 1899-12-30 16:21:00 | 413 |  | Return | travel |  | INSTALLED |  |

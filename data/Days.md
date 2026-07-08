@@ -1,6 +1,6 @@
 # Days
 
-_27 rows · exported 2026-07-07 03:52 America/Toronto_
+_30 rows · exported 2026-07-08 03:52 America/Toronto_
 
 | date | installer | departure | returned | dispatchMin | boatDispatchMin |
 | --- | --- | --- | --- | --- | --- |
@@ -31,3 +31,6 @@ _27 rows · exported 2026-07-07 03:52 America/Toronto_
 | 2026-07-04 00:00:00 | Brody D |  |  | 0 | 0 |
 | 2026-07-06 00:00:00 | Brody D | 1899-12-30 07:30:00 | 1899-12-30 16:00:00 | 64 | 64 |
 | 2026-07-06 00:00:00 | Quincy Orta | 07:30 | 16:00 | 0 | 64 |
+| 2026-07-07 00:00:00 | Phillip Monteiro | 1899-12-30 08:30:00 | 1899-12-30 15:30:00 |  |  |
+| 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 08:30:00 | 1899-12-30 15:30:00 | 0 | 0 |
+| 2026-07-07 00:00:00 | Brody D | 16:21 | 16:21 | 0 | 0 |

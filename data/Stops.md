@@ -1,6 +1,6 @@
 # Stops
 
-_161 rows · exported 2026-07-07 03:52 America/Toronto_
+_166 rows · exported 2026-07-08 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -165,3 +165,8 @@ _161 rows · exported 2026-07-07 03:52 America/Toronto_
 | 1783360298702-ubh6zh | 2026-07-06 13:51:38 | Brody D | 574012 |  | 80 B704 Is, Archipelago, ON P2A 1S3, Canada | 45.254642 | -80.12024 | J4611875 | J3158315 | 31832 | INSTALLED |  |  |  |  | Y |
 | 1783361179416-doxx4i | 2026-07-06 14:06:19 | Quincy Orta | 570297 |  | 78 B704 Is, Archipelago, ON P0G 1G0, Canada | 45.25583 | -80.119803 | J4611876 | J3158314 | 19885 | INSTALLED |  |  |  |  |  |
 | 1783363444376-711mad | 2026-07-06 14:44:04 | Quincy Orta | 571418 |  | 290 B704 Is, The Archipelago, ON P2A 1S3, Canada | 45.276254 | -80.095271 | J4611873 | J3391026 | 46711 | INSTALLED |  |  |  |  |  |
+| 1783429872234-zk2gd4 | 2026-07-07 09:11:12 | Phillip Monteiro | 593221 |  | 400 Shawanaga Lake Rd, Whitestone, ON P0A 1G0, Canada | 45.576388 | -79.944054 | J4708872 | J3136656 | 12992 | INSTALLED |  |  |  |  |  |
+| 1783430893115-ou2bmg | 2026-07-07 09:28:13 | Brody D | 572963 |  | 816115 Salmon Lake Rd, Seguin, ON P2A 0B2, Canada | 45.253518 | -79.956319 | J4763870 | J3266032 | 80092 | INSTALLED |  |  |  |  | Y |
+| 1783431138945-t7237m | 2026-07-07 09:32:18 | Quincy Orta | 594645 |  | 53 Weaver Point, Whitestone, ON P0A 1G0, Canada | 45.568187 | -79.956289 | J4708874 | J3372438 | 91730 | INSTALLED |  |  |  |  |  |
+| 1783432497276-zqh0jv | 2026-07-07 09:54:57 | Quincy Orta | 591923 |  | 80 Credit Ln, Whitestone, ON P0A 1G0, Canada | 45.567974 | -79.965982 | J4708873 | J3756325 | 12490 | INSTALLED |  |  |  |  |  |
+| 1783447989588-omtza3 | 2026-07-07 14:13:09 | Phillip Monteiro | 582652 |  | 23 Leaf Ln, Rosseau, ON P0C 1J0, Canada | 45.305379 | -79.742144 | J4763818 | J3109644 | 12632 | INSTALLED |  |  |  |  |  |
