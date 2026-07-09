@@ -1,6 +1,6 @@
 # Downtime
 
-_67 rows · exported 2026-07-08 03:52 America/Toronto_
+_71 rows · exported 2026-07-09 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -71,3 +71,7 @@ _67 rows · exported 2026-07-08 03:52 America/Toronto_
 | 1783452162897-ibdhgj | 2026-07-07 12:00:00 | Phillip Monteiro | LUNCH | 30 | 582652 | gap 09:11–14:13 |
 | 1783452162897-1wpuij | 2026-07-07 12:00:00 | Phillip Monteiro | DISPATCH | 90 | 582652 | gap 09:11–14:13 |
 | 1783453173790-zram0x | 2026-07-07 15:39:33 | Quincy Orta | MISC_TRAVEL | 180 |  |  |
+| 1783540735577-qxopi1 | 2026-07-08 12:00:00 | Quincy Orta | DISPATCH | 4 | 640315 | gap 08:35–08:58 |
+| 1783540735577-31n6za | 2026-07-08 12:00:00 | Quincy Orta | DISPATCH | 18 | 640174 | gap 11:08–11:35 |
+| 1783541051494-b65ofp | 2026-07-08 12:00:00 | Phillip Monteiro | DISPATCH | 1 | 640017 | gap 09:32–09:43 |
+| 1783541051494-97mp9y | 2026-07-08 12:00:00 | Phillip Monteiro | LUNCH | 30 | 639644 | gap 12:29–13:22 |

@@ -1,6 +1,6 @@
 # Timing
 
-_201 rows · exported 2026-07-08 03:52 America/Toronto_
+_224 rows · exported 2026-07-09 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -205,3 +205,26 @@ _201 rows · exported 2026-07-08 03:52 America/Toronto_
 | 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 09:32:00 | 1899-12-30 09:54:00 | 23 | 755 | Flagged | travel | 591923 | INSTALLED | INSTALLED |
 | 2026-07-07 00:00:00 | Quincy Orta | 1899-12-30 09:54:00 | 1899-12-30 15:30:00 | 335 |  | Return | travel |  | INSTALLED |  |
 | 2026-07-07 00:00:00 | Brody D | 1899-12-30 09:28:00 | 1899-12-30 16:21:00 | 413 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 08:18:00 | 49 |  | Launch | travel |  |  | VISITED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 08:35:00 | 1899-12-30 08:58:00 | 23 | 233 | Flagged | mixed | 640315 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 08:58:00 | 1899-12-30 09:05:00 | 7 | 21 | Travel | travel | 640400 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 09:43:00 | 1899-12-30 10:01:00 | 19 | 75 | Travel | travel | 640311 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 11:08:00 | 1899-12-30 11:35:00 | 27 | 486 | Flagged | mixed | 640174 | UNACCOUNTED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 11:35:00 | 1899-12-30 11:53:00 | 19 | 151 | Travel | travel | 640336 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 11:53:00 | 1899-12-30 12:28:00 | 34 | 553 | Flagged | travel |  | INSTALLED | UNACCOUNTED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 14:00:00 | 1899-12-30 14:25:00 | 25 | 404 | Flagged | travel | 640589 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 14:25:00 | 1899-12-30 14:55:00 | 29 | 1933 | Flagged | travel | 640239 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 14:58:00 | 1899-12-30 15:15:00 | 17 | 2333 | Travel | travel | 640612 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Quincy Orta | 1899-12-30 15:15:00 | 1899-12-30 16:00:00 | 45 |  | Return | travel |  | INSTALLED |  |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 08:18:00 | 1899-12-30 08:35:00 | 17 | 70 | Travel | travel | 640013 | VISITED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 09:05:00 | 1899-12-30 09:32:00 | 27 | 180 | Flagged | travel |  | INSTALLED | VISITED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 09:32:00 | 1899-12-30 09:43:00 | 11 | 176 | Travel | mixed | 640017 | VISITED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 10:01:00 | 1899-12-30 10:15:00 | 14 | 135 | Travel | travel | 640210 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 10:15:00 | 1899-12-30 10:52:00 | 37 | 588 | Flagged | travel | 640001 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 10:52:00 | 1899-12-30 11:08:00 | 16 | 183 | Travel | travel |  | INSTALLED | UNACCOUNTED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 12:28:00 | 1899-12-30 12:29:00 | 1 | 2 | Travel | travel |  | UNACCOUNTED | UNACCOUNTED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 12:29:00 | 1899-12-30 13:22:00 | 53 | 4112 | Flagged | mixed | 639644 | UNACCOUNTED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 13:22:00 | 1899-12-30 13:38:00 | 16 | 178 | Travel | travel | 639631 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 13:38:00 | 1899-12-30 14:00:00 | 22 | 529 | Flagged | travel | 639588 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 14:55:00 | 1899-12-30 14:58:00 | 4 | 2266 | Travel | travel | 639742 | INSTALLED | INSTALLED |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 1899-12-30 15:15:00 | 1899-12-30 16:04:00 | 49 |  | Return | travel |  | INSTALLED |  |

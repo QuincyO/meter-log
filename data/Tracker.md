@@ -1,6 +1,6 @@
 # Tracker
 
-_28 rows · exported 2026-07-08 03:52 America/Toronto_
+_30 rows · exported 2026-07-09 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -32,3 +32,5 @@ _28 rows · exported 2026-07-08 03:52 America/Toronto_
 | 2026-07-07 00:00:00 | Phillip Monteiro | 2 | 0 | 90 | 0 | 0 | 0 | 0 | 0 | 90 | 0 | 0 | 0 | 0 | Clear · E 1 km/h · 28°C |  | 0 | 0 |  | 167 |  |
 | 2026-07-07 00:00:00 | Quincy Orta | 2 | 0 | 45 | 0 | 45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · SW 3 km/h · 28°C |  | 0 | 0 |  | 27 |  |
 | 2026-07-07 00:00:00 | Brody D | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · W 10 km/h · 27°C |  | 0 | 0 |  | 0 |  |
+| 2026-07-08 00:00:00 | Quincy Orta | 8 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 22 | 0 | 0 | 0 | 0 | Clear · W 16 km/h · 28°C |  | 1 | 1 |  | 178 |  |
+| 2026-07-08 00:00:00 | Phillip Monteiro | 8 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | Clear · W 16 km/h · 28°C |  | 1 | 2 |  | 187 |  |
