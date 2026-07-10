@@ -1,6 +1,6 @@
 # Stops
 
-_187 rows · exported 2026-07-09 03:52 America/Toronto_
+_195 rows · exported 2026-07-10 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -186,8 +186,16 @@ _187 rows · exported 2026-07-09 03:52 America/Toronto_
 | 1783528172219-q1xyy2 | 2026-07-08 12:29:32 | Phillip Monteiro |  |  | 1 ISLAND R55, Muskoka Lakes, ON P0B 1J0, Canada | 45.154589 | -79.636026 |  |  |  | UNACCOUNTED |  | Could not locate meter. Most likely 3s. |  |  |  |
 | 1783531373330-w7eetj | 2026-07-08 13:22:53 | Phillip Monteiro | 639644 |  | 2 ISLAND R58, Muskoka Lakes, ON P0B 1J0, Canada | 45.186863 | -79.610406 | J4609873 | J3217781 | 54530 | INSTALLED |  |  |  |  |  |
 | 1783532310747-nkd55g | 2026-07-08 13:38:30 | Phillip Monteiro | 639631 |  | 1 ISLAND R58, Muskoka Lakes, ON P0B 1J0, Canada | 45.18815 | -79.611755 | J4609875 | J3217804 | 76130 | INSTALLED |  |  |  |  |  |
-| 1783533629371-diw2px | 2026-07-08 14:00:29 | Phillip Monteiro | 639588 |  |  | 45.191112 | -79.60648 | J4609876 | J4008837 | 21087 | INSTALLED |  |  |  |  |  |
+| 1783533629371-diw2px | 2026-07-08 14:00:29 | Phillip Monteiro | 639588 |  | 59RV+CC Muskoka Lakes, ON, Canada | 45.191112 | -79.60648 | J4609876 | J4008837 | 21087 | INSTALLED |  |  |  |  |  |
 | 1783535152963-wxzajg | 2026-07-08 14:25:52 | Quincy Orta | 640589 |  | Highlands Island | 45.191668 | -79.601379 | J4609952 | J3884999 | 0 | INSTALLED |  |  |  |  |  |
 | 1783536903445-h4g1nx | 2026-07-08 14:55:03 | Quincy Orta | 640239 |  | 31 ISLAND R3, Muskoka Lakes, ON P0B 1M0, Canada | 45.204307 | -79.584447 | J4609949 | J3355429 | 25331 | INSTALLED |  |  |  |  |  |
 | 1783537131425-34ip7k | 2026-07-08 14:58:51 | Phillip Monteiro | 639742 |  | 59RV+CC Muskoka Lakes, ON, Canada | 45.191106 | -79.606472 | J4609950 | J3164598 | 24888 | INSTALLED |  |  |  |  |  |
 | 1783538130817-0vbjt8 | 2026-07-08 15:15:30 | Quincy Orta | 640612 |  | 48 ISLAND R3, Muskoka Lakes, ON P0B 1M0, Canada | 45.206317 | -79.585965 | J4609951 | J3164597 | 55266 | INSTALLED |  |  |  |  |  |
+| 1783601075718-8slhon | 2026-07-09 08:44:35 | Quincy Orta | 640590 |  | 31 Moss Is, Seguin, ON P0C 1J0, Canada | 45.23266 | -79.652091 | J4608693 | J3730160 | 99640 | INSTALLED |  |  |  |  |  |
+| 1783602075210-abfebw | 2026-07-09 09:01:15 | Quincy Orta |  |  | 31 Moss Is, Seguin, ON P0C 1J0, Canada | 45.232654 | -79.653853 |  | J2929106 |  | VISITED |  |  |  |  |  |
+| 1783602110454-s3tcub | 2026-07-09 09:01:50 | Phillip Monteiro |  |  | 31 Moss Is, Seguin, ON P0C 1J0, Canada | 45.232671 | -79.653749 |  | J2929106 |  | VISITED |  | 3S meter. |  |  |  |
+| 1783602792426-8lvuip | 2026-07-09 09:13:12 | Phillip Monteiro | 639743 |  | 1 Footes Island #33, Seguin, ON P0C 1J0, Canada | 45.230999 | -79.660637 | J4608694 | J3164882 | 5572 | INSTALLED |  |  |  |  |  |
+| 1783604138158-bz9en9 | 2026-07-09 09:35:38 | Quincy Orta |  |  | 1 Ashdowns Is #34, Seguin, ON P0C 1J0, Canada | 45.226359 | -79.659447 |  | J4474745 |  | VISITED |  | 3S Meter |  |  |  |
+| 1783604147295-r38qhg | 2026-07-09 09:35:47 | Phillip Monteiro |  |  | 1 Ashdowns Is #34, Seguin, ON P0C 1J0, Canada | 45.226337 | -79.659444 |  | J4474745 |  | VISITED |  | 3s meter |  |  |  |
+| 1783610031815-4egu2j | 2026-07-09 11:13:51 | Quincy Orta |  |  | 1 Island B, seguin ontario | 45.226326 | -79.659455 |  | J3798648 |  | VISITED |  | 3s Meter |  |  |  |
+| 1783610042887-hnxo63 | 2026-07-09 11:14:02 | Phillip Monteiro |  |  | 1 Island B, Seguin, ON P0C 1J0, Canada | 45.236657 | -79.638335 |  | J3798648 |  | VISITED |  | 3s meter |  |  |  |
