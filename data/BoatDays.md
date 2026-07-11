@@ -1,6 +1,6 @@
 # BoatDays
 
-_13 rows · exported 2026-07-10 03:52 America/Toronto_
+_14 rows · exported 2026-07-11 03:52 America/Toronto_
 
 | date | boatNumber | boatName | captainName | subName | memberLetters | memberNames |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -17,3 +17,4 @@ _13 rows · exported 2026-07-10 03:52 America/Toronto_
 | 2026-07-07 00:00:00 | 11 | Stanley 23 | Bryant | Jason | {"E58606":"A","H629528":"A"} | ["Brody D","Quincy Orta"] |
 | 2026-07-08 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
 | 2026-07-09 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
+| 2026-07-10 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
