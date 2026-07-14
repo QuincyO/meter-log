@@ -1,6 +1,6 @@
 # Stops
 
-_224 rows · exported 2026-07-13 03:52 America/Toronto_
+_242 rows · exported 2026-07-14 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -228,3 +228,21 @@ _224 rows · exported 2026-07-13 03:52 America/Toronto_
 | 1783709245933-wze2vc | 2026-07-10 14:47:25 | Quincy Orta | 640551 |  | 4 ISLAND R12, Muskoka Lakes, ON P0B 1J0, Canada | 45.153025 | -79.534267 | J4730839 | J3164770 |  | INSTALLED |  |  | Missing segments |  |  |
 | 1783710304926-noxwfm | 2026-07-10 15:05:04 | Phillip Monteiro | 640381 |  | 4 ISLAND R12, Muskoka Lakes, ON P0B 1J0, Canada | 45.152634 | -79.534781 | J4609840 | J3164771 | 78831 | INSTALLED |  |  |  |  |  |
 | 1783711476205-23e7rr | 2026-07-10 15:24:36 | Quincy Orta | 640448 |  | 3 ISLAND R12, Muskoka Lakes, ON P0B 1J0, Canada | 45.152667 | -79.535651 | J4609837 | J2105589 | 32973 | INSTALLED |  |  |  |  |  |
+| 1783946493703-6sd45w | 2026-07-13 08:41:33 | Quincy Orta | 640615 |  | 1 Island A, Seguin, ON P0C 1J0, Canada | 45.231949 | -79.635 | J4609839 | J4058229 | 9985 | INSTALLED |  |  |  |  |  |
+| 1783953080501-b4kuze | 2026-07-13 10:31:20 | Phillip Monteiro | 588382 |  | 12 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.149878 | -79.720818 | J4609838 | J3910079 | 17820 | INSTALLED |  |  |  |  |  |
+| 1783953572610-uacbv9 | 2026-07-13 10:39:32 | Quincy Orta | 582962 |  | 14 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.149794 | -79.721322 | J4759965 | J2289055 | 48261 | INSTALLED |  |  |  |  |  |
+| 1783955350290-6h21af | 2026-07-13 11:09:10 | Phillip Monteiro | 589254 |  | 16 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.149556 | -79.721672 | J4759962 | J3069237 | 14474 | INSTALLED |  |  |  |  |  |
+| 1783956976594-vbsxrr | 2026-07-13 11:36:16 | Quincy Orta | 589256 |  | 22 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.151864 | -79.725856 | J4759963 | J2098844 | 71082 | INSTALLED |  |  |  |  |  |
+| 1783958139751-0802z3 | 2026-07-13 11:55:39 | Phillip Monteiro | 587580 |  | 24 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.152375 | -79.726231 | J4759985 | J3874104 | 74601 | INSTALLED |  |  |  |  |  |
+| 1783958632319-gihf7f | 2026-07-13 12:03:52 | Phillip Monteiro | 582960 |  | 24 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.152398 | -79.726461 | J4759964 | J3069238 | 73021 | INSTALLED |  |  |  |  |  |
+| 1783960100559-ct1bp5 | 2026-07-13 12:28:20 | Quincy Orta | 588647 |  | 27 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.154123 | -79.728126 | J4759984 | J3069240 | 7888 | INSTALLED |  |  |  |  |  |
+| 1783961192263-ym5ivq | 2026-07-13 12:46:32 | Phillip Monteiro |  |  | 28 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.154702 | -79.728631 |  |  |  | DONE |  |  |  |  |  |
+| 1783961218521-aognoz | 2026-07-13 12:46:58 | Phillip Monteiro |  |  | 28 ISLAND J18, Muskoka Lakes, ON P0C 1H0, Canada | 45.1547 | -79.728631 |  | J4608646 |  | VISITED |  | New meter already installed |  |  |  |
+| 1783963843513-ah6byp | 2026-07-13 13:30:43 | Phillip Monteiro | 588192 |  | 34 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.150106 | -79.728382 | J4759982 | J3269151 | 84746 | INSTALLED |  |  |  |  |  |
+| 1783965068952-e4ors7 | 2026-07-13 13:51:08 | Phillip Monteiro |  |  | 36 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.14911 | -79.729618 |  |  |  | DONE |  |  |  |  |  |
+| 1783965083963-7i2nyz | 2026-07-13 13:51:23 | Phillip Monteiro |  |  | 36 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.149098 | -79.729617 |  |  |  | DONE |  |  |  |  |  |
+| 1783965084341-upx7rj | 2026-07-13 13:51:24 | Phillip Monteiro |  |  | 36 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.149103 | -79.729617 |  | J4608712 |  | VISITED |  | New meter already installed |  |  |  |
+| 1783965444046-hcsbbf | 2026-07-13 13:57:24 | Quincy Orta | 625448 |  | 36 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.14895 | -79.729381 | J4759983 | J3730575 | 54577 | INSTALLED |  |  |  |  |  |
+| 1783968860848-nt826p | 2026-07-13 14:54:20 | Phillip Monteiro | 583402 |  | 38 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.150051 | -79.732372 | J4759923 | J4235993 | 22161 | INSTALLED |  |  |  |  |  |
+| 1783969211466-w2jjs0 | 2026-07-13 15:00:11 | Phillip Monteiro | 586533 |  | 38 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.149709 | -79.732988 | J4759922 | J3085722 | 58850 | INSTALLED |  |  |  |  |  |
+| 1783973389187-9oabkg | 2026-07-13 16:09:49 | Phillip Monteiro | 639541 |  | 20 Penman island | 45.095956 | -79.637482 |  |  |  | UTI | Denied Access |  |  |  |  |

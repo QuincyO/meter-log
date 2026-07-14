@@ -1,6 +1,6 @@
 # BoatDays
 
-_14 rows · exported 2026-07-13 03:52 America/Toronto_
+_15 rows · exported 2026-07-14 03:52 America/Toronto_
 
 | date | boatNumber | boatName | captainName | subName | memberLetters | memberNames |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -18,3 +18,4 @@ _14 rows · exported 2026-07-13 03:52 America/Toronto_
 | 2026-07-08 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
 | 2026-07-09 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
 | 2026-07-10 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
+| 2026-07-13 00:00:00 | 11 | Custom Weld | Martin | Jason | {"H629528":"A","H645700":"A"} | ["Quincy Orta","Phillip Monteiro"] |
