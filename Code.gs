@@ -80,6 +80,10 @@ const STOPS_HEADERS = [
   // so older sheets migrate cleanly (ensureTab fills the header); blank = boat.
   'workType'
 ];
+// Removed stops, moved here (never hard-deleted) by archiveStop and moved back
+// by restoreStop. Same columns as Stops plus the removal metadata, so a row can
+// be inspected — or restored — without losing anything.
+const STOPS_ARCHIVE_HEADERS = STOPS_HEADERS.concat(['removedAt', 'removedBy', 'reason']);
 const DOWNTIME_HEADERS = [
   'id','timestamp','installer','category','minutes','workOrderId','note',
   'workType'   // 'boat' | 'land' (appended last; blank = boat)
@@ -156,6 +160,7 @@ function grantPermissions() {
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureTab(ss, 'Stops', STOPS_HEADERS);
+  ensureTab(ss, 'StopsArchive', STOPS_ARCHIVE_HEADERS);
   ensureTab(ss, 'Downtime', DOWNTIME_HEADERS);
   ensureTab(ss, 'Tracker', TRACKER_HEADERS);
   ensureTab(ss, 'Employees', EMPLOYEES_HEADERS);
@@ -176,6 +181,7 @@ function setupSheets() {
   // string gets turned into a Date, which JSON serializes as UTC ("…Z"). Pin the
   // timestamp column to text so it stays the naive Toronto string it was written as.
   ss.getSheetByName('Stops').getRange('B2:B').setNumberFormat('@');     // timestamp
+  ss.getSheetByName('StopsArchive').getRange('B2:B').setNumberFormat('@'); // timestamp
   ss.getSheetByName('Downtime').getRange('B2:B').setNumberFormat('@');  // timestamp
 }
 
@@ -227,6 +233,8 @@ function doPost(e) {
       case 'addDowntime':    return json(addDowntime(body));
       case 'dispatchRequest':return json(dispatchRequest(body));
       case 'updateStop':     return json(updateStop(body));
+      case 'archiveStop':    return json(archiveStop(body));
+      case 'restoreStop':    return json(restoreStop(body));
       case 'endOfDay':       return json(endOfDay(body));
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
@@ -279,6 +287,11 @@ function doGet(e) {
     const days = rangeData(p.installer, from, to);
     if (p.installerId) days.forEach(d => { d.boatMeta = boatMetaFor(p.installerId, d.date); });
     return json({ ok: true, days: days });
+  }
+  if (p.action === 'archived') {
+    // One installer's removed (archived) stops for a date — edit.html's
+    // "Removed stops" list, so a removal can be inspected and restored.
+    return json({ ok: true, stops: archivedFor(p.installer, p.date || today()) });
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
@@ -490,7 +503,112 @@ function updateStop(b) {
       return { ok: true, id: b.id };
     }
   }
+  // Not in Stops — if the back office archived it, ack the edit as TERMINAL so a
+  // phone's queued offline update (or backfillAddresses patch) can't wedge its
+  // FIFO queue forever retrying (flush() only dequeues on a recognized ok body).
+  // The edit is deliberately dropped, not applied — the archive is a frozen record.
+  const arch = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('StopsArchive');
+  if (arch && idExists(arch, b.id)) return { ok: true, id: b.id, archived: true };
   return { ok: false, error: 'id not found' };
+}
+
+/** Move a Stops row to StopsArchive — the "remove from the log" action. Never a
+ *  hard delete: the archive copy is appended BEFORE the source row is deleted, so
+ *  a crash mid-way duplicates (converged by the idExists guard on retry) rather
+ *  than loses data. Idempotent on id, and every outcome is TERMINAL ({ok:true})
+ *  so a phone's offline queue always drains — an id found nowhere means the
+ *  removal already happened (or there's nothing to remove), not "retry forever".
+ *  If the stop's day was already closed, its Tracker/Timing rows are rebuilt
+ *  from the surviving stops (regenerateDayRows). */
+function archiveStop(b) {
+  if (!b.id) return { ok: false, error: 'id required' };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('Stops');
+  const arch = ss.getSheetByName('StopsArchive');
+  if (!arch) return { ok: false, error: 'StopsArchive tab missing — run setupSheets()' };
+
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(b.id)) {
+      const row = {};
+      headers.forEach((h, j) => row[h] = data[i][j]);
+      // Archive first (skip if a crashed prior attempt already appended it).
+      if (!idExists(arch, b.id)) {
+        arch.appendRow(STOPS_HEADERS.map(h => (h in row) ? row[h] : '')
+          .concat([now(), b.removedBy || '', b.reason || '']));
+      }
+      bustRows('StopsArchive');
+      sh.deleteRow(i + 1);          // i is 0=header, so sheet row = i+1
+      bustRows('Stops');
+
+      // Closed day → rebuild its Tracker/Timing from what's left. Installer +
+      // date come from the found row (authoritative), not the client.
+      const installer = String(row.installer == null ? '' : row.installer).trim();
+      const date = dateOf(row.timestamp) || b.date || today();
+      let regenerated = false;
+      if (installer && dayClosed(installer, date)) {
+        regenerateDayRows(date, installer, b.installerId);
+        regenerated = true;
+      }
+      return { ok: true, id: b.id, archived: true, regenerated: regenerated };
+    }
+  }
+  // Not in Stops: a retry of a removal that already succeeded, or nothing to do.
+  if (idExists(arch, b.id)) return { ok: true, id: b.id, archived: true, alreadyArchived: true };
+  return { ok: true, id: b.id, missing: true };
+}
+
+/** Move a StopsArchive row back into Stops — undo of archiveStop, triggered from
+ *  edit.html's "Removed stops" list. Only the STOPS_HEADERS portion returns (the
+ *  removal metadata stays behind with the deleted archive row). Same append-
+ *  before-delete ordering and id idempotency as archiveStop; a closed day gets
+ *  its Tracker/Timing rebuilt so the counts go back up. Online-only UI, so an
+ *  unknown id is a plain error (nothing can be wedged by it). */
+function restoreStop(b) {
+  if (!b.id) return { ok: false, error: 'id required' };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('Stops');
+  const arch = ss.getSheetByName('StopsArchive');
+  if (!arch) return { ok: false, error: 'StopsArchive tab missing — run setupSheets()' };
+
+  const data = arch.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(b.id)) {
+      const row = {};
+      headers.forEach((h, j) => row[h] = data[i][j]);
+      if (!idExists(sh, b.id)) {
+        sh.appendRow(STOPS_HEADERS.map(h => (h in row) ? row[h] : ''));
+      }
+      bustRows('Stops');
+      arch.deleteRow(i + 1);
+      bustRows('StopsArchive');
+
+      const installer = String(row.installer == null ? '' : row.installer).trim();
+      const date = dateOf(row.timestamp) || b.date || today();
+      let regenerated = false;
+      if (installer && dayClosed(installer, date)) {
+        regenerateDayRows(date, installer, b.installerId);
+        regenerated = true;
+      }
+      return { ok: true, id: b.id, restored: true, regenerated: regenerated };
+    }
+  }
+  if (idExists(sh, b.id)) return { ok: true, id: b.id, restored: true, alreadyRestored: true };
+  return { ok: false, error: 'id not found' };
+}
+
+/** One installer's archived (removed) stops for a date — feeds edit.html's
+ *  "Removed stops" list. Keyed the same way stopsFor is: display name + the
+ *  stop timestamp's Toronto date. */
+function archivedFor(installer, date) {
+  // Tolerate a not-yet-created tab (code ships before setupSheets() is re-run).
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('StopsArchive')) return [];
+  return rows('StopsArchive').filter(r =>
+    sameName(r.installer, installer) && dateOf(r.timestamp) === date);
 }
 
 /** Find stops by work order # or J# (matches new or old J#). */
@@ -665,7 +783,6 @@ function endOfDay(b) {
 
   const eodId = String(b.installerId == null ? '' : b.installerId).trim();
   const s = buildDaySummary(b);
-  const byCat = s.byCategory;
 
   // Persist the bookend clock times so the daily log can always be rebuilt with
   // them — the field form used to discard departure/returned after the PDF.
@@ -689,6 +806,18 @@ function endOfDay(b) {
   // even when teammates close at different times.
   if (eodTeam) updateBoatDispatch(s.date, eodTeam);
 
+  writeTrackerAndTiming(s);
+
+  // The PDF is rendered on the phone from this summary (offline-capable) — the
+  // spine no longer builds it. Return the summary only.
+  return { ok: true, summary: s };
+}
+
+/** The Tracker upsert + Timing replace for one built day summary — shared by
+ *  endOfDay (closing a day) and regenerateDayRows (rebuilding a closed day after
+ *  a stop is archived/restored). */
+function writeTrackerAndTiming(s) {
+  const byCat = s.byCategory;
   // Upsert one Tracker row per (date, installer) — overwrite in place if it's
   // already closed, else append.
   upsertDayRow('Tracker', s.date, s.installer, [
@@ -711,10 +840,27 @@ function endOfDay(b) {
           r.minutes, r.distanceM, r.type, r.bucket, r.workOrderId, r.fromStatus, r.toStatus]));
     }
   }
+}
 
-  // The PDF is rendered on the phone from this summary (offline-capable) — the
-  // spine no longer builds it. Return the summary only.
-  return { ok: true, summary: s };
+/** Rebuild a closed day's Tracker + Timing from the CURRENT Stops/Downtime (the
+ *  same math endOfDay runs) WITHOUT the close-time side effects: no Days write,
+ *  no BoatDays snapshot (that would replace the historical record of who crewed
+ *  the boat that day with today's roster), no boat-dispatch recompute (archiving
+ *  a stop touches no Downtime row). The existing Tracker row's weather / notes /
+ *  workType are preserved — they only ride in on the original close request.
+ *  installerId keeps the team-aware gap merge, but only if it actually names
+ *  this installer (a mismatched/absent id falls back to solo gaps). */
+function regenerateDayRows(date, installer, installerId) {
+  const prev = rows('Tracker').filter(r =>
+    sameName(r.installer, installer) && dateOf(r.date) === date)[0] || null;
+  const id = String(installerId == null ? '' : installerId).trim();
+  const emp = id ? employeeByH(id) : null;
+  const idOk = (emp && sameName(fullName(emp), installer)) ? id : '';
+  writeTrackerAndTiming(buildDaySummary({
+    date: date, installer: installer, installerId: idOk,
+    weather: prev ? prev.weather : '', notes: prev ? prev.notes : '',
+    workType: prev ? prev.workType : ''
+  }));
 }
 
 /** Snapshot a boat's crew for one day into BoatDays — one row per (date, boatNumber),
@@ -806,7 +952,9 @@ function saveTravel(b) {
     sh.getRange(sh.getLastRow() + 1, 1, allocs.length, DOWNTIME_HEADERS.length).setValues(
       allocs.map(a => [ newId(), ts, installer, String(a.category).toUpperCase(),
         parseInt(a.minutes, 10) || 0, a.workOrderId || '',
-        'gap ' + a.fromTime + '–' + a.toTime ]));
+        'gap ' + a.fromTime + '–' + a.toTime,
+        // workType (8th col) — clients don't send it on saveTravel; blank = boat.
+        b.workType ? normWorkType(b.workType) : '' ]));
     bustRows('Downtime');
   }
   return { ok: true, count: allocs.length };
@@ -1739,7 +1887,7 @@ function buildIndexMarkdown(index, exportedAt) {
 // Template" tab is never exported. Headers still come live from each sheet, so
 // a column reorder needs no change here — only adding a brand-new tab does.
 const EXPORT_TABS = [
-  'Stops', 'Downtime', 'Tracker', 'Employees', 'Teams', 'Captains', 'Subs',
+  'Stops', 'StopsArchive', 'Downtime', 'Tracker', 'Employees', 'Teams', 'Captains', 'Subs',
   'Timing', 'Days', 'BoatDays', 'Dispatch', 'Metrics'
 ];
 
@@ -1926,7 +2074,7 @@ function test_markdownFormatting() {
 
 function test_buildExportFiles() {
   const files = buildExportFiles();
-  // 12 tabs that actually exist + the index. setupSheets() must have run.
+  // The EXPORT_TABS tabs that actually exist + the index. setupSheets() must have run.
   if (!files.length) throw new Error('no files produced');
   const paths = files.map(function (f) { return f.path; });
   if (paths.indexOf('data/README.md') === -1) throw new Error('missing index file');

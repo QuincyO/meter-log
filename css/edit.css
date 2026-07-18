@@ -70,6 +70,13 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .sc-edit{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
 .sc-edit .primary{width:100%;margin-top:14px;border:0;background:var(--amber);color:#1a1300;
       min-height:46px;height:46px;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer}
+.sc-edit .danger{width:100%;margin-top:10px;min-height:46px;height:46px;border-radius:11px;
+      border:2px solid #EAC4BC;background:#FDF2EF;color:var(--uti);
+      font-size:15px;font-weight:700;cursor:pointer}
+.sc-edit .danger:active{transform:scale(.98)}
+
+/* removed (archived) stop rows — muted, with a Restore action */
+.removedcard{opacity:.85;border-style:dashed}
 
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
    background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;

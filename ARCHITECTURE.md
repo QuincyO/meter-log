@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, twelve tabs: `Stops`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`. This is the truth.
+One spreadsheet, thirteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -101,7 +101,13 @@ and works even with no signal (queued up on the phone).
 
 **Write actions (POST):** `addStop`, `addDowntime`,
 `dispatchRequest` (Apple Shortcut: log a pending meter request — see "Dispatch downtime"),
-`updateStop`, `endOfDay`,
+`updateStop`,
+`archiveStop` (move a Stops row to `StopsArchive` — the "remove from the log"
+action on all three surfaces; never a hard delete, idempotent on id, every
+outcome terminal so an offline queue always drains; auto-regenerates a closed
+day's Tracker/Timing — see "Removing a stop"),
+`restoreStop` (move an archived row back into `Stops`; edit.html only),
+`endOfDay`,
 `previewDailyLog` (return the day `summary` on demand from today's stops **without**
 writing a Tracker row or requiring departure/return — the phone renders the PDF
 from it; the real `endOfDay` later fills the blanks),
@@ -130,7 +136,8 @@ meter to its completed install — see "Avg dispatch time"), `roster`
 (team-aware **every WO→WO gap** for one installer+date, each with any deductions
 already saved — plus a pre-filled `DISPATCH` deduction on a requested install's
 gap — for the end-of-day subtraction step — see "Travel vs delay" and "Dispatch
-downtime").
+downtime"), `archived` (one installer's removed stops for a date — edit.html's
+"Removed stops" list, so a removal can be inspected and restored).
 
 ---
 
@@ -258,6 +265,52 @@ just the online resolver behind the cache now.
 
 ---
 
+## Removing a stop (archive / restore)
+
+A mis-logged order is **removed by moving its row to `StopsArchive`** — never a
+hard delete. Because every stop-derived read pulls from the live `Stops` tab,
+the move alone erases the stop from the map, the analytics, and the phones (on
+their next pull). Three surfaces trigger it, all posting the same `archiveStop`:
+
+- **edit.html** — a "Remove from log…" button inside each stop card's edit panel
+  (confirm + optional reason), then a full authoritative day reload. The same
+  page shows the day's **"Removed stops"** list (the `archived` read) with a
+  **Restore** button per row (`restoreStop`).
+- **index.html (Today's Work)** — the same button on the phone's stop card,
+  **offline-capable**: the `archiveStop` rides the offline queue, and
+  `applyOptimisticCache` immediately drops the stop from `dayCache` *and*
+  tombstones its id in `dayCache.removedIds`. The merge helpers
+  (`mergePending`/`mergePendingRows`) filter tombstoned ids out of server pulls,
+  so a pull that races the queued archive can't resurrect the stop; the
+  tombstone clears when the server acks (`reconcileCache`). A never-synced stop
+  removes cleanly too — FIFO flushes its `addStop` first, then the archive.
+- **map.html** — a button in the pin popup (online-only; the viewer has no queue).
+
+Spine guarantees (`archiveStop`):
+- **Archive-before-delete**: the copy is appended to `StopsArchive` (with
+  `removedAt`/`removedBy`/`reason`) before `deleteRow` — a crash duplicates
+  (converged on retry by the id guard) rather than loses data.
+- **Idempotent + always terminal**: already-archived → `{ok, alreadyArchived}`;
+  id found nowhere → `{ok, missing}`. Never a retryable error for a gone id, so
+  a phone's FIFO queue can't wedge. For the same reason, `updateStop` on an
+  archived id returns `{ok, archived:true}` and **drops the edit** (the archive
+  is a frozen record) instead of `id not found`.
+- **Closed-day repair**: if a Tracker row exists for the stop's (installer, date),
+  `regenerateDayRows` rebuilds Tracker + Timing from the surviving stops via the
+  shared `writeTrackerAndTiming` (also used by `endOfDay`). It deliberately
+  **skips** the close-time side effects: no `Days` write, no `BoatDays` snapshot
+  (that would overwrite the historical crew record with today's roster), no boat
+  dispatch recompute — and it preserves the Tracker row's `weather`/`notes`/
+  `workType`, which only ride in on a real close.
+
+Known edges (accepted): gap-tagged travel deductions whose `gap HH:MM–HH:MM`
+note straddled the removed stop no longer match a gap after the merge — re-open
+the day's travel review if it had been reviewed; a boat **partner's** closed day
+isn't regenerated (their merged-timeline gaps changed) — re-close their day from
+edit.html; a removed stop's worklist order stays marked done.
+
+---
+
 ## Work modes (boat / land)
 
 The operation runs two kinds of routes and the app captures both: **boat work**
@@ -356,6 +409,32 @@ with `DONE`, into a single **"Visited N"** footer tally (`N = visited + unaccoun
 done`), since each one means the crew still took the time to go and check the island.
 On the **map/viewer** they keep their own status chips, colors, and the `visited` /
 `unaccounted` Tracker columns. They are plain `addStop` calls — no new endpoint.
+
+### StopsArchive row  (one per removed stop → tab "StopsArchive")
+
+The **"remove from the log" archive** — a Stops row moved here (never hard-deleted)
+by `archiveStop`, and moved back by `restoreStop`. Columns are exactly
+`STOPS_HEADERS` plus three removal-metadata fields:
+
+| field       | type   | notes                                              |
+|-------------|--------|-----------------------------------------------------|
+| *(all Stop fields)* | | verbatim copy of the removed row                |
+| `removedAt` | string | Toronto local `yyyy-MM-dd HH:mm:ss`, stamped by the spine |
+| `removedBy` | string | installer's name (phone), `"map viewer"` (map), blank (edit.html) |
+| `reason`    | string | optional free text, prompted at removal time        |
+
+Semantics (see "Removing a stop" below for the flow):
+- Because every stop-derived read (`pins`, `day`, `range`, `lookup`, `nearby`,
+  tallies) reads the live `Stops` tab, moving the row removes the stop from the
+  map, the statistics, and the today's-work list automatically.
+- `archiveStop` appends the archive copy **before** deleting the source row, so a
+  crash mid-way duplicates (converged by the id guard on retry) rather than loses.
+- If the stop's day was already **closed**, the spine auto-rebuilds that
+  installer/date's Tracker + Timing rows (`regenerateDayRows`) from the surviving
+  stops — preserving the Tracker row's `weather`/`notes`/`workType` and leaving
+  the historical `Days`/`BoatDays` rows untouched. Removing the day's *last* stop
+  leaves a zeroed Tracker row (the day stays "closed" on the record).
+- Restore is edit.html's "Removed stops" list (the `archived` read + `restoreStop`).
 
 ### DowntimeEntry  (zero or more per day → tab "Downtime")
 | field         | type            | notes                                       |

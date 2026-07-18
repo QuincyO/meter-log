@@ -8,7 +8,7 @@ import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 
-let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null };
+let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[] };
 
 const CAT_LABEL = {
   NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
@@ -84,7 +84,10 @@ async function post(payload){
 }
 
 // ── load a day ─────────────────────────────────────────────────────────────
-$('loadBtn').onclick = async () => {
+// Named (not just the click handler) so Remove / Restore can re-run it as the
+// authoritative refresh — positions, merged gaps, the closed badge and the
+// Removed-stops list all self-correct from the server.
+async function loadDay(){
   const h = $('who').value, date = $('day').value;
   const emp = empByH(h);
   if(!emp){ toast('Pick an installer'); return; }
@@ -92,14 +95,17 @@ $('loadBtn').onclick = async () => {
   state.installer = fullName(emp); state.installerId = h; state.date = date;
   setStatus('wait','Loading…');
   try{
-    // Both reads depend only on installer+date, so they run in parallel — the
-    // load used to pay the two round-trips back to back.
-    const [d, idata] = await Promise.all([
+    // All three reads depend only on installer+date, so they run in parallel —
+    // the load used to pay the round-trips back to back.
+    const [d, idata, adata] = await Promise.all([
       apiGet('day', { installer:state.installer, installerId:state.installerId, date }),
       // Travel review: every WO→WO gap (team-aware) plus any deductions already
       // saved. Non-blocking — the day still loads/generates if this call fails.
       apiGet('idle', { installerId:state.installerId, installer:state.installer, date })
-        .catch(() => ({ gaps: [] }))
+        .catch(() => ({ gaps: [] })),
+      // Removed (archived) stops for the day — non-blocking too.
+      apiGet('archived', { installer:state.installer, date })
+        .catch(() => ({ stops: [] }))
     ]);
     if(!d.ok) throw new Error(d.error||'load failed');
     setStatus('ok','Synced');
@@ -107,6 +113,7 @@ $('loadBtn').onclick = async () => {
     state.stops = (d.stops||[]).filter(s => s.status !== 'DONE');
     state.downtime = d.downtime || [];        // for the offline daily-log fallback
     state.boatMeta = d.boatMeta || null;       // team header + whole-boat dispatch
+    state.removed = adata.stops || [];
     $('departure').value = (d.day && d.day.departure) || '';
     $('returned').value  = (d.day && d.day.returned)  || '';
     renderClosed(d.closed);
@@ -114,9 +121,11 @@ $('loadBtn').onclick = async () => {
     // its incoming travel.
     setGapData(idata.gaps || []);
     renderStops();
+    renderRemoved();
     $('daySection').classList.remove('hide');
   } catch(e){ setStatus('off','Offline'); toast('Couldn’t load that day'); }
-};
+}
+$('loadBtn').onclick = loadDay;
 
 function renderClosed(closed){
   $('closedBadge').innerHTML = closed
@@ -281,6 +290,7 @@ function stopCard(s, pos){
       <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary" data-act="save">Save changes</button>
+      <button class="danger" data-act="remove">Remove from log…</button>
     </div>`;
 
   renderStopTravel(card.querySelector('.sc-travel'), s, pos);
@@ -312,6 +322,61 @@ function stopCard(s, pos){
       editBlock.classList.add('hide'); toggleBtn.textContent = 'Edit';
       toast('Saved ✓');
     } catch(err){ toast(err.message || 'Could not save'); }
+  };
+
+  // Remove = move the row to the StopsArchive tab (never a hard delete). Lives
+  // inside the expanded edit panel on purpose — two taps from the summary, so a
+  // stray tap can't remove a stop. archiveStop is idempotent, so a "busy, retry"
+  // error just means tap again.
+  card.querySelector('[data-act="remove"]').onclick = async () => {
+    const label = `WO ${s.workOrderId || '—'} · ${clockOf(s.timestamp) || '--:--'} · ${s.status || ''}`;
+    if(!confirm(`Remove this stop from the log?\n\n${label}\n\nIt moves to the StopsArchive tab (not deleted) and can be restored from the Removed stops list below.`)) return;
+    const reason = prompt('Reason for removal (optional — leave blank to skip):', '');
+    if(reason === null) return;                       // Cancel on the prompt aborts too
+    setStatus('wait','Removing…');
+    try{
+      const d = await post({ action:'archiveStop', id:s.id,
+                             installerId:state.installerId, date:state.date,
+                             removedBy:'', reason:reason.trim() });
+      toast(d.regenerated ? 'Removed ✓ — closed day re-generated' : 'Removed & archived ✓');
+      await loadDay();                                // authoritative re-render
+    } catch(err){ setStatus('off','Error'); toast(err.message || 'Could not remove'); }
+  };
+  return card;
+}
+
+// ── removed stops (the StopsArchive rows for this installer+day) ────────────
+function renderRemoved(){
+  const sec = $('removedSection'), box = $('removedList');
+  const rem = state.removed || [];
+  sec.classList.toggle('hide', !rem.length);
+  box.innerHTML = '';
+  rem.forEach(s => box.appendChild(removedCard(s)));
+}
+
+function removedCard(s){
+  const card = document.createElement('div');
+  card.className = 'stopcard removedcard';
+  const meta = [];
+  if(s.removedAt) meta.push('removed ' + esc(String(s.removedAt)));
+  if(s.removedBy) meta.push('by ' + esc(String(s.removedBy)));
+  if((s.reason||'').trim()) meta.push('“' + esc(String(s.reason).trim()) + '”');
+  card.innerHTML = `
+    <div class="sc-head">
+      <div class="sc-sum">${summaryHTML(s)}
+        ${meta.length ? `<span class="sc-meta">${meta.join(' · ')}</span>` : ''}
+      </div>
+      <button class="mini" data-act="restore">Restore</button>
+    </div>`;
+  card.querySelector('[data-act="restore"]').onclick = async () => {
+    if(!confirm(`Restore WO ${s.workOrderId || '—'} back into the day's log?`)) return;
+    setStatus('wait','Restoring…');
+    try{
+      const d = await post({ action:'restoreStop', id:s.id,
+                             installerId:state.installerId, date:state.date });
+      toast(d.regenerated ? 'Restored ✓ — closed day re-generated' : 'Restored ✓');
+      await loadDay();
+    } catch(err){ setStatus('off','Error'); toast(err.message || 'Could not restore'); }
   };
   return card;
 }

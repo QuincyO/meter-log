@@ -92,6 +92,10 @@ table.byinst td.num{text-align:right;font-variant-numeric:tabular-nums;font-weig
 .pop-wo{font-size:16px;font-weight:800}
 .pop-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;margin-left:6px;vertical-align:1px}
 .pop-row{margin-top:5px;color:var(--ink)} .pop-row .lab{color:var(--ink-soft);font-weight:600}
+.pop-remove{display:block;width:100%;margin-top:9px;padding:7px 10px;border-radius:9px;
+  border:1.5px solid #EAC4BC;background:#FDF2EF;color:var(--uti);
+  font-size:13px;font-weight:700;cursor:pointer}
+.pop-remove:disabled{opacity:.6;cursor:default}
 
 .legend{position:absolute;right:12px;bottom:24px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
      padding:9px 11px;box-shadow:var(--shadow);font-size:13px;font-weight:600;z-index:500}

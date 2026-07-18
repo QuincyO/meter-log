@@ -55,6 +55,14 @@
 
     <h1 id="stopsHead">Workorders</h1>
     <div id="stopList"></div>
+
+    <!-- Stops removed from the log (moved to the StopsArchive tab) — hidden
+         until the loaded day has any. Restore moves a row back into Stops. -->
+    <div id="removedSection" class="hide">
+      <h1>Removed stops</h1>
+      <p class="sub">These were removed from the log (archived, not deleted). Restore puts one back.</p>
+      <div id="removedList"></div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>

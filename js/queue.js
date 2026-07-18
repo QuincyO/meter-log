@@ -22,8 +22,11 @@ const newId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 export async function enqueue(payload){
   if((payload.action==='addStop' || payload.action==='addDowntime') && !payload.id) payload.id = newId();
   await idb.put('queue', payload);   // auto-assigns _seq; preserves order
+  // Update the day copy BEFORE flush can reach the server: an awaited enqueue()
+  // is then guaranteed to see the optimistic state (e.g. the archiveStop
+  // tombstone) when it re-renders, and reconcileCache never races the write.
+  await applyOptimisticCache(payload);
   paint(); flush();
-  applyOptimisticCache(payload);     // async fire-and-forget — updates the day copy immediately
 }
 
 // One-time migration: drain any queue left in localStorage by the pre-IDB build

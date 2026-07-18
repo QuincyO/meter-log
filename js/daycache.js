@@ -41,6 +41,14 @@ export async function applyOptimisticCache(payload){
   } else if(payload.action==='updateStop'){
     const idx = (cached.stops||[]).findIndex(s => s.id===payload.id);
     if(idx !== -1){ Object.assign(cached.stops[idx], dataOf(payload)); await idb.put('dayCache', cached, key); }
+
+  } else if(payload.action==='archiveStop' && payload.id){
+    // Remove-from-log: drop the stop locally AND tombstone its id, so a server
+    // pull that races the queued archive (server still has the row) can't
+    // resurrect it. The tombstone clears once the server acks (reconcileCache).
+    cached.stops = (cached.stops||[]).filter(s => s.id!==payload.id);
+    cached.removedIds = (cached.removedIds||[]).filter(id => id!==payload.id).concat([payload.id]);
+    await idb.put('dayCache', cached, key);
   }
 }
 
@@ -80,6 +88,11 @@ export async function reconcileCache(body, item){
     // so the next load reads the authoritative gap rows back via `idle`.
     delete cached.eodTravel;
     changed = true;
+  } else if(item.action==='archiveStop' && body.ok && (cached.removedIds||[]).includes(item.id)){
+    // The removal reached the Sheet — the server no longer returns the row, so
+    // the tombstone has done its job.
+    cached.removedIds = cached.removedIds.filter(id => id!==item.id);
+    changed = true;
   }
   // The spine returns boatMeta (team header + whole-boat dispatch) on every log —
   // cache it so the offline daily-log PDF always has those values fresh.
@@ -117,7 +130,8 @@ export async function cacheRecentDays(days = 7){
   for(const d of res.days){
     const key = `${c.name}|${d.date}`;
     const local = await idb.get('dayCache', key);
-    const stops    = mergePendingRows(d.stops,    local && local.stops);
+    const removedIds = (local && local.removedIds) || [];
+    const stops    = mergePendingRows(d.stops,    local && local.stops, removedIds);
     const downtime = mergePendingRows(d.downtime, local && local.downtime);
     await idb.put('dayCache', {
       stops, downtime,
@@ -125,7 +139,8 @@ export async function cacheRecentDays(days = 7){
       boatMeta: d.boatMeta || (local && local.boatMeta) || null,
       closed: d.closed != null ? !!d.closed : !!(local && local.closed),
       cachedAt: stamp(),
-      eodTravel: local && local.eodTravel
+      eodTravel: local && local.eodTravel,
+      removedIds
     }, key);
   }
 }
@@ -144,10 +159,13 @@ export async function loadRecentDays(days = 7){
 }
 
 // Server-wins-by-id merge that still overlays locally-pending (_tempId) rows, so
-// caching a day never drops un-synced work. Mirrors mergePending in capture.js.
-function mergePendingRows(serverArr, cachedArr){
-  const out = (serverArr || []).slice();
+// caching a day never drops un-synced work — and drops rows whose id is
+// tombstoned (removed locally, archiveStop still queued: the server hasn't heard
+// yet, so its copy must not resurrect the stop). Mirrors mergePending in capture.js.
+function mergePendingRows(serverArr, cachedArr, removedIds){
+  const dead = new Set((removedIds || []).map(String));
+  const out = (serverArr || []).filter(r => !dead.has(String(r.id)));
   const ids = new Set(out.map(r => String(r.id)));
-  (cachedArr || []).forEach(r => { if(r._tempId && !ids.has(String(r.id))) out.push(r); });
+  (cachedArr || []).forEach(r => { if(r._tempId && !ids.has(String(r.id)) && !dead.has(String(r.id))) out.push(r); });
   return out;
 }

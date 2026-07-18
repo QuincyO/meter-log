@@ -482,6 +482,7 @@ function makeStopCard(s, onSaved, opts){
       <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary sc-save" data-act="save">Save changes</button>
+      ${opts && opts.removable ? '<button class="danger sc-remove" data-act="remove">Remove from log…</button>' : ''}
     </div>`;
 
   if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s, pos);
@@ -516,6 +517,27 @@ function makeStopCard(s, onSaved, opts){
     enqueue(payload);
     toast(navigator.onLine ? 'Saving…' : 'Saved — will sync when online');
     if(typeof onSaved === 'function') onSaved();
+  };
+
+  // Remove = move the row to the Sheet's StopsArchive tab (never a hard delete;
+  // the back office can restore it from edit.html). Offline-safe: the archive
+  // rides the queue like any write, and applyOptimisticCache drops the stop from
+  // dayCache + tombstones its id so a server pull can't resurrect it meanwhile.
+  // A never-synced stop works too — its queued addStop flushes first (FIFO),
+  // then the archive moves it.
+  const removeBtn = card.querySelector('[data-act="remove"]');
+  if(removeBtn) removeBtn.onclick = async () => {
+    const c = cfg();
+    if(!c.url || !c.token){ toast('Add your URL first'); return; }
+    const label = `WO ${s.workOrderId || '—'} (${clockOf(s.timestamp) || '--:--'}) · ${s.status || ''}`;
+    if(!confirm(`Remove this stop from the log?\n\n${label}\n\nIt moves to the archive (not deleted) — the office can restore it.`)) return;
+    const reason = prompt('Reason for removal (optional — leave blank to skip):', '');
+    if(reason === null) return;                     // Cancel on the prompt aborts too
+    // Awaited so the dayCache drop + tombstone are in place before onRemoved re-renders.
+    await enqueue({ token:c.token, action:'archiveStop', id:s.id,
+                    installerId:c.hNumber, removedBy:c.name, reason:reason.trim() });
+    toast(navigator.onLine ? 'Removing…' : 'Removed — will sync when online');
+    if(opts && typeof opts.onRemoved === 'function') opts.onRemoved();
   };
   return card;
 }
@@ -764,11 +786,15 @@ async function buildSummaryFromCache(includeDelays, weather){
 // authoritative for anything it already knows about (matched by id); any cached
 // row still flagged _tempId (logged on the phone, not yet acked) is overlaid so
 // a refresh never drops un-synced work. Once a row syncs, reconcileCache clears
-// its _tempId and the server copy naturally wins.
-function mergePending(serverArr, cachedArr){
-  const out = (serverArr || []).slice();
+// its _tempId and the server copy naturally wins. Rows whose id is tombstoned
+// (removed locally, archiveStop still queued) are dropped — the server hasn't
+// heard about the removal yet, so its copy must not resurrect the stop.
+// Mirrors mergePendingRows in daycache.js.
+function mergePending(serverArr, cachedArr, removedIds){
+  const dead = new Set((removedIds || []).map(String));
+  const out = (serverArr || []).filter(r => !dead.has(String(r.id)));
   const ids = new Set(out.map(r => String(r.id)));
-  (cachedArr || []).forEach(r => { if(r._tempId && !ids.has(String(r.id))) out.push(r); });
+  (cachedArr || []).forEach(r => { if(r._tempId && !ids.has(String(r.id)) && !dead.has(String(r.id))) out.push(r); });
   return out;
 }
 
@@ -814,14 +840,15 @@ async function loadDay(mode){
     // Re-read the cache (an enqueue may have run since the top of this fn) and
     // merge, so locally-pending stops/downtime survive the server pull.
     const local = await idb.get('dayCache', key);
-    const stops    = mergePending(d.stops,    local && local.stops);
+    const stops    = mergePending(d.stops,    local && local.stops, local && local.removedIds);
     const downtime = mergePending(d.downtime, local && local.downtime);
     const pendingTravel = local && local.eodTravel;   // offline review not yet synced
     await idb.put('dayCache', {
       stops, downtime,
       day:d.day||{}, boatMeta: d.boatMeta || (local && local.boatMeta) || null,
       closed:!!d.closed, cachedAt:stamp(),
-      eodTravel: pendingTravel   // preserved so a brief reconnect can't wipe an un-synced review
+      eodTravel: pendingTravel,  // preserved so a brief reconnect can't wipe an un-synced review
+      removedIds: (local && local.removedIds) || []   // tombstones live until the archive syncs
     }, key);
     // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
     let gaps = mode==='eod' ? computeGapsLocal(stops, downtime, pendingTravel) : [];
@@ -1071,7 +1098,12 @@ function renderToday(stops, downtime){
     tr.onclick = () => {
       const s = editable[+tr.dataset.i];
       const box = $('todayEdit'); box.innerHTML='';
-      box.appendChild(makeStopCard(s, () => renderToday(stops, downtime)));
+      box.appendChild(makeStopCard(s, () => renderToday(stops, downtime), {
+        removable:true,
+        // Re-render from the (already updated) dayCache so the row vanishes
+        // immediately, online or offline.
+        onRemoved: () => { box.innerHTML=''; loadDay('today'); }
+      }));
       box.scrollIntoView({ behavior:'smooth', block:'start' });
     };
   });

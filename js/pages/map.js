@@ -4,7 +4,7 @@
 // Chart (`Chart`) come from the vendored classic <script>s loaded before this
 // module (js/vendor/leaflet.js, js/vendor/chart.umd.min.js).
 import { $, esc, toast } from '../dom.js';
-import { apiGet } from '../api.js';
+import { apiGet, apiPost } from '../api.js';
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
@@ -179,6 +179,7 @@ function initMap(){
   map = L.map('map', { zoomControl:true, preferCanvas:true }).setView([44.5,-79.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
+  bindPopupRemove();
 }
 function popupHTML(s){
   const color = COLORS[s.status] || COLORS.DONE, loc = locLabel(s);
@@ -190,7 +191,39 @@ function popupHTML(s){
   const j = s.newJNumber ? `<div class="pop-row"><span class="lab">J#:</span> <span class="mono">${esc(s.newJNumber)}</span></div>` : '';
   return `<div class="pop-wo">WO ${esc(s.workOrderId)||'—'}<span class="pop-badge" style="background:${color}">${esc(s.status)}</span></div>`
        + (loc ? `<div class="pop-row">${esc(loc)}</div>` : '') + j + read
-       + `<div class="pop-row"><span class="lab">By:</span> ${esc(s.installer)||'—'} · ${esc(dateKey(s.timestamp))}</div>`;
+       + `<div class="pop-row"><span class="lab">By:</span> ${esc(s.installer)||'—'} · ${esc(dateKey(s.timestamp))}</div>`
+       + (s.id ? `<button class="pop-remove" data-id="${esc(String(s.id))}">Remove from log…</button>` : '');
+}
+// Remove-from-log on a pin: moves the Stops row to the StopsArchive tab (never a
+// hard delete; restorable from edit.html). Bound by delegation on popupopen —
+// popup HTML is a string, so it can't carry a closure. On success the stop is
+// spliced out of ALL and the map + tiles re-render in place (no refetch needed:
+// pins/analytics that read Stops are exactly what the removal changes).
+function bindPopupRemove(){
+  map.on('popupopen', e => {
+    const btn = e.popup.getElement().querySelector('.pop-remove');
+    if(!btn) return;
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      const s = ALL.find(x => String(x.id) === String(id));
+      const label = s ? `WO ${s.workOrderId || '—'} · ${s.installer || ''} · ${dateKey(s.timestamp)}` : id;
+      if(!confirm(`Remove this stop from the log?\n\n${label}\n\nIt moves to the StopsArchive tab (not deleted) and can be restored from Edit & Daily Log.`)) return;
+      const reason = prompt('Reason for removal (optional — leave blank to skip):', '');
+      if(reason === null) return;
+      btn.disabled = true; btn.textContent = 'Removing…';
+      try{
+        const d = await apiPost({ action:'archiveStop', id, removedBy:'map viewer', reason:reason.trim() });
+        if(!d.ok) throw new Error(d.error || 'remove failed');
+        ALL = ALL.filter(x => String(x.id) !== String(id));
+        map.closePopup();
+        drawMarkers(false); renderAnalytics(); updatePill();
+        toast('Removed & archived ✓');
+      } catch(err){
+        btn.disabled = false; btn.textContent = 'Remove from log…';
+        toast(err.message || 'Could not remove');
+      }
+    };
+  });
 }
 function drawMarkers(fit){
   if(!map) initMap();
