@@ -8,13 +8,13 @@ input,select,textarea{width:100%;min-height:var(--tap);border:2px solid var(--li
    padding:0 14px;font-size:18px;background:var(--panel);color:var(--ink);font-family:inherit}
 input.mono,select.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.02em}
 textarea{padding:12px 14px;min-height:84px;line-height:1.4;resize:vertical}
-input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+input:focus,select:focus,textarea:focus{outline:3px solid var(--accent-ring);outline-offset:1px;border-color:var(--accent)}
 .hide{display:none !important}
 
 /* buttons */
-.primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--amber);
-   color:#1a1300;font-size:20px;font-weight:800;cursor:pointer;box-shadow:var(--shadow)}
-.primary:active{background:var(--amber-press)}
+.primary{width:100%;height:66px;margin-top:22px;border:0;border-radius:var(--r);background:var(--accent);
+   color:var(--accent-ink);font-size:20px;font-weight:800;cursor:pointer;box-shadow:var(--shadow)}
+.primary:active{background:var(--accent-press)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .ghost{height:56px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
    color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
@@ -24,8 +24,9 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 @keyframes spin{to{transform:rotate(360deg)}}
 button.loading{position:relative;color:transparent !important;pointer-events:none}
 button.loading::after{content:"";position:absolute;top:50%;left:50%;width:22px;height:22px;
-   margin:-11px 0 0 -11px;border:3px solid rgba(26,19,0,.3);border-top-color:#1a1300;
+   margin:-11px 0 0 -11px;border:3px solid rgba(19,23,28,.15);border-top-color:var(--accent);
    border-radius:50%;animation:spin .7s linear infinite}
+.primary.loading::after{border-color:rgba(255,255,255,.4);border-top-color:var(--accent-ink)}
 
 /* toast */
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);

@@ -15,7 +15,7 @@
 // service-worker SHELL, so the injected script resolves from cache offline and
 // the no-signal end-of-day PDF keeps working.
 import { parseLocalMs } from './time.js';
-import { CATEGORIES, BREAK_CATS, TRAVEL_ADJ_CATS, downtimeSummary } from './compute/categories.js';
+import { CATEGORIES, BREAK_CATS, TRAVEL_ADJ_CATS, CAT_LABEL, downtimeSummary } from './compute/categories.js';
 
 function getJsPDF(){
   const ns = (typeof window !== 'undefined' && window.jspdf) || (typeof self !== 'undefined' && self.jspdf);
@@ -96,9 +96,13 @@ function pdfName(s){
   return who + '_' + (s.date||'') + '_DailyLog.pdf';
 }
 
-// Build the PDF and return { blob, name }.
+// Build the PDF and return { blob, name }. Two templates: the boat daily log
+// (the original 8×8 header grid + travel column) and the land sheet (flat table
+// with per-category DELAYS (MIN) columns, no travel) — picked by the summary's
+// workType, which the spine and buildLocalSummary both set.
 export function renderDailyLog(summary){
   const s = summary || {};
+  if(s.workType === 'land') return renderLandDailyLog(s);
   const showDT = s.includeDelays !== false;
 
   const JsPDF = getJsPDF();
@@ -226,6 +230,183 @@ export function renderDailyLog(summary){
   const sx = colX[4], sw = gridW(4, 4);
   doc.rect(sx, y, sw, FOOTER_H);
   put(sx, y, sw, FOOTER_H, footerText, { size:7.5 });
+
+  return { blob: doc.output('blob'), name: pdfName(s) };
+}
+
+// ── land daily log ───────────────────────────────────────────────────────────
+// Reproduces the land crew's paper sheet: a header strip (Name / Date / Sign /
+// Weather), one row per INSTALLED/UTI work order with its delay minutes spread
+// across per-category DELAYS (MIN) columns, and a totals row summing each
+// category. Travel time never prints here — it's tracked on the backend
+// (Timing/Tracker) only. The delay columns are the 10 delay CATEGORIES in the
+// paper sheet's order (the sheet's unlabeled spare column carries Other).
+const LAND_DELAY_COLS = [
+  'NEXT_GEN','CELL_SIGNAL','BAD_WEATHER','WAREHOUSE','TOOLS_MATERIAL',
+  'DISPATCH','TRUCK_ISSUES','ASSIST','OTHER','URGENT_EER'
+];
+const LAND_DELAY_LABELS = {
+  NEXT_GEN:'Next\nGen', CELL_SIGNAL:'Cell\nSignal', BAD_WEATHER:'Bad\nWeather',
+  WAREHOUSE:'Ware-\nhouse', TOOLS_MATERIAL:'Tools\nMat.', DISPATCH:'Dis-\npatch',
+  TRUCK_ISSUES:'Truck\nIssues', ASSIST:'Assist.', OTHER:'Other', URGENT_EER:'Urgent\nEER'
+};
+// Width proportions: 6 identity columns + 10 delay columns (scaled to the page).
+const LAND_COLW_RAW = [52, 38, 128, 76, 96, 34].concat(LAND_DELAY_COLS.map(() => 33));
+const LAND_HEAD_H  = 24;   // Name/Date/Sign/Weather strip + DELAYS (MIN) title
+const LAND_THEAD_H = 24;   // column-label row (two-line delay labels)
+const LAND_ROW_H   = 16;
+const LAND_TOTAL_H = 18;
+
+export function renderLandDailyLog(summary){
+  const s = summary || {};
+  const JsPDF = getJsPDF();
+  const doc = new JsPDF({ orientation:'landscape', unit:'pt', format:'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const contentW = pageW - 2*MARGIN;
+  const scale = contentW / LAND_COLW_RAW.reduce((a,b)=>a+b, 0);
+  const colW = LAND_COLW_RAW.map(w => w*scale);
+  const colX = []; let acc = MARGIN; colW.forEach(w => { colX.push(acc); acc += w; });
+  const spanW = (c, n) => { let w=0; for(let i=0;i<n;i++) w += colW[c+i]; return w; };
+  const DELAY0 = 6;                       // first delay column index
+
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(120);
+
+  const fit = (txt, maxW) => {
+    txt = String(txt==null?'':txt);
+    if(doc.getTextWidth(txt) <= maxW) return txt;
+    let t = txt;
+    while(t.length > 1 && doc.getTextWidth(t+'…') > maxW) t = t.slice(0, -1);
+    return t + '…';
+  };
+  const put = (x, y, w, h, txt, opt) => {
+    opt = opt || {};
+    if(txt==null || txt==='') return;
+    doc.setFont('helvetica', opt.bold ? 'bold' : 'normal');
+    doc.setFontSize(opt.size || 9);
+    const pad = opt.pad==null ? 3 : opt.pad;
+    const lines = String(txt).split('\n');
+    const lh = (opt.size||9) * 1.08;
+    const ty0 = y + h/2 + (opt.size||9)*0.34 - (lines.length-1)*lh/2;
+    lines.forEach((ln, i) => {
+      const t = fit(ln, w - 2*pad);
+      if(opt.align === 'center') doc.text(t, x + w/2, ty0 + i*lh, { align:'center' });
+      else doc.text(t, x + pad, ty0 + i*lh);
+    });
+  };
+
+  // ── header strip: Name / Date / Sign / Weather + DELAYS (MIN) title ────────
+  let y = MARGIN;
+  const leftW = spanW(0, DELAY0);
+  const idW = leftW / 4;
+  const idFields = [
+    ['Name:',    s.installer || ''],
+    ['Date:',    s.date || ''],
+    ['Sign:',    ''],
+    ['Weather:', s.weather || ''],
+  ];
+  idFields.forEach((f, i) => {
+    const x = MARGIN + i*idW;
+    doc.setFillColor(238, 241, 245);
+    doc.rect(x, y, idW, LAND_HEAD_H, 'FD');
+    put(x, y, idW, LAND_HEAD_H, f[0], { bold:true, size:8, pad:4 });
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    if(f[1]) doc.text(fit(f[1], idW - doc.getTextWidth(f[0]) - 14),
+                      x + 6 + doc.getTextWidth(f[0]) + 3, y + LAND_HEAD_H/2 + 3);
+  });
+  doc.setFillColor(238, 241, 245);
+  doc.rect(colX[DELAY0], y, spanW(DELAY0, LAND_DELAY_COLS.length), LAND_HEAD_H, 'FD');
+  put(colX[DELAY0], y, spanW(DELAY0, LAND_DELAY_COLS.length), LAND_HEAD_H,
+      'DELAYS (MIN)', { bold:true, size:9, align:'center' });
+  y += LAND_HEAD_H;
+
+  // ── column-label row (repeated on page breaks) ─────────────────────────────
+  const HEAD_LABELS = ['WO#','Unit','House / Address','New J#','Meter Read / Notes','C /\nUTI']
+    .concat(LAND_DELAY_COLS.map(c => LAND_DELAY_LABELS[c]));
+  const drawTableHead = (yy) => {
+    HEAD_LABELS.forEach((t, i) => {
+      doc.setFillColor(238, 241, 245);   // re-set per cell — see boat renderer note
+      doc.rect(colX[i], yy, colW[i], LAND_THEAD_H, 'FD');
+      put(colX[i], yy, colW[i], LAND_THEAD_H, t, { bold:true, size:7, align:'center', pad:1 });
+    });
+    return yy + LAND_THEAD_H;
+  };
+  y = drawTableHead(y);
+
+  // ── per-WO delay attribution ───────────────────────────────────────────────
+  // Delay-category downtime keyed by WO#; breaks / misc travel / legacy
+  // TRAVEL_TIME never print on this sheet. Rows without a WO# go to the
+  // unassigned pool (still counted in the column totals below).
+  const isDelay = c => CATEGORIES.indexOf(c) >= 0;
+  const normWO = v => String(v==null?'':v).trim().toUpperCase();
+  const byWO = {}; const colTotal = {}; const unassigned = {};
+  (s.downtime || []).forEach(d => {
+    const c = String(d.category||'OTHER').toUpperCase(), m = Number(d.minutes)||0;
+    if(!isDelay(c) || !m) return;
+    colTotal[c] = (colTotal[c]||0) + m;
+    const wo = normWO(d.workOrderId);
+    if(wo){ byWO[wo] = byWO[wo] || {}; byWO[wo][c] = (byWO[wo][c]||0) + m; }
+    else  { unassigned[c] = (unassigned[c]||0) + m; }
+  });
+
+  // ── body rows ──────────────────────────────────────────────────────────────
+  const stops = s.stops || [];
+  const editable = stops.filter(x => x.status==='INSTALLED' || x.status==='UTI');
+  editable.sort((a, b) => (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
+  const woUsed = {};   // attribute a WO's delays to its first printed row only
+
+  editable.forEach(x => {
+    if(y + LAND_ROW_H > pageH - MARGIN){
+      doc.addPage();
+      y = drawTableHead(MARGIN);
+    }
+    const reads = (x.meterRead!=null && x.meterRead!=='')
+      ? (String(x.meterRead) + ((x.meterReadReceived!=null && x.meterReadReceived!=='') ? (' / '+x.meterReadReceived) : ''))
+      : '';
+    // Meter Read / Notes doubles as the reason cell: a UTI prints its reason,
+    // an unreadable install prints why there's no read.
+    const readNotes = x.status==='UTI' ? (x.utiReason || 'UTI')
+                    : (reads || x.noReadReason || '');
+    const wo = normWO(x.workOrderId);
+    const delays = (wo && !woUsed[wo]) ? (byWO[wo] || {}) : {};
+    if(wo) woUsed[wo] = true;
+    const cells = [
+      x.workOrderId || '', x.unit || '', x.address || '',
+      x.status==='INSTALLED' ? (x.newJNumber || '') : '',
+      readNotes, x.status==='UTI' ? 'UTI' : 'C'
+    ].concat(LAND_DELAY_COLS.map(c => delays[c] ? String(delays[c]) : ''));
+    cells.forEach((cval, ci) => {
+      doc.rect(colX[ci], y, colW[ci], LAND_ROW_H);
+      const center = ci===1 || ci>=5;
+      put(colX[ci], y, colW[ci], LAND_ROW_H, cval, { size:8.5, align: center?'center':undefined, pad:2 });
+    });
+    y += LAND_ROW_H;
+  });
+
+  // ── totals row: each delay column sums the whole day's minutes ─────────────
+  if(y + LAND_TOTAL_H > pageH - MARGIN){ doc.addPage(); y = MARGIN; }
+  const installed = stops.filter(x => x.status==='INSTALLED').length;
+  const uti       = stops.filter(x => x.status==='UTI').length;
+  doc.setFillColor(238, 241, 245);
+  doc.rect(colX[0], y, spanW(0, DELAY0), LAND_TOTAL_H, 'FD');
+  put(colX[0], y, spanW(0, DELAY0), LAND_TOTAL_H,
+      `Totals · ${installed} Install · ${uti} UTI`, { bold:true, size:8.5 });
+  LAND_DELAY_COLS.forEach((c, i) => {
+    const ci = DELAY0 + i;
+    doc.rect(colX[ci], y, colW[ci], LAND_TOTAL_H);
+    put(colX[ci], y, colW[ci], LAND_TOTAL_H, colTotal[c] ? String(colTotal[c]) : '', { bold:true, size:8.5, align:'center' });
+  });
+  y += LAND_TOTAL_H;
+
+  // Delay minutes that aren't attached to a WO# still count in the column
+  // totals — say where they came from so the sheet reconciles at a glance.
+  const unParts = LAND_DELAY_COLS.filter(c => unassigned[c])
+    .map(c => (CAT_LABEL[c]||c) + ' ' + unassigned[c]);
+  if(unParts.length){
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.text(fit('Not tied to a WO#: ' + unParts.join(' · ') + ' min', contentW), MARGIN + 2, y + 10);
+  }
 
   return { blob: doc.output('blob'), name: pdfName(s) };
 }

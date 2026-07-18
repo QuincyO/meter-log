@@ -63,6 +63,7 @@ export function buildLocalSummary(opts){
 
   return {
     date: o.date, installer: o.installer || '', installerId: o.installerId || '',
+    workType: o.workType === 'land' ? 'land' : 'boat',
     partner: bm.partner || '', captain: bm.captain || '', sub: bm.sub || '',
     boatTeam: bm.boatTeam || '', boatName: bm.boatName || '',
     boatDispatchMin: bm.boatDispatchMin || 0,

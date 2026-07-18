@@ -1,0 +1,334 @@
+// ── Worklist screen + plan mode ──────────────────────────────────────────────
+// The full-page planned-orders list on index.html (replaces the old popup
+// sheet). Orders live in the IndexedDB `worklist` store (schema unchanged —
+// items just gain an `order` number for manual sequencing; legacy items without
+// one sort after ordered ones, by creation time). Drag the ⠿ handle to reorder.
+//
+// Plan mode (persisted as store key 'planMode') feeds the capture form: while
+// it's on, the first pending order is filled into the form and each logged
+// stop advances to the next one. The capture page hands us `fillCapture(item)`
+// via initWorklist() — this module never touches the form fields directly, so
+// the two stay decoupled.
+import { $, esc, toast } from './dom.js';
+import { idb } from './idb.js';
+import { store } from './store.js';
+import { stamp } from './time.js';
+
+let fillCapture = () => {};     // set by initWorklist (capture.js)
+let _wlEditId = null;           // null = new order, string = id being edited
+
+// ── ordering ────────────────────────────────────────────────────────────────
+// Manual order wins; items from before the `order` field sort after any ordered
+// ones, oldest first. Ties broken by createdAt so the sort is stable.
+function sortItems(items){
+  return (items || []).slice().sort((a, b) => {
+    const ao = a.order == null ? Infinity : Number(a.order);
+    const bo = b.order == null ? Infinity : Number(b.order);
+    return ao === bo ? String(a.createdAt||'').localeCompare(String(b.createdAt||'')) : ao - bo;
+  });
+}
+async function allSorted(){ return sortItems((await idb.all('worklist')) || []); }
+
+// ── address split (copy-street + chips) ─────────────────────────────────────
+// "6740 Svorn River Shore" → { num:'6740', street:'Svorn River Shore' }.
+// Anything that doesn't start with a number is all street (islands, landmarks).
+function splitAddr(address){
+  const m = String(address || '').trim().match(/^(\d[\w-]*)\s+(.+)$/);
+  return m ? { num: m[1], street: m[2] } : { num: '', street: String(address || '').trim() };
+}
+function joinAddr(num, street){
+  return [String(num||'').trim(), String(street||'').trim()].filter(Boolean).join(' ');
+}
+
+// ── screen open/close (pushState so hardware/browser back works) ────────────
+export async function openWorklist(){
+  _wlEditId = null;
+  $('wlForm').classList.add('hide');
+  $('wlAddBtn').textContent = '＋ Add order';
+  $('captureMain').classList.add('hide');
+  $('worklistScreen').classList.remove('hide');
+  if(location.hash !== '#worklist') history.pushState({ wl:1 }, '', '#worklist');
+  paintPlanToggle();
+  await renderWorklist();
+  window.scrollTo(0, 0);
+}
+function hideScreen(){
+  $('worklistScreen').classList.add('hide');
+  $('captureMain').classList.remove('hide');
+}
+function closeWorklist(){
+  if(location.hash === '#worklist') history.back();   // popstate hides the screen
+  else hideScreen();
+}
+window.addEventListener('popstate', () => { if(location.hash !== '#worklist') hideScreen(); });
+
+// ── list rendering ──────────────────────────────────────────────────────────
+export async function renderWorklist(){
+  const items = await allSorted();
+  const pending = items.filter(x => x.wlStatus !== 'done');
+  const done    = items.filter(x => x.wlStatus === 'done');
+  const list = $('wlList'); list.innerHTML = '';
+  if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
+  [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
+}
+
+function makeWlCard(item){
+  const card = document.createElement('div');
+  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '');
+  card.dataset.id = item.id;
+  const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
+  const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
+  const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
+  // Cards deliberately show only WO# + address — glanceable while driving a route.
+  card.innerHTML = `
+    ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button>' : ''}
+    <div class="wl-main">
+      <strong>${title}</strong>${doneTag}
+      ${addr ? `<div class="wl-body">${addr}</div>` : ''}
+    </div>
+    <div class="wl-actions">
+      ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
+      <button class="wl-edit" data-act="edit">Edit</button>
+      <button class="wl-del" data-act="del">✕</button>
+    </div>`;
+  card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
+  card.querySelector('[data-act="del"]').onclick = async () => {
+    await idb.del('worklist', item.id);
+    toast('Order removed');
+    await renderWorklist();
+    await planAdvance();     // the removed order may have been the planned one
+  };
+  if(item.wlStatus !== 'done'){
+    card.querySelector('[data-act="use"]').onclick = () => {
+      fillCapture(item);
+      closeWorklist();
+      window.scrollTo({ top:0, behavior:'smooth' });
+      toast('Prefilled from worklist ✓');
+    };
+    wireDrag(card.querySelector('.wl-handle'), card);
+  }
+  return card;
+}
+
+// ── drag-to-reorder (pointer events on the ⠿ handle; no library) ────────────
+// While dragging, the card follows the pointer and swaps places with whichever
+// pending card the pointer is over; on release the DOM order is persisted as
+// order = index × 10. Done cards sit below and are never drop targets.
+function wireDrag(handle, card){
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    card.classList.add('dragging');
+    let anchorY = e.clientY;   // pointer Y when the card last sat in a slot
+    let moved = false;
+
+    const onMove = ev => {
+      moved = true;
+      card.style.transform = `translateY(${ev.clientY - anchorY}px)`;
+      card.style.zIndex = 5;
+      // Swap with the pending card under the pointer (elementFromPoint sees the
+      // moved card itself, so hide hit-testing on it for the lookup).
+      card.style.pointerEvents = 'none';
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      card.style.pointerEvents = '';
+      const over = el && el.closest('.wl-card:not(.wl-done-card)');
+      if(over && over !== card && over.parentNode === card.parentNode){
+        const list = card.parentNode;
+        const cards = [...list.children];
+        const from = cards.indexOf(card), to = cards.indexOf(over);
+        list.insertBefore(card, from < to ? over.nextSibling : over);
+        // The card snapped into its new slot — re-anchor so it keeps following.
+        anchorY = ev.clientY;
+        card.style.transform = '';
+      }
+    };
+    const onUp = async () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      card.classList.remove('dragging');
+      card.style.transform = ''; card.style.zIndex = '';
+      if(moved) await persistOrder();
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  });
+}
+
+// Persist the on-screen order of the PENDING cards (done cards keep their spot
+// at the bottom of the sort by getting trailing order values).
+async function persistOrder(){
+  const ids = [...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id);
+  const items = (await idb.all('worklist')) || [];
+  const byId = {}; items.forEach(x => { byId[x.id] = x; });
+  let i = 0;
+  for(const id of ids){
+    const item = byId[id];
+    if(!item) continue;
+    const order = (i++) * 10;
+    if(item.order !== order) await idb.put('worklist', Object.assign({}, item, { order, updatedAt: stamp() }));
+  }
+  await planAdvance();   // the first pending order may have changed
+}
+
+// ── add / edit form ─────────────────────────────────────────────────────────
+function wlOpenForm(item){
+  _wlEditId = item ? item.id : null;
+  const a = splitAddr(item ? item.address : '');
+  $('wlWo').value     = item ? (item.workOrderId||'') : '';
+  $('wlNum').value    = a.num;
+  $('wlStreet').value = a.street;
+  $('wlOldJ').value   = item ? (item.oldJNumber||'') : '';
+  $('wlForm').classList.remove('hide');
+  $('wlAddBtn').textContent = '✕ Cancel';
+  renderChips();
+  $('wlWo').focus();
+  $('wlForm').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// Recent-street chips: the distinct streets already on the list, most recent
+// first — tap to fill the street and jump to the house number.
+async function renderChips(){
+  const items = await allSorted();
+  const seen = {}; const streets = [];
+  items.slice().reverse().forEach(x => {
+    const st = splitAddr(x.address).street;
+    if(st && !seen[st.toLowerCase()]){ seen[st.toLowerCase()] = 1; streets.push(st); }
+  });
+  const box = $('wlChips');
+  if(!streets.length){ box.classList.add('hide'); box.innerHTML=''; return; }
+  box.classList.remove('hide');
+  box.innerHTML = streets.slice(0, 6).map(st => `<button class="chip" type="button">${esc(st)}</button>`).join('');
+  [...box.children].forEach((b, i) => b.onclick = () => {
+    $('wlStreet').value = streets[i];
+    $('wlNum').focus();
+  });
+}
+
+async function wlSave(){
+  const wo = $('wlWo').value.trim();
+  const address = joinAddr($('wlNum').value, $('wlStreet').value);
+  if(!wo && !address){ toast('Enter a work order # or address'); return; }
+  const now = stamp();
+  let item;
+  if(_wlEditId){
+    const existing = (await idb.get('worklist', _wlEditId)) || {};
+    item = Object.assign({}, existing, {
+      id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(), updatedAt:now
+    });
+  } else {
+    const items = await allSorted();
+    const last = items.filter(x => x.order != null).pop();
+    item = {
+      id: now + '-' + Math.random().toString(36).slice(2,6),
+      workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(),
+      wlStatus:'pending', order:(last ? Number(last.order) : -10) + 10,
+      createdAt:now, updatedAt:now
+    };
+  }
+  await idb.put('worklist', item);
+  toast(_wlEditId ? 'Order updated ✓' : 'Order saved ✓');
+  if(_wlEditId){
+    _wlEditId = null;
+    $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
+  } else {
+    // Copy-street-forward: same street, next house — clear WO/number/old J,
+    // keep the street, and put the cursor on the house number.
+    $('wlWo').value=''; $('wlNum').value=''; $('wlOldJ').value='';
+    renderChips();
+    $('wlWo').focus();
+  }
+  await renderWorklist();
+  await planAdvance();
+}
+
+// ── completing a planned order when its WO is actually logged ───────────────
+// Matches the first pending card by WO# (case-insensitive); a blank WO# never
+// matches. Runs entirely against IndexedDB so it works with no signal.
+export async function markWorklistDone(workOrderId){
+  const wo = String(workOrderId || '').trim().toUpperCase();
+  if(!wo) return;
+  const items = await allSorted();
+  const match = items.find(x => x.wlStatus !== 'done'
+    && String(x.workOrderId || '').trim().toUpperCase() === wo);
+  if(!match) return;
+  await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', updatedAt:stamp() }));
+  if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
+}
+
+// ── plan mode ───────────────────────────────────────────────────────────────
+export function planActive(){ return store.get('planMode') === '1'; }
+
+function paintPlanToggle(){
+  const on = planActive();
+  $('wlPlanToggle').classList.toggle('toggle-on', on);
+  $('wlPlanToggle').textContent = on
+    ? 'Plan mode ✓ — capture form follows this list'
+    : 'Plan mode: off';
+}
+
+async function setPlan(on){
+  store.set('planMode', on ? '1' : '');
+  paintPlanToggle();
+  if(on){ await planAdvance(); toast('Plan mode on — form follows the worklist'); }
+  else { fillCapture(null); $('planBanner').classList.add('hide'); }
+}
+
+// Load the next pending order into the capture form + refresh the banner.
+// Called on page load, after every logged stop, and whenever the list changes.
+// A no-op while plan mode is off.
+export async function planAdvance(){
+  if(!planActive()){ $('planBanner').classList.add('hide'); return; }
+  const items = await allSorted();
+  const pending = items.filter(x => x.wlStatus !== 'done');
+  const banner = $('planBanner'); banner.classList.remove('hide');
+  if(!items.length){
+    $('planBannerText').textContent = 'Plan: worklist is empty';
+    fillCapture(null);
+    return;
+  }
+  if(!pending.length){
+    $('planBannerText').textContent = `Plan: all ${items.length} orders done ✓`;
+    fillCapture(null);
+    return;
+  }
+  const item = pending[0];
+  const pos = items.length - pending.length + 1;
+  $('planBannerText').textContent = `Plan: WO ${item.workOrderId || '—'} · ${pos} of ${items.length}`;
+  fillCapture(item);
+}
+
+// Skip = send the current order to the back of the pending queue and load the
+// next one (persistent, so the skipped house comes around again at the end).
+async function planSkip(){
+  const items = await allSorted();
+  const pending = items.filter(x => x.wlStatus !== 'done');
+  if(pending.length < 2){ toast('Nothing to skip to'); return; }
+  const head = pending[0];
+  const maxOrder = Math.max(...items.map(x => x.order == null ? 0 : Number(x.order)));
+  await idb.put('worklist', Object.assign({}, head, { order: maxOrder + 10, updatedAt: stamp() }));
+  await renderWorklist();
+  await planAdvance();
+}
+
+// ── wiring ──────────────────────────────────────────────────────────────────
+// capture.js calls this once with { fillCapture }. Also restores the screen if
+// the page was reloaded on #worklist, and re-arms the plan banner.
+export function initWorklist(opts){
+  fillCapture = (opts && opts.fillCapture) || fillCapture;
+  $('wlBack').onclick = closeWorklist;
+  $('wlPlanToggle').onclick = () => setPlan(!planActive());
+  $('planSkip').onclick = planSkip;
+  $('planExit').onclick = () => setPlan(false);
+  $('wlAddBtn').onclick = () => {
+    if(!$('wlForm').classList.contains('hide')){
+      $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; return;
+    }
+    wlOpenForm(null);
+  };
+  $('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
+  $('wlFormSave').onclick = wlSave;
+  if(location.hash === '#worklist') openWorklist();
+  planAdvance();
+}

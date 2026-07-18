@@ -11,6 +11,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Meter Log</title>
+<!-- Set the work-mode accent (boat=blue / land=green) before first paint. -->
+<script>try{document.documentElement.dataset.mode=localStorage.getItem('workMode')||'boat'}catch(e){}</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/capture.css">
@@ -19,6 +21,10 @@
 
   <div class="bar">
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
+    <div class="mode-seg" role="group" aria-label="Work mode">
+      <button id="modeBoat" type="button">Boat</button>
+      <button id="modeLand" type="button">Land</button>
+    </div>
     <div class="nav-wrap">
       <button class="nav-btn" id="navBtn" aria-label="Menu">☰</button>
       <div class="nav-menu hide" id="navMenu">
@@ -27,6 +33,17 @@
         <button id="navSettings">⚙︎ Settings</button>
       </div>
     </div>
+  </div>
+
+  <main id="captureMain">
+
+  <!-- Plan-mode banner: which planned order is loaded + skip/exit -->
+  <div class="plan-banner hide" id="planBanner">
+    <span id="planBannerText"></span>
+    <span class="plan-banner-actions">
+      <button class="mini" id="planSkip" type="button">Skip</button>
+      <button class="mini" id="planExit" type="button">Exit</button>
+    </span>
   </div>
 
   <div class="notice" id="notice">
@@ -89,6 +106,7 @@
   <div id="utiFields" class="hide">
     <label for="utiReason">Reason</label>
     <select id="utiReason" class="mono">
+      <option value="" selected disabled>Select a reason…</option>
       <option>Appointment Needed</option>
       <option>Bad Road</option>
       <option>Breaker Before Meter</option>
@@ -137,6 +155,13 @@
     <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
   </div>
 
+  <!-- Plan mode: the planned address and the GPS one disagree — user picks -->
+  <div class="addr-conflict hide" id="addrConflict">
+    <div class="ac-title">GPS found a different address — which one is right?</div>
+    <button class="ac-opt" id="acPlanned" type="button"></button>
+    <button class="ac-opt" id="acGps" type="button"></button>
+  </div>
+
   <label for="stopNotes">Notes <span style="font-weight:500">(optional)</span></label>
   <textarea id="stopNotes" placeholder="Anything worth noting on this stop…"></textarea>
 
@@ -153,6 +178,36 @@
   </div>
 
   <button class="ghost" id="genLog" style="width:100%;margin-top:12px">Generate daily log (draft)</button>
+
+  </main>
+
+  <!-- Worklist screen — a full page (replaces the old popup). Back button +
+       browser/hardware back both return to the capture form. -->
+  <section class="wlscreen hide" id="worklistScreen">
+    <div class="wl-head">
+      <button class="wl-back" id="wlBack" type="button" aria-label="Back to capture">‹ Back</button>
+      <h2>Worklist</h2>
+    </div>
+    <p class="muted" style="margin:2px 2px 10px">Planned orders, saved on this device — works offline. Drag ⠿ to reorder.</p>
+    <button class="ghost" id="wlPlanToggle" type="button" style="width:100%">Plan mode: off</button>
+    <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
+    <div class="hide" id="wlForm">
+      <label for="wlWo">Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
+      <label for="wlNum">Address</label>
+      <div class="addrrow">
+        <input id="wlNum" class="mono" placeholder="No." aria-label="House number" inputmode="numeric">
+        <input id="wlStreet" placeholder="Street / landmark" aria-label="Street">
+      </div>
+      <div class="wl-chips hide" id="wlChips"></div>
+      <label for="wlOldJ">Old J# <span style="font-weight:500">(optional)</span></label>
+      <input id="wlOldJ" class="mono" autocapitalize="characters">
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="ghost" id="wlFormCancel" style="flex:1">Done</button>
+        <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>
+      </div>
+    </div>
+    <div id="wlList" style="margin-top:8px"></div>
+  </section>
 
   <div class="toast" id="toast"></div>
 
@@ -234,7 +289,7 @@
       <div id="eodIdle"></div>
       <label for="eodNotes">Notes <span style="font-weight:500">(optional)</span></label>
       <textarea id="eodNotes" placeholder="Anything else to add to today’s log…"></textarea>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:8px">
+      <label id="eodIncludeDelaysWrap" style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:8px">
         <input type="checkbox" id="eodIncludeDelays" checked style="width:auto;margin:0">
         Include delays &amp; travel time on PDF
       </label>
@@ -253,31 +308,6 @@
     </div>
   </div>
 
-
-  <!-- Worklist sheet -->
-  <div class="sheet hide" id="worklistSheet">
-    <div class="card">
-      <h2>Worklist</h2>
-      <p>Your planned orders for today — saved on this device, works offline. Tap <b>Use →</b> to prefill the capture form.</p>
-      <button class="primary" id="wlAddBtn" style="height:50px;font-size:16px;margin-bottom:4px">＋ Add order</button>
-      <div class="hide" id="wlForm" style="margin-top:4px">
-        <label>Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
-        <label>Unit</label><input id="wlUnit" class="mono">
-        <label>Address / landmark</label><input id="wlAddr">
-        <label>Old J# <span style="font-weight:500">(optional)</span></label>
-        <input id="wlOldJ" class="mono" autocapitalize="characters">
-        <label>New J# <span style="font-weight:500">(optional)</span></label>
-        <input id="wlNewJ" class="mono" autocapitalize="characters">
-        <label>Notes <span style="font-weight:500">(optional)</span></label>
-        <textarea id="wlNotes" style="min-height:64px"></textarea>
-        <div style="display:flex;gap:10px;margin-top:14px">
-          <button class="ghost" id="wlFormCancel" style="flex:1">Cancel</button>
-          <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>
-        </div>
-      </div>
-      <div id="wlList" style="margin-top:4px"></div>
-    </div>
-  </div>
 
   <!-- Recent days sheet -->
   <div class="sheet hide" id="recentSheet">
