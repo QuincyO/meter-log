@@ -6,6 +6,13 @@
   --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
   --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
   --r:14px; --tap:54px;
+  /* work-mode accent (boat = blue / land = green) — mirrors tokens.css */
+  --accent:#2563EB; --accent-press:#1D4ED8; --accent-soft:#E8F0FE;
+  --accent-ring:rgba(37,99,235,.45); --accent-ink:#FFFFFF;
+}
+:root[data-mode="land"]{
+  --accent:#1E8E5A; --accent-press:#166B47; --accent-soft:#E6F4ED;
+  --accent-ring:rgba(30,142,90,.45);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -29,7 +36,13 @@ body{
 .navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
         border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
         font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
-.navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.navsel:focus{outline:3px solid var(--accent-ring);outline-offset:1px;border-color:var(--accent)}
+
+/* boat/land work-mode switch */
+.mode-seg{display:flex;flex:none;background:var(--panel);border-radius:999px;box-shadow:var(--shadow);padding:3px;gap:2px}
+.mode-seg button{border:0;background:none;border-radius:999px;padding:0 11px;height:32px;
+                 font-size:12px;font-weight:800;color:var(--ink-soft);cursor:pointer}
+.mode-seg button.on{background:var(--accent);color:var(--accent-ink)}
 
 h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
    font-weight:700;margin:26px 2px 4px}
@@ -38,7 +51,7 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
 input,select{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
    padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
-input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+input:focus,select:focus{outline:3px solid var(--accent-ring);outline-offset:1px;border-color:var(--accent)}
 .hide{display:none !important}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
@@ -51,8 +64,8 @@ input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1p
 .btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
      background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
 .btn:active{transform:scale(.98)}
-.btn.primary{border:0;background:var(--amber);color:#1a1300}
-.btn.primary:active{background:var(--amber-press)}
+.btn.primary{border:0;background:var(--accent);color:var(--accent-ink)}
+.btn.primary:active{background:var(--accent-press)}
 .btn.danger{border-color:#F1C3B4;color:var(--uti);background:#FFF4F0}
 .btn.full{width:100%}
 .actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
@@ -62,8 +75,8 @@ input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1p
 .members{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:6px}
 .chk{display:flex;align-items:center;gap:9px;padding:9px 11px;border:2px solid var(--line);
      border-radius:10px;background:var(--surface);cursor:pointer;font-size:15px;font-weight:600}
-.chk input{width:20px;height:20px;min-height:0;flex:none;accent-color:var(--amber)}
-.chk.on{border-color:var(--amber);background:#FFF7E8}
+.chk input{width:20px;height:20px;min-height:0;flex:none;accent-color:var(--accent)}
+.chk.on{border-color:var(--accent);background:var(--accent-soft)}
 
 /* per-member team-letter assignment */
 .assignlist{margin-top:6px}
@@ -71,7 +84,7 @@ input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1p
            border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:6px 0}
 .assignrow .who{font-weight:600;font-size:15px}
 .assignrow select{width:auto;flex:none;min-width:92px;min-height:44px;height:44px;font-weight:800}
-.assignrow.set{border-color:var(--amber);background:#FFF7E8}
+.assignrow.set{border-color:var(--accent);background:var(--accent-soft)}
 .assignsummary{font-size:14px;line-height:1.7;margin:10px 2px 2px}
 .assignsummary b{font-variant-numeric:tabular-nums}
 .assignrow .right{display:flex;align-items:center;gap:8px}

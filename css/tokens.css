@@ -7,6 +7,14 @@
   --install:#1E8E5A; --uti:#D64500; --visited:#2563EB; --unaccounted:#64748B;
   --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
   --r:14px; --tap:60px;
+  /* Work-mode accent (boat = blue). The page module + an inline <head> snippet
+     set data-mode on <html> from localStorage 'workMode' before first paint. */
+  --accent:#2563EB; --accent-press:#1D4ED8; --accent-soft:#E8F0FE;
+  --accent-ring:rgba(37,99,235,.45); --accent-ink:#FFFFFF;
+}
+:root[data-mode="land"]{
+  --accent:#1E8E5A; --accent-press:#166B47; --accent-soft:#E6F4ED;
+  --accent-ring:rgba(30,142,90,.45);
 }
 *{box-sizing:border-box}
 html,body{margin:0}

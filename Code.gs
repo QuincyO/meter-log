@@ -75,10 +75,14 @@ function gapNoteTimes(note) {
 const STOPS_HEADERS = [
   'id','timestamp','installer','workOrderId','unit','address','lat','lng',
   'newJNumber','oldJNumber','meterRead','status','utiReason','notes','noReadReason','meterReadReceived',
-  'requestedMeter'
+  'requestedMeter',
+  // 'boat' | 'land' — which side of the operation logged the stop. Appended last
+  // so older sheets migrate cleanly (ensureTab fills the header); blank = boat.
+  'workType'
 ];
 const DOWNTIME_HEADERS = [
-  'id','timestamp','installer','category','minutes','workOrderId','note'
+  'id','timestamp','installer','category','minutes','workOrderId','note',
+  'workType'   // 'boat' | 'land' (appended last; blank = boat)
 ];
 const TRACKER_HEADERS = [
   'date','installer','installed','uti','downtimeTotalMin',
@@ -92,7 +96,8 @@ const TRACKER_HEADERS = [
   // stops, incl. their own launch leg, excl. the return leg) — per-person, so it
   // reconciles with the daily-log "Travel Time" box; delayMin = same-island
   // meter-to-meter time.
-  'visited','unaccounted','autoIdleMin','travelMin','delayMin'
+  'visited','unaccounted','autoIdleMin','travelMin','delayMin',
+  'workType'   // 'boat' | 'land' — the mode the day was closed in (blank = boat)
 ];
 // Crew: one row per installer, keyed on the employee number ("H number"), so
 // two people with the same name never collide. firstName/lastName are the
@@ -104,7 +109,10 @@ const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active'];
 // "11A". captainName + subName are free-text names shared across the whole boat
 // (captains/subs aren't employees and move between boats); they're saved to the
 // Captains/Subs lists for quick reuse.
-const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','memberLetters'];
+// `type` ('boat' | 'land', blank = boat) splits boat teams from land crews: a
+// land crew reuses the same shape — boatNumber holds the crew number, subName
+// holds the sub foreman, captainName/boatName stay blank.
+const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','memberLetters','type'];
 // Quick-pick name lists that feed the team form's captain / sub dropdowns.
 const CAPTAINS_HEADERS = ['name'];
 const SUBS_HEADERS     = ['name'];
@@ -347,7 +355,8 @@ function addStop(b) {
     b.newJNumber || '', b.oldJNumber || '', numOrBlank(b.meterRead),
     b.status || '', b.utiReason || '', b.notes || '', b.noReadReason || '',
     numOrBlank(b.meterReadReceived),
-    b.requestedMeter ? 'Y' : ''   // "Requested meter?" flag → end-of-day dispatch deduction
+    b.requestedMeter ? 'Y' : '',   // "Requested meter?" flag → end-of-day dispatch deduction
+    normWorkType(b.workType)
   ];
 
   // Dedup: only INSTALLED stops with both a WO# and a new J# are checked.
@@ -426,7 +435,7 @@ function addDowntime(b) {
   sh.appendRow([
     id, b.timestamp || now(), b.installer || '',
     (b.category || 'OTHER').toUpperCase(), parseInt(b.minutes, 10) || 0,
-    b.workOrderId || '', b.note || ''
+    b.workOrderId || '', b.note || '', normWorkType(b.workType)
   ]);
   bustRows('Downtime');
   return { ok: true, id: id };
@@ -564,6 +573,13 @@ function buildDaySummary(b) {
     else { byCat[c] = (byCat[c] || 0) + m; downtimeTotal += m; }
   });
 
+  // Which template the phone should render: the caller's explicit workType wins
+  // (the device knows its mode); a rebuild without one (edit.html) infers it from
+  // the day's stops; a day with no typed stops falls back to boat.
+  const typedStop = stops.find(s => String(s.workType || '').trim() !== '');
+  const workType = b.workType ? normWorkType(b.workType)
+                              : (typedStop ? normWorkType(typedStop.workType) : 'boat');
+
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
   // Whole-boat dispatch downtime for the PDF (sum of every crew member's own
@@ -618,7 +634,7 @@ function buildDaySummary(b) {
   // (Timing/Days) but never a meter-to-meter number, even with no Departure time set.
   if (gi.isFirst && gi.firstId != null) perStopTravel[gi.firstId] = '~';
 
-  return { date, installer, installerId, installed, uti, visited, unaccounted,
+  return { date, installer, installerId, installed, uti, visited, unaccounted, workType,
     // PDF-only flag: when false, the phone renderer omits the delay/travel cells.
     // It never affects the Tracker/Timing writes — analytics always gets full data.
     includeDelays: b.includeDelays !== false,
@@ -662,7 +678,10 @@ function endOfDay(b) {
   // (date, boatNumber): each crew member who closes re-upserts the same row, so it
   // ends up reflecting the whole boat. Gives the viewer's boat-wide log→log metric
   // its daily membership and a standing record of who crewed which boat.
-  const eodTeam = eodId ? teamForEmployee(eodId) : null;
+  // A land close skips the boat bookkeeping — BoatDays snapshots and the shared
+  // boat dispatch only mean something for boat crews (the viewer's boat-wide
+  // metrics group by them).
+  const eodTeam = (eodId && s.workType !== 'land') ? teamForEmployee(eodId) : null;
   if (eodTeam) recordBoatDay(s.date, eodTeam);
 
   // Recompute the boat's shared dispatch downtime and write it (+ each member's
@@ -677,7 +696,8 @@ function endOfDay(b) {
     byCat.NEXT_GEN, byCat.CELL_SIGNAL, byCat.BAD_WEATHER, byCat.WAREHOUSE,
     byCat.TOOLS_MATERIAL, byCat.DISPATCH, byCat.TRUCK_ISSUES, byCat.ASSIST,
     byCat.URGENT_EER, byCat.OTHER, s.weather, s.notes,
-    s.visited, s.unaccounted, '', s.travelMinutes, ''   // autoIdleMin + delayMin are legacy/blank
+    s.visited, s.unaccounted, '', s.travelMinutes, '',   // autoIdleMin + delayMin are legacy/blank
+    s.workType
   ]);
 
   // Per-gap audit trail (one row each) so the Travel Time / Delay numbers trace.
@@ -1111,7 +1131,7 @@ function ensureTeamsColumns() {
   if (!sh || sh.getLastColumn() === 0) return;
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
   let next = sh.getLastColumn() + 1;
-  ['boatName', 'captainName', 'subName', 'memberLetters'].forEach(col => {
+  ['boatName', 'captainName', 'subName', 'memberLetters', 'type'].forEach(col => {
     if (headers.indexOf(col) === -1) {
       sh.getRange(1, next).setValue(col).setFontWeight('bold');
       next++;
@@ -1163,7 +1183,8 @@ function saveTeam(b) {
     boatName:      String(b.boatName == null ? '' : b.boatName).trim(),
     captainName:   captainName,
     subName:       subName,
-    memberLetters: JSON.stringify(memberLetters)
+    memberLetters: JSON.stringify(memberLetters),
+    type:          normWorkType(b.type)
   });
   const res = { ok: true, id: id };
   res[r.created ? 'created' : 'updated'] = true;
@@ -1593,6 +1614,9 @@ function ensureMetricsTab() {
   if (!ss.getSheetByName('Metrics')) ensureTab(ss, 'Metrics', METRICS_HEADERS);
 }
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
+// Work type is binary; anything that isn't explicitly 'land' (incl. legacy blank
+// rows written before the column existed) is boat work.
+function normWorkType(v) { return String(v == null ? '' : v).trim().toLowerCase() === 'land' ? 'land' : 'boat'; }
 function sameName(a, b) { return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim(); }
 function numCoord(v)    { return (v === '' || v == null || isNaN(Number(v))) ? null : Number(v); }
 

@@ -15,6 +15,7 @@ import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
+import { initWorklist, openWorklist, markWorklistDone, planAdvance } from '../worklist.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -46,6 +47,29 @@ function showNotice(type, msg, history) {
   noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);
 }
 $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
+
+// ── work mode (boat | land) ─────────────────────────────────────────────
+// Persisted per device; flips the accent theme via <html data-mode> (the CSS
+// tokens) and tags every write payload with workType. An inline <head> snippet
+// already applied the attribute pre-paint; this keeps the switch UI in sync.
+export function workMode(){ return store.get('workMode')==='land' ? 'land' : 'boat'; }
+function setMode(m){
+  store.set('workMode', m);
+  document.documentElement.dataset.mode = m;
+  $('modeBoat').classList.toggle('on', m==='boat');
+  $('modeLand').classList.toggle('on', m==='land');
+  applyModeUI();
+}
+// Mode-dependent chrome: the land daily log always prints the delay columns, so
+// the "include delays" choice only exists in boat mode.
+function applyModeUI(){
+  const land = workMode()==='land';
+  $('eodIncludeDelaysWrap').classList.toggle('hide', land);
+  if(land) $('eodIncludeDelays').checked = true;
+}
+$('modeBoat').onclick = () => setMode('boat');
+$('modeLand').onclick = () => setMode('land');
+setMode(workMode());
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';
@@ -177,22 +201,91 @@ async function getLocation(force){
     }});
     coords = { lat:c.lat, lng:c.lng };
     $('locText').textContent = `Location: ${coords.lat}, ${coords.lng} (±${c.accuracy} m)`;
-    if(force) await fetchAddress(coords.lat, coords.lng, true);
+    // Force (Refresh tap) overwrites the field; the auto call fills only when
+    // empty — and, plan-filled, compares the GPS address against the plan.
+    await fetchAddress(coords.lat, coords.lng, !!force);
   } catch {
     $('locText').textContent = 'Location: unavailable (saved without coords)';
   } finally {
     if(btn) btn.disabled = false;
   }
 }
+// ── plan-mode form fill + planned-vs-GPS address conflict ──────────────────
+// worklist.js drives plan mode and hands us the order to load via fillCapture.
+// planAddr remembers the planned address so fetchAddress can compare it against
+// the GPS-resolved one and surface a chooser when they materially disagree.
+let planAddr = null;          // address the plan filled (null = not plan-filled)
+let lastPlanFill = null;      // the worklist item currently loaded by plan mode
+let addrConflictPending = false;
+
+const normAddr = a => String(a == null ? '' : a).toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function hideAddrConflict(){ addrConflictPending = false; $('addrConflict').classList.add('hide'); }
+function showAddrConflict(planned, gps){
+  addrConflictPending = true;
+  $('acPlanned').textContent = `Keep planned: ${planned}`;
+  $('acGps').textContent     = `Use GPS: ${gps}`;
+  $('acPlanned').onclick = () => { $('addr').value = planned; hideAddrConflict(); };
+  $('acGps').onclick     = () => { $('addr').value = gps;     hideAddrConflict(); };
+  $('addrConflict').classList.remove('hide');
+}
+// Hand-editing the field is itself a decision — drop the chooser.
+$('addr').addEventListener('input', hideAddrConflict);
+
+function fillCapture(item){
+  if(!item){
+    // Plan turned off / list emptied: clear only the fields the plan filled
+    // that the installer hasn't since changed.
+    if(lastPlanFill){
+      const filled = {
+        wo: lastPlanFill.workOrderId || '', unit: lastPlanFill.unit || '',
+        addr: lastPlanFill.address || '', newJ: lastPlanFill.newJNumber || '',
+        installOldJ: lastPlanFill.oldJNumber || '', oldJ: lastPlanFill.oldJNumber || '',
+        nrOldJ: lastPlanFill.oldJNumber || '', stopNotes: lastPlanFill.notes || ''
+      };
+      Object.keys(filled).forEach(id => {
+        if($(id).value.trim() === String(filled[id]).trim()) $(id).value = '';
+      });
+    }
+    lastPlanFill = null; planAddr = null; hideAddrConflict();
+    return;
+  }
+  $('wo').value          = item.workOrderId || '';
+  $('unit').value        = item.unit || '';
+  $('addr').value        = item.address || '';
+  $('newJ').value        = item.newJNumber || '';
+  $('installOldJ').value = item.oldJNumber || '';
+  $('oldJ').value        = item.oldJNumber || '';
+  $('nrOldJ').value      = item.oldJNumber || '';
+  $('stopNotes').value   = item.notes || '';
+  planAddr = item.address || '';
+  lastPlanFill = item;
+  hideAddrConflict();
+}
+initWorklist({ fillCapture });
+
 // Reverse geocode via resolveAddress (geocode.js): a cached coord resolves
 // instantly and OFFLINE; a new coord with signal hits the spine and is cached for
 // next time; offline + uncached → leave it for manual entry. In auto mode it
-// fills the address only when it's still empty (never clobbers what you typed);
-// with force it always replaces it. The field stays editable either way.
+// fills the address only when it's still empty (never clobbers what you typed) —
+// except a plan-filled address, which is still compared against the GPS one so a
+// wrong house surfaces the chooser. With force it always replaces the field.
 async function fetchAddress(lat, lng, force){
-  if(!force && $('addr').value.trim()) return;
+  const cur = $('addr').value.trim();
+  const planFilled = planAddr && cur && normAddr(cur) === normAddr(planAddr);
+  if(!force && cur && !planFilled) return;
+  // No force for a plan compare — a cached coord→address IS the GPS answer here.
   const addr = await resolveAddress(lat, lng, { force });
-  if(addr && (force || !$('addr').value.trim())){
+  const cur2 = $('addr').value.trim();
+  if(addr && planFilled && cur2 && normAddr(cur2) === normAddr(planAddr)){
+    const a = normAddr(addr), p = normAddr(cur2);
+    if(a && p && a !== p && a.indexOf(p) === -1 && p.indexOf(a) === -1){
+      showAddrConflict(cur2, addr);
+      $('locText').textContent = `Location: ${lat}, ${lng} · GPS address differs from plan`;
+    }
+    return;   // agreement (or one containing the other) keeps the planned address
+  }
+  if(addr && (force || !cur2)){
     $('addr').value = addr;
     $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
   } else if(force){
@@ -212,7 +305,12 @@ $('logStop').onclick = () => {
   // WO# is required for the two outcomes that finish a work order; the "we were
   // here" outcomes (Visited / Unaccounted) can be logged without one.
   if((status==='INSTALLED' || status==='UTI') && !$('wo').value.trim()){ toast('Work order # is required'); return; }
+  // Safety rails (both modes): an install always has the new meter's J#, and a
+  // UTI always has a picked reason (the dropdown starts blank on purpose).
+  if(status==='INSTALLED' && !$('newJ').value.trim()){ toast('New J# is required'); return; }
+  if(status==='UTI' && !$('utiReason').value){ toast('Pick a UTI reason'); return; }
   if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
+  if(addrConflictPending){ toast('Choose which address is right first'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
   // OTHER is one button: an Old J# means we saw a meter (VISITED); blank means we
@@ -221,7 +319,7 @@ $('logStop').onclick = () => {
   const outStatus = status==='OTHER' ? (otherJ ? 'VISITED' : 'UNACCOUNTED') : status;
   const base = {
     token:c.token, action:'addStop', installer:c.name, installerId:c.hNumber,
-    timestamp:stamp(),
+    timestamp:stamp(), workType:workMode(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
     notes:$('stopNotes').value.trim(),
@@ -257,13 +355,18 @@ $('logStop').onclick = () => {
   // requestedMeter flag on the stop. The spine matches the request to this install
   // at end of day and pre-fills the wait as an editable DISPATCH travel deduction
   // (?action=idle), so logging stays a cheap append.
-  markWorklistDone(base.workOrderId);   // complete the matching planned order, if any
+  if(base.workOrderId) lastLoggedWO = base.workOrderId;   // downtime auto-link fallback
+  // Complete the matching planned order, then let plan mode load the next one
+  // (planAdvance no-ops when plan mode is off). Chained so the done-mark lands
+  // before the next order is picked.
+  markWorklistDone(base.workOrderId).then(planAdvance);
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
     status==='UTI'        ? 'UTI logged ✓' :
     outStatus==='VISITED' ? 'Visited logged ✓' :
                             'Unaccounted logged ✓');
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
+  $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
   setNoRead(false); setSolar(false); setRequested(false);
   getLocation();
 };
@@ -282,7 +385,8 @@ $('markDone').onclick = async () => {
   try {
     const loc = await sampleLocation();
     enqueue({ token:c.token, action:'addStop', installer:c.name,
-              timestamp:stamp(), lat:loc.lat, lng:loc.lng, status:'DONE' });
+              timestamp:stamp(), lat:loc.lat, lng:loc.lng, status:'DONE',
+              workType:workMode() });
     toast('Marked — already installed ✓');
   } catch {
     toast("Couldn't get GPS — try again");
@@ -290,7 +394,25 @@ $('markDone').onclick = async () => {
 };
 
 // ── downtime ────────────────────────────────────────────────────────────
-$('openDowntime').onclick = () => openSheet('downtimeSheet');
+// Auto-link: prefill the WO# with the order being worked (the capture form's
+// current WO — plan-filled or typed), else the day's most recently logged one.
+// Still editable/clearable, and the EOD gap review remains the second pass.
+let lastLoggedWO = '';
+$('openDowntime').onclick = async () => {
+  let wo = $('wo').value.trim() || lastLoggedWO;
+  if(!wo){
+    const c = cfg();
+    if(c.name){
+      const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
+      const logged = ((cached && cached.stops) || [])
+        .filter(s => String(s.workOrderId||'').trim())
+        .sort((a,b) => (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
+      if(logged.length) wo = String(logged[logged.length-1].workOrderId).trim();
+    }
+  }
+  $('dtWo').value = wo;
+  openSheet('downtimeSheet');
+};
 $('dtCat').onchange = e => {
   const other = e.target.value==='OTHER';
   $('dtNote').classList.toggle('hide', !other);
@@ -301,7 +423,7 @@ $('saveDowntime').onclick = () => {
   if(!$('dtMin').value.trim()){ toast('Minutes required'); return; }
   if($('dtCat').value==='OTHER' && !$('dtNote').value.trim()){ toast('Describe what happened'); return; }
   enqueue({ token:c.token, action:'addDowntime', installer:c.name,
-            timestamp:stamp(), category:$('dtCat').value,
+            timestamp:stamp(), category:$('dtCat').value, workType:workMode(),
             minutes:Number($('dtMin').value.trim()), workOrderId:$('dtWo').value.trim(),
             note:$('dtNote').value.trim() });
   toast('Downtime logged ✓');
@@ -605,7 +727,7 @@ function prefetchEodSummary(){
       await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
                       allocations: collectGapAllocations(eodGaps) });
       const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
-                                includeDelays:$('eodIncludeDelays').checked });
+                                includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
       // Only adopt the result if a newer edit hasn't superseded this build, so a
       // slow stale job can't clobber a fresher summary.
       if(d && d.summary && eodSummaryJob === job) eodServerSummary = { key, summary:d.summary };
@@ -632,6 +754,7 @@ async function buildSummaryFromCache(includeDelays, weather){
           returned:  $('eodReturned').value  || cd.returned  || '' },
     boatMeta:cached.boatMeta,
     includeDelays, weather:weather||'', notes:$('eodNotes').value.trim(),
+    workType:workMode(),
     pendingTravel: collectGapAllocations(eodGaps)
   });
 }
@@ -766,6 +889,7 @@ $('finishDay').onclick = async () => {
     // rows get written once the queue drains — weather backfills on the re-send.
     enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
               notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
+              workType:workMode(),
               departure:$('eodDeparture').value, returned:$('eodReturned').value });
     try{ await downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, '')); }catch{}
     closeSheets();
@@ -807,7 +931,7 @@ $('finishDay').onclick = async () => {
                       allocations: collectGapAllocations(eodGaps) });
     await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
                     notes:$('eodNotes').value.trim(), weather,
-                    includeDelays:$('eodIncludeDelays').checked,
+                    includeDelays:$('eodIncludeDelays').checked, workType:workMode(),
                     departure:$('eodDeparture').value, returned:$('eodReturned').value });
     // The review reached the Sheet — drop any local pending copy so the next
     // load reads the authoritative gap rows back.
@@ -854,7 +978,7 @@ $('genLog').onclick = async () => {
       await flush();
       try{
         const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
-                                  includeDelays:$('eodIncludeDelays').checked });
+                                  includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
         summary = d.summary || null;
       } catch {}
     }
@@ -1026,135 +1150,6 @@ $('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorkl
 $('navRecent').onclick    = () => { $('navMenu').classList.add('hide'); openRecent(); };
 $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
 
-// ── worklist ──────────────────────────────────────────────────────────────────
-let _wlEditId = null;   // null = new order, string = id being edited
-
-async function openWorklist(){
-  _wlEditId = null;
-  $('wlForm').classList.add('hide');
-  $('wlAddBtn').textContent = '＋ Add order';
-  openSheet('worklistSheet');
-  await renderWorklist();
-}
-
-async function renderWorklist(){
-  const items = (await idb.all('worklist')) || [];
-  const pending = items.filter(x => x.wlStatus !== 'done');
-  const done    = items.filter(x => x.wlStatus === 'done');
-  const list = $('wlList'); list.innerHTML='';
-  if(!items.length){ list.innerHTML='<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
-  [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
-}
-
-function makeWlCard(item){
-  const card = document.createElement('div');
-  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '');
-  const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
-  const sub = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
-  const jLine = [item.oldJNumber && `Old J# ${esc(item.oldJNumber)}`, item.newJNumber && `New J# ${esc(item.newJNumber)}`].filter(Boolean).join(' · ');
-  const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
-  card.innerHTML = `
-    <div>
-      <strong>${title}</strong>${doneTag}
-      ${sub   ? `<div class="wl-body">${sub}</div>` : ''}
-      ${jLine ? `<div class="wl-body mono" style="font-size:13px">${jLine}</div>` : ''}
-      ${item.notes ? `<div class="wl-body" style="margin-top:2px">${esc(item.notes)}</div>` : ''}
-    </div>
-    <div class="wl-actions">
-      ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
-      <button class="wl-edit" data-act="edit">Edit</button>
-      <button class="wl-del" data-act="del">✕</button>
-    </div>`;
-  card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
-  if(item.wlStatus !== 'done') card.querySelector('[data-act="use"]').onclick = () => wlUse(item);
-  card.querySelector('[data-act="del"]').onclick = async () => {
-    await idb.del('worklist', item.id);
-    toast('Order removed');
-    await renderWorklist();
-  };
-  return card;
-}
-
-function wlOpenForm(item){
-  _wlEditId = item ? item.id : null;
-  $('wlWo').value    = item ? (item.workOrderId||'') : '';
-  $('wlUnit').value  = item ? (item.unit||'') : '';
-  $('wlAddr').value  = item ? (item.address||'') : '';
-  $('wlOldJ').value  = item ? (item.oldJNumber||'') : '';
-  $('wlNewJ').value  = item ? (item.newJNumber||'') : '';
-  $('wlNotes').value = item ? (item.notes||'') : '';
-  $('wlForm').classList.remove('hide');
-  $('wlAddBtn').textContent = '✕ Cancel';
-  $('wlWo').focus();
-  $('wlForm').scrollIntoView({behavior:'smooth', block:'start'});
-}
-
-$('wlAddBtn').onclick = () => {
-  if(!$('wlForm').classList.contains('hide')){
-    $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; return;
-  }
-  wlOpenForm(null);
-};
-$('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
-$('wlFormSave').onclick = async () => {
-  const wo = $('wlWo').value.trim();
-  if(!wo && !$('wlAddr').value.trim()){ toast('Enter a work order # or address'); return; }
-  const now = stamp();
-  const isEdit = !!_wlEditId;
-  let item;
-  if(isEdit){
-    const existing = (await idb.get('worklist', _wlEditId)) || {};
-    item = Object.assign({}, existing, {
-      id:_wlEditId, workOrderId:wo, unit:$('wlUnit').value.trim(),
-      address:$('wlAddr').value.trim(), oldJNumber:$('wlOldJ').value.trim(),
-      newJNumber:$('wlNewJ').value.trim(), notes:$('wlNotes').value.trim(), updatedAt:now
-    });
-  } else {
-    item = {
-      id: now + '-' + Math.random().toString(36).slice(2,6),
-      workOrderId:wo, unit:$('wlUnit').value.trim(), address:$('wlAddr').value.trim(),
-      oldJNumber:$('wlOldJ').value.trim(), newJNumber:$('wlNewJ').value.trim(),
-      notes:$('wlNotes').value.trim(), wlStatus:'pending', createdAt:now, updatedAt:now
-    };
-  }
-  await idb.put('worklist', item);
-  $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null;
-  toast(isEdit ? 'Order updated ✓' : 'Order saved ✓');
-  await renderWorklist();
-};
-
-async function wlUse(item){
-  // Prefill the capture form from this worklist order
-  $('wo').value        = item.workOrderId || '';
-  $('unit').value      = item.unit || '';
-  $('addr').value      = item.address || '';
-  $('newJ').value      = item.newJNumber || '';
-  $('installOldJ').value = item.oldJNumber || '';
-  $('oldJ').value      = item.oldJNumber || '';
-  $('nrOldJ').value    = item.oldJNumber || '';
-  $('otherOldJ').value = '';
-  $('stopNotes').value = item.notes || '';
-  setStatus('INSTALLED');  // default; installer changes if needed
-  // Don't mark done here — completion is driven by an actual log (see
-  // markWorklistDone), so an order only clears once the stop is captured.
-  closeSheets();
-  window.scrollTo({top:0, behavior:'smooth'});
-  toast('Prefilled from worklist ✓');
-}
-
-// Completing a planned worklist order when its work order is actually logged.
-// Matches the first pending card by WO# (case-insensitive); a blank WO# never
-// matches. Runs entirely against IndexedDB so it works with no signal.
-async function markWorklistDone(workOrderId){
-  const wo = String(workOrderId || '').trim().toUpperCase();
-  if(!wo) return;
-  const items = (await idb.all('worklist')) || [];
-  const match = items.find(x => x.wlStatus !== 'done'
-    && String(x.workOrderId || '').trim().toUpperCase() === wo);
-  if(!match) return;
-  await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', updatedAt:stamp() }));
-  if(!$('worklistSheet').classList.contains('hide')) await renderWorklist();
-}
 $('saveSettings').onclick = () => {
   const c = cfg();
   const first = $('cfgFirst').value.trim();

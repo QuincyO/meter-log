@@ -258,6 +258,49 @@ just the online resolver behind the cache now.
 
 ---
 
+## Work modes (boat / land)
+
+The operation runs two kinds of routes and the app captures both: **boat work**
+(the original — boat teams, captains, the travel-column daily log) and **land
+work** (truck routes — crews with a sub foreman, a flat per-WO-delays daily
+log). The captured data is identical; what changes is the chrome and the PDF.
+
+- **The toggle.** A Boat/Land segmented switch at the top of `index.html` (and
+  `teams.html`), persisted per device as `localStorage['workMode']`. It sets
+  `data-mode` on `<html>` (an inline `<head>` snippet applies it pre-paint), and
+  the CSS accent tokens follow: **boat = blue, land = green** (`--accent*` in
+  `css/tokens.css`; `css/teams.css` carries its own copy).
+- **`workType` column.** Every `addStop` / `addDowntime` payload — and the
+  `endOfDay` Tracker upsert — carries `workType: 'boat' | 'land'` (blank legacy
+  rows read as boat via `normWorkType`). Same tabs, one extra column; no
+  separate land tabs.
+- **Daily log.** `buildDaySummary` returns `workType` (the caller's value, else
+  inferred from the day's stops) and `js/dailylog.js` branches on it: land days
+  render the land sheet — header strip (Name / Date / Sign / Weather), one row
+  per install/UTI with its delay minutes spread across per-category
+  **DELAYS (MIN)** columns, a totals row summing each category, and **no travel
+  column** (travel is still reviewed at EOD and written to Timing/Tracker as
+  always — it just doesn't print). `C` marks an install, `UTI` a UTI (whose
+  reason prints in Meter Read / Notes). Delay minutes land on a row by matching
+  the downtime's `workOrderId`; un-attributed minutes still count in the column
+  totals and are listed on a "Not tied to a WO#" footer line.
+- **Crews.** A land crew is a `Teams` row with `type='land'` — crew number in
+  `boatNumber`, sub foreman in `subName`, no captain/boat name. `teams.html`
+  shows boat teams in boat mode and crews in land mode. A land `endOfDay` skips
+  the BoatDays snapshot + shared boat-dispatch bookkeeping.
+- **Worklist & plan mode.** The worklist is a full-page screen on `index.html`
+  (`js/worklist.js`; the old popup is gone) for both modes: orders hold WO# /
+  Address / Old J#, drag the ⠿ handle to reorder (persisted as an `order` field
+  on the existing IndexedDB `worklist` items), recent-street chips +
+  copy-street-forward cut repeat typing on same-street runs. **Plan mode**
+  (`localStorage['planMode']`, toggled on the worklist screen) feeds the capture
+  form: the first pending order pre-fills it, each logged stop advances to the
+  next, Skip sends the current order to the back of the queue. If the planned
+  address and the GPS-resolved one materially disagree, an inline chooser makes
+  the installer pick before the stop can be logged.
+- **Validation (both modes).** An install can't submit without a New J#; a UTI
+  can't submit until a reason is picked (the dropdown starts blank).
+
 ## Data structures
 
 ### Stop  (one row per work order visited → tab "Stops")
@@ -279,6 +322,7 @@ just the online resolver behind the cache now.
 | `notes`           | string              | free text                                        |
 | `noReadReason`    | string \| null      | why an install had no read (e.g. "Missing segments") |
 | `meterReadReceived` | number \| null    | second read for solar meters (delivered + received) |
+| `workType`        | `"boat"` \| `"land"` | which side of the operation logged it (blank = boat) |
 
 **"Mark spot done" markers.** A `status` of `DONE` is a lightweight record made
 by the one-tap **Already installed here · mark spot** button on the web form: it
@@ -321,8 +365,9 @@ On the **map/viewer** they keep their own status chips, colors, and the `visited
 | `installer`   | string          |                                             |
 | `category`    | enum (below)    |                                             |
 | `minutes`     | integer         |                                             |
-| `workOrderId` | string \| null  | pair downtime to a WO when relevant         |
+| `workOrderId` | string \| null  | pair downtime to a WO when relevant (the form pre-fills the current/last WO; on the land PDF this is what puts the minutes on that WO's row) |
 | `note`        | string          | **required** when category is `OTHER`       |
+| `workType`    | `"boat"` \| `"land"` | blank = boat                           |
 
 **Downtime categories:**
 - **Delays** (`CATEGORIES` in `Code.gs`, each gets a Tracker column): `NEXT_GEN`,
@@ -347,7 +392,7 @@ Written at end-of-day. This is the "continues forever" sheet, and the source the
 viewer's analytics charts read from. `endOfDay` **upserts** it by `(date, installer)`
 — closing or regenerating the same day overwrites the row in place rather than
 duplicating, so the back-office `edit.html` can regenerate freely.
-| `date` | `installer` | `installed` | `uti` | `downtimeTotalMin` | `nextGen` | `cellSignal` | `badWeather` | `warehouse` | `toolsMaterial` | `dispatch` | `truckIssues` | `assist` | `urgentEer` | `other` | `weather` | `notes` | `visited` | `unaccounted` | `autoIdleMin` | `travelMin` | `delayMin` |
+| `date` | `installer` | `installed` | `uti` | `downtimeTotalMin` | `nextGen` | `cellSignal` | `badWeather` | `warehouse` | `toolsMaterial` | `dispatch` | `truckIssues` | `assist` | `urgentEer` | `other` | `weather` | `notes` | `visited` | `unaccounted` | `autoIdleMin` | `travelMin` | `delayMin` | `workType` |
 
 The per-category columns are summed minutes for that day, so the running sheet is
 also a breakdown, not just a single downtime number. `visited` / `unaccounted` are
@@ -451,6 +496,7 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 | `captainName`   | string      | the captain's first name (free text, no H#)         |
 | `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
 | `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
+| `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their
 `installerId` (H number). The spine finds their boat row, reads `memberLetters`,

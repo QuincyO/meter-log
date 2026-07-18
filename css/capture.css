@@ -8,6 +8,11 @@
       padding:9px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
 .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+/* boat/land work-mode switch */
+.mode-seg{display:flex;flex:none;background:var(--panel);border-radius:999px;box-shadow:var(--shadow);padding:3px;gap:2px}
+.mode-seg button{border:0;background:none;border-radius:999px;padding:0 12px;height:34px;
+                 font-size:13px;font-weight:800;color:var(--ink-soft);cursor:pointer}
+.mode-seg button.on{background:var(--accent);color:var(--accent-ink)}
 .nav-wrap{position:relative;flex:none}
 .nav-btn{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
          font-size:20px;cursor:pointer}
@@ -17,12 +22,29 @@
                  font-size:16px;font-weight:600;cursor:pointer;color:var(--ink)}
 .nav-menu button:active{background:var(--surface)}
 
-/* worklist */
-.wl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--shadow)}
+/* worklist — full-page screen */
+.wlscreen{padding-bottom:40px}
+.wl-head{display:flex;align-items:center;gap:12px;padding:6px 0 4px;position:sticky;top:0;
+         background:var(--surface);z-index:5}
+.wl-head h2{margin:0;font-size:20px}
+.wl-back{height:44px;padding:0 14px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
+         color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;flex:none}
+.wl-card{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+         border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--shadow)}
+.wl-main{flex:1;min-width:0}
+.wl-handle{flex:none;width:38px;height:44px;border:0;background:none;color:var(--ink-soft);
+           font-size:20px;cursor:grab;touch-action:none;padding:0}
+.wl-card.dragging{position:relative;box-shadow:0 8px 24px rgba(19,23,28,.25);border-color:var(--accent)}
 .wl-done-card{opacity:.55}
-.wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px}
-.wl-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.wl-use{background:var(--amber);border:0;border-radius:10px;padding:0 18px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:#1a1300}
+.wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl-actions{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+/* recent-street chips */
+.wl-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.chip{height:36px;padding:0 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--panel);
+      color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;max-width:100%;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip:active{border-color:var(--accent);background:var(--accent-soft)}
+.wl-use{background:var(--accent);border:0;border-radius:10px;padding:0 18px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:var(--accent-ink)}
 .wl-edit{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 14px;height:38px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}
 .wl-del{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
 
@@ -43,8 +65,8 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 /* location + address rows */
 .loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
 .addrrow{display:flex;gap:10px;align-items:stretch}
-.addrrow #unit{flex:none;width:var(--tap);text-align:center;padding:0 8px}
-.addrrow #addr{flex:1}
+.addrrow #unit,.addrrow #wlNum{flex:none;width:var(--tap);text-align:center;padding:0 8px}
+.addrrow #addr,.addrrow #wlStreet{flex:1}
 .locrow{display:flex;align-items:center;gap:10px;margin-top:6px}
 .locrow .loc{flex:1;margin:0}
 .locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;
@@ -55,7 +77,22 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 .scanbtn{flex:none;min-height:var(--tap);height:var(--tap);padding:0 16px;border:2px solid var(--line);
    border-radius:12px;background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
 .scanbtn:active{transform:scale(.98)}
-.toggle-on{border-color:var(--amber) !important;background:#FFF7E8 !important;color:var(--amber-press) !important}
+.toggle-on{border-color:var(--accent) !important;background:var(--accent-soft) !important;color:var(--accent-press) !important}
+
+/* plan-mode banner */
+.plan-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;
+             background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:var(--r);
+             padding:10px 12px;margin-bottom:10px;font-size:14px;font-weight:700;color:var(--accent-press)}
+.plan-banner-actions{display:flex;gap:8px;flex:none}
+
+/* planned vs GPS address chooser */
+.addr-conflict{background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:var(--r);
+               padding:12px;margin-top:10px}
+.ac-title{font-size:14px;font-weight:700;margin-bottom:8px}
+.ac-opt{display:block;width:100%;min-height:48px;margin-top:8px;padding:10px 12px;text-align:left;
+        border:2px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);
+        font-size:15px;font-weight:600;cursor:pointer}
+.ac-opt:active{border-color:var(--accent)}
 
 /* duplicate / J# conflict notice */
 .notice{border-radius:var(--r);padding:12px 14px;margin-bottom:10px;display:none}
