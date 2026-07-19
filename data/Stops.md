@@ -1,6 +1,6 @@
 # Stops
 
-_281 rows · exported 2026-07-18 03:52 America/Toronto_
+_281 rows · exported 2026-07-19 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -245,7 +245,6 @@ _281 rows · exported 2026-07-18 03:52 America/Toronto_
 | 1783965444046-hcsbbf | 2026-07-13 13:57:24 | Quincy Orta | 625448 |  | 36 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.14895 | -79.729381 | J4759983 | J3730575 | 54577 | INSTALLED |  |  |  |  |  |  |
 | 1783968860848-nt826p | 2026-07-13 14:54:20 | Phillip Monteiro | 583402 |  | 38 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.150051 | -79.732372 | J4759923 | J4235993 | 22161 | INSTALLED |  |  |  |  |  |  |
 | 1783969211466-w2jjs0 | 2026-07-13 15:00:11 | Phillip Monteiro | 586533 |  | 38 ISLAND J17, Muskoka Lakes, ON P0C 1H0, Canada | 45.149709 | -79.732988 | J4759922 | J3085722 | 58850 | INSTALLED |  |  |  |  |  |  |
-| 1783973389187-9oabkg | 2026-07-13 16:09:49 | Phillip Monteiro | 639541 |  | 20 Penman island | 45.095956 | -79.637482 |  |  |  | UTI | Denied Access |  |  |  |  |  |
 | 1784031634545-x9fac3 | 2026-07-14 8:20:34 | Quincy Orta | 640402 |  | 1 ISLAND R28, Muskoka Lakes, ON P0B 1J0, Canada | 45.141823 | -79.569809 | J4759924 | J3082548 | 11573 | INSTALLED |  |  |  |  |  |  |
 | 1784032255028-wqxy2i | 2026-07-14 8:30:55 | Phillip Monteiro | 640009 |  | 3 ISLAND R28, Muskoka Lakes, ON P0B 1J0, Canada | 45.141183 | -79.571615 | J4759925 | J3082518 | 12929 | INSTALLED |  |  |  |  |  |  |
 | 1784033632773-euh54u | 2026-07-14 8:53:52 | Quincy Orta | 640268 |  | 3 ISLAND R28, Muskoka Lakes, ON P0B 1J0, Canada | 45.140931 | -79.571883 | J4759950 | J3211186 | 12566 | INSTALLED |  |  |  |  |  |  |
@@ -285,3 +284,4 @@ _281 rows · exported 2026-07-18 03:52 America/Toronto_
 | 1784128834452-gk7tf1 | 2026-07-15 11:20:34 | Phillip Monteiro | 639970 |  | 137 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.156561 | -79.57364 | J4608717 | J3239569 | 50097 | INSTALLED |  |  |  |  |  |  |
 | 1784129548057-ut111d | 2026-07-15 11:32:28 | Phillip Monteiro | 640028 |  | 141 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.156282 | -79.572707 | J4608718 | J3383712 | 60669 | INSTALLED |  |  |  |  |  |  |
 | 1784133152176-suh1pm | 2026-07-15 12:32:32 | Quincy Orta | 640333 |  | 144 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.154919 | -79.571539 |  | J3082595 | 42979 | UTI | Emergency Electrical Repair |  |  |  |  |  |
+| 1784401690284-68ktjc | 2026-07-18 15:08:10 | Quincy Orta |  |  | 14 Christine Pl, Orillia, ON L3V 7P1, Canada | 44.596264 | -79.430242 |  |  |  | DONE |  |  |  |  |  | land |
