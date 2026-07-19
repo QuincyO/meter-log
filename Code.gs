@@ -105,8 +105,10 @@ const TRACKER_HEADERS = [
 ];
 // Crew: one row per installer, keyed on the employee number ("H number"), so
 // two people with the same name never collide. firstName/lastName are the
-// display label; hNumber is the identity.
-const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active'];
+// display label; hNumber is the identity. subName is the installer's own
+// sub-foreman pick (capture-page Settings) — used only when they're not on a
+// team; a team's subName always wins.
+const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active','subName'];
 // One row per BOAT (boatNumber, e.g. "11"). Each crew member on the boat is
 // assigned a letter in memberLetters — a JSON map {hNumber: "A"} — and people
 // who share a letter are partners, so member H100→"A" on boat 11 reads as team
@@ -300,6 +302,7 @@ function doGet(e) {
   // whole history every open. No params → the full tab, exactly as before.
   if (p.action === 'pins')    return json(pins(p.from, p.to));
   if (p.action === 'tracker') return json(tracker(p.from, p.to));
+  if (p.action === 'downtime')return json(downtimeRows(p.from, p.to));
   if (p.action === 'timing')  return json(timing(p.from, p.to));
   if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
   if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
@@ -700,6 +703,9 @@ function buildDaySummary(b) {
 
   const team = installerId ? teamForEmployee(installerId) : null;
   const hdr  = teamHeader(team, installerId);
+  // No team sub (un-teamed installer, or a team card without one): fall back to
+  // the installer's own Settings pick so the PDF "Sub:" box still fills.
+  if (!hdr.sub && emp && emp.subName) hdr.sub = String(emp.subName).trim();
   // Whole-boat dispatch downtime for the PDF (sum of every crew member's own
   // DISPATCH downtime that day). May be stale if a teammate hasn't closed yet —
   // the Days sheet (updateBoatDispatch) is the always-current source of truth.
@@ -1219,7 +1225,8 @@ function employeesList() {
     hNumber:   String(r.hNumber == null ? '' : r.hNumber).trim(),
     firstName: String(r.firstName == null ? '' : r.firstName).trim(),
     lastName:  String(r.lastName == null ? '' : r.lastName).trim(),
-    active:    isTruthy(r.active, true)
+    active:    isTruthy(r.active, true),
+    subName:   String(r.subName == null ? '' : r.subName).trim()
   })).filter(e => e.hNumber);
 }
 
@@ -1245,8 +1252,15 @@ function saveEmployee(b) {
   if (!first || !last) return { ok: false, error: 'first and last name required' };
   const active = b.active === false ? false : true;
 
-  const r = upsertByHeader('Employees', 'hNumber', h,
-    { hNumber: h, firstName: first, lastName: last, active: active });
+  const fields = { hNumber: h, firstName: first, lastName: last, active: active };
+  // subName only rides when the request carries it (the capture-page Settings
+  // pick) — an omitted key preserves the existing cell, so admin saves and old
+  // phones can never blank it; an explicit '' clears it on purpose.
+  if (b.subName != null) {
+    fields.subName = String(b.subName).trim();
+    if (fields.subName) ensureName('Subs', fields.subName);
+  }
+  const r = upsertByHeader('Employees', 'hNumber', h, fields);
   const res = { ok: true, hNumber: h };
   res[r.created ? 'created' : 'updated'] = true;
   return res;
@@ -1502,6 +1516,14 @@ function pins(from, to) {
 function tracker(from, to) {
   return { ok: true, tracker: rows('Tracker')
     .filter(r => (!from && !to) || inWindow(dateOf(r.date), from, to)) };
+}
+
+/** Downtime rows across ALL installers, optionally windowed by [from, to] on
+ *  the row's Toronto date. Backs the reports page's open-day delay tallies —
+ *  one call for the whole crew instead of a ?action=day per installer. */
+function downtimeRows(from, to) {
+  return { ok: true, downtime: rows('Downtime')
+    .filter(r => (!from && !to) || inWindow(dateOf(r.timestamp), from, to)) };
 }
 
 /** Per-gap audit rows (the Timing tab), optionally windowed by [from, to].

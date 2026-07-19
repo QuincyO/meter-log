@@ -457,6 +457,7 @@ $('navSel').onchange = e => {
   else if(v==='map')       window.location.href = 'map.html';
   else if(v==='analytics') window.location.href = 'map.html#analytics';
   else if(v==='teams')     window.location.href = 'teams.html';
+  else if(v==='reports')   window.location.href = 'reports.html';
 };
 window.addEventListener('pageshow', () => { $('navSel').value = 'edit'; });
 

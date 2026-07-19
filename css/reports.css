@@ -1,0 +1,69 @@
+/* Reports back-office (reports.html). Self-contained styling matching the
+   edit/teams admin look (same tokens + chrome). */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px; --tap:54px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 14px 48px;
+  max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+     background:var(--surface);z-index:5}
+.bar .title{font-size:18px;font-weight:800;flex:1}
+.pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+      padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+        border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+.navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+
+h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;margin:26px 2px 4px}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+input,select{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:11px;
+   padding:0 13px;font-size:16px;background:var(--panel);color:var(--ink);font-family:inherit}
+input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.hide{display:none !important}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+      padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+
+.btn{min-height:46px;height:46px;padding:0 16px;border:2px solid var(--line);border-radius:11px;
+     background:var(--panel);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+.btn:active{transform:scale(.98)}
+.btn.primary{border:0;background:var(--amber);color:#1a1300}
+.btn.primary:active{background:var(--amber-press)}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;
+       padding:4px 10px;border-radius:999px;background:#E7F5EE;color:var(--install);flex:none}
+.badge.open{background:#FFF4E6;color:var(--amber-press)}
+
+.empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+
+/* one installer's line inside a sub's card */
+.rrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      padding:10px 0;border-top:1px solid var(--line)}
+.rrow:first-child{border-top:0;padding-top:2px}
+.rrow .rwho{flex:1;min-width:140px}
+.rrow .rname{font-weight:700}
+.rrow .rnums{display:block;color:var(--ink-soft);font-size:13px;margin-top:2px}
+.rrow .btn{height:38px;min-height:0;padding:0 13px;font-size:14px;border-radius:10px;flex:none}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+   background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}

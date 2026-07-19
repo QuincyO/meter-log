@@ -31,7 +31,16 @@ It is not Claude and not the form. Everything reads from or writes to it.
   **arrival time**, via `updateStop`'s `arrivalTime`), set the day's **Departure /
   Returned** bookends (persisted to the `Days` tab via `saveDay`), then **generate
   the daily-log PDF** — which closes the day idempotently (`endOfDay`).
-- All four are static files hosted on GitHub Pages. They never store the data
+- The **reports page** (`reports.html`) — pick a date and see every installer
+  who logged that day **grouped under their sub foreman** (team `subName` first,
+  else the installer's own `Employees.subName` pick, else "No sub foreman"),
+  with the day's core tallies (installed / UTI / delay minutes), a closed/open
+  badge (closed = a Tracker row exists), and a **quick "Close day"** button that
+  fires a minimal idempotent `endOfDay` — no travel review; the full review +
+  re-close still lives in `edit.html`. Closed rows read the Tracker row; open
+  rows are tallied live from `pins` + the windowed `downtime` read. Linked from
+  the nav of the three backend pages only, not from the capture page.
+- All five are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
 
 > The earlier iPhone Shortcuts capture path has been **dropped.** The work phone
@@ -120,7 +129,9 @@ from it; the real `endOfDay` later fills the blanks),
 backs the phone's offline "recent days" cache in a single call),
 `lookup` (find by WO# or J#), `geocode` (reverse-geocode lat/lng, no API key),
 `nearby` ("is a meter already here?" proximity check), `pins` (stops, for
-the map), `tracker` (end-of-day rows, for the viewer's trends), `timing`
+the map), `tracker` (end-of-day rows, for the viewer's trends), `downtime`
+(all installers' `Downtime` rows, windowed on the row `timestamp` — backs the
+reports page's open-day delay tallies in one call), `timing`
 (per-gap `Timing` rows, for the analytics "avg time between meters" metric),
 `boatdays` (`BoatDays` rows — the daily boat-crew snapshots — for the viewer's
 "avg log→log (boat)" tile, which groups a day's logs by the boat that ran them),
@@ -234,10 +245,10 @@ point in `js/pages/`. Shared modules in `js/`:
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
-- **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`.
+- **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`.
 
 CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
-components) back the capture page; `css/{capture,map,teams,edit}.css` are
+components) back the capture page; `css/{capture,map,teams,edit,reports}.css` are
 per-page (plus `css/vendor/leaflet.css`). `map.js` uses the Leaflet (`L`) +
 Chart globals loaded by classic `<script>`s before its module — vendored at
 `js/vendor/leaflet.js` + `js/vendor/chart.umd.min.js`, no CDN.
@@ -552,6 +563,7 @@ are a display label only.
 | `firstName` | string  | display label                                      |
 | `lastName`  | string  | display label                                      |
 | `active`    | boolean | soft-delete / hide from pickers (defaults to true) |
+| `subName`   | string  | the installer's **own** sub-foreman pick (capture-page Settings). Only meaningful when they're not on a team — a team's `subName` always wins (the Settings field shows it locked). Rides `saveEmployee` **only when the payload carries it**, so admin saves never blank it; feeds the reports-page grouping and the daily-log "Sub:" box as a fallback. |
 
 ### Team  (one row per boat → tab "Teams")
 A boat, managed from `teams.html`. `memberLetters` is a JSON map keying each
@@ -582,7 +594,8 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 and fills the daily log header:
 - **Boat Team** = boat number + *their own* letter (e.g. `11A`)
 - **Partner** = crew members on the same boat who share their letter
-- **Captain** / **Sub** = the boat's free-text captain and sub names
+- **Captain** / **Sub** = the boat's free-text captain and sub names (no team
+  sub → falls back to the installer's own `Employees.subName` Settings pick)
 - **Boat Name** = the boat name from the team row
 
 PDF is named `FirstNameLastName_Date_DailyLog.pdf` where the name comes from the

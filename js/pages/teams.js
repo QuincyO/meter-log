@@ -414,6 +414,7 @@ $('navSel').onchange = e => {
   else if(v==='map')  window.location.href = 'map.html';
   else if(v==='analytics') window.location.href = 'map.html#analytics';
   else if(v==='edit') window.location.href = 'edit.html';
+  else if(v==='reports') window.location.href = 'reports.html';
 };
 // reset the dropdown if the page is restored from the back/forward cache
 window.addEventListener('pageshow', () => { $('navSel').value = 'teams'; });

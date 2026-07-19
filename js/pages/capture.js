@@ -1164,11 +1164,57 @@ function renderRecentDay(d){
 }
 
 // ── settings + sheets plumbing ──────────────────────────────────────────────
+// Sub foreman in Settings: a team's subName is authoritative (shown locked);
+// an un-teamed installer picks their own, saved to their Employees row via the
+// same queued saveEmployee. Last-known state cached in localStorage (subName /
+// subLocked / subsList) so the sheet paints offline; roster refetched every
+// online open so a later team assignment re-locks it.
+let subEditable = false;
+function paintSubField(){
+  const sel = $('cfgSub'), hint = $('cfgSubHint');
+  const sub = store.get('subName')||'', locked = store.get('subLocked')==='1';
+  let subs = [];
+  try { subs = JSON.parse(store.get('subsList')||'[]'); } catch(e){}
+  if (sub && subs.indexOf(sub) < 0) subs.unshift(sub);
+  sel.innerHTML = '<option value="">— pick your sub —</option>' +
+    subs.map(s => `<option value="${attr(s)}"${s===sub?' selected':''}>${esc(s)}</option>`).join('');
+  if (locked) {
+    sel.disabled = true; subEditable = false;
+    hint.textContent = 'Assigned with your crew — change it in Crew & Teams.';
+  } else if (!subs.length && !navigator.onLine) {
+    sel.disabled = true; subEditable = false;
+    hint.textContent = 'Connect once to load the sub list.';
+  } else {
+    sel.disabled = false; subEditable = true;
+    hint.textContent = '';
+  }
+}
+async function loadSubInfo(){
+  paintSubField();                       // last-known state, works offline
+  if (!navigator.onLine) return;
+  try {
+    const d = await apiGet('roster');
+    if (!d || !d.ok) return;
+    const h = String(store.get('hNumber')||'').trim();
+    const team = h ? (d.teams||[]).find(t => t.memberLetters && (h in t.memberLetters)) : null;
+    const emp  = h ? (d.employees||[]).find(e => e.hNumber === h) : null;
+    if (team && team.subName) {
+      store.set('subName', team.subName); store.set('subLocked', '1');
+    } else {
+      store.set('subLocked', '');
+      // Prefer the server's copy so a pick made on another device shows here.
+      if (emp && emp.subName != null && emp.subName !== '') store.set('subName', emp.subName);
+    }
+    store.set('subsList', JSON.stringify(d.subs||[]));
+    paintSubField();
+  } catch(e){ /* offline blip — cached paint stands */ }
+}
 function openSheet(id){
   if(id==='settingsSheet'){
     $('cfgFirst').value = store.get('firstName')||'';
     $('cfgLast').value  = store.get('lastName')||'';
     $('cfgH').value     = store.get('hNumber')||'';
+    loadSubInfo();
   }
   $(id).classList.remove('hide');
 }
@@ -1194,7 +1240,15 @@ $('saveSettings').onclick = () => {
   // Register (or refresh) this person in the crew so an admin can add them to a
   // boat team. Routed through the offline queue, so a first run with no signal
   // still saves the identity locally now and registers when back online.
-  enqueue({ token:c.token, action:'saveEmployee', hNumber:h, firstName:first, lastName:last });
+  const payload = { token:c.token, action:'saveEmployee', hNumber:h, firstName:first, lastName:last };
+  // Only ride subName when the pick was actually editable — a locked (team) or
+  // never-loaded select must not clobber the server's copy.
+  if (subEditable) {
+    const sub = $('cfgSub').value.trim();
+    store.set('subName', sub);
+    payload.subName = sub;
+  }
+  enqueue(payload);
   closeSheets(); toast('Saved ✓');
 };
 

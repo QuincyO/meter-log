@@ -476,6 +476,7 @@ $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); }
 $('viewSel').onchange = e => {
   if(e.target.value==='teams'){ window.location.href = 'teams.html'; return; }
   if(e.target.value==='edit'){ window.location.href = 'edit.html'; return; }
+  if(e.target.value==='reports'){ window.location.href = 'reports.html'; return; }
   const mapOn = e.target.value==='map';
   $('mapView').classList.toggle('on', mapOn);
   $('analytics').classList.toggle('on', !mapOn);

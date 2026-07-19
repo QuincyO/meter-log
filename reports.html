@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — Reports</title>
+<link rel="stylesheet" href="css/reports.css">
+</head>
+<body>
+
+  <div class="bar">
+    <div class="title">Reports</div>
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <select class="navsel" id="navSel" aria-label="Go to view">
+      <option value="log">Log</option>
+      <option value="map">Map</option>
+      <option value="analytics">Analytics</option>
+      <option value="teams">Crew &amp; Teams</option>
+      <option value="edit">Edit &amp; Daily Log</option>
+      <option value="reports" selected>Reports</option>
+    </select>
+  </div>
+
+  <h1>Daily totals by sub foreman</h1>
+  <p class="sub">Every installer who logged that day, grouped under their sub foreman, with the day's tallies and whether the day has been closed out. Close an open day right here — the full travel review is still available in Edit &amp; Daily Log.</p>
+  <div class="card">
+    <label for="day">Date</label>
+    <input id="day" type="date">
+  </div>
+
+  <div id="report"></div>
+
+  <div class="toast" id="toast"></div>
+
+<script type="module" src="js/pages/reports.js"></script>
+</body>
+</html>
