@@ -14,6 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
+import { optimizeRoute } from './route.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -78,6 +79,7 @@ function wireShape(x){
   return { id:x.id, workOrderId:x.workOrderId||'', unit:x.unit||'',
     address:x.address||'', oldJNumber:x.oldJNumber||'',
     wlStatus:x.wlStatus||'pending', order:x.order,
+    lat:x.lat, lng:x.lng,
     createdAt:x.createdAt||'', updatedAt:x.updatedAt||'' };
 }
 
@@ -130,12 +132,60 @@ async function wlDownload(){
         address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
         wlStatus: o.wlStatus === 'done' ? 'done' : 'pending',
         order: (o.order === '' || o.order == null) ? null : Number(o.order),
+        lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
+        lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
         createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||'') });
     }
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
   } catch { toast('Download failed — check signal'); }
+}
+
+// ── route optimization (land mode) ──────────────────────────────────────────
+// Geocode every pending order, pull a road-distance matrix, solve the best open
+// path on-device (js/route.js), then rewrite `order` so the list follows it.
+// Done orders are excluded, so re-optimizing tomorrow just re-plans what's left.
+async function optimizeRouteHandler(){
+  if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
+  const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
+  if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
+  if(!confirm(`Optimize the route for ${pending.length} pending orders? This looks up each address and may take a minute the first time.`)) return;
+
+  const btn = $('wlOptimize'), prog = $('wlRouteProgress');
+  btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
+  try {
+    const { orderedIds, parkedIds, usedFallback } = await optimizeRoute(pending, updateRouteProgress);
+    // Rewrite order = index × 10 (persistOrder's convention) — located orders in
+    // the optimized sequence, then parked ones trailing at the bottom.
+    const items = (await idb.all('worklist')) || [];
+    const byId = {}; items.forEach(x => { byId[x.id] = x; });
+    let i = 0;
+    for(const id of [...orderedIds, ...parkedIds]){
+      const item = byId[id];
+      if(!item) continue;
+      const order = (i++) * 10;
+      if(item.order !== order) await idb.put('worklist', Object.assign({}, item, { order, updatedAt: stamp() }));
+    }
+    await renderWorklist();
+    await planAdvance();
+    const parked = parkedIds.length ? ` · ${parkedIds.length} parked (fix address)` : '';
+    toast(usedFallback ? `Route ordered ✓ — straight-line (road data unavailable)${parked}`
+                       : `Route optimized ✓${parked}`);
+  } catch {
+    toast('Route optimization failed — try again');
+  } finally {
+    btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
+  }
+}
+
+// Live progress line for the long optimize run (geocode → matrix → solve).
+function updateRouteProgress(p){
+  const prog = $('wlRouteProgress');
+  if(!prog) return;
+  if(p.phase === 'geocode') prog.textContent = `Looking up addresses ${p.done}/${p.total}…`;
+  else if(p.phase === 'matrix') prog.textContent = p.total ? `Building road distances ${p.done}/${p.total}…` : 'Building road distances…';
+  else if(p.phase === 'solve') prog.textContent = 'Finding the best order…';
 }
 
 // ── screen open/close (pushState so hardware/browser back works) ────────────
@@ -180,13 +230,16 @@ function makeWlCard(item){
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
   const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
+  // A parked order: its address wouldn't geocode, so route optimize skipped it
+  // and left it at the bottom. Fix the address (Edit) to re-route it next run.
+  const geoTag = item.geoFail ? ' <span class="muted" title="Address didn’t map — fix it to route" style="font-size:13px">📍?</span>' : '';
   const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
   // Cards deliberately show only WO# + address — glanceable while driving a route.
   card.innerHTML = `
     ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>' : ''}
     <div class="wl-main">
       <strong>${title}</strong>${doneTag}
-      ${addr ? `<div class="wl-body">${addr}</div>` : ''}
+      ${addr ? `<div class="wl-body">${addr}${geoTag}</div>` : ''}
     </div>
     <div class="wl-actions">
       ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
@@ -355,6 +408,9 @@ async function wlSave(){
     item = Object.assign({}, existing, {
       id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(), updatedAt:now
     });
+    // Address changed → the cached coords are stale; drop them (and the parked
+    // flag) so the next optimize re-geocodes the new address.
+    if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; }
   } else {
     const items = await allSorted();
     const last = items.filter(x => x.order != null).pop();
@@ -458,6 +514,7 @@ export function initWorklist(opts){
   $('wlBack').onclick = closeWorklist;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
+  $('wlOptimize').onclick = optimizeRouteHandler;
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);

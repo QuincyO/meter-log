@@ -156,7 +156,7 @@ const METRICS_HEADERS = ['metric','value','updated'];
 // stays the working copy. `order` is the manual sort position, wlStatus
 // 'pending'|'done', timestamps naive Toronto strings.
 const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
-  'oldJNumber','wlStatus','order','createdAt','updatedAt'];
+  'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -1028,7 +1028,8 @@ function saveWorklist(b) {
         o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
         o.wlStatus === 'done' ? 'done' : 'pending',
         o.order == null ? '' : Number(o.order),
-        o.createdAt || '', o.updatedAt || '' ]));
+        o.createdAt || '', o.updatedAt || '',
+        o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng) ]));
     bustRows('Worklist');
   }
   return { ok: true, count: orders.length };

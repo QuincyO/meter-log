@@ -6,3 +6,9 @@
 // their name.
 export const WEB_APP_URL  = 'https://script.google.com/macros/s/AKfycbwlqHwVha6ztYRXHfy9peYHOvwQPnYhHnqqZTQZGvpwctkWOPNADwLxTsCoir47Kkff/exec';
 export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
+
+// OpenRouteService API key (land-mode route optimization — js/route.js). Get a
+// free key at openrouteservice.org ▸ Dashboard ▸ create token, and paste it here.
+// Same documented tradeoff as SHARED_TOKEN: it sits in client source on a
+// public-capable GitHub Pages site, mitigated by keeping the repo private.
+export const ORS_API_KEY  = '';
