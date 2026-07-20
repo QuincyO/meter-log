@@ -37,7 +37,10 @@ function statusTagClass(st){
   return st==='UTI' ? 'tag-uti' : st==='VISITED' ? 'tag-visit' : st==='UNACCOUNTED' ? 'tag-unacc' : 'tag-ok';
 }
 function locLabel(s){
-  const unit = (s.unit||'').trim(), addr = (s.address||'').trim();
+  // Coerce first: a purely-numeric unit (e.g. "20") is stored by Sheets as a
+  // number and read back as one, so a bare .trim() throws. Matches the String()
+  // guard already used in dailylog.js / capture.js / map.js.
+  const unit = String(s.unit==null?'':s.unit).trim(), addr = String(s.address==null?'':s.address).trim();
   return unit ? (unit + ' ' + addr).trim() : addr;
 }
 
