@@ -15,7 +15,7 @@ import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, markWorklistDone, planAdvance } from '../worklist.js';
+import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -282,8 +282,10 @@ async function fetchAddress(lat, lng, force){
     if(a && p && a !== p && a.indexOf(p) === -1 && p.indexOf(a) === -1){
       showAddrConflict(cur2, addr);
       $('locText').textContent = `Location: ${lat}, ${lng} · GPS address differs from plan`;
+      return;   // real conflict — let the installer choose which address is right
     }
-    return;   // agreement (or one containing the other) keeps the planned address
+    // agreement (or one containing the other): fall through so a forced Refresh
+    // replaces the placeholder plan text with the real GPS address.
   }
   if(addr && (force || !cur2)){
     $('addr').value = addr;
@@ -361,7 +363,9 @@ $('logStop').onclick = () => {
   // Complete the matching planned order, then let plan mode load the next one
   // (planAdvance no-ops when plan mode is off). Chained so the done-mark lands
   // before the next order is picked.
-  markWorklistDone(base.workOrderId).then(planAdvance);
+  // Mark the planned order done, advance plan mode, then silently push the whole
+  // list so the sheet copy tracks this log (online-only; offline it no-ops).
+  markWorklistDone(base.workOrderId).then(() => { planAdvance(); syncWorklist(); });
   toast(
     status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
     status==='UTI'        ? 'UTI logged ✓' :

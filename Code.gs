@@ -1043,6 +1043,39 @@ function worklistFor(hNumber) {
   return rows('Worklist').filter(r => String(r.hNumber).trim() === h);
 }
 
+/** Nightly cleanup: remove every completed worklist row across all installers.
+ *  Done orders matter only for the day they're logged, so a nightly time trigger
+ *  runs this to clear them from the sheet (the phone prunes its own done cache on
+ *  load). Bottom-up delete keeps row indexes valid; header-driven so a reordered
+ *  tab is safe. Returns the number of rows removed. Install the trigger once via
+ *  createClearDoneWorklistTrigger(). */
+function clearDoneWorklistJob() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
+  if (!sh) return 0;
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return 0;
+  const statusCol = data[0].indexOf('wlStatus');
+  if (statusCol === -1) return 0;
+  let removed = 0;
+  for (let r = data.length - 1; r >= 1; r--) {
+    if (String(data[r][statusCol]).trim().toLowerCase() === 'done') { sh.deleteRow(r + 1); removed++; }
+  }
+  if (removed) bustRows('Worklist');
+  Logger.log('clearDoneWorklistJob removed %s done worklist rows.', removed);
+  return removed;
+}
+
+/** Run once from the editor to install the nightly done-worklist cleanup
+ *  (~2am Toronto). Replaces any existing trigger for the same handler. */
+function createClearDoneWorklistTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'clearDoneWorklistJob') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('clearDoneWorklistJob')
+    .timeBased().atHour(2).everyDays(1).inTimezone('America/Toronto').create();
+  Logger.log('Nightly clearDoneWorklistJob trigger installed (2am Toronto).');
+}
+
 /** The persisted bookend times for an installer's day, or blanks (also when the
  *  Days tab doesn't exist yet). */
 function dayMeta(installer, date) {
