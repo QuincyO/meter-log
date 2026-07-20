@@ -911,6 +911,24 @@ function renderEod(stops, downtime){
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 
+// Hand the day's close writes (travel deductions + bookends + endOfDay) to the
+// offline queue. All three are idempotent and the queue now drains via flush()
+// regardless of navigator.onLine, so this is the safe fallback whenever an
+// online close can't be confirmed — the Sheet catches up on the next trigger
+// instead of the close being silently dropped. Used by the offline Finish path
+// and by the online path when a live close throws or returns not-ok.
+function queueClose(c, weather){
+  enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
+            allocations: collectGapAllocations(eodGaps) });
+  if($('eodDeparture').value || $('eodReturned').value)
+    enqueue({ token:c.token, action:'saveDay', installer:c.name,
+              departure:$('eodDeparture').value, returned:$('eodReturned').value });
+  enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
+            notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
+            workType:workMode(), weather:weather||'',
+            departure:$('eodDeparture').value, returned:$('eodReturned').value });
+}
+
 $('finishDay').onclick = async () => {
   const c = cfg();
   const btn = $('finishDay');
@@ -921,17 +939,9 @@ $('finishDay').onclick = async () => {
   // close (travel deductions + bookends + endOfDay) so the Sheet catches up when
   // online. The PDF no longer needs a connection.
   if(!navigator.onLine){
-    enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
-              allocations: collectGapAllocations(eodGaps) });
-    if($('eodDeparture').value || $('eodReturned').value)
-      enqueue({ token:c.token, action:'saveDay', installer:c.name,
-                departure:$('eodDeparture').value, returned:$('eodReturned').value });
-    // Queue the close itself (idempotent on date+installer) so the Tracker/Timing
-    // rows get written once the queue drains — weather backfills on the re-send.
-    enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
-              notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
-              workType:workMode(),
-              departure:$('eodDeparture').value, returned:$('eodReturned').value });
+    // Queue the close (idempotent on date+installer) so the Tracker/Timing rows
+    // get written once the queue drains — weather backfills on the re-send.
+    queueClose(c, '');
     try{ await withActivity('Generating PDF…',
       async () => downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, ''))); }catch{}
     closeSheets();
@@ -940,6 +950,7 @@ $('finishDay').onclick = async () => {
   }
 
   btn.classList.add('loading'); btn.disabled = true;
+  let synced = false, weather = '';   // visible to the outer catch so it can fall back too
   try{
     // 1. Get the PDF out instantly. Prefer the high-fidelity summary the review
     // already prefetched (merged-boat travel); if it isn't ready for the current
@@ -964,26 +975,42 @@ $('finishDay').onclick = async () => {
 
     // 2. Finalize the close on the Sheet (the PDF is already delivered). Weather is
     // recorded on the Sheet but intentionally left off the instant PDF.
-    let weather = '';
     const withCoord = (eodData.stops||[]).find(s =>
       s.lat!=null && s.lng!=null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)));
     if (withCoord) weather = await fetchWeather(Number(withCoord.lat), Number(withCoord.lng));
     await flush();
-    // The prefetch already saved these exact allocations when its summary matched;
-    // otherwise write them now so endOfDay tallies the subtracted travel.
-    if(!fromServer)
-      await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
-                      allocations: collectGapAllocations(eodGaps) });
-    await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
-                    notes:$('eodNotes').value.trim(), weather,
-                    includeDelays:$('eodIncludeDelays').checked, workType:workMode(),
-                    departure:$('eodDeparture').value, returned:$('eodReturned').value });
-    // The review reached the Sheet — drop any local pending copy so the next
-    // load reads the authoritative gap rows back.
-    const key = `${c.name}|${localDate()}`;
-    const cc = await idb.get('dayCache', key);
-    if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
-  } catch { toast('Day closed locally — will retry sync'); }
+    // Attempt the close live (instant confirmation + weather); on ANY failure — a
+    // thrown non-JSON/timeout response OR a server {ok:false} — hand the exact
+    // writes to the offline queue, which now drains regardless of navigator.onLine.
+    // The old bare toast promised a retry it never queued, so a flaky phone
+    // response could silently drop the close.
+    try{
+      // The prefetch already saved these allocations when its summary matched;
+      // otherwise write them now so endOfDay tallies the subtracted travel.
+      if(!fromServer){
+        const rt = await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
+                                   allocations: collectGapAllocations(eodGaps) });
+        if(!rt || !rt.ok) throw new Error('saveTravel not ok');
+      }
+      const re = await apiPost({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
+                                 notes:$('eodNotes').value.trim(), weather,
+                                 includeDelays:$('eodIncludeDelays').checked, workType:workMode(),
+                                 departure:$('eodDeparture').value, returned:$('eodReturned').value });
+      if(!re || !re.ok) throw new Error('endOfDay not ok');
+      synced = true;
+    } catch { queueClose(c, weather); }
+    if(synced){
+      // The review reached the Sheet — drop the local pending copy so the next load
+      // reads the authoritative gap rows back. If it didn't sync, keep it: the
+      // queued endOfDay still carries the review and a re-open can re-check.
+      const key = `${c.name}|${localDate()}`;
+      const cc = await idb.get('dayCache', key);
+      if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
+    }
+    if(!synced) toast('Day closed · finishing sync in background');
+  } catch {
+    if(!synced){ queueClose(c, weather); toast('Day closed · finishing sync in background'); }
+  }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 };
 
