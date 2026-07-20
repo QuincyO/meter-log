@@ -166,23 +166,30 @@ function haversine(a, b){
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-// ── open-path TSP solve (multi-start nearest-neighbour + 2-opt) ──────────────
-// D is symmetrized first so a 2-opt segment reversal only changes its two
-// boundary edges (interior edge costs are direction-independent), which is what
-// makes the O(1) delta below exact. Endpoints float free (open path), so the
-// boundary term is simply dropped at the ends of the tour.
+// ── open-path TSP solve (multi-start 2-opt, then 2-opt + Or-opt polish) ──────
+// D is symmetrized first so a 2-opt segment reversal (and an Or-opt relocation)
+// only changes its boundary edges — interior edge costs are direction-independent
+// — which is what makes the O(1) deltas below exact. Endpoints float free (open
+// path), so the boundary term is simply dropped at the ends of the tour.
+//
+// Multi-start nearest-neighbour + 2-opt finds a good basin cheaply; then a single
+// 2-opt + Or-opt polish runs on the winner. Or-opt (relocating a run of 1–3
+// stops) is what kills the "drive out to #2, then backtrack to #3" detours that
+// 2-opt alone — which can only reverse segments, never move a stranded stop —
+// leaves behind. The polish runs once so the O(n²)-per-pass Or-opt stays fast
+// even at ~200 stops.
 function solve(D){
   const n = D.length;
   if(n <= 2) return range(0, n);
   const S = symmetrize(D);
-  const starts = spreadStarts(n, 6);
+  const starts = spreadStarts(n, Math.min(12, n));
   let best = null, bestLen = Infinity;
   for(const s of starts){
-    const tour = twoOpt(nearestNeighbour(S, s), S);
+    const tour = twoOptLoop(nearestNeighbour(S, s), S);
     const len = pathLength(tour, S);
     if(len < bestLen){ bestLen = len; best = tour; }
   }
-  return best;
+  return polish(best, S);
 }
 
 function symmetrize(D){
@@ -211,21 +218,57 @@ function nearestNeighbour(D, start){
   return tour;
 }
 
-function twoOpt(tour, D){
-  const n = tour.length, eps = 1e-6, maxPasses = 60;
-  for(let pass = 0; pass < maxPasses; pass++){
-    let improved = false;
-    for(let i = 0; i < n - 1; i++){
-      const a = i > 0 ? tour[i - 1] : -1;
-      for(let k = i + 1; k < n; k++){
-        const b = tour[i], c = tour[k], d = k < n - 1 ? tour[k + 1] : -1;
-        const removed = (a >= 0 ? D[a][b] : 0) + (d >= 0 ? D[c][d] : 0);
-        const added   = (a >= 0 ? D[a][c] : 0) + (d >= 0 ? D[b][d] : 0);
-        if(removed - added > eps){ reverse(tour, i, k); improved = true; }
-      }
+// One 2-opt pass (reverse the segment [i..k] when it shortens the path); returns
+// whether it improved. Boundary-edge-only delta, valid on a symmetric matrix.
+function twoOptPass(tour, D){
+  const n = tour.length, eps = 1e-6;
+  let improved = false;
+  for(let i = 0; i < n - 1; i++){
+    const a = i > 0 ? tour[i - 1] : -1;
+    for(let k = i + 1; k < n; k++){
+      const b = tour[i], c = tour[k], d = k < n - 1 ? tour[k + 1] : -1;
+      const removed = (a >= 0 ? D[a][b] : 0) + (d >= 0 ? D[c][d] : 0);
+      const added   = (a >= 0 ? D[a][c] : 0) + (d >= 0 ? D[b][d] : 0);
+      if(removed - added > eps){ reverse(tour, i, k); improved = true; }
     }
-    if(!improved) break;
   }
+  return improved;
+}
+function twoOptLoop(tour, D){
+  for(let pass = 0; pass < 60 && twoOptPass(tour, D); pass++);
+  return tour;
+}
+
+// One Or-opt pass: try relocating each run of 1–3 consecutive stops to its best
+// position (either orientation). A relocation is scored by rebuilding the
+// candidate path and comparing total length — simple and obviously correct; the
+// pass is O(n²·L) and runs only in the single polish, so it's cheap in practice.
+// Returns whether anything moved.
+function orOptPass(tour, D){
+  const n = tour.length, eps = 1e-6;
+  let improved = false;
+  for(let L = 1; L <= 3; L++){
+    for(let i = 0; i + L <= n; i++){
+      const seg  = tour.slice(i, i + L);
+      const rest = tour.slice(0, i).concat(tour.slice(i + L));
+      const base = pathLength(tour, D);
+      let bestLen = base, best = null;
+      for(let j = 0; j <= rest.length; j++){
+        for(const s of [seg, seg.slice().reverse()]){
+          const cand = rest.slice(0, j).concat(s, rest.slice(j));
+          const len  = pathLength(cand, D);
+          if(len < bestLen - eps){ bestLen = len; best = cand; }
+        }
+      }
+      if(best){ for(let x = 0; x < n; x++) tour[x] = best[x]; improved = true; }
+    }
+  }
+  return improved;
+}
+// Alternate 2-opt and Or-opt until neither improves (a local optimum for both).
+function polish(tour, D){
+  let go = true;
+  while(go){ go = false; if(twoOptPass(tour, D)) go = true; if(orOptPass(tour, D)) go = true; }
   return tour;
 }
 

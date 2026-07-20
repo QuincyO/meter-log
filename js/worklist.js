@@ -156,12 +156,15 @@ async function optimizeRouteHandler(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const { orderedIds, parkedIds, usedFallback } = await optimizeRoute(pending, updateRouteProgress);
-    // Rewrite order = index × 10 (persistOrder's convention) — located orders in
-    // the optimized sequence, then parked ones trailing at the bottom.
-    const items = (await idb.all('worklist')) || [];
-    const byId = {}; items.forEach(x => { byId[x.id] = x; });
+    // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
+    // the optimized pending sequence, then parked ones, then done ones trailing.
+    // Done orders must be renumbered too — otherwise a done stop keeps its old
+    // order (e.g. 0) and collides with the new first pending stop.
+    const all = await allSorted();
+    const doneIds = all.filter(x => x.wlStatus === 'done').map(x => x.id);
+    const byId = {}; all.forEach(x => { byId[x.id] = x; });
     let i = 0;
-    for(const id of [...orderedIds, ...parkedIds]){
+    for(const id of [...orderedIds, ...parkedIds, ...doneIds]){
       const item = byId[id];
       if(!item) continue;
       const order = (i++) * 10;
