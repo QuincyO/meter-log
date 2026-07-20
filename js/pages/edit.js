@@ -123,7 +123,16 @@ async function loadDay(){
     renderStops();
     renderRemoved();
     $('daySection').classList.remove('hide');
-  } catch(e){ setStatus('off','Offline'); toast('Couldn’t load that day'); }
+  } catch(e){
+    // Surface the real cause instead of a generic "offline": the status pill
+    // keeps the text so it can be read on a phone (no console needed), and we log
+    // the full error for a desktop console. Distinguishes a network failure
+    // ("Failed to fetch"/"Load failed") from a server or rendering error.
+    const msg = (e && e.message) ? e.message : String(e);
+    setStatus('off', 'Load error: ' + msg);
+    toast('Couldn’t load that day — ' + msg);
+    console.error('[loadDay] failed for', state.installer, state.date, e);
+  }
 }
 $('loadBtn').onclick = loadDay;
 
