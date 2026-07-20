@@ -11,4 +11,4 @@ export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 // free key at openrouteservice.org ▸ Dashboard ▸ create token, and paste it here.
 // Same documented tradeoff as SHARED_TOKEN: it sits in client source on a
 // public-capable GitHub Pages site, mitigated by keeping the repo private.
-export const ORS_API_KEY  = '';
+export const ORS_API_KEY  = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYxNDdkYzE3ZmFjYzQ5Yzk5ZGVhNjI1OTA4ZjUzZTc3IiwiaCI6Im11cm11cjY0In0=';
