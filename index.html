@@ -188,8 +188,12 @@
       <button class="wl-back" id="wlBack" type="button" aria-label="Back to capture">‹ Back</button>
       <h2>Worklist</h2>
     </div>
-    <p class="muted" style="margin:2px 2px 10px">Planned orders, saved on this device — works offline. Drag ⠿ to reorder.</p>
+    <p class="muted" style="margin:2px 2px 10px">Planned orders, saved on this device — works offline. Drag ⠿ to reorder. Upload/Download moves the list between your devices via the sheet.</p>
     <button class="ghost" id="wlPlanToggle" type="button" style="width:100%">Plan mode: off</button>
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <button class="ghost" id="wlUpload" type="button" style="flex:1">⇪ Upload list</button>
+      <button class="ghost" id="wlDownload" type="button" style="flex:1">⇩ Download list</button>
+    </div>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
     <div class="hide" id="wlForm">
       <label for="wlWo">Work order #</label><input id="wlWo" class="mono" inputmode="numeric">

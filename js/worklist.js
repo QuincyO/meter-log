@@ -9,10 +9,11 @@
 // stop advances to the next one. The capture page hands us `fillCapture(item)`
 // via initWorklist() — this module never touches the form fields directly, so
 // the two stay decoupled.
-import { $, esc, toast } from './dom.js';
+import { $, enc, esc, toast } from './dom.js';
 import { idb } from './idb.js';
-import { store } from './store.js';
+import { store, cfg } from './store.js';
 import { stamp } from './time.js';
+import { apiGet, apiPost } from './api.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -38,6 +39,73 @@ function splitAddr(address){
 }
 function joinAddr(num, street){
   return [String(num||'').trim(), String(street||'').trim()].filter(Boolean).join(' ');
+}
+
+// ── directions (per-card 🧭 button) ─────────────────────────────────────────
+// iOS (incl. iPadOS masquerading as MacIntel) → Apple Maps; everything else →
+// the Google Maps universal dir link (Android hands it to the Maps app). The
+// ", ON" hint keeps terse street/landmark addresses geocoding in-province —
+// no city bias, since the crew ranges well beyond any one town.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function directionsUrl(address){
+  const dest = enc(String(address).trim() + ', ON');
+  return IS_IOS ? `https://maps.apple.com/?daddr=${dest}`
+                : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+}
+
+// ── manual sheet sync (Upload / Download buttons) ───────────────────────────
+// Deliberately direct API calls, never the offline queue: these are explicit
+// user actions that should fail loudly with a toast when there's no signal —
+// nothing is retried behind the installer's back. The sheet's Worklist tab is
+// a transfer/backup copy keyed on installer name; IndexedDB stays the working
+// copy. Both directions are whole-list replaces.
+function wireShape(x){
+  return { id:x.id, workOrderId:x.workOrderId||'', unit:x.unit||'',
+    address:x.address||'', oldJNumber:x.oldJNumber||'',
+    wlStatus:x.wlStatus||'pending', order:x.order,
+    createdAt:x.createdAt||'', updatedAt:x.updatedAt||'' };
+}
+
+async function wlUpload(){
+  const c = cfg();
+  if(!c.name){ toast('Set your name in Settings first'); return; }
+  if(!navigator.onLine){ toast('Offline — upload needs signal'); return; }
+  const items = await allSorted();
+  if(!items.length && !confirm('Your local worklist is empty — uploading will clear your saved copy on the sheet. Continue?')) return;
+  try {
+    const r = await apiPost({ action:'saveWorklist', installer:c.name,
+      hNumber:c.hNumber, orders: items.map(wireShape) });
+    toast(r && r.ok ? `Uploaded ${r.count} orders ✓`
+                    : 'Upload failed — ' + ((r && r.error) || 'try again'));
+  } catch { toast('Upload failed — check signal'); }
+}
+
+async function wlDownload(){
+  const c = cfg();
+  if(!c.name){ toast('Set your name in Settings first'); return; }
+  if(!navigator.onLine){ toast('Offline — download needs signal'); return; }
+  const local = await allSorted();
+  if(local.length && !confirm(`Replace the ${local.length} orders on this phone with your saved copy from the sheet?`)) return;
+  try {
+    const r = await apiGet('worklist', { installer: c.name });
+    if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
+    for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
+    // Normalize each sheet row back to the exact local record shape (drop the
+    // sheet-only installer/hNumber columns, re-type order + wlStatus) so
+    // sorting, plan mode, and markWorklistDone keep working after a round trip.
+    for(const o of r.orders || []){
+      await idb.put('worklist', {
+        id:String(o.id), workOrderId:String(o.workOrderId||''), unit:String(o.unit||''),
+        address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
+        wlStatus: o.wlStatus === 'done' ? 'done' : 'pending',
+        order: (o.order === '' || o.order == null) ? null : Number(o.order),
+        createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||'') });
+    }
+    toast(`Downloaded ${(r.orders || []).length} orders ✓`);
+    await renderWorklist();
+    await planAdvance();   // the first pending order may have changed
+  } catch { toast('Download failed — check signal'); }
 }
 
 // ── screen open/close (pushState so hardware/browser back works) ────────────
@@ -88,9 +156,14 @@ function makeWlCard(item){
     </div>
     <div class="wl-actions">
       ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
+      ${item.address ? '<button class="wl-map" data-act="map" type="button" aria-label="Directions">🧭</button>' : ''}
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
     </div>`;
+  // Directions hands the address to the OS maps app in a new context — never
+  // navigate the PWA itself away mid-shift. Shown on done cards too (revisits).
+  const mapBtn = card.querySelector('[data-act="map"]');
+  if(mapBtn) mapBtn.onclick = () => window.open(directionsUrl(item.address), '_blank');
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
   card.querySelector('[data-act="del"]').onclick = async () => {
     await idb.del('worklist', item.id);
@@ -318,6 +391,8 @@ async function planSkip(){
 export function initWorklist(opts){
   fillCapture = (opts && opts.fillCapture) || fillCapture;
   $('wlBack').onclick = closeWorklist;
+  $('wlUpload').onclick = wlUpload;
+  $('wlDownload').onclick = wlDownload;
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);
