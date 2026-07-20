@@ -6,6 +6,7 @@
 import { idb } from './idb.js';
 import { cfg } from './store.js';
 import { apiGet } from './api.js';
+import { withActivity } from './dom.js';
 import { stamp, localDate, localDateOffset } from './time.js';
 
 // An empty day copy, seeded when logging before any server pull exists.
@@ -124,7 +125,8 @@ export async function cacheRecentDays(days = 7){
   let res;
   // installerId lets the spine attach boatMeta (team header + whole-boat dispatch)
   // per day, so a recent-days pull seeds the offline daily-log cache too.
-  try { res = await apiGet('range', { installer:c.name, installerId:c.hNumber, from, to }); }
+  try { res = await withActivity('Loading recent days…',
+    () => apiGet('range', { installer:c.name, installerId:c.hNumber, from, to })); }
   catch { return; }
   if(!res || !res.ok || !Array.isArray(res.days)) return;
   for(const d of res.days){

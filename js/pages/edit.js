@@ -417,7 +417,7 @@ async function persistEdits(){
 // save/preview can't reach the Sheet. Use "Close day" to finalize.
 $('genLog').onclick = async () => {
   if(!state.installer){ toast('Load a day first'); return; }
-  setStatus('wait','Generating…');
+  setStatus('wait','Generating PDF…');
   try{
     let summary = null;
     try{
