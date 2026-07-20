@@ -36,6 +36,8 @@
            font-size:20px;cursor:grab;touch-action:none;padding:0}
 .wl-card.dragging{position:relative;box-shadow:0 8px 24px rgba(19,23,28,.25);border-color:var(--accent)}
 .wl-done-card{opacity:.55}
+.wl-counts{font-weight:800;font-size:15px;color:var(--ink);margin:14px 2px 0}
+.wl-counts:empty{margin:0}
 .wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wl-actions{display:flex;gap:8px;flex-wrap:wrap;flex:none}
 /* recent-street chips */

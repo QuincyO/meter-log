@@ -12,7 +12,7 @@
 import { $, enc, esc, toast } from './dom.js';
 import { idb } from './idb.js';
 import { store, cfg } from './store.js';
-import { stamp } from './time.js';
+import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
@@ -29,6 +29,19 @@ function sortItems(items){
   });
 }
 async function allSorted(){ return sortItems((await idb.all('worklist')) || []); }
+
+// Done orders matter only for the day they're logged. On startup drop any done
+// item completed before today (updatedAt is a Toronto-local "YYYY-MM-DD HH:MM:SS"
+// stamp, so its date prefix is lexically comparable with localDate()). Today's
+// done stay so the header completed count is meaningful during the day; the
+// nightly Code.gs clearDoneWorklistJob clears the sheet copy.
+async function pruneDoneWorklist(){
+  const today = localDate();
+  for(const x of (await idb.all('worklist')) || []){
+    if(x && x.wlStatus === 'done' && String(x.updatedAt||'').slice(0,10) < today)
+      await idb.del('worklist', x.id);
+  }
+}
 
 // ── address split (copy-street + chips) ─────────────────────────────────────
 // "6740 Svorn River Shore" → { num:'6740', street:'Svorn River Shore' }.
@@ -80,6 +93,22 @@ async function wlUpload(){
     toast(r && r.ok ? `Uploaded ${r.count} orders ✓`
                     : 'Upload failed — ' + ((r && r.error) || 'try again'));
   } catch { toast('Upload failed — check signal'); }
+}
+
+// Silent best-effort whole-list push after every log, so the sheet copy tracks
+// the phone without the installer tapping ⇪ Upload. Online-only, no toast/confirm;
+// offline it no-ops (the phone stays the working copy). Never rides the offline
+// queue. Skips an empty list so installers who don't plan never clear their sheet
+// copy on a log.
+export async function syncWorklist(){
+  const c = cfg();
+  if(!c.hNumber || !navigator.onLine) return;
+  const items = await allSorted();
+  if(!items.length) return;
+  try {
+    await apiPost({ action:'saveWorklist', installer:c.name,
+      hNumber:c.hNumber, orders: items.map(wireShape) });
+  } catch { /* best-effort — the manual ⇪ Upload is the loud fallback */ }
 }
 
 async function wlDownload(){
@@ -136,6 +165,9 @@ export async function renderWorklist(){
   const items = await allSorted();
   const pending = items.filter(x => x.wlStatus !== 'done');
   const done    = items.filter(x => x.wlStatus === 'done');
+  const counts = $('wlCounts');
+  if(counts) counts.textContent = items.length
+    ? `${pending.length} remaining · ${done.length} completed` : '';
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
   [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
@@ -405,6 +437,8 @@ export function initWorklist(opts){
   };
   $('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
   $('wlFormSave').onclick = wlSave;
-  if(location.hash === '#worklist') openWorklist();
-  planAdvance();
+  pruneDoneWorklist().then(() => {
+    if(location.hash === '#worklist') openWorklist();
+    planAdvance();
+  });
 }
