@@ -148,6 +148,15 @@ const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completed
 // hourly avgDispatchTimeJob trigger (and any editor run). Room for more later.
 const METRICS_HEADERS = ['metric','value','updated'];
 
+// One row per planned worklist order, keyed per installer (display name — the
+// same sameName filter key as Stops; hNumber rides along). A flat copy of the
+// phone's IndexedDB worklist record, written only by the explicit Upload button
+// and read only by Download — the sheet copy is a transfer/backup medium, the
+// phone's IndexedDB stays the working copy. `order` is the manual sort position,
+// wlStatus 'pending'|'done', timestamps naive Toronto strings.
+const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
+  'oldJNumber','wlStatus','order','createdAt','updatedAt'];
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -174,6 +183,7 @@ function setupSheets() {
   ensureTab(ss, 'BoatDays', BOATDAYS_HEADERS);
   ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
   ensureTab(ss, 'Metrics', METRICS_HEADERS);
+  ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).
@@ -185,6 +195,7 @@ function setupSheets() {
   ss.getSheetByName('Stops').getRange('B2:B').setNumberFormat('@');     // timestamp
   ss.getSheetByName('StopsArchive').getRange('B2:B').setNumberFormat('@'); // timestamp
   ss.getSheetByName('Downtime').getRange('B2:B').setNumberFormat('@');  // timestamp
+  ss.getSheetByName('Worklist').getRange('J2:K').setNumberFormat('@');  // createdAt, updatedAt
 }
 
 function ensureTab(ss, name, headers) {
@@ -240,6 +251,7 @@ function doPost(e) {
       case 'endOfDay':       return json(endOfDay(body));
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
+      case 'saveWorklist':   return json(saveWorklist(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
@@ -294,6 +306,10 @@ function doGet(e) {
     // One installer's removed (archived) stops for a date — edit.html's
     // "Removed stops" list, so a removal can be inspected and restored.
     return json({ ok: true, stops: archivedFor(p.installer, p.date || today()) });
+  }
+  if (p.action === 'worklist') {
+    // One installer's saved planned orders — the worklist Download button.
+    return json({ ok: true, orders: worklistFor(p.installer) });
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
@@ -979,6 +995,45 @@ function saveDay(b) {
   upsertDayRow('Days', date, installer,
     [date, installer, b.departure || '', b.returned || '']);
   return { ok: true };
+}
+
+/** Whole-list replace of one installer's Worklist rows — the planning page's
+ *  explicit Upload button (manual only, never automatic). Delete-then-append
+ *  (the saveTravel pattern) so a re-upload or double-tap never duplicates. An
+ *  empty orders array is a valid upload — it clears the installer's saved copy. */
+function saveWorklist(b) {
+  const installer = String(b.installer || '').trim();
+  if (!installer) return { ok: false, error: 'installer required' };
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
+  if (!sh) return { ok: false, error: 'Worklist tab missing — run setupSheets()' };
+
+  // Drop this installer's existing rows, bottom-up so indexes stay valid.
+  const data = sh.getDataRange().getValues();
+  const iCol = data[0].indexOf('installer');
+  for (let r = data.length - 1; r >= 1; r--) {
+    if (sameName(data[r][iCol], installer)) sh.deleteRow(r + 1);
+  }
+  bustRows('Worklist');
+
+  const orders = (b.orders || []).filter(o => o && o.id);
+  if (orders.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, orders.length, WORKLIST_HEADERS.length).setValues(
+      orders.map(o => [ String(o.id), installer, b.hNumber || '',
+        o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
+        o.wlStatus === 'done' ? 'done' : 'pending',
+        o.order == null ? '' : Number(o.order),
+        o.createdAt || '', o.updatedAt || '' ]));
+    bustRows('Worklist');
+  }
+  return { ok: true, count: orders.length };
+}
+
+/** One installer's saved planned orders — the Download side of the manual
+ *  worklist sync. Tolerates a not-yet-created tab (code can ship before
+ *  setupSheets() runs) by returning an empty list. */
+function worklistFor(installer) {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist')) return [];
+  return rows('Worklist').filter(r => sameName(r.installer, installer));
 }
 
 /** The persisted bookend times for an installer's day, or blanks (also when the

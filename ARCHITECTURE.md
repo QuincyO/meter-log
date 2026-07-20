@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, thirteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`. This is the truth.
+One spreadsheet, fourteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `Worklist`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -126,6 +126,10 @@ writing a Tracker row or requiring departure/return — the phone renders the PD
 from it; the real `endOfDay` later fills the blanks),
 `saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
 `saveDay`,
+`saveWorklist` (whole-list replace of one installer's saved `Worklist` rows —
+the planning page's explicit **Upload** button; delete-then-append keyed on
+installer name, so a re-upload never duplicates and an empty upload clears the
+saved copy),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
@@ -152,7 +156,9 @@ meter to its completed install — see "Avg dispatch time"), `roster`
 already saved — plus a pre-filled `DISPATCH` deduction on a requested install's
 gap — for the end-of-day subtraction step — see "Travel vs delay" and "Dispatch
 downtime"), `archived` (one installer's removed stops for a date — edit.html's
-"Removed stops" list, so a removal can be inspected and restored).
+"Removed stops" list, so a removal can be inspected and restored), `worklist`
+(one installer's saved `Worklist` planned orders — the planning page's explicit
+**Download** button, which replaces the phone's local list with them).
 
 ---
 
@@ -190,10 +196,15 @@ database, `meterlog`, with **four** object stores:
   needed; see "Daily-log PDF"); when online the authoritative `idle` overrides the
   local gaps.
 - **`worklist`** (keyPath `id`) — the installer's locally-built **planned
-  orders** (a personal to-do list, never sent to the Sheet). Add / edit / delete
-  all run against IndexedDB, so the list is fully editable offline. An order is
-  marked done when its work order is **actually logged** (matched by WO#), not
-  at prefill time.
+  orders** (a personal to-do list). Add / edit / delete all run against
+  IndexedDB, so the list is fully editable offline. An order is marked done when
+  its work order is **actually logged** (matched by WO#), not at prefill time.
+  The list can be moved between devices via the sheet's `Worklist` tab, but only
+  through the screen's explicit **Upload** / **Download** buttons — manual,
+  whole-list replaces in both directions (`saveWorklist` / `?action=worklist`),
+  called directly (never through the offline queue: with no signal they toast
+  and do nothing). The sheet copy is a transfer/backup medium; IndexedDB stays
+  the working copy.
 - **`addrCache`** (key = the coordinate rounded to ~11 m, e.g. `"44.9612,-79.9881"`)
   — a coord→address cache so reverse-geocoding works offline. See "Offline
   geocoding" below.
@@ -360,7 +371,13 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (`js/worklist.js`; the old popup is gone) for both modes: orders hold WO# /
   Address / Old J#, drag the ⠿ handle to reorder (persisted as an `order` field
   on the existing IndexedDB `worklist` items), recent-street chips +
-  copy-street-forward cut repeat typing on same-street runs. **Plan mode**
+  copy-street-forward cut repeat typing on same-street runs. Each card with an
+  address gets a 🧭 **Directions** button — it opens the OS maps app in a new
+  context (Apple Maps on iOS, the Google Maps universal dir link elsewhere) on
+  the address plus an `", ON"` region hint; no coordinates are involved, orders
+  only carry free text. The explicit **⇪ Upload / ⇩ Download** buttons move the
+  list between devices via the sheet's `Worklist` tab (see "Client-side
+  storage" and the `Worklist` row shape). **Plan mode**
   (`localStorage['planMode']`, toggled on the worklist screen) feeds the capture
   form: the first pending order pre-fills it, each logged stop advances to the
   next, Skip sends the current order to the back of the queue. If the planned
@@ -643,6 +660,28 @@ A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
 | `metric`  | string        | the key, e.g. `avgDispatchTime`                      |
 | `value`   | number/string | the stored value (`''` when not yet computable)      |
 | `updated` | string        | Toronto-local timestamp of the last refresh          |
+
+### Worklist row  (one per planned order → tab "Worklist")
+A flat copy of one phone's IndexedDB `worklist` record, keyed per installer
+(display name — the same `sameName` filter key as `Stops`). Written **only** by
+the planning screen's explicit Upload (`saveWorklist`, a delete-then-append
+whole-list replace of that installer's rows) and read only by Download
+(`?action=worklist`) — never touched automatically, so the sheet copy is a
+transfer/backup medium and the phone's IndexedDB stays the working copy. An
+empty upload clears the installer's saved rows.
+| field         | type   | notes                                                        |
+|---------------|--------|--------------------------------------------------------------|
+| `id`          | string | the client-generated order id (preserved across the round trip) |
+| `installer`   | string | display name — the per-installer key                         |
+| `hNumber`     | string | the uploader's employee number (attribution only)            |
+| `workOrderId` | string | WO#                                                          |
+| `unit`        | string | legacy popup-era field, round-tripped so it's never dropped  |
+| `address`     | string | free-text `"num street"` / landmark                          |
+| `oldJNumber`  | string | optional old J#                                              |
+| `wlStatus`    | string | `'pending'` \| `'done'`                                      |
+| `order`       | number | manual sort position (`''` for legacy unordered items)       |
+| `createdAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
+| `updatedAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
 
 ---
 
