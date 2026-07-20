@@ -61,6 +61,9 @@ input:focus,select:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1p
 .rrow .rname{font-weight:700}
 .rrow .rnums{display:block;color:var(--ink-soft);font-size:13px;margin-top:2px}
 .rrow .btn{height:38px;min-height:0;padding:0 13px;font-size:14px;border-radius:10px;flex:none}
+/* crew member with nothing logged that day */
+.rrow.nolog .rname{color:var(--ink-soft);font-weight:600}
+.rrow .rnolog{color:var(--ink-soft);font-size:13px;font-style:italic;flex:none}
 
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
    background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;

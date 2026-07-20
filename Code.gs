@@ -1237,6 +1237,7 @@ function teamsList() {
     boatName:      String(r.boatName == null ? '' : r.boatName).trim(),
     captainName:   String(r.captainName == null ? '' : r.captainName).trim(),
     subName:       String(r.subName == null ? '' : r.subName).trim(),
+    type:          normWorkType(r.type),
     memberLetters: normalizeLetters(parseMemberLetters(
       (r.memberLetters != null && r.memberLetters !== '') ? r.memberLetters : r.memberHs
     ))

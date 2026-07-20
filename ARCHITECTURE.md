@@ -31,15 +31,19 @@ It is not Claude and not the form. Everything reads from or writes to it.
   **arrival time**, via `updateStop`'s `arrivalTime`), set the day's **Departure /
   Returned** bookends (persisted to the `Days` tab via `saveDay`), then **generate
   the daily-log PDF** — which closes the day idempotently (`endOfDay`).
-- The **reports page** (`reports.html`) — pick a date and see every installer
-  who logged that day **grouped under their sub foreman** (team `subName` first,
-  else the installer's own `Employees.subName` pick, else "No sub foreman"),
-  with the day's core tallies (installed / UTI / delay minutes), a closed/open
-  badge (closed = a Tracker row exists), and a **quick "Close day"** button that
+- The **reports page** (`reports.html`) — pick a **sub foreman**, then a date,
+  and see that sub's **whole current crew** for the day (an installer's sub =
+  their team's `subName` first, else their own `Employees.subName` pick; a
+  "No sub foreman" option covers the unassigned). Members who logged show the
+  day's core tallies (installed / UTI / delay minutes), a closed/open badge
+  (closed = a Tracker row exists), and a **quick "Close day"** button that
   fires a minimal idempotent `endOfDay` — no travel review; the full review +
-  re-close still lives in `edit.html`. Closed rows read the Tracker row; open
-  rows are tallied live from `pins` + the windowed `downtime` read. Linked from
-  the nav of the three backend pages only, not from the capture page.
+  re-close still lives in `edit.html`. Members with nothing that day show a
+  muted "No logs" line (note: `Teams` is current-state only, so a past date
+  lists today's crew makeup). Closed rows read the Tracker row; open rows are
+  tallied live from `pins` + the windowed `downtime` read — the whole day is
+  fetched once per date; switching subs only re-renders. Linked from the nav
+  of the three backend pages only, not from the capture page.
 - All five are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
 
@@ -587,7 +591,7 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 | `captainName`   | string      | the captain's first name (free text, no H#)         |
 | `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
 | `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
-| `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank |
+| `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank. `teamsList()` projects it (normalized via `normWorkType`) so the `roster` read carries it — teams.html's boat/land mode filter depends on that |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their
 `installerId` (H number). The spine finds their boat row, reads `memberLetters`,
