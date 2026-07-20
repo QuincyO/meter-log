@@ -477,6 +477,7 @@ $('viewSel').onchange = e => {
   if(e.target.value==='teams'){ window.location.href = 'teams.html'; return; }
   if(e.target.value==='edit'){ window.location.href = 'edit.html'; return; }
   if(e.target.value==='reports'){ window.location.href = 'reports.html'; return; }
+  if(e.target.value==='help'){ window.location.href = 'help.html'; return; }
   const mapOn = e.target.value==='map';
   $('mapView').classList.toggle('on', mapOn);
   $('analytics').classList.toggle('on', !mapOn);

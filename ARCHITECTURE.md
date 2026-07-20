@@ -44,7 +44,13 @@ It is not Claude and not the form. Everything reads from or writes to it.
   tallied live from `pins` + the windowed `downtime` read — the whole day is
   fetched once per date; switching subs only re-renders. Linked from the nav
   of the three backend pages only, not from the capture page.
-- All five are static files hosted on GitHub Pages. They never store the data
+- The **help page** (`help.html`) — renders `USER-GUIDE.md` (the single copy of
+  the end-user instructions, also readable on GitHub) via a tiny markdown-subset
+  renderer in `js/pages/help.js`; both files are in the service-worker shell, so
+  it opens offline. Linked from the capture page's ☰ menu ("❓ Help") and the
+  backend pages' nav dropdown. Keep the guide inside the renderer's subset
+  (`#`–`###` headings, paragraphs, `-`/`1.` lists, `---`, `**bold**`, `` `code` ``).
+- All six are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
 
 > The earlier iPhone Shortcuts capture path has been **dropped.** The work phone
