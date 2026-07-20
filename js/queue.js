@@ -43,9 +43,15 @@ export async function migrateLegacyQueue(){
 // explicit awaits, which fire near-simultaneously when signal returns. Without this,
 // two concurrent runs each take their own queue snapshot and re-send/lose items.
 let flushing = false;
+// Whether the last flush attempt failed at the network layer. This — not the
+// unreliable navigator.onLine — drives the "offline" pill: some mobile browsers
+// leave navigator.onLine stuck at a false `false` after a WiFi sleep/wake, which
+// used to wedge the whole queue. We now always attempt the send and let the real
+// fetch outcome decide.
+let lastFlushFailed = false;
 export async function flush(){
   if(flushing) return;
-  const c = cfg(); if(!c.url || !navigator.onLine) { paint(); return; }
+  const c = cfg(); if(!c.url) { paint(); return; }
   flushing = true;
   try{
     while(true){
@@ -57,7 +63,7 @@ export async function flush(){
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
                                     body: JSON.stringify(body) });   // text/plain dodges CORS preflight
-      } catch { break; }            // genuine network failure — keep the whole queue for next trigger
+      } catch { lastFlushFailed = true; break; }   // genuine network failure — keep the whole queue for next trigger
       let respBody = null;
       try { respBody = await resp.json(); } catch {}
       // Only a real 2xx with a recognized result counts as delivered. An HTTP error
@@ -67,6 +73,7 @@ export async function flush(){
       // (where we never saw the response) won't duplicate.
       const delivered = resp.ok && respBody && (respBody.ok || respBody.duplicate || respBody.flagged);
       if(!delivered) break;
+      lastFlushFailed = false;        // a real send got through — we're reaching the server
       await idb.del('queue', _seq);   // remove the head only on a genuine success
       reconcileCache(respBody, body);          // swap temp ids, mirror dispatch side-effect
       if(_hooks.onResult) _hooks.onResult(respBody, body);
@@ -85,7 +92,10 @@ export async function paint(){
   // lived and reverts on its own) and shows online OR offline — local work like
   // PDF generation is worth surfacing even with no signal.
   if(act){ p.classList.add('busy'); t.textContent = act; return; }
-  if(!navigator.onLine){ p.classList.add('off'); t.textContent = n ? n+' waiting — offline' : 'Offline'; }
+  // Drive the pill off the real last-flush outcome, not navigator.onLine (which
+  // some phones leave stuck false while actually connected). Only claim offline
+  // when there's pending work AND the last send attempt genuinely failed.
+  if(n && lastFlushFailed){ p.classList.add('off'); t.textContent = n+' waiting — offline'; }
   else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
   else t.textContent = 'All synced';
 }

@@ -6,6 +6,18 @@
 import { cfg } from './store.js';
 import { enc } from './dom.js';
 
+// Fetch once, retry a single time on a network-layer throw. Mobile browsers
+// routinely drop the first fetch right after a WiFi sleep/wake (the same event
+// that leaves navigator.onLine stuck false) — one retry turns that transient
+// into a successful load instead of a "Couldn't load" toast. A real offline
+// still fails on the retry and throws, so callers' catch handling is unchanged.
+// Reads are idempotent; queued writes carry client ids, so a retried POST can't
+// duplicate.
+async function fetchRetry(url, opts){
+  try { return await fetch(url, opts); }
+  catch { return await fetch(url, opts); }
+}
+
 // GET ?token=…&action=…&<params>. `params` values are URL-encoded.
 export async function apiGet(action, params = {}){
   const c = cfg();
@@ -14,13 +26,13 @@ export async function apiGet(action, params = {}){
     const v = params[k];
     if(v !== undefined && v !== null) u += `&${k}=${enc(v)}`;
   }
-  return (await fetch(u)).json();
+  return (await fetchRetry(u)).json();
 }
 
 // POST {token, ...body}. text/plain dodges the CORS preflight.
 export async function apiPost(body){
   const c = cfg();
-  const resp = await fetch(c.url, {
+  const resp = await fetchRetry(c.url, {
     method:'POST', headers:{'Content-Type':'text/plain'},
     body: JSON.stringify(Object.assign({ token:c.token }, body))
   });
