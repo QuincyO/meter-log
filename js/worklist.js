@@ -171,6 +171,7 @@ export async function renderWorklist(){
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
   [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
+  renumberCards(list);
 }
 
 function makeWlCard(item){
@@ -182,7 +183,7 @@ function makeWlCard(item){
   const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
   // Cards deliberately show only WO# + address — glanceable while driving a route.
   card.innerHTML = `
-    ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button>' : ''}
+    ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>' : ''}
     <div class="wl-main">
       <strong>${title}</strong>${doneTag}
       ${addr ? `<div class="wl-body">${addr}</div>` : ''}
@@ -217,35 +218,43 @@ function makeWlCard(item){
 }
 
 // ── drag-to-reorder (pointer events on the ⠿ handle; no library) ────────────
-// While dragging, the card follows the pointer and swaps places with whichever
-// pending card the pointer is over; on release the DOM order is persisted as
-// order = index × 10. Done cards sit below and are never drop targets.
+// The card tracks the finger via a translateY transform; its slot is chosen by
+// comparing the pointer against each pending sibling's vertical midpoint, so the
+// swap only flips once the finger crosses a neighbour's centre (natural
+// hysteresis — no thrash). Each DOM move is FLIP-corrected (re-anchor startY by
+// the layout shift) so the card stays glued to the finger while the rest reflow.
+// On release the DOM order is persisted as order = index × 10. Done cards sit
+// below and are never drop targets.
 function wireDrag(handle, card){
   handle.addEventListener('pointerdown', e => {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
+    const list = card.parentNode;
     card.classList.add('dragging');
-    let anchorY = e.clientY;   // pointer Y when the card last sat in a slot
+    let startY = e.clientY;   // pointer Y that maps to the card's current slot
     let moved = false;
 
     const onMove = ev => {
       moved = true;
-      card.style.transform = `translateY(${ev.clientY - anchorY}px)`;
       card.style.zIndex = 5;
-      // Swap with the pending card under the pointer (elementFromPoint sees the
-      // moved card itself, so hide hit-testing on it for the lookup).
-      card.style.pointerEvents = 'none';
-      const el = document.elementFromPoint(ev.clientX, ev.clientY);
-      card.style.pointerEvents = '';
-      const over = el && el.closest('.wl-card:not(.wl-done-card)');
-      if(over && over !== card && over.parentNode === card.parentNode){
-        const list = card.parentNode;
-        const cards = [...list.children];
-        const from = cards.indexOf(card), to = cards.indexOf(over);
-        list.insertBefore(card, from < to ? over.nextSibling : over);
-        // The card snapped into its new slot — re-anchor so it keeps following.
-        anchorY = ev.clientY;
-        card.style.transform = '';
+      card.style.transform = `translateY(${ev.clientY - startY}px)`;
+      // Pick the slot: insert before the first pending sibling whose midpoint is
+      // below the finger (null → drop at the end).
+      let ref = null;
+      for(const sib of list.querySelectorAll('.wl-card:not(.wl-done-card)')){
+        if(sib === card) continue;
+        const r = sib.getBoundingClientRect();
+        if(ev.clientY < r.top + r.height / 2){ ref = sib; break; }
+      }
+      if(ref !== card && ref !== card.nextElementSibling){
+        // FLIP: the same transform is applied for both reads, so the delta is
+        // pure layout shift — fold it into startY to keep the card under the
+        // finger across the reorder.
+        const before = card.getBoundingClientRect().top;
+        list.insertBefore(card, ref);
+        startY += card.getBoundingClientRect().top - before;
+        card.style.transform = `translateY(${ev.clientY - startY}px)`;
+        renumberCards(list);
       }
     };
     const onUp = async () => {
@@ -260,6 +269,16 @@ function wireDrag(handle, card){
     handle.addEventListener('pointerup', onUp);
     handle.addEventListener('pointercancel', onUp);
   });
+}
+
+// Re-label the pending cards 1..N by their current DOM order (called on render
+// and live on each drag swap). Done cards have no handle and no number.
+function renumberCards(list){
+  let n = 1;
+  for(const c of list.querySelectorAll('.wl-card:not(.wl-done-card)')){
+    const pos = c.querySelector('.wl-pos');
+    if(pos) pos.textContent = n++;
+  }
 }
 
 // Persist the on-screen order of the PENDING cards (done cards keep their spot
