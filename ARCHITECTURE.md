@@ -127,9 +127,9 @@ from it; the real `endOfDay` later fills the blanks),
 `saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
 `saveDay`,
 `saveWorklist` (whole-list replace of one installer's saved `Worklist` rows —
-the planning page's explicit **Upload** button; delete-then-append keyed on
-installer name, so a re-upload never duplicates and an empty upload clears the
-saved copy),
+the planning page's explicit **Upload** button; delete-then-append keyed on the
+employee **H number** (names can collide, H numbers can't), so a re-upload
+never duplicates and an empty upload clears the saved copy),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
@@ -157,8 +157,9 @@ already saved — plus a pre-filled `DISPATCH` deduction on a requested install'
 gap — for the end-of-day subtraction step — see "Travel vs delay" and "Dispatch
 downtime"), `archived` (one installer's removed stops for a date — edit.html's
 "Removed stops" list, so a removal can be inspected and restored), `worklist`
-(one installer's saved `Worklist` planned orders — the planning page's explicit
-**Download** button, which replaces the phone's local list with them).
+(one installer's saved `Worklist` planned orders, matched on the employee
+**H number** — the planning page's explicit **Download** button, which replaces
+the phone's local list with them).
 
 ---
 
@@ -203,7 +204,8 @@ database, `meterlog`, with **four** object stores:
   through the screen's explicit **Upload** / **Download** buttons — manual,
   whole-list replaces in both directions (`saveWorklist` / `?action=worklist`),
   called directly (never through the offline queue: with no signal they toast
-  and do nothing). The sheet copy is a transfer/backup medium; IndexedDB stays
+  and do nothing), keyed on the installer's **H number** so same-name installers
+  can't collide. The sheet copy is a transfer/backup medium; IndexedDB stays
   the working copy.
 - **`addrCache`** (key = the coordinate rounded to ~11 m, e.g. `"44.9612,-79.9881"`)
   — a coord→address cache so reverse-geocoding works offline. See "Offline
@@ -662,18 +664,19 @@ A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
 | `updated` | string        | Toronto-local timestamp of the last refresh          |
 
 ### Worklist row  (one per planned order → tab "Worklist")
-A flat copy of one phone's IndexedDB `worklist` record, keyed per installer
-(display name — the same `sameName` filter key as `Stops`). Written **only** by
-the planning screen's explicit Upload (`saveWorklist`, a delete-then-append
-whole-list replace of that installer's rows) and read only by Download
-(`?action=worklist`) — never touched automatically, so the sheet copy is a
-transfer/backup medium and the phone's IndexedDB stays the working copy. An
-empty upload clears the installer's saved rows.
+A flat copy of one phone's IndexedDB `worklist` record, keyed per installer on
+the employee **H number** (unlike the name-filtered `Stops`/`Tracker` tabs —
+names can collide, H numbers can't). Written **only** by the planning screen's
+explicit Upload (`saveWorklist`, a delete-then-append whole-list replace of
+that H number's rows) and read only by Download (`?action=worklist&hNumber=…`)
+— never touched automatically, so the sheet copy is a transfer/backup medium
+and the phone's IndexedDB stays the working copy. An empty upload clears the
+installer's saved rows.
 | field         | type   | notes                                                        |
 |---------------|--------|--------------------------------------------------------------|
 | `id`          | string | the client-generated order id (preserved across the round trip) |
-| `installer`   | string | display name — the per-installer key                         |
-| `hNumber`     | string | the uploader's employee number (attribution only)            |
+| `installer`   | string | display-name label only, filled from the roster at upload time (falls back to the posted name) — never a match key |
+| `hNumber`     | string | employee number — **the per-installer match key**            |
 | `workOrderId` | string | WO#                                                          |
 | `unit`        | string | legacy popup-era field, round-tripped so it's never dropped  |
 | `address`     | string | free-text `"num street"` / landmark                          |

@@ -58,8 +58,9 @@ function directionsUrl(address){
 // Deliberately direct API calls, never the offline queue: these are explicit
 // user actions that should fail loudly with a toast when there's no signal —
 // nothing is retried behind the installer's back. The sheet's Worklist tab is
-// a transfer/backup copy keyed on installer name; IndexedDB stays the working
-// copy. Both directions are whole-list replaces.
+// a transfer/backup copy keyed on the employee H number (unique, unlike names;
+// the installer name only rides along as a readable label); IndexedDB stays
+// the working copy. Both directions are whole-list replaces.
 function wireShape(x){
   return { id:x.id, workOrderId:x.workOrderId||'', unit:x.unit||'',
     address:x.address||'', oldJNumber:x.oldJNumber||'',
@@ -69,7 +70,7 @@ function wireShape(x){
 
 async function wlUpload(){
   const c = cfg();
-  if(!c.name){ toast('Set your name in Settings first'); return; }
+  if(!c.hNumber){ toast('Set your employee number in Settings first'); return; }
   if(!navigator.onLine){ toast('Offline — upload needs signal'); return; }
   const items = await allSorted();
   if(!items.length && !confirm('Your local worklist is empty — uploading will clear your saved copy on the sheet. Continue?')) return;
@@ -83,12 +84,12 @@ async function wlUpload(){
 
 async function wlDownload(){
   const c = cfg();
-  if(!c.name){ toast('Set your name in Settings first'); return; }
+  if(!c.hNumber){ toast('Set your employee number in Settings first'); return; }
   if(!navigator.onLine){ toast('Offline — download needs signal'); return; }
   const local = await allSorted();
   if(local.length && !confirm(`Replace the ${local.length} orders on this phone with your saved copy from the sheet?`)) return;
   try {
-    const r = await apiGet('worklist', { installer: c.name });
+    const r = await apiGet('worklist', { hNumber: c.hNumber });
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
     // Normalize each sheet row back to the exact local record shape (drop the
