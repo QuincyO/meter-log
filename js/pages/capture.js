@@ -4,7 +4,7 @@
 // orders, and the local worklist. Durable state lives in IndexedDB (queue /
 // dayCache / worklist); see the imported modules.
 import { cfg, store } from '../store.js';
-import { $, enc, esc, attr, toast } from '../dom.js';
+import { $, enc, esc, attr, toast, withActivity } from '../dom.js';
 import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
@@ -755,6 +755,7 @@ function prefetchEodSummary(){
   if(eodSummaryJob && eodSummaryJob.key === key) return eodSummaryJob.promise;  // already building
   const job = { key, promise: (async () => {
     try{
+      await withActivity('Preparing daily log…', async () => {
       await flush();
       await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
                       allocations: collectGapAllocations(eodGaps) });
@@ -763,6 +764,7 @@ function prefetchEodSummary(){
       // Only adopt the result if a newer edit hasn't superseded this build, so a
       // slow stale job can't clobber a fresher summary.
       if(d && d.summary && eodSummaryJob === job) eodServerSummary = { key, summary:d.summary };
+      });
     } catch {/* fall back to cache at submit */}
     finally { if(eodSummaryJob === job) eodSummaryJob = null; }  // only clear if still current
   })() };
@@ -928,7 +930,8 @@ $('finishDay').onclick = async () => {
               notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
               workType:workMode(),
               departure:$('eodDeparture').value, returned:$('eodReturned').value });
-    try{ await downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, '')); }catch{}
+    try{ await withActivity('Generating PDF…',
+      async () => downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, ''))); }catch{}
     closeSheets();
     toast('Day closed offline ✓ · PDF downloaded — will sync when online');
     return;
@@ -941,16 +944,19 @@ $('finishDay').onclick = async () => {
     // edits yet, wait up to 5s; only then fall back to the local cache summary.
     const stateKey = eodStateKey();
     let summary = null;
-    if(eodServerSummary && eodServerSummary.key === stateKey){
-      summary = eodServerSummary.summary;
-    } else {
-      const job = prefetchEodSummary();
-      if(job) await Promise.race([ job, new Promise(r => setTimeout(r, 5000)) ]);
-      if(eodServerSummary && eodServerSummary.key === stateKey) summary = eodServerSummary.summary;
-    }
-    const fromServer = !!summary;
-    if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
-    await downloadDailyLog(summary);
+    const fromServer = await withActivity('Generating PDF…', async () => {
+      if(eodServerSummary && eodServerSummary.key === stateKey){
+        summary = eodServerSummary.summary;
+      } else {
+        const job = prefetchEodSummary();
+        if(job) await Promise.race([ job, new Promise(r => setTimeout(r, 5000)) ]);
+        if(eodServerSummary && eodServerSummary.key === stateKey) summary = eodServerSummary.summary;
+      }
+      const server = !!summary;
+      if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
+      await downloadDailyLog(summary);
+      return server;
+    });
     closeSheets();
     toast('Day closed ✓ · PDF downloaded');
 
@@ -1010,22 +1016,24 @@ $('genLog').onclick = async () => {
   toast('Building daily log…');
   btn.classList.add('loading'); btn.disabled = true;
   try{
-    let summary = null;
-    if(navigator.onLine){
-      await flush();
-      try{
-        const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
-                                  includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
-        summary = d.summary || null;
-      } catch {}
-    }
-    if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
-    if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
-      await downloadDailyLog(summary);
-      toast('Daily log downloaded — draft (day not closed)');
-    } else {
-      toast('No stops logged today yet');
-    }
+    await withActivity('Generating daily log…', async () => {
+      let summary = null;
+      if(navigator.onLine){
+        await flush();
+        try{
+          const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
+                                    includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
+          summary = d.summary || null;
+        } catch {}
+      }
+      if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
+      if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
+        await downloadDailyLog(summary);
+        toast('Daily log downloaded — draft (day not closed)');
+      } else {
+        toast('No stops logged today yet');
+      }
+    });
   } catch { toast('Could not build the daily log'); }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 };

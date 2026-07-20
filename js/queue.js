@@ -6,7 +6,7 @@
 // oldest-first, so q[0] is the head.
 import { idb } from './idb.js';
 import { cfg } from './store.js';
-import { $ } from './dom.js';
+import { $, activeActivity, onActivityChange } from './dom.js';
 import { applyOptimisticCache, reconcileCache } from './daycache.js';
 
 const queueAll = async () => (await idb.all('queue')) || [];
@@ -79,8 +79,16 @@ export async function paint(){
   const p = $('status'), t = $('statusText');
   if(!p || !t) return;                         // a page without the status pill — no-op
   const n = (await queueAll()).length;
-  p.classList.remove('wait','off');
+  const act = activeActivity();                // read after the await so it reflects live state
+  p.classList.remove('wait','off','busy');
+  // A running background job takes precedence over the queue state (it's short-
+  // lived and reverts on its own) and shows online OR offline — local work like
+  // PDF generation is worth surfacing even with no signal.
+  if(act){ p.classList.add('busy'); t.textContent = act; return; }
   if(!navigator.onLine){ p.classList.add('off'); t.textContent = n ? n+' waiting — offline' : 'Offline'; }
   else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
   else t.textContent = 'All synced';
 }
+
+// Repaint the pill whenever an activity starts/ends (registered on load).
+onActivityChange(paint);

@@ -9,6 +9,7 @@
 import { idb } from './idb.js';
 import { cfg } from './store.js';
 import { apiGet } from './api.js';
+import { beginActivity, endActivity } from './dom.js';
 import { stamp, localDateOffset } from './time.js';
 
 // ~11 m resolution — enough to share a cache entry across one meter location.
@@ -31,10 +32,14 @@ export async function resolveAddress(lat, lng, opts = {}){
   const hit = await idb.get('addrCache', key);
   if(hit && hit.address && !opts.force) return hit.address;
   if(navigator.onLine){
+    // Only the network branch flashes "Fetching address…"; a cache hit returned
+    // above, so a resolved spot never lights the pill.
+    const act = beginActivity('Fetching address…');
     try{
       const d = await apiGet('geocode', { lat, lng });
       if(d && d.ok && d.address){ await cacheAddress(lat, lng, d.address); return d.address; }
     } catch {}
+    finally { endActivity(act); }
   }
   return hit && hit.address ? hit.address : null;
 }

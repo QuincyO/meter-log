@@ -9,7 +9,7 @@
 // stop advances to the next one. The capture page hands us `fillCapture(item)`
 // via initWorklist() — this module never touches the form fields directly, so
 // the two stay decoupled.
-import { $, enc, esc, toast } from './dom.js';
+import { $, enc, esc, toast, withActivity } from './dom.js';
 import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
@@ -88,8 +88,8 @@ async function wlUpload(){
   const items = await allSorted();
   if(!items.length && !confirm('Your local worklist is empty — uploading will clear your saved copy on the sheet. Continue?')) return;
   try {
-    const r = await apiPost({ action:'saveWorklist', installer:c.name,
-      hNumber:c.hNumber, orders: items.map(wireShape) });
+    const r = await withActivity('Uploading worklist…', () => apiPost({ action:'saveWorklist',
+      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape) }));
     toast(r && r.ok ? `Uploaded ${r.count} orders ✓`
                     : 'Upload failed — ' + ((r && r.error) || 'try again'));
   } catch { toast('Upload failed — check signal'); }
@@ -106,8 +106,8 @@ export async function syncWorklist(){
   const items = await allSorted();
   if(!items.length) return;
   try {
-    await apiPost({ action:'saveWorklist', installer:c.name,
-      hNumber:c.hNumber, orders: items.map(wireShape) });
+    await withActivity('Syncing worklist…', () => apiPost({ action:'saveWorklist',
+      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape) }));
   } catch { /* best-effort — the manual ⇪ Upload is the loud fallback */ }
 }
 
@@ -118,7 +118,7 @@ async function wlDownload(){
   const local = await allSorted();
   if(local.length && !confirm(`Replace the ${local.length} orders on this phone with your saved copy from the sheet?`)) return;
   try {
-    const r = await apiGet('worklist', { hNumber: c.hNumber });
+    const r = await withActivity('Downloading worklist…', () => apiGet('worklist', { hNumber: c.hNumber }));
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
     // Normalize each sheet row back to the exact local record shape (drop the

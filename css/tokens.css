@@ -26,4 +26,10 @@ body{
 }
 .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
-@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+/* Status pill "busy" state — a background job is running (see js/dom.js activity
+   registry). The dot switches to the work-mode accent and pulses, distinct from
+   the amber .wait ("sending") and red .off ("offline") dots. */
+.pill.busy .dot{background:var(--accent);animation:dotPulse 1s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+
+@media (prefers-reduced-motion:reduce){*{transition:none !important} .pill.busy .dot{animation:none}}
