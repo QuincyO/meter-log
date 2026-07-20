@@ -241,7 +241,7 @@ function fillCapture(item){
         wo: lastPlanFill.workOrderId || '', unit: lastPlanFill.unit || '',
         addr: lastPlanFill.address || '', newJ: lastPlanFill.newJNumber || '',
         installOldJ: lastPlanFill.oldJNumber || '', oldJ: lastPlanFill.oldJNumber || '',
-        nrOldJ: lastPlanFill.oldJNumber || '', stopNotes: lastPlanFill.notes || ''
+        stopNotes: lastPlanFill.notes || ''
       };
       Object.keys(filled).forEach(id => {
         if($(id).value.trim() === String(filled[id]).trim()) $(id).value = '';
@@ -256,7 +256,6 @@ function fillCapture(item){
   $('newJ').value        = item.newJNumber || '';
   $('installOldJ').value = item.oldJNumber || '';
   $('oldJ').value        = item.oldJNumber || '';
-  $('nrOldJ').value      = item.oldJNumber || '';
   $('stopNotes').value   = item.notes || '';
   planAddr = item.address || '';
   lastPlanFill = item;
@@ -313,7 +312,7 @@ $('logStop').onclick = () => {
   // UTI always has a picked reason (the dropdown starts blank on purpose).
   if(status==='INSTALLED' && !$('newJ').value.trim()){ toast('New J# is required'); return; }
   if(status==='UTI' && !$('utiReason').value){ toast('Pick a UTI reason'); return; }
-  if(status==='INSTALLED' && noRead && !$('nrOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
+  if(status==='INSTALLED' && noRead && !$('installOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
   if(addrConflictPending){ toast('Choose which address is right first'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
@@ -333,7 +332,7 @@ $('logStop').onclick = () => {
     const r = $('nrReason').value;
     Object.assign(base, {
       meterRead:null, meterReadReceived:null, newJNumber:$('newJ').value.trim(),
-      oldJNumber:$('nrOldJ').value.trim(),
+      oldJNumber:$('installOldJ').value.trim(),
       noReadReason: r==='Other' ? ('Other: '+$('nrOther').value.trim()) : r,
       utiReason:null });
   } else if(status==='INSTALLED'){
@@ -371,7 +370,7 @@ $('logStop').onclick = () => {
     status==='UTI'        ? 'UTI logged ✓' :
     outStatus==='VISITED' ? 'Visited logged ✓' :
                             'Unaccounted logged ✓');
-  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
+  ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
   $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
   setNoRead(false); setSolar(false); setRequested(false);
   // Manual GPS: don't auto-fetch for the next order. Clear the last fix so it
