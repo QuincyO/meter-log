@@ -313,6 +313,9 @@ $('logStop').onclick = () => {
   if(status==='INSTALLED' && !$('newJ').value.trim()){ toast('New J# is required'); return; }
   if(status==='UTI' && !$('utiReason').value){ toast('Pick a UTI reason'); return; }
   if(status==='INSTALLED' && noRead && !$('installOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
+  // GPS is required on every log — capture the fix at the stop (↻ Refresh) so no
+  // row lands without coordinates.
+  if(coords.lat==null || coords.lng==null){ toast('GPS location is required — tap ↻ Refresh at the stop'); return; }
   if(addrConflictPending){ toast('Choose which address is right first'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
