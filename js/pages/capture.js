@@ -1227,6 +1227,7 @@ document.addEventListener('click', () => { const m=$('navMenu'); if(m) m.classLi
 $('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorklist(); };
 $('navRecent').onclick    = () => { $('navMenu').classList.add('hide'); openRecent(); };
 $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
+$('navHelp').onclick      = () => { window.location.href = 'help.html'; };
 
 $('saveSettings').onclick = () => {
   const c = cfg();

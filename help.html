@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — Help</title>
+<!-- Set the work-mode accent (boat=blue / land=green) before first paint. -->
+<script>try{document.documentElement.dataset.mode=localStorage.getItem('workMode')||'boat'}catch(e){}</script>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/help.css">
+</head>
+<body>
+
+  <div class="bar">
+    <button class="back" id="backBtn" type="button" aria-label="Back">‹ Back</button>
+    <div class="title">Help</div>
+  </div>
+
+  <!-- The guide itself lives in USER-GUIDE.md (one copy, also readable on
+       GitHub); js/pages/help.js fetches and renders it here. Both files are in
+       the service-worker shell, so this page works offline. -->
+  <article id="guide"><p class="muted">Loading the guide…</p></article>
+
+<script type="module" src="js/pages/help.js"></script>
+</body>
+</html>

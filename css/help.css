@@ -1,0 +1,22 @@
+/* Help page — top bar + typography for the rendered USER-GUIDE.md article.
+   Shares tokens.css / base.css with the capture page, so the Boat/Land accent
+   applies here too. */
+
+.bar{display:flex;align-items:center;gap:12px;padding:10px 0 4px;
+   position:sticky;top:0;background:var(--surface);z-index:10}
+.back{min-height:44px;padding:0 14px;border:2px solid var(--line);border-radius:12px;
+   background:var(--panel);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;flex:none}
+.bar .title{font-size:18px;font-weight:800}
+
+/* article typography */
+#guide{padding-bottom:24px}
+#guide h1{font-size:24px;margin:18px 2px 8px;line-height:1.2}
+#guide h2{font-size:19px;margin:26px 2px 6px;line-height:1.25;color:var(--accent)}
+#guide h3{font-size:16px;margin:18px 2px 4px}
+#guide p{margin:8px 2px;color:var(--ink);font-size:15.5px;line-height:1.5}
+#guide ul,#guide ol{margin:8px 2px;padding-left:24px}
+#guide li{margin:6px 0;font-size:15.5px;line-height:1.5}
+#guide hr{border:0;border-top:2px solid var(--line);margin:22px 0}
+#guide code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.92em;
+   background:var(--accent-soft);border-radius:6px;padding:1px 6px;white-space:nowrap}
+#guide .muted{color:var(--ink-soft)}

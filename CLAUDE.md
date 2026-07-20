@@ -14,7 +14,7 @@ The five pages are static HTML. Serve the repo root over HTTP (a `file://` open 
 python -m http.server 8731
 ```
 
-`.claude/launch.json` already defines this as the `static` debug config. Then open `http://localhost:8731/index.html` (the capture form), `/map.html` (read-only map + analytics), `/teams.html` (crew/boat admin), `/edit.html` (back-office editor), or `/reports.html` (pick a sub foreman + date → their crew's daily totals + quick close). Because the pages use ES-module `import`, they must be served over HTTP (not `file://`) even for a quick look.
+`.claude/launch.json` already defines this as the `static` debug config. Then open `http://localhost:8731/index.html` (the capture form), `/map.html` (read-only map + analytics), `/teams.html` (crew/boat admin), `/edit.html` (back-office editor), `/reports.html` (pick a sub foreman + date → their crew's daily totals + quick close), or `/help.html` (the in-app user guide — renders `USER-GUIDE.md` via `js/pages/help.js`'s markdown-subset renderer; keep the guide inside that subset and in sync with UI changes). Because the pages use ES-module `import`, they must be served over HTTP (not `file://`) even for a quick look.
 
 The production deploy is **GitHub Pages serving the repo root** — pushing to `main` publishes. There is nothing to compile, so "deploy" = commit + push.
 
