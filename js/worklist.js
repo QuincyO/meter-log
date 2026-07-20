@@ -228,13 +228,16 @@ function makeWlCard(item){
 function wireDrag(handle, card){
   handle.addEventListener('pointerdown', e => {
     e.preventDefault();
-    handle.setPointerCapture(e.pointerId);
     const list = card.parentNode;
+    const pointerId = e.pointerId;
+    try { handle.setPointerCapture(pointerId); } catch { /* capture is best-effort */ }
     card.classList.add('dragging');
     let startY = e.clientY;   // pointer Y that maps to the card's current slot
     let moved = false;
+    let ended = false;
 
     const onMove = ev => {
+      if(ended) return;
       moved = true;
       card.style.zIndex = 5;
       card.style.transform = `translateY(${ev.clientY - startY}px)`;
@@ -254,20 +257,30 @@ function wireDrag(handle, card){
         list.insertBefore(card, ref);
         startY += card.getBoundingClientRect().top - before;
         card.style.transform = `translateY(${ev.clientY - startY}px)`;
+        // insertBefore re-parents the card, which fires lostpointercapture and
+        // drops the capture — re-acquire so touch move events keep reaching us.
+        try { handle.setPointerCapture(pointerId); } catch { /* best-effort */ }
         renumberCards(list);
       }
     };
-    const onUp = async () => {
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
-      handle.removeEventListener('pointercancel', onUp);
+    // Bound to window, not the handle: the reorder above releases pointer
+    // capture, after which up/move no longer reliably target the handle — but
+    // they always bubble to window, so release is never missed (the "card stuck
+    // highlighted on lift" bug). Idempotent via `ended`.
+    const endDrag = async () => {
+      if(ended) return;
+      ended = true;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+      try { handle.releasePointerCapture(pointerId); } catch { /* already released */ }
       card.classList.remove('dragging');
       card.style.transform = ''; card.style.zIndex = '';
       if(moved) await persistOrder();
     };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
-    handle.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
   });
 }
 
