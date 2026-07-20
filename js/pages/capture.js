@@ -295,8 +295,10 @@ async function fetchAddress(lat, lng, force){
   }
 }
 
+// GPS + address are captured manually only — the installer taps ↻ Refresh once
+// they've actually arrived at the stop. No auto-fetch on load or after a log, so
+// a fix from the previous order can't ride onto the next one.
 $('refreshLoc').onclick = () => getLocation(true);
-getLocation();
 
 // ── log a stop ────────────────────────────────────────────────────────────
 $('logStop').onclick = () => {
@@ -368,7 +370,11 @@ $('logStop').onclick = () => {
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOldJ','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
   $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
   setNoRead(false); setSolar(false); setRequested(false);
-  getLocation();
+  // Manual GPS: don't auto-fetch for the next order. Clear the last fix so it
+  // can't be silently attached to the next stop — the installer taps ↻ Refresh
+  // once they're at the next location.
+  coords = { lat:null, lng:null };
+  $('locText').textContent = 'Location: not captured yet — tap ↻ Refresh at the stop';
 };
 
 // ── mark spot done (GPS only) ───────────────────────────────────────────
