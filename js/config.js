@@ -9,11 +9,12 @@ export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 
 // Google Maps Platform API key (land-mode route optimization — js/route.js:
 // forward geocoding + the Routes API road-distance matrix; nothing else).
-// Create it per DEPLOY.md §"Google Maps Platform key": referrer-restricted to
-// this site, API-restricted to the Geocoding + Routes APIs, geocoding
-// quota-capped at 300 requests/day, and the matrix guarded by the per-device
-// element budget in js/route.js — so it can't bill past the free tiers. Same
-// documented tradeoff as SHARED_TOKEN: it sits in client source on a
-// public-capable GitHub Pages site, mitigated by keeping the repo private +
-// the restrictions above.
+// Create it per DEPLOY.md §"Google Maps Platform key": NO application
+// restriction (the Geocoding web service rejects referrer-restricted keys
+// outright — see DEPLOY.md), API-restricted to the Geocoding + Routes APIs,
+// geocoding quota-capped at 300 requests/day, and the matrix guarded by the
+// per-device element budget in js/route.js — so it can't bill past the free
+// tiers. Same documented tradeoff as SHARED_TOKEN: it sits in client source
+// on a public-capable GitHub Pages site, mitigated by keeping the repo
+// private + the quota caps above.
 export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';

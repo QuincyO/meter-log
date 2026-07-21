@@ -81,8 +81,16 @@ Setup, with the guardrails that keep it at $0:
    API that isn't enabled can't bill.
 4. **APIs & Services ▸ Credentials ▸ Create credentials ▸ API key**, then
    click the new key and restrict it:
-   - **Application restrictions ▸ Websites** — add the GitHub Pages origin
-     (`https://<owner>.github.io/*`) and `http://localhost:8731/*` (local dev).
+   - **Application restrictions — leave on "None".** Counter-intuitive but
+     load-bearing: the Geocoding **web service** endpoint the app calls
+     categorically rejects referrer-restricted keys — every lookup returns
+     `REQUEST_DENIED — API keys with referer restrictions cannot be used with
+     this API`, no matter what referrer is sent — so a Websites restriction
+     bricks all geocoding (the Routes API would accept it; the geocoder
+     won't). The API restriction below plus the quota caps are what actually
+     bound the spend. (The stricter alternative is two keys — a
+     website-restricted one for Routes and an unrestricted one for Geocoding —
+     but with both APIs capped it buys little.)
    - **API restrictions ▸ Restrict key** — tick only **Geocoding API** and
      **Routes API**.
 5. **Cap the geocoding quota:** APIs & Services ▸ Geocoding API ▸
@@ -160,9 +168,9 @@ proxy (e.g. Caddy: `caddy reverse-proxy --from :5001 --to :5000` plus a CORS
 header) — recent osrm-backend builds send `Access-Control-Allow-Origin: *`
 out of the box, so this is unlikely.
 
-The planner's geocoding uses the same `GMAPS_API_KEY` — the GitHub Pages
-referrer restriction already covers `planner.html` (same origin), nothing to
-change.
+The planner's geocoding uses the same `GMAPS_API_KEY` — same key, same
+restrictions (API-restricted, no application restriction — see §"Google Maps
+Platform key"), nothing to change.
 
 ## After a schema change
 
@@ -178,20 +186,27 @@ functions.
 - **The `/exec` URL changed** — someone created a new deployment instead of
   redeploying. Put the old deployment's ID back, or update `DEPLOYMENT_ID` in the
   workflow **and** `WEB_APP_URL` in all three HTML files to match.
-- **The optimize toast says "straight-line (…)" even though the key is set** —
-  the parenthetical names the cause; the full Google response is in the
-  browser console (`console.warn`).
-  - `REQUEST_DENIED` / `PERMISSION_DENIED`: in the Cloud console check that
-    (a) the key's **Websites** restriction includes the *exact* serving origin
-    — `https://<owner>.github.io/*` **and** `http://localhost:8731/*` — and
-    (b) **both** the Geocoding API *and* the Routes API are enabled on the
-    key's project **and** ticked in the key's **API restrictions**. A key with
-    only Geocoding enabled geocodes fine but every matrix call is rejected —
+- **The optimize toast says "straight-line (…)" or "lookups failed: …" even
+  though the key is set** — the toast names the cause; the full Google
+  response is in the browser console (`console.warn`).
+  - `REQUEST_DENIED` on lookups, and the console says *"API keys with referer
+    restrictions cannot be used with this API"*: the key has a **Websites**
+    application restriction, which the Geocoding web service categorically
+    rejects (every address lookup fails, all orders park). Fix: key ▸
+    **Application restrictions ▸ None** — the API restriction + quota caps
+    are the guard (see §"Google Maps Platform key" step 4).
+  - `REQUEST_DENIED` / `PERMISSION_DENIED` otherwise: check that **both** the
+    Geocoding API *and* the Routes API are enabled on the key's project
+    **and** ticked in the key's **API restrictions**. A key with only
+    Geocoding enabled geocodes fine but every matrix call is rejected —
     permanent straight-line routes that look like the key "isn't helping".
   - `OVER_QUERY_LIMIT` / `monthly road-data budget spent`: the $0 guardrails
     (daily geocode cap, `MATRIX_FREE_ELEMENTS`) working as designed — routes
     go straight-line until the quota/month resets.
   - `network error` / `offline`: no path to Google at all (signal, firewall).
+  - No straight-line note at all, just "N parked": geocoding failed before
+    routing ever started — with fewer than two pinned orders there is no
+    route to solve, straight-line or otherwise. Fix the lookups first.
 
 ## Hourly dispatch-average refresh (one-time setup)
 

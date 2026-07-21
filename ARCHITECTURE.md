@@ -417,7 +417,8 @@ log). The captured data is identical; what changes is the chrome and the PDF.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
-  referrer-restricted, API-restricted to Geocoding + Routes, and quota-capped
+  API-restricted to Geocoding + Routes (no referrer restriction — the
+  Geocoding web service rejects those keys, see DEPLOY.md) and quota-capped
   per DEPLOY.md so it can never bill past the 10k/month free tier; past the
   daily cap new orders just park until tomorrow) → pull a **road-distance
   matrix from the Google Routes API** (tiled in 625-element requests; Google

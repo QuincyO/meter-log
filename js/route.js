@@ -24,8 +24,9 @@
 // Google is hit with bare fetch() — NEVER apiGet/apiPost, which inject the Apps
 // Script token + URL. This module deliberately does not import api.js: the
 // Apps Script backend is not in this path (see CLAUDE.md — the whole point is
-// to keep the heavy work off the Apps Script cloud). The key is referrer-
-// restricted + quota-capped so it can't bill past the free tier (see DEPLOY.md).
+// to keep the heavy work off the Apps Script cloud). The key is API-restricted
+// + quota-capped so it can't bill past the free tier (see DEPLOY.md — no
+// referrer restriction: the Geocoding web service rejects those keys).
 import { GMAPS_API_KEY } from './config.js';
 import { idb } from './idb.js';
 import { store } from './store.js';
