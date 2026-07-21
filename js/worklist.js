@@ -225,6 +225,20 @@ async function optimizeRouteHandler(){
   }
 }
 
+// ── secret: Optimize is "coming soon" ───────────────────────────────────────
+// A normal tap does nothing (the button reads "(coming soon)" and looks greyed
+// out) — this keeps installers from burning geocoding/road-matrix API budget on
+// needless re-optimizes. Five *quick* taps (≤600 ms apart) still run the real
+// optimizer for whoever knows the trick. Intentionally undiscoverable; the streak
+// resets the moment the taps slow down.
+let _optTaps = 0, _optTapTimer = null;
+function optimizeSecretTap(){
+  _optTaps++;
+  clearTimeout(_optTapTimer);
+  if(_optTaps >= 5){ _optTaps = 0; optimizeRouteHandler(); return; }
+  _optTapTimer = setTimeout(() => { _optTaps = 0; }, 600);
+}
+
 // Live progress line for the long optimize run (locate → geocode → matrix → solve).
 function updateRouteProgress(p){
   const prog = $('wlRouteProgress');
@@ -607,7 +621,7 @@ export function initWorklist(opts){
   $('wlBack').onclick = closeWorklist;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
-  $('wlOptimize').onclick = optimizeRouteHandler;
+  $('wlOptimize').onclick = optimizeSecretTap;
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);
