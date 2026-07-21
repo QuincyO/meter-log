@@ -16,7 +16,7 @@ import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
+import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
 import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
@@ -389,6 +389,16 @@ $('logStop').onclick = () => {
       oldJNumber: otherJ || null, noReadReason:null, utiReason:null });
   }
   enqueue(base);
+  // In plan mode the WO# came from the planned worklist — copy it to the
+  // clipboard so it can be pasted straight into the meter-install app (no
+  // re-typing → no typos). Fired synchronously inside the tap handler so the
+  // Clipboard API keeps its user-gesture; failures (denied/offline context)
+  // are swallowed so a log never blocks on the copy.
+  let woCopied = false;
+  if(planActive() && base.workOrderId && navigator.clipboard?.writeText){
+    woCopied = true;
+    navigator.clipboard.writeText(base.workOrderId).catch(() => {});
+  }
   // Remember this coord→address (even a hand-typed one) so the same spot resolves
   // offline next time and feeds the backfill cache.
   if(base.lat!=null && base.lng!=null && base.address) cacheAddress(base.lat, base.lng, base.address);
@@ -404,10 +414,11 @@ $('logStop').onclick = () => {
   // list so the sheet copy tracks this log (online-only; offline it no-ops).
   markWorklistDone(base.workOrderId).then(() => { planAdvance(); syncWorklist(); });
   toast(
-    status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
-    status==='UTI'        ? 'UTI logged ✓' :
-    outStatus==='VISITED' ? 'Visited logged ✓' :
-                            'Unaccounted logged ✓');
+    (status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
+     status==='UTI'        ? 'UTI logged ✓' :
+     outStatus==='VISITED' ? 'Visited logged ✓' :
+                             'Unaccounted logged ✓')
+    + (woCopied ? ' · WO# copied 📋' : ''));
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
   $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
   setNoRead(false); setSolar(false); setRequested(false); setNoGps(false);
