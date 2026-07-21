@@ -57,40 +57,55 @@ git add appsscript.json && git commit -m "Use the project's real Apps Script man
 
 ## Google Maps Platform key (one-time setup)
 
-The 🧭 Optimize route feature (`js/route.js`) forward-geocodes worklist
-addresses with the **Google Geocoding API**, called straight from the phone
-with the key in `js/config.js` (`GMAPS_API_KEY`). Everything else in the
-pipeline (the distance matrix and the TSP solve) runs locally and costs
-nothing — geocoding is the **only** billable call, it's made once per new
-order (pins are cached on the order), and the setup below makes it impossible
-to exceed the 10,000-calls/month free tier.
+The 🧭 Optimize route feature (`js/route.js`) makes two kinds of Google Maps
+Platform calls straight from the phone with the key in `js/config.js`
+(`GMAPS_API_KEY`):
+
+- **Geocoding API** — one forward geocode per *new* order (pins are cached on
+  the order). Free tier: 10,000 calls/month.
+- **Routes API `computeRouteMatrix`** — the road-distance matrix each optimize
+  run solves on, billed per **element** (origins × destinations: a 25-stop day
+  with a home pin ≈ 26² = 676 elements per run). Free tier: 10,000
+  elements/month. When the matrix can't be fetched (offline, quota, budget
+  spent) the solve falls back to straight-line distances and the toast says so
+  — the route is still good, just blind to rivers/detours.
+
+Setup, with the guardrails that keep it at $0:
 
 1. **Create a project** at [console.cloud.google.com](https://console.cloud.google.com)
    (e.g. `meter-log`) — use the same Google account that owns the Sheet.
 2. **Enable billing** on the project (Google requires a card on file even for
    free-tier use; the steps below guarantee it's never charged).
-3. **APIs & Services ▸ Library** — enable the **Geocoding API**. Enable
-   *nothing else* (no Maps JavaScript, Places, or Routes API): an API that
-   isn't enabled can't bill.
+3. **APIs & Services ▸ Library** — enable the **Geocoding API** and the
+   **Routes API**. Enable *nothing else* (no Maps JavaScript or Places): an
+   API that isn't enabled can't bill.
 4. **APIs & Services ▸ Credentials ▸ Create credentials ▸ API key**, then
    click the new key and restrict it:
    - **Application restrictions ▸ Websites** — add the GitHub Pages origin
      (`https://<owner>.github.io/*`) and `http://localhost:8731/*` (local dev).
-   - **API restrictions ▸ Restrict key** — tick only **Geocoding API**.
-5. **Cap the quota (this is what guarantees $0):** APIs & Services ▸
-   Geocoding API ▸ **Quotas & System Limits** — edit *Requests per day* down to
-   **300** (300 × 31 = 9,300 < the 10,000 free calls/month). Past the cap,
-   lookups return `OVER_QUERY_LIMIT`; the app treats that as a miss, the order
-   parks with 📍?, and re-optimizing the next day picks it up — degraded, never
+   - **API restrictions ▸ Restrict key** — tick only **Geocoding API** and
+     **Routes API**.
+5. **Cap the geocoding quota:** APIs & Services ▸ Geocoding API ▸
+   **Quotas & System Limits** — edit *Requests per day* down to **300**
+   (300 × 31 = 9,300 < the 10,000 free calls/month). Past the cap, lookups
+   return `OVER_QUERY_LIMIT`; the app treats that as a miss, the order parks
+   with 📍?, and re-optimizing the next day picks it up — degraded, never
    billed.
-6. **Billing ▸ Budgets & alerts** — create a **$1 budget** with an email alert
-   as a belt-and-suspenders tripwire. If that email ever arrives, something
-   about the setup above has drifted.
-7. Paste the key into `js/config.js` as `GMAPS_API_KEY` and push.
+6. **The matrix budget lives in the app**, not the console (the Routes API has
+   no daily element cap to set): `MATRIX_FREE_ELEMENTS` in `js/route.js`
+   (9,000) is each device's monthly element allowance, tracked in
+   localStorage; a run that would exceed it solves on straight-line instead.
+   **This is per device** — if several installers optimize daily on one
+   billing account, lower the constant to (10,000 ÷ devices) or accept that
+   heavy months bill ~US$5 per extra 1,000 elements.
+7. **Billing ▸ Budgets & alerts** — create a **$1 budget** with an email alert
+   as a belt-and-suspenders tripwire (with several devices this, not the
+   client budget, is the real account-wide guard).
+8. Paste the key into `js/config.js` as `GMAPS_API_KEY` and push.
 
-If usage grows (more installers planning daily), raise the daily cap in step 5
-and expect ~US$5 per extra 1,000 geocodes past the free 10k — cost scales with
-*new orders added*, never with re-optimizing already-pinned lists.
+Costs scale with *new orders* (geocoding) and *optimize runs* (matrix
+elements) — re-optimizing an already-pinned list re-bills only the matrix,
+never the geocodes.
 
 ## After a schema change
 

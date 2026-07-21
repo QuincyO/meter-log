@@ -273,8 +273,8 @@ point in `js/pages/`. Shared modules in `js/`:
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`worklist.js`** (the worklist screen + plan mode), **`route.js`** (the
   optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
-  local straight-line matrix + pinned open-path TSP — see "Work modes" ▸ "Route
-  optimization").
+  Google Routes road matrix (budget-guarded, straight-line fallback) + pinned
+  open-path TSP — see "Work modes" ▸ "Route optimization").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
 - **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`.
@@ -405,12 +405,14 @@ log). The captured data is identical; what changes is the chrome and the PDF.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
-  referrer-restricted, API-restricted to Geocoding, and quota-capped per
-  DEPLOY.md so it can never bill past the 10k/month free tier; past the daily
-  cap new orders just park until tomorrow) → build a **straight-line haversine
-  distance matrix locally** (deliberately no road-matrix API: Google bills it
-  per stop-pair, ruinously at fleet scale, and a uniform road-detour factor
-  wouldn't change the visiting order anyway) → solve the open-path TSP locally
+  referrer-restricted, API-restricted to Geocoding + Routes, and quota-capped
+  per DEPLOY.md so it can never bill past the 10k/month free tier; past the
+  daily cap new orders just park until tomorrow) → pull a **road-distance
+  matrix from the Google Routes API** (tiled in 625-element requests; Google
+  bills per stop-pair, so a per-device monthly element budget in
+  `js/route.js`/localStorage guards the free tier) with a **straight-line
+  haversine fallback** when the matrix fails or the budget is spent → solve
+  the open-path TSP locally
   (nearest-neighbour + 2-opt + Or-opt) → rewrite `order`. **Matching is biased
   AND hard-bounded to `GEO_RADIUS_KM` (80 km) around the crew** — a `bounds`
   box + `region=ca` (soft bias only on Google) plus the local haversine belt,

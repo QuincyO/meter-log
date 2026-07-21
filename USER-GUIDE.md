@@ -131,7 +131,7 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 - With a **Home address** in Settings, the route ends heading toward home — the first stop is the far end of the day, and you work your way back. With no home set, whatever order is first in your list stays the starting point.
 - An address that can't be matched nearby gets a **📍?** tag and drops to the bottom — fix the address (Edit) and optimize again.
 - An address that matches **more than one town** gets a **⚠ which town?** tag: open **Edit** and tap the right place from the list — one tap pins it, and the next optimize routes it.
-- Orders it has already pinned show directions (🧭) to that exact spot, so the maps app takes you to the same place the route was planned around.
+- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 
