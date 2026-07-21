@@ -16,4 +16,4 @@ export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 // documented tradeoff as SHARED_TOKEN: it sits in client source on a
 // public-capable GitHub Pages site, mitigated by keeping the repo private +
 // the restrictions above.
-export const GMAPS_API_KEY = 'PASTE_GOOGLE_MAPS_KEY_HERE';
+export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';
