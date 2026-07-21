@@ -100,6 +100,8 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
              background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:var(--r);
              padding:10px 12px;margin-bottom:10px;font-size:14px;font-weight:700;color:var(--accent-press)}
 .plan-banner-actions{display:flex;gap:8px;flex:none}
+/* quiet pace estimate: sits next to the WO line, never bold/accented */
+.plan-estimate{margin-right:auto;font-size:12px;font-weight:400;opacity:.7;white-space:nowrap}
 
 /* planned vs GPS address chooser */
 .addr-conflict{background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:var(--r);
