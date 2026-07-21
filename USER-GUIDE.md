@@ -145,6 +145,8 @@ If the GPS address disagrees with the planned one, the form asks "GPS found a di
 
 **⇪ Upload list** saves your list to the sheet; **⇩ Download list** replaces the phone's list with the saved copy (matched on your H number, so set up Settings first). Use it to plan on one device and run the route on another. Both need signal, both replace the whole list, and both confirm before doing it.
 
+If the office plans your day on the computer, your Download may already arrive **in optimized driving order** with every address pinned — just start at #1 and work down; no need to tap 🧭 Optimize yourself.
+
 ---
 
 ## Checking and fixing your logs

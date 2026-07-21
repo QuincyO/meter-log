@@ -50,7 +50,18 @@ It is not Claude and not the form. Everything reads from or writes to it.
   it opens offline. Linked from the capture page's ☰ menu ("❓ Help") and the
   backend pages' nav dropdown. Keep the guide inside the renderer's subset
   (`#`–`###` headings, paragraphs, `-`/`1.` lists, `---`, `**bold**`, `` `code` ``).
-- All six are static files hosted on GitHub Pages. They never store the data
+- The **desktop route planner** (`planner.html` + `js/pages/planner.js` +
+  `css/planner.css`) — the office-side half of land-route planning, desktop-first
+  and installable from Chrome/Edge as an app window. Pick an installer (roster,
+  keyed on H number), ⇩ Load their saved `Worklist` rows or paste orders in,
+  optimize with road distances from a **local OSRM server**
+  (`optimizeRoute(..., {osrmUrl})` — free, see DEPLOY.md §"Desktop planner +
+  local OSRM"), review the numbered route + connecting line on a Leaflet map,
+  then ⇪ Upload (`saveWorklist`). Pins + order ride the sheet, so the phone's
+  ⇩ Download lands a finished route with zero phone-side spend. The PC's
+  IndexedDB `worklist` store is its scratch copy (cleared per installer switch).
+  Linked from the backend pages' nav only, not from the capture page.
+- All seven are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
 
 > The earlier iPhone Shortcuts capture path has been **dropped.** The work phone
@@ -277,7 +288,8 @@ point in `js/pages/`. Shared modules in `js/`:
   open-path TSP — see "Work modes" ▸ "Route optimization").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
-- **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`.
+- **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`,
+  `planner.js`.
 
 CSS: `css/tokens.css` (design tokens + reset) and `css/base.css` (shared
 components) back the capture page; `css/{capture,map,teams,edit,reports}.css` are
@@ -430,6 +442,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   path is solved pinned at home and read backwards — ending the day moving
   toward home, the start landing at the far side of the cluster — otherwise the
   list's first order is pinned as the start with the end open.
+  `optimizeRoute` also takes `opts.osrmUrl` — the **desktop planner's** matrix
+  source: one free `table` call against a self-hosted OSRM (straight-line as
+  its only fallback, never the billable Google path), which is how the office
+  plans a route at zero matrix cost and uploads it for the phone to Download
+  (see the planner page bullet under "The three layers").
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 

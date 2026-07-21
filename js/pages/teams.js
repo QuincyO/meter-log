@@ -415,6 +415,7 @@ $('navSel').onchange = e => {
   else if(v==='analytics') window.location.href = 'map.html#analytics';
   else if(v==='edit') window.location.href = 'edit.html';
   else if(v==='reports') window.location.href = 'reports.html';
+  else if(v==='planner') window.location.href = 'planner.html';
   else if(v==='help')    window.location.href = 'help.html';
 };
 // reset the dropdown if the page is restored from the back/forward cache

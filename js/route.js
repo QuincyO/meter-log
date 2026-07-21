@@ -242,6 +242,31 @@ async function buildMatrix(coords, onProgress){
   return D;
 }
 
+// ── road-distance matrix (self-hosted OSRM — the desktop planner's source) ───
+// One GET against a local/self-hosted OSRM `table` service: free, unmetered,
+// and big enough that the whole day fits in a single call (no tiling, no
+// budget). Returns the N×N metres array or null (caller falls back to
+// straight-line — deliberately NEVER into the billable Google path: a planner
+// run with OSRM down should degrade free and visibly, not quietly spend).
+// GOTCHA: OSRM speaks GeoJSON coordinate order — lng,lat — the reverse of the
+// {lat,lng} we store; the join below is the one conversion point.
+async function osrmMatrix(coords, osrmUrl){
+  const pts = coords.map(c => `${c.lng},${c.lat}`).join(';');
+  const url = `${String(osrmUrl).replace(/\/+$/, '')}/table/v1/driving/${pts}?annotations=distance`;
+  for(let attempt = 0; attempt < 2; attempt++){
+    try {
+      const res = await fetch(url);
+      if(res.ok){
+        const data = await res.json();
+        if(data && data.code === 'Ok' && Array.isArray(data.distances))
+          return data.distances.map(row => row.map(v => v == null ? Infinity : Number(v)));
+      }
+    } catch { /* fall through to retry / null */ }
+    if(attempt === 0) await sleep(MATRIX_MS);
+  }
+  return null;
+}
+
 // One matrix chunk, with a single retry. Returns the element array (each
 // {originIndex, destinationIndex, distanceMeters, condition}) or null. The
 // FieldMask header is mandatory — Google rejects the request without it.
@@ -436,6 +461,10 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // pendingItems: the pending worklist orders in display order (each mutated in
 // place with coords). onProgress({phase, done, total}): optional UI callback.
 // home: {lat,lng} of the installer's saved home pin, or null.
+// opts.osrmUrl: a self-hosted OSRM base URL (the desktop planner passes its
+// local Docker instance) — the matrix then comes from OSRM in one free call,
+// with straight-line (never Google) as its only fallback; omitted = the phone
+// path, byte-for-byte the budget-guarded Google matrix behavior.
 // Returns { orderedIds, parkedIds, usedFallback, mode } — orderedIds is the
 // optimized sequence of located orders; parkedIds are the ones that wouldn't
 // geocode (geoFail) or matched several towns (geoAmbig); usedFallback means
@@ -443,7 +472,7 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // mode is 'home' (path ends moving toward home — the start naturally lands at
 // the far side of the day's cluster, "furthest away, working back") or 'first'
 // (no home pin: the list's first order stays the start, end open).
-export async function optimizeRoute(pendingItems, onProgress, home){
+export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -474,7 +503,8 @@ export async function optimizeRoute(pendingItems, onProgress, home){
   const coords = homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
 
   onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-  let D = await buildMatrix(coords, onProgress);
+  let D = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
+                       : await buildMatrix(coords, onProgress);
   let usedFallback = false;
   if(!D){ D = haversineMatrix(coords); usedFallback = true; }
 
