@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute } from './route.js';
+import { optimizeRoute, coordsOf, geocodeOne } from './route.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -57,13 +57,15 @@ function joinAddr(num, street){
 
 // ── directions (per-card 🧭 button) ─────────────────────────────────────────
 // iOS (incl. iPadOS masquerading as MacIntel) → Apple Maps; everything else →
-// the Google Maps universal dir link (Android hands it to the Maps app). The
-// ", ON" hint keeps terse street/landmark addresses geocoding in-province —
-// no city bias, since the crew ranges well beyond any one town.
+// the Google Maps universal dir link (Android hands it to the Maps app). A
+// located order navigates by its validated coords — the exact pin the route was
+// solved on — so the maps app can't re-geocode the text to a different spot.
+// Text (+ ", ON" to stay in-province) is the fallback for unlocated orders.
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-function directionsUrl(address){
-  const dest = enc(String(address).trim() + ', ON');
+function directionsUrl(item){
+  const c = coordsOf(item);
+  const dest = c ? enc(c.lat + ',' + c.lng) : enc(String(item.address).trim() + ', ON');
   return IS_IOS ? `https://maps.apple.com/?daddr=${dest}`
                 : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
 }
@@ -124,14 +126,21 @@ async function wlDownload(){
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
     // Normalize each sheet row back to the exact local record shape (drop the
-    // sheet-only installer/hNumber columns, re-type order + wlStatus) so
+    // sheet-only installer/hNumber columns, re-type wlStatus + lat/lng) so
     // sorting, plan mode, and markWorklistDone keep working after a round trip.
-    for(const o of r.orders || []){
+    // `order` is renumbered by array position: the spine returns rows sorted
+    // (and renumbers on upload), and even against a stale spine the sheet's
+    // physical row order is the last upload's display order — so a Download
+    // always lands a clean 0,10,20… locally, healing any historical
+    // duplicate/blank order values.
+    const list = r.orders || [];
+    for(let i = 0; i < list.length; i++){
+      const o = list[i];
       await idb.put('worklist', {
         id:String(o.id), workOrderId:String(o.workOrderId||''), unit:String(o.unit||''),
         address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
         wlStatus: o.wlStatus === 'done' ? 'done' : 'pending',
-        order: (o.order === '' || o.order == null) ? null : Number(o.order),
+        order: i * 10,
         lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
         lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
         createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||'') });
@@ -143,9 +152,29 @@ async function wlDownload(){
 }
 
 // ── route optimization (land mode) ──────────────────────────────────────────
-// Geocode every pending order, pull a road-distance matrix, solve the best open
-// path on-device (js/route.js), then rewrite `order` so the list follows it.
-// Done orders are excluded, so re-optimizing tomorrow just re-plans what's left.
+// Geocode every pending order (bounded to ~80 km of the crew — js/route.js),
+// pull a road-distance matrix, solve the best open path on-device, then rewrite
+// `order` so the list follows it. With a home pin (Settings) the route ends
+// moving toward home; otherwise the first order stays the start. Done orders
+// are excluded, so re-optimizing tomorrow just re-plans what's left.
+
+// The installer's saved home pin (Settings). A home saved offline (or whose
+// geocode failed then) carries text but no coords — retry the lookup here
+// while we're online, and persist so the retry is one-time.
+async function homePin(){
+  const lat = Number(store.get('homeLat')), lng = Number(store.get('homeLng'));
+  if(isFinite(lat) && isFinite(lng) && (lat || lng)) return { lat, lng };
+  const addr = (store.get('homeAddress') || '').trim();
+  if(!addr) return null;
+  const hit = await geocodeOne(addr, null);   // home is never radius-gated
+  if(hit && !hit.ambig){
+    store.set('homeLat', String(hit.lat)); store.set('homeLng', String(hit.lng));
+    store.set('homeLabel', hit.label || addr);
+    return { lat: hit.lat, lng: hit.lng };
+  }
+  return null;
+}
+
 async function optimizeRouteHandler(){
   if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
   const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
@@ -155,7 +184,8 @@ async function optimizeRouteHandler(){
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
-    const { orderedIds, parkedIds, usedFallback } = await optimizeRoute(pending, updateRouteProgress);
+    const home = await homePin();
+    const { orderedIds, parkedIds, usedFallback, mode } = await optimizeRoute(pending, updateRouteProgress, home);
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
@@ -172,9 +202,14 @@ async function optimizeRouteHandler(){
     }
     await renderWorklist();
     await planAdvance();
-    const parked = parkedIds.length ? ` · ${parkedIds.length} parked (fix address)` : '';
-    toast(usedFallback ? `Route ordered ✓ — straight-line (road data unavailable)${parked}`
-                       : `Route optimized ✓${parked}`);
+    // Parked = wouldn't map at all; ambiguous = matched several towns and needs
+    // a pick in Edit. Counted separately so the toast says what to fix.
+    const ambig = pending.filter(x => x.geoAmbig).length;
+    const failed = parkedIds.length - ambig;
+    const extra = (usedFallback ? ' — straight-line (road data unavailable)' : '')
+      + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
+      + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '');
+    toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
   } catch {
     toast('Route optimization failed — try again');
   } finally {
@@ -182,11 +217,12 @@ async function optimizeRouteHandler(){
   }
 }
 
-// Live progress line for the long optimize run (geocode → matrix → solve).
+// Live progress line for the long optimize run (locate → geocode → matrix → solve).
 function updateRouteProgress(p){
   const prog = $('wlRouteProgress');
   if(!prog) return;
-  if(p.phase === 'geocode') prog.textContent = `Looking up addresses ${p.done}/${p.total}…`;
+  if(p.phase === 'locate') prog.textContent = 'Getting your location…';
+  else if(p.phase === 'geocode') prog.textContent = `Looking up addresses ${p.done}/${p.total}…`;
   else if(p.phase === 'matrix') prog.textContent = p.total ? `Building road distances ${p.done}/${p.total}…` : 'Building road distances…';
   else if(p.phase === 'solve') prog.textContent = 'Finding the best order…';
 }
@@ -233,9 +269,14 @@ function makeWlCard(item){
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
   const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
-  // A parked order: its address wouldn't geocode, so route optimize skipped it
-  // and left it at the bottom. Fix the address (Edit) to re-route it next run.
-  const geoTag = item.geoFail ? ' <span class="muted" title="Address didn’t map — fix it to route" style="font-size:13px">📍?</span>' : '';
+  // A parked order: its address wouldn't geocode (📍?) or matched several towns
+  // (⚠ — the choices wait in Edit), so route optimize skipped it and left it at
+  // the bottom. Fix / pick in Edit to re-route it next run.
+  const geoTag = item.geoFail
+    ? ' <span class="muted" title="Address didn’t map — fix it to route" style="font-size:13px">📍?</span>'
+    : (item.geoAmbig && item.geoAmbig.length)
+      ? ` <span class="muted" title="Matches ${item.geoAmbig.length} places — tap Edit to pick the town" style="font-size:13px">⚠ which town?</span>`
+      : '';
   const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
   // Cards deliberately show only WO# + address — glanceable while driving a route.
   card.innerHTML = `
@@ -253,7 +294,7 @@ function makeWlCard(item){
   // Directions hands the address to the OS maps app in a new context — never
   // navigate the PWA itself away mid-shift. Shown on done cards too (revisits).
   const mapBtn = card.querySelector('[data-act="map"]');
-  if(mapBtn) mapBtn.onclick = () => window.open(directionsUrl(item.address), '_blank');
+  if(mapBtn) mapBtn.onclick = () => window.open(directionsUrl(item), '_blank');
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
   card.querySelector('[data-act="del"]').onclick = async () => {
     await idb.del('worklist', item.id);
@@ -377,8 +418,34 @@ function wlOpenForm(item){
   $('wlForm').classList.remove('hide');
   $('wlAddBtn').textContent = '✕ Cancel';
   renderChips();
+  renderAmbig(item);
   $('wlWo').focus();
   $('wlForm').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// The which-town chips: an optimize that found the same address in several
+// places parks the order and stores the candidates; tapping one locks that
+// town in — full label into the address, pin coords onto the order — so the
+// next optimize routes it. Typing a better address instead also works (wlSave
+// clears the flag with the coords).
+function renderAmbig(item){
+  const hint = $('wlAmbigHint'), box = $('wlAmbig');
+  const cands = (item && item.geoAmbig) || [];
+  if(!cands.length){ hint.classList.add('hide'); box.classList.add('hide'); box.innerHTML=''; return; }
+  hint.classList.remove('hide'); box.classList.remove('hide');
+  box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
+  [...box.children].forEach((b, i) => b.onclick = async () => {
+    const c = cands[i];
+    const stored = (await idb.get('worklist', item.id)) || item;
+    await idb.put('worklist', Object.assign({}, stored, {
+      address: c.label, lat: c.lat, lng: c.lng,
+      geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
+    toast('Pinned ✓ — ' + c.label);
+    _wlEditId = null;
+    $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
+    await renderWorklist();
+    await planAdvance();
+  });
 }
 
 // Recent-street chips: the distinct streets already on the list, most recent
@@ -411,9 +478,9 @@ async function wlSave(){
     item = Object.assign({}, existing, {
       id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(), updatedAt:now
     });
-    // Address changed → the cached coords are stale; drop them (and the parked
-    // flag) so the next optimize re-geocodes the new address.
-    if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; }
+    // Address changed → the cached coords are stale; drop them (and the parked/
+    // ambiguous flags) so the next optimize re-geocodes the new address.
+    if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined; }
   } else {
     const items = await allSorted();
     const last = items.filter(x => x.order != null).pop();

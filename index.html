@@ -204,6 +204,8 @@
         <input id="wlStreet" placeholder="Street / landmark" aria-label="Street">
       </div>
       <div class="wl-chips hide" id="wlChips"></div>
+      <div class="muted hide" id="wlAmbigHint" style="margin-top:6px">This address matches more than one place — tap the right one:</div>
+      <div class="wl-chips hide" id="wlAmbig"></div>
       <label for="wlOldJ">Old J# <span style="font-weight:500">(optional)</span></label>
       <input id="wlOldJ" class="mono" autocapitalize="characters">
       <div style="display:flex;gap:10px;margin-top:14px">
@@ -231,6 +233,9 @@
       <label for="cfgSub">Sub foreman</label>
       <select id="cfgSub"><option value="">— pick your sub —</option></select>
       <p class="muted" id="cfgSubHint"></p>
+      <label for="cfgHome">Home address <span style="font-weight:500">(optional)</span></label>
+      <input id="cfgHome" placeholder="e.g. 123 Main St, Bracebridge" autocapitalize="words">
+      <p class="muted" id="cfgHomeHint">With a home set, Optimize route ends your day heading toward home.</p>
       <button class="primary" id="saveSettings">Save</button>
     </div>
   </div>

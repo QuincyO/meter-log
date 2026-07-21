@@ -999,12 +999,26 @@ function saveDay(b) {
   return { ok: true };
 }
 
+/** Worklist `order` comparator, shared by saveWorklist / worklistFor /
+ *  normalizeWorklistOrders — must match the phone's sortItems() exactly.
+ *  Blank/legacy order ('' from an empty cell, null from old clients) sorts
+ *  last; Number('') is 0, so the blank check must be explicit. Ties break on
+ *  createdAt so the sort is stable across runs (V8 Array.sort is stable). */
+function wlOrd(v) { return (v === '' || v == null || isNaN(Number(v))) ? Infinity : Number(v); }
+function wlCmp(a, b) {
+  const d = wlOrd(a.order) - wlOrd(b.order);   // NaN when both blank → falsy → tie-break
+  return d ? d : String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+}
+
 /** Whole-list replace of one installer's Worklist rows — the planning page's
  *  explicit Upload button (manual only, never automatic). Keyed on the employee
  *  H number, NOT the display name — names can collide, H numbers can't (the
  *  installer column is a readable label only). Delete-then-append (the
  *  saveTravel pattern) so a re-upload or double-tap never duplicates. An empty
- *  orders array is a valid upload — it clears the installer's saved copy. */
+ *  orders array is a valid upload — it clears the installer's saved copy.
+ *  `order` is renumbered 0,10,20… by sorted position on every upload (never
+ *  written verbatim) — old app versions uploaded duplicate/blank order values
+ *  and this is where they stop round-tripping. */
 function saveWorklist(b) {
   const h = String(b.hNumber == null ? '' : b.hNumber).trim();
   if (!h) return { ok: false, error: 'hNumber required' };
@@ -1021,13 +1035,16 @@ function saveWorklist(b) {
   }
   bustRows('Worklist');
 
-  const orders = (b.orders || []).filter(o => o && o.id);
+  // Sorting before renumbering is an identity transform for current clients
+  // (they upload allSorted() output, sorted by this same comparator) but keeps
+  // the numbering sane for an old/hand-crafted sender.
+  const orders = (b.orders || []).filter(o => o && o.id).sort(wlCmp);
   if (orders.length) {
     sh.getRange(sh.getLastRow() + 1, 1, orders.length, WORKLIST_HEADERS.length).setValues(
-      orders.map(o => [ String(o.id), installer, h,
+      orders.map((o, i) => [ String(o.id), installer, h,
         o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
         o.wlStatus === 'done' ? 'done' : 'pending',
-        o.order == null ? '' : Number(o.order),
+        i * 10,
         o.createdAt || '', o.updatedAt || '',
         o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng) ]));
     bustRows('Worklist');
@@ -1036,12 +1053,14 @@ function saveWorklist(b) {
 }
 
 /** One installer's saved planned orders (matched on H number) — the Download
- *  side of the manual worklist sync. Tolerates a not-yet-created tab (code can
+ *  side of the manual worklist sync, returned sorted (order asc, blanks last,
+ *  createdAt tie) so array position = display position even for legacy rows
+ *  that were never renumbered. Tolerates a not-yet-created tab (code can
  *  ship before setupSheets() runs) by returning an empty list. */
 function worklistFor(hNumber) {
   const h = String(hNumber == null ? '' : hNumber).trim();
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist')) return [];
-  return rows('Worklist').filter(r => String(r.hNumber).trim() === h);
+  return rows('Worklist').filter(r => String(r.hNumber).trim() === h).sort(wlCmp);
 }
 
 /** Nightly cleanup: remove every completed worklist row across all installers.
@@ -1063,7 +1082,56 @@ function clearDoneWorklistJob() {
   }
   if (removed) bustRows('Worklist');
   Logger.log('clearDoneWorklistJob removed %s done worklist rows.', removed);
+  // Renumber what's left so the deleted rows don't leave gapped order values —
+  // and so installers who never re-upload still get their historical
+  // duplicate/blank orders healed within a day.
+  normalizeWorklistOrders();
   return removed;
+}
+
+/** Renumber every installer's Worklist `order` column to a clean 0,10,20…
+ *  (blanks-last, createdAt tie — wlCmp), healing the duplicate/blank order
+ *  values old app versions uploaded. Values are rewritten logically; the
+ *  physical row order is left alone (reads sort). Idempotent — safe to re-run.
+ *  Runs nightly from clearDoneWorklistJob; can also be run once from the
+ *  editor for an immediate heal. Takes the script lock so it can't race a
+ *  phone's live upload. Returns the number of order cells rewritten. */
+function normalizeWorklistOrders() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) { Logger.log('normalizeWorklistOrders: lock busy, skipped.'); return 0; }
+  try { return normalizeWorklistOrdersCore(); } finally { lock.releaseLock(); }
+}
+
+// Lockless core, split out because LockService locks are not reentrant — a
+// caller already holding the script lock must use this directly.
+function normalizeWorklistOrdersCore() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
+  if (!sh) return 0;
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return 0;
+  const hCol = data[0].indexOf('hNumber'), oCol = data[0].indexOf('order'), cCol = data[0].indexOf('createdAt');
+  if (hCol === -1 || oCol === -1) return 0;
+  const byH = {};
+  for (let r = 1; r < data.length; r++) {
+    const h = String(data[r][hCol]).trim();
+    if (!h) continue;   // a blank-hNumber row keeps its value
+    (byH[h] = byH[h] || []).push({ idx: r, order: data[r][oCol], createdAt: cCol === -1 ? '' : data[r][cCol] });
+  }
+  const colVals = data.slice(1).map(row => [row[oCol]]);
+  let changed = 0;
+  Object.keys(byH).forEach(h => {
+    byH[h].sort(wlCmp).forEach((item, i) => {
+      if (colVals[item.idx - 1][0] !== i * 10) { colVals[item.idx - 1][0] = i * 10; changed++; }
+    });
+  });
+  if (changed) {
+    // Column-only batch write — never re-coerces timestamp/number cells in
+    // other columns.
+    sh.getRange(2, oCol + 1, colVals.length, 1).setValues(colVals);
+    bustRows('Worklist');
+  }
+  Logger.log('normalizeWorklistOrders: %s installers, %s order cells rewritten.', Object.keys(byH).length, changed);
+  return changed;
 }
 
 /** Run once from the editor to install the nightly done-worklist cleanup

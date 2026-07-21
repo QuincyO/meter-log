@@ -16,6 +16,7 @@ import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
+import { geocodeOne } from '../route.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -1261,9 +1262,21 @@ function openSheet(id){
     $('cfgFirst').value = store.get('firstName')||'';
     $('cfgLast').value  = store.get('lastName')||'';
     $('cfgH').value     = store.get('hNumber')||'';
+    $('cfgHome').value  = store.get('homeAddress')||'';
+    paintHomeHint();
     loadSubInfo();
   }
   $(id).classList.remove('hide');
+}
+
+// The home-address hint doubles as pin feedback: it shows the geocoder's
+// matched label so a wrong-town home is visible right in Settings.
+function paintHomeHint(){
+  const el = $('cfgHomeHint'); if(!el) return;
+  const addr = store.get('homeAddress'), lbl = store.get('homeLabel');
+  el.textContent = addr && lbl ? 'Home pin set ✓ — ' + lbl
+    : addr ? 'Home not pinned yet — it’ll be looked up when you’re online'
+    : 'With a home set, Optimize route ends your day heading toward home.';
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
@@ -1295,6 +1308,27 @@ $('saveSettings').onclick = () => {
     const sub = $('cfgSub').value.trim();
     store.set('subName', sub);
     payload.subName = sub;
+  }
+  // Home address (optional, this device only) — pin it now so Optimize route
+  // can end the day heading toward home. Saved offline (or a miss): the text
+  // is kept and the worklist screen re-tries the lookup at optimize time.
+  const homeAddr = $('cfgHome').value.trim();
+  if (homeAddr !== (store.get('homeAddress') || '')) {
+    store.set('homeAddress', homeAddr);
+    store.set('homeLat', ''); store.set('homeLng', ''); store.set('homeLabel', '');
+    if (homeAddr && navigator.onLine) {
+      geocodeOne(homeAddr, null).then(hit => {
+        if (hit && !hit.ambig) {
+          store.set('homeLat', String(hit.lat)); store.set('homeLng', String(hit.lng));
+          store.set('homeLabel', hit.label || homeAddr);
+          toast('Home pin set ✓');
+        } else {
+          toast(hit ? 'Home matches several places — add the town to the address'
+                    : 'Couldn’t place home — routes will start at your first order');
+        }
+        paintHomeHint();
+      });
+    }
   }
   enqueue(payload);
   closeSheets(); toast('Saved ✓');
