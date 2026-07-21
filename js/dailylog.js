@@ -90,6 +90,15 @@ function locLabel(s){
   return unit ? (unit + ' ' + addr) : addr;
 }
 
+// Shorten a display name to first name + last initial ("Christopher Martin" →
+// "Christopher M") so it fits the land sheet's Name cell. Single-token names pass
+// through unchanged.
+function shortName(name){
+  const parts = String(name==null?'':name).trim().split(/\s+/).filter(Boolean);
+  if(parts.length < 2) return parts[0] || '';
+  return parts[0] + ' ' + parts[parts.length - 1].charAt(0);
+}
+
 // File-name-safe installer + date, matching the old server naming.
 function pdfName(s){
   const who = String(s.installer||'').replace(/[^A-Za-z0-9]+/g,'') || 'Installer';
@@ -301,21 +310,26 @@ export function renderLandDailyLog(summary){
   let y = MARGIN;
   const leftW = spanW(0, DELAY0);
   const idFields = [
-    ['Name:',    s.installer || ''],
+    ['Name:',    shortName(s.installer)],
     ['Date:',    s.date || ''],
     ['Start:',   s.departure || ''],
     ['End:',     s.returned || ''],
     ['Sign:',    ''],
     ['Weather:', s.weather || ''],
   ];
-  const idW = leftW / idFields.length;
+  // Give Name and Date wider cells (they truncate at equal thirds) and let the
+  // short bookend/sign/weather fields give up the room. Weights subdivide leftW.
+  const idWeights = [1.5, 1.3, 0.85, 0.85, 0.7, 0.8];
+  const idWSum = idWeights.reduce((a, b) => a + b, 0);
+  let idX = MARGIN;
   idFields.forEach((f, i) => {
-    const x = MARGIN + i*idW;
+    const cw = leftW * idWeights[i] / idWSum;
+    const x = idX; idX += cw;
     doc.setFillColor(238, 241, 245);
-    doc.rect(x, y, idW, LAND_HEAD_H, 'FD');
-    put(x, y, idW, LAND_HEAD_H, f[0], { bold:true, size:8, pad:4 });
+    doc.rect(x, y, cw, LAND_HEAD_H, 'FD');
+    put(x, y, cw, LAND_HEAD_H, f[0], { bold:true, size:8, pad:4 });
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-    if(f[1]) doc.text(fit(f[1], idW - doc.getTextWidth(f[0]) - 14),
+    if(f[1]) doc.text(fit(f[1], cw - doc.getTextWidth(f[0]) - 14),
                       x + 6 + doc.getTextWidth(f[0]) + 3, y + LAND_HEAD_H/2 + 3);
   });
   doc.setFillColor(238, 241, 245);
