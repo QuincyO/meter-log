@@ -134,7 +134,7 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
 - If the road distances couldn't be fetched, the finished message says **why** (for example the map key was rejected) and the route is planned on straight-line distances instead — still usable, just blind to rivers and detours.
-- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door.
+- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 

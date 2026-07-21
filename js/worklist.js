@@ -56,20 +56,43 @@ function joinAddr(num, street){
 }
 
 // ── directions (per-card 🧭 button) ─────────────────────────────────────────
-// iOS (incl. iPadOS masquerading as MacIntel) → Apple Maps; everything else →
-// the Google Maps universal dir link (Android hands it to the Maps app).
+// Google Maps is the crew's preferred app. iOS has no OS setting to pick a
+// default maps app, so we deep-link into the Google Maps app's URL scheme
+// (comgooglemaps://) and fall back to native Apple Maps (maps://) if it isn't
+// installed — detected by whether the page ever backgrounds (the app opened).
+// Android/desktop keep the Google universal dir link, which Android hands to
+// whichever maps app the user has set as default (a choice iOS doesn't offer).
 // Navigation goes by the order's ADDRESS (+ ", ON" to stay in-province) — the
 // text the installer typed is the source of truth, and a mis-geocoded pin must
 // not steer the truck to the wrong spot. Coords are only the fallback for an
 // addressless order (the button isn't even rendered without an address).
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-function directionsUrl(item){
+function destOf(item){
   const addr = String(item.address || '').trim();
   const c = coordsOf(item);
-  const dest = addr ? enc(addr + ', ON') : (c ? enc(c.lat + ',' + c.lng) : '');
-  return IS_IOS ? `https://maps.apple.com/?daddr=${dest}`
-                : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+  return addr ? enc(addr + ', ON') : (c ? enc(c.lat + ',' + c.lng) : '');
+}
+// Launch the maps app in its own context — never navigate the PWA itself away
+// mid-shift. On iOS the custom schemes launch the app without navigating the
+// page, so if Google Maps is absent we can still fall back to Apple Maps.
+function openDirections(item){
+  const dest = destOf(item);
+  if(!dest) return;
+  if(IS_IOS){
+    let left = false;                 // set once the app grabs us (page hidden)
+    const onLeave = () => { left = true; };
+    document.addEventListener('visibilitychange', onLeave, { once:true });
+    window.addEventListener('pagehide', onLeave, { once:true });
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', onLeave);
+      window.removeEventListener('pagehide', onLeave);
+      if(!left) window.location.href = `maps://?daddr=${dest}`;  // Apple Maps
+    }, 1200);
+    window.location.href = `comgooglemaps://?daddr=${dest}&directionsmode=driving`;
+    return;
+  }
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, '_blank');
 }
 
 // ── manual sheet sync (Upload / Download buttons) ───────────────────────────
@@ -326,7 +349,7 @@ function makeWlCard(item){
   // Directions hands the address to the OS maps app in a new context — never
   // navigate the PWA itself away mid-shift. Shown on done cards too (revisits).
   const mapBtn = card.querySelector('[data-act="map"]');
-  if(mapBtn) mapBtn.onclick = () => window.open(directionsUrl(item), '_blank');
+  if(mapBtn) mapBtn.onclick = () => openDirections(item);
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
   card.querySelector('[data-act="del"]').onclick = async () => {
     await idb.del('worklist', item.id);
