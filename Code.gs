@@ -352,9 +352,10 @@ function doGet(e) {
     // arrives at the requested install — unless one's already been saved for it.
     const avg = readMetric('avgDispatchTime');
     const dispatchRows = rows('Dispatch');
+    const ownStops = stopsFor(installer, date);
     const stopById = {};
-    stopsFor(installer, date).forEach(s => { stopById[String(s.id)] = s; });
-    return json({ ok: true, gaps: gaps.map(g => {
+    ownStops.forEach(s => { stopById[String(s.id)] = s; });
+    const mapped = gaps.map(g => {
       const allocs = allocFor(g.start, g.end);
       if (!allocs.some(a => String(a.category).toUpperCase() === 'DISPATCH')) {
         const dm = dispatchSuggestMin(stopById[String(g.toId)], dispatchRows, avg);
@@ -362,7 +363,28 @@ function doGet(e) {
       }
       return { start: g.start, end: g.end, idleMin: g.idleMin, toWO: g.toWO, toId: g.toId,
         distM: g.distM, suggest: g.suggest, allocations: allocs };
-    }) });
+    });
+    // Land mode: the first WO is never a WO→WO gap's arriving stop, so prepend a
+    // zero-length "lead" gap on it (anchored HH:MM–HH:MM on the first stop's own
+    // clock) so its downtime can be entered/round-tripped at end of day. Boat days
+    // keep the first log's dock-launch leg (non-editable) untouched. Client mirror:
+    // computeGapsLocal(..., land). Land is the caller's workType, else inferred
+    // from the day's stops like buildDaySummary.
+    const typedStop = ownStops.find(s => String(s.workType || '').trim() !== '');
+    const isLand = String(p.workType || '').trim().toLowerCase() === 'land'
+                || (typedStop && normWorkType(typedStop.workType) === 'land');
+    if (isLand) {
+      const own = ownStops
+        .map(s => ({ s: s, sec: secOfDay(s.timestamp) }))
+        .filter(x => x.sec != null)
+        .sort((a, b) => a.sec - b.sec);
+      if (own.length) {
+        const f = own[0].s, hh = secToHHMM(own[0].sec);
+        mapped.unshift({ start: hh, end: hh, idleMin: 0, toWO: f.workOrderId || '',
+          toId: f.id, distM: null, suggest: '', allocations: allocFor(hh, hh), lead: true });
+      }
+    }
+    return json({ ok: true, gaps: mapped });
   }
   return json({ ok: true, message: 'Meter Log spine is up.' });
 }
