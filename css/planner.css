@@ -1,0 +1,101 @@
+/* Desktop route planner (planner.html). Same tokens/chrome as the other
+   back-office pages (reports.css is the model), but desktop-first: a wide
+   two-column layout — controls + order list on the left, the review map
+   pinned on the right. Collapses to one column on narrow windows. */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px; --tap:54px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.35; padding:env(safe-area-inset-top) 18px 48px;
+  max-width:1200px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+     background:var(--surface);z-index:5}
+.bar .title{font-size:18px;font-weight:800;flex:1}
+.pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+      padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.navsel{width:auto;min-height:0;height:40px;padding:0 10px;border:1px solid var(--line);
+        border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+.navsel:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+
+h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:700;margin:26px 2px 4px}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 2px 14px}
+
+label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin:10px 2px 5px}
+input,select,textarea{width:100%;min-height:44px;border:2px solid var(--line);border-radius:11px;
+   padding:10px 13px;font-size:15px;background:var(--panel);color:var(--ink);font-family:inherit}
+select{padding:0 13px}
+textarea{min-height:0;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);outline-offset:1px;border-color:var(--amber)}
+.hide{display:none !important}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+      padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+
+.btn{min-height:44px;padding:0 14px;border:2px solid var(--line);border-radius:11px;
+     background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer}
+.btn:active{transform:scale(.98)}
+.btn.primary{border:0;background:var(--amber);color:#1a1300}
+.btn.primary:active{background:var(--amber-press)}
+.btn:disabled{opacity:.55;cursor:default}
+
+/* two-column desktop layout */
+.plgrid{display:grid;grid-template-columns:minmax(380px,520px) 1fr;gap:18px;align-items:start}
+.plmapwrap{position:sticky;top:64px}
+#plMap{height:560px;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+       background:var(--panel)}
+@media (max-width:900px){
+  .plgrid{grid-template-columns:1fr}
+  .plmapwrap{position:static}
+  #plMap{height:380px}
+}
+
+.plbtns{display:flex;flex-wrap:wrap;gap:8px}
+.plprog{color:var(--ink-soft);font-size:13px;font-weight:600;margin-top:10px}
+.plimport{margin-top:10px}
+.plimport .btn{margin-top:8px}
+
+/* order rows */
+.plrow{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.plrow:first-child{border-top:0;padding-top:2px}
+.plpos{flex:none;width:26px;height:26px;border-radius:50%;background:var(--amber);color:#1a1300;
+       font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.pldone .plpos{background:#E7F5EE;color:var(--install)}
+.pldone .plmain{color:var(--ink-soft)}
+.plmain{flex:1;min-width:0}
+.pladdr{color:var(--ink-soft);font-size:13px;margin-top:1px;overflow-wrap:anywhere}
+.pltag{font-size:12px;font-weight:700;color:var(--amber-press)}
+.pltag-mute{color:var(--line)}
+.plchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:5px 11px;
+      font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+.chip:active{transform:scale(.97)}
+.pldel{flex:none;border:0;background:none;color:var(--ink-soft);font-size:15px;cursor:pointer;
+       padding:2px 6px;border-radius:8px}
+.pldel:hover{color:var(--uti);background:#FBEDE7}
+
+/* numbered route pins on the Leaflet map */
+.plpin{background:var(--amber);border:2px solid #fff;border-radius:50%;
+       box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.plpin span{font:800 12px/1 Inter,system-ui,sans-serif;color:#1a1300}
+
+.empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+   background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:40;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}

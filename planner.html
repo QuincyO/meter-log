@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — Route Planner</title>
+<!-- Leaflet is vendored (js/vendor, css/vendor) — no CDN (see map.html). -->
+<link rel="stylesheet" href="css/vendor/leaflet.css">
+<link rel="stylesheet" href="css/planner.css">
+</head>
+<body>
+
+  <div class="bar">
+    <div class="title">Route Planner</div>
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <select class="navsel" id="navSel" aria-label="Go to view">
+      <option value="log">Log</option>
+      <option value="map">Map</option>
+      <option value="analytics">Analytics</option>
+      <option value="teams">Crew &amp; Teams</option>
+      <option value="edit">Edit &amp; Daily Log</option>
+      <option value="reports">Reports</option>
+      <option value="planner" selected>Route Planner</option>
+      <option value="help">Help</option>
+    </select>
+  </div>
+
+  <h1>Plan a route on the office computer</h1>
+  <p class="sub">Pick the installer, load (or paste) their orders, then Optimize — addresses are
+    geocoded once and road distances come from your local OSRM server (free), so the finished,
+    ordered list uploads back to the sheet and the installer just taps ⇩ Download on their phone.</p>
+
+  <div class="plgrid">
+    <div class="plside">
+
+      <div class="card">
+        <label for="plWho">Installer</label>
+        <select id="plWho"><option value="">— pick an installer —</option></select>
+        <label for="plHome">Route ends near (home / yard address — optional)</label>
+        <input id="plHome" type="text" autocomplete="off" placeholder="e.g. 120 Depot Rd, Bracebridge">
+        <label for="plOsrm">OSRM server (road distances — see DEPLOY.md)</label>
+        <input id="plOsrm" type="text" autocomplete="off" spellcheck="false" placeholder="http://localhost:5000">
+      </div>
+
+      <div class="card">
+        <div class="plbtns">
+          <button class="btn" id="plLoad" type="button">⇩ Load saved list</button>
+          <button class="btn" id="plImportBtn" type="button">＋ Paste orders…</button>
+          <button class="btn primary" id="plOptimize" type="button">🧭 Optimize</button>
+          <button class="btn" id="plUpload" type="button">⇪ Upload to sheet</button>
+        </div>
+        <div class="plprog hide" id="plProg"></div>
+        <div class="plimport hide" id="plImport">
+          <label for="plPaste">One order per line — <span class="mono">WO#, address</span> (or just the address)</label>
+          <textarea id="plPaste" rows="6" spellcheck="false" placeholder="12345, 18 River Rd&#10;12346, 220 Muskoka Beach Rd&#10;41 Pine St"></textarea>
+          <button class="btn" id="plPasteAdd" type="button">Add these orders</button>
+        </div>
+      </div>
+
+      <div id="plCounts" class="sub"></div>
+      <div id="plList"></div>
+    </div>
+
+    <div class="plmapwrap">
+      <div id="plMap"></div>
+      <p class="sub">Numbered pins = the optimized visiting order (🏁 start → home). Check it looks
+        sane before uploading.</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script defer src="js/vendor/leaflet.js"></script>
+<script type="module" src="js/pages/planner.js"></script>
+</body>
+</html>

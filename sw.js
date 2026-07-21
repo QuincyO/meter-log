@@ -10,16 +10,16 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v16';
+const CACHE = 'meterlog-v17';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
-  './help.html', './USER-GUIDE.md',
+  './help.html', './planner.html', './USER-GUIDE.md',
   './manifest.json',
   './icon-192.png', './icon-512.png',
   // CSS (capture page shares tokens+base; map/teams/edit/reports are self-contained)
   './css/tokens.css', './css/base.css', './css/capture.css',
   './css/map.css', './css/teams.css', './css/edit.css', './css/reports.css',
-  './css/help.css',
+  './css/help.css', './css/planner.css',
   // vendored Leaflet CSS + its sprite images (map.html)
   './css/vendor/leaflet.css',
   './css/vendor/images/marker-icon.png', './css/vendor/images/marker-icon-2x.png',
@@ -39,6 +39,7 @@ const SHELL = [
   // per-page entry points
   './js/pages/capture.js', './js/pages/teams.js', './js/pages/edit.js',
   './js/pages/map.js', './js/pages/reports.js', './js/pages/help.js',
+  './js/pages/planner.js',
 ];
 
 self.addEventListener('install', e => {

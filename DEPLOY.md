@@ -107,6 +107,59 @@ Costs scale with *new orders* (geocoding) and *optimize runs* (matrix
 elements) — re-optimizing an already-pinned list re-bills only the matrix,
 never the geocodes.
 
+## Desktop planner + local OSRM (one-time setup)
+
+`planner.html` is the office-side planning app: pick an installer, load/paste
+their orders, optimize, review the numbered route on the map, ⇪ Upload — the
+installer then just taps ⇩ Download on the phone and drives the finished
+route. Its road distances come from **OSRM running on your own PC** — free and
+unmetered — so the only Google spend from planning is one geocode per *new*
+address (pins upload with the list and are never re-billed). If OSRM is down
+the planner still works, it just solves on straight-line distances and says
+so in the toast — it never silently falls into the billable Google matrix.
+
+Install the planner as a Windows app: open `planner.html` on the deployed
+site in Chrome/Edge ▸ ⋮ menu ▸ **Cast, save and share ▸ Install page as
+app** (or *More tools ▸ Create shortcut… ▸ Open as window*) — own window,
+Start-menu icon, auto-updates on every push.
+
+Set up OSRM once (Windows, ~20 minutes, mostly download time):
+
+1. Install **Docker Desktop** (WSL2 backend, the default).
+2. Make a data folder (e.g. `C:\osrm`) and download the Ontario road network
+   into it: <https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf>
+   (~1.5 GB; re-download every few months if you want new roads).
+3. Preprocess it (one-time per download; a few minutes on a fast machine):
+
+   ```powershell
+   cd C:\osrm
+   docker run -t -v ${PWD}:/data osrm/osrm-backend osrm-extract -p /opt/car.lua /data/ontario-latest.osm.pbf
+   docker run -t -v ${PWD}:/data osrm/osrm-backend osrm-contract /data/ontario-latest.osrm
+   ```
+
+4. Serve it (survives reboots via `--restart`):
+
+   ```powershell
+   docker run -d --restart unless-stopped -p 5000:5000 -v ${PWD}:/data osrm/osrm-backend osrm-routed --algorithm ch --max-table-size 1000 /data/ontario-latest.osrm
+   ```
+
+5. Smoke test — should print a `distances` matrix:
+
+   ```powershell
+   curl "http://localhost:5000/table/v1/driving/-79.37,45.05;-79.31,45.11?annotations=distance"
+   ```
+
+The planner's OSRM field defaults to `http://localhost:5000` (Chrome/Edge
+allow an HTTPS page to call localhost, so no TLS setup is needed). If the
+browser console ever shows a CORS error from OSRM, front it with a one-line
+proxy (e.g. Caddy: `caddy reverse-proxy --from :5001 --to :5000` plus a CORS
+header) — recent osrm-backend builds send `Access-Control-Allow-Origin: *`
+out of the box, so this is unlikely.
+
+The planner's geocoding uses the same `GMAPS_API_KEY` — the GitHub Pages
+referrer restriction already covers `planner.html` (same origin), nothing to
+change.
+
 ## After a schema change
 
 When tabs/columns change you still need to run `setupSheets()` once from the
