@@ -17,6 +17,7 @@ import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne } from './route.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
+let planEstimate = null;        // set by initWorklist (capture.js): async () => string
 let _wlEditId = null;           // null = new order, string = id being edited
 
 // ── ordering ────────────────────────────────────────────────────────────────
@@ -607,6 +608,7 @@ export async function planAdvance(){
   const items = await allSorted();
   const pending = items.filter(x => x.wlStatus !== 'done');
   const banner = $('planBanner'); banner.classList.remove('hide');
+  await renderPlanEstimate();
   if(!items.length){
     $('planBannerText').textContent = 'Plan: worklist is empty';
     fillCapture(null);
@@ -621,6 +623,15 @@ export async function planAdvance(){
   const pos = items.length - pending.length + 1;
   $('planBannerText').textContent = `Plan: WO ${item.workOrderId || '—'} · ${pos} of ${items.length}`;
   fillCapture(item);
+}
+
+// Quiet pace estimate beside the plan banner. capture.js supplies the string
+// (it owns the dayCache); we just paint it and hide the span when empty.
+async function renderPlanEstimate(){
+  const el = $('planEstimate'); if(!el) return;
+  const txt = planEstimate ? (await planEstimate()) : '';
+  el.textContent = txt || '';
+  el.classList.toggle('hide', !txt);
 }
 
 // Skip = send the current order to the back of the pending queue and load the
@@ -641,6 +652,7 @@ async function planSkip(){
 // the page was reloaded on #worklist, and re-arms the plan banner.
 export function initWorklist(opts){
   fillCapture = (opts && opts.fillCapture) || fillCapture;
+  planEstimate = (opts && opts.planEstimate) || planEstimate;
   $('wlBack').onclick = closeWorklist;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;

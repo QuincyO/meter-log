@@ -13,6 +13,7 @@ import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
+import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
@@ -283,7 +284,18 @@ function fillCapture(item){
   lastPlanFill = item;
   hideAddrConflict();
 }
-initWorklist({ fillCapture });
+// Quiet plan-mode estimate: how many stops today's pace projects to by end of
+// day. Reads only the local dayCache (works offline), returns '' when there's
+// no pace yet. worklist.js renders it into the plan banner.
+async function planEstimate(){
+  const c = cfg(); if(!c.name) return '';
+  const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
+  if(!cached) return '';
+  const est = projectDay(cached.stops || []);
+  if(!est.ready) return '';
+  return `~${est.projected} by ${est.label} · ${est.avgCadence} min/stop`;
+}
+initWorklist({ fillCapture, planEstimate });
 
 // Reverse geocode via resolveAddress (geocode.js): a cached coord resolves
 // instantly and OFFLINE; a new coord with signal hits the spine and is cached for
