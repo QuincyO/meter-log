@@ -2,41 +2,48 @@
 // Turns a worklist of pending orders into the most efficient open driving path.
 // One entry point, optimizeRoute(), runs the whole pipeline ON THE PHONE:
 //
-//   1. geocode every order's text address → coords (OpenRouteService / Pelias),
-//      focused AND hard-bounded to GEO_RADIUS_KM around the crew (wrong-town
+//   1. geocode every order's text address → coords (Google Geocoding API),
+//      biased AND hard-bounded to GEO_RADIUS_KM around the crew (wrong-town
 //      matches park instead), revalidating previously stored pins against the
 //      same circle so old bad coords self-heal; results cached ON the order;
-//   2. pull a road-distance matrix from ORS (chunked for big lists), falling back
-//      to straight-line (haversine) distances only if the matrix call fails;
+//   2. pull a road-distance matrix from the Google Routes API (tiled in
+//      625-element requests), falling back to straight-line (haversine)
+//      distances when the call fails OR the monthly element budget is spent —
+//      Google bills the matrix per stop-PAIR (a 25-stop day ≈ 676 elements
+//      against 10k free/month), so MATRIX_FREE_ELEMENTS below is the
+//      per-device guard that keeps the key from billing past the free tier;
 //   3. solve the open-path TSP locally (nearest-neighbour + 2-opt + Or-opt),
 //      pinned so the day either ends moving toward the installer's home pin or
 //      starts at the list's first order — milliseconds even for ~200 stops; the
-//      network time above dominates 1000×.
+//      network time above dominates.
 //
-// ORS is hit with bare fetch() — NEVER apiGet/apiPost, which inject the Apps
+// Google is hit with bare fetch() — NEVER apiGet/apiPost, which inject the Apps
 // Script token + URL. This module deliberately does not import api.js: the
-// Google backend is not in this path (see CLAUDE.md — the whole point is to keep
-// the heavy work off the Apps Script cloud).
-//
-// GOTCHA: ORS speaks GeoJSON, so coordinates are [lng, lat] — the reverse of the
-// [lat, lng] we store. All conversion goes through toLngLat()/one place so a swap
-// can't silently produce a garbage route.
-import { ORS_API_KEY } from './config.js';
+// Apps Script backend is not in this path (see CLAUDE.md — the whole point is
+// to keep the heavy work off the Apps Script cloud). The key is referrer-
+// restricted + quota-capped so it can't bill past the free tier (see DEPLOY.md).
+import { GMAPS_API_KEY } from './config.js';
 import { idb } from './idb.js';
-import { stamp } from './time.js';
+import { store } from './store.js';
+import { stamp, localDate } from './time.js';
 
-const ORS = 'https://api.openrouteservice.org';
+const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+const MATRIX_URL  = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
 
-// Free-tier guardrails. The matrix endpoint caps at ~50 locations/call, so we
-// tile an N×N matrix from blocks of BLOCK points (sources + destinations of two
-// blocks together stay ≤ 2·BLOCK ≤ MAX_LOCS). The throttles keep us under the
-// per-minute rate limits (geocode ~100/min, matrix ~40/min) so the key doesn't
-// start returning HTTP 429 partway through a 189-address run.
-const MAX_LOCS      = 50;
-const BLOCK         = 25;
-const GEOCODE_MS    = 650;
-const MATRIX_MS     = 1600;
-const MIN_CONF      = 0.3;   // Pelias confidence below this → treat as no match
+// Google allows ~50 geocodes/sec; the small gap just keeps a 189-address run
+// polite and the progress line readable.
+const GEOCODE_MS    = 120;
+
+// Matrix guardrails. One computeRouteMatrix request caps at 625 elements
+// (origins × destinations), so an N×N matrix is tiled from BLOCK×BLOCK chunks.
+// MATRIX_FREE_ELEMENTS is THIS DEVICE's share of the 10k-elements/month free
+// tier — spent elements are tracked in localStorage and a run that would blow
+// the remainder solves on straight-line instead (see matrixBudget below).
+// Several devices optimizing daily share one billing account: lower this (or
+// rely on the DEPLOY.md budget alert) if that's your fleet.
+const BLOCK                = 25;
+const MATRIX_MS            = 200;
+const MATRIX_FREE_ELEMENTS = 9000;
 const GEO_RADIUS_KM = 80;    // only match addresses this close to the crew — a
                              // same-named street one region over must park, not
                              // match. Single tune knob; optimizing far from the
@@ -82,8 +89,6 @@ function medianCenter(items){
   const mid = a => { a.sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
   return { lat: mid(pts.map(p => p.lat)), lng: mid(pts.map(p => p.lng)) };
 }
-// The one place [lat,lng] → GeoJSON [lng,lat] happens.
-const toLngLat = c => [c.lng, c.lat];
 
 // ── forward geocoding ────────────────────────────────────────────────────────
 // Fill lat/lng on every pending order that lacks them — and REVALIDATE the ones
@@ -126,35 +131,38 @@ async function geocodeAll(items, onProgress, center){
 // One address → {lat, lng, label} — plus an `ambig` candidate list when it
 // matches several distinct places — or null. Never throws: a network/parse
 // failure is just a miss, and the caller parks the order for manual fixing.
-// With a center the search is focused AND hard-bounded to GEO_RADIUS_KM around
-// it (Pelias boundary.circle, radius in km); the local haversine check is the
-// belt — a boundary-param regression can only park an order, never keep a
-// far-away wrong pin. Exported: capture.js pins the Settings home address and
-// worklist.js retries it with this same call.
+// With a center the search is biased to a GEO_RADIUS_KM box around it — but
+// Google's `bounds`/`region` are a SOFT bias only (never a hard filter), so
+// the local haversine check below is what actually gates: an out-of-circle
+// result can only park an order, never keep a far-away wrong pin. Exported:
+// capture.js pins the Settings home address and worklist.js retries it with
+// this same call.
 export async function geocodeOne(address, center){
   const text = String(address || '').trim();
   if(!text) return null;
-  let url = `${ORS}/geocode/search?api_key=${encodeURIComponent(ORS_API_KEY)}`
-    + `&text=${encodeURIComponent(text + ', ON, Canada')}`
-    + `&boundary.country=CA&size=3`;
+  let url = `${GEOCODE_URL}?address=${encodeURIComponent(text + ', ON, Canada')}`
+    + `&components=country:CA&region=ca`
+    + `&key=${encodeURIComponent(GMAPS_API_KEY)}`;
   if(center){
-    url += `&focus.point.lat=${center.lat}&focus.point.lon=${center.lng}`
-      + `&boundary.circle.lat=${center.lat}&boundary.circle.lon=${center.lng}`
-      + `&boundary.circle.radius=${GEO_RADIUS_KM}`;
+    const dLat = GEO_RADIUS_KM / 111.32;
+    const dLng = GEO_RADIUS_KM / (111.32 * Math.cos(center.lat * Math.PI / 180));
+    url += `&bounds=${encodeURIComponent(
+      `${center.lat - dLat},${center.lng - dLng}|${center.lat + dLat},${center.lng + dLng}`)}`;
   }
   try {
     const res = await fetch(url);
     if(!res.ok) return null;
     const data = await res.json();
-    const hits = ((data && data.features) || []).map(f => {
-      if(!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) return null;
-      const conf = f.properties && f.properties.confidence;
-      if(conf != null && conf < MIN_CONF) return null;
-      const [lng, lat] = f.geometry.coordinates;   // GeoJSON order
-      if(!isFinite(lat) || !isFinite(lng)) return null;
+    // status covers ZERO_RESULTS, OVER_QUERY_LIMIT (the daily quota cap that
+    // guarantees $0 — see DEPLOY.md), REQUEST_DENIED (bad/missing key) — all
+    // just a miss here; the order parks and can be retried tomorrow.
+    if(!data || data.status !== 'OK') return null;
+    const hits = (data.results || []).map(r => {
+      const loc = r && r.geometry && r.geometry.location;
+      if(!loc || !isFinite(loc.lat) || !isFinite(loc.lng)) return null;
+      const { lat, lng } = loc;
       if(center && haversine({ lat, lng }, center) > GEO_RADIUS_KM * 1000) return null;
-      const p = f.properties || {};
-      return { lat, lng, label: p.label || text, place: (p.locality || p.county || '').toLowerCase() };
+      return { lat, lng, label: r.formatted_address || text, place: placeOf(r) };
     }).filter(Boolean);
     if(!hits.length) return null;
     const best = hits[0];
@@ -176,13 +184,41 @@ export async function geocodeOne(address, center){
   } catch { return null; }
 }
 
-// ── road-distance matrix (chunked) ───────────────────────────────────────────
-// Returns an N×N array of driving distances in metres, or null if any chunk
-// fails after a retry (caller then uses the haversine fallback). Distance is
-// asymmetric on a road network (one-way streets); we symmetrize at solve time so
-// the 2-opt segment-reversal math stays valid — the asymmetry is minor here.
+// The "place" a result belongs to, for the ambiguity check — the town (or,
+// rural, the township/county) from Google's address_components.
+function placeOf(result){
+  const comps = (result && result.address_components) || [];
+  for(const type of ['locality', 'administrative_area_level_3', 'administrative_area_level_2'])
+    for(const c of comps)
+      if((c.types || []).includes(type)) return String(c.long_name || '').toLowerCase();
+  return '';
+}
+
+// ── road-distance matrix (Google Routes API, tiled) ──────────────────────────
+// Returns an N×N array of driving distances in metres, or null when the run
+// must solve on straight-line instead: any chunk failing after a retry
+// (offline, quota, bad key) or the monthly element budget not covering N².
+// Road distance is asymmetric (one-way streets); solve() symmetrizes so the
+// 2-opt segment-reversal math stays valid — the asymmetry is minor here.
+
+// This device's spent-elements ledger, reset each calendar month. Spend is
+// recorded per successful chunk — Google bills each request even if a later
+// chunk fails — so a half-failed run still counts what it cost.
+function matrixBudgetLeft(){
+  const month = localDate().slice(0, 7);
+  if(store.get('matrixMonth') !== month){
+    store.set('matrixMonth', month);
+    store.set('matrixUsed', '0');
+  }
+  return MATRIX_FREE_ELEMENTS - (Number(store.get('matrixUsed')) || 0);
+}
+function matrixBudgetSpend(elements){
+  store.set('matrixUsed', String((Number(store.get('matrixUsed')) || 0) + elements));
+}
+
 async function buildMatrix(coords, onProgress){
   const n = coords.length;
+  if(n * n > matrixBudgetLeft()) return null;      // budget spent → straight-line
   const D = Array.from({ length: n }, () => new Float64Array(n));
   const blocks = [];
   for(let s = 0; s < n; s += BLOCK) blocks.push([s, Math.min(s + BLOCK, n)]);
@@ -190,19 +226,14 @@ async function buildMatrix(coords, onProgress){
   let done = 0;
   for(const [si, se] of blocks){
     for(const [di, de] of blocks){
-      const sameBlock = si === di;
-      const locs = sameBlock
-        ? coords.slice(si, se)
-        : coords.slice(si, se).concat(coords.slice(di, de));
-      const srcCount = se - si;
-      const sources      = range(0, srcCount);
-      const destinations = sameBlock ? range(0, srcCount)
-                                     : range(srcCount, srcCount + (de - di));
-      const block = await matrixCall(locs, sources, destinations);
-      if(!block) return null;                         // abort → haversine fallback
-      for(let r = 0; r < block.length; r++)
-        for(let c = 0; c < block[r].length; c++)
-          D[si + r][di + c] = block[r][c] == null ? Infinity : block[r][c];
+      const els = await matrixCall(coords.slice(si, se), coords.slice(di, de));
+      if(!els) return null;                        // abort → haversine fallback
+      matrixBudgetSpend((se - si) * (de - di));
+      for(const el of els){
+        if(el == null || el.originIndex == null || el.destinationIndex == null) continue;
+        D[si + el.originIndex][di + el.destinationIndex] =
+          el.condition === 'ROUTE_EXISTS' ? Number(el.distanceMeters || 0) : Infinity;
+      }
       onProgress && onProgress({ phase:'matrix', done: ++done, total: totalCalls });
       await sleep(MATRIX_MS);
     }
@@ -211,20 +242,26 @@ async function buildMatrix(coords, onProgress){
   return D;
 }
 
-// One matrix chunk, with a single retry. Returns the distances sub-block (rows =
-// sources, cols = destinations) or null.
-async function matrixCall(locs, sources, destinations){
+// One matrix chunk, with a single retry. Returns the element array (each
+// {originIndex, destinationIndex, distanceMeters, condition}) or null. The
+// FieldMask header is mandatory — Google rejects the request without it.
+async function matrixCall(origins, destinations){
+  const wp = c => ({ waypoint: { location: { latLng: { latitude: c.lat, longitude: c.lng } } } });
   const body = JSON.stringify({
-    locations: locs.map(toLngLat), metrics:['distance'], units:'m', sources, destinations });
+    origins: origins.map(wp), destinations: destinations.map(wp),
+    travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE' });
   for(let attempt = 0; attempt < 2; attempt++){
     try {
-      const res = await fetch(`${ORS}/v2/matrix/driving-car`, {
-        method:'POST',
-        headers:{ 'Authorization': ORS_API_KEY, 'Content-Type':'application/json' },
+      const res = await fetch(MATRIX_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GMAPS_API_KEY,
+          'X-Goog-FieldMask': 'originIndex,destinationIndex,distanceMeters,condition' },
         body });
       if(res.ok){
         const data = await res.json();
-        if(data && Array.isArray(data.distances)) return data.distances;
+        if(Array.isArray(data)) return data;
       }
     } catch { /* fall through to retry / null */ }
     if(attempt === 0) await sleep(MATRIX_MS);
@@ -232,7 +269,8 @@ async function matrixCall(locs, sources, destinations){
   return null;
 }
 
-// Straight-line fallback matrix (metres). Symmetric by construction.
+// Straight-line fallback matrix (metres). Symmetric by construction. A uniform
+// road-detour factor wouldn't change which order is shortest, so none is applied.
 function haversineMatrix(coords){
   const n = coords.length;
   const D = Array.from({ length: n }, () => new Float64Array(n));
@@ -400,10 +438,11 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // home: {lat,lng} of the installer's saved home pin, or null.
 // Returns { orderedIds, parkedIds, usedFallback, mode } — orderedIds is the
 // optimized sequence of located orders; parkedIds are the ones that wouldn't
-// geocode (geoFail) or matched several towns (geoAmbig); mode is 'home' (path
-// ends moving toward home — the start naturally lands at the far side of the
-// day's cluster, "furthest away, working back") or 'first' (no home pin: the
-// list's first order stays the start, end open).
+// geocode (geoFail) or matched several towns (geoAmbig); usedFallback means
+// the solve ran on straight-line distances (matrix failed or budget spent);
+// mode is 'home' (path ends moving toward home — the start naturally lands at
+// the far side of the day's cluster, "furthest away, working back") or 'first'
+// (no home pin: the list's first order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home){
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a

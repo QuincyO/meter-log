@@ -272,9 +272,9 @@ point in `js/pages/`. Shared modules in `js/`:
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`worklist.js`** (the worklist screen + plan mode), **`route.js`** (the
-  optimize pipeline: ORS forward geocoding bounded to ~80 km of the crew +
-  road-distance matrix + pinned open-path TSP — see "Work modes" ▸ "Route
-  optimization").
+  optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
+  Google Routes road matrix (budget-guarded, straight-line fallback) + pinned
+  open-path TSP — see "Work modes" ▸ "Route optimization").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
 - **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`.
@@ -404,12 +404,19 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   logged.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
-  every pending order (OpenRouteService/Pelias, key in `config.js`) → pull an
-  ORS road-distance matrix (chunked for the free tier; straight-line haversine
-  fallback) → solve the open-path TSP locally (nearest-neighbour + 2-opt +
-  Or-opt) → rewrite `order`. **Matching is focused AND hard-bounded to
-  `GEO_RADIUS_KM` (80 km) around the crew** — Pelias `focus.point` +
-  `boundary.circle`, plus a local haversine belt — so a same-named street one
+  every pending order (**Google Geocoding API**, key in `config.js` —
+  referrer-restricted, API-restricted to Geocoding + Routes, and quota-capped
+  per DEPLOY.md so it can never bill past the 10k/month free tier; past the
+  daily cap new orders just park until tomorrow) → pull a **road-distance
+  matrix from the Google Routes API** (tiled in 625-element requests; Google
+  bills per stop-pair, so a per-device monthly element budget in
+  `js/route.js`/localStorage guards the free tier) with a **straight-line
+  haversine fallback** when the matrix fails or the budget is spent → solve
+  the open-path TSP locally
+  (nearest-neighbour + 2-opt + Or-opt) → rewrite `order`. **Matching is biased
+  AND hard-bounded to `GEO_RADIUS_KM` (80 km) around the crew** — a `bounds`
+  box + `region=ca` (soft bias only on Google) plus the local haversine belt,
+  which is the actual gate — so a same-named street one
   region over parks instead of matching; the gate center is the phone's GPS,
   falling back to the list's own median (also used when the fix is > 80 km from
   the list — planning far from the route area must not invalidate good pins),

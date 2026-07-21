@@ -57,15 +57,17 @@ function joinAddr(num, street){
 
 // ── directions (per-card 🧭 button) ─────────────────────────────────────────
 // iOS (incl. iPadOS masquerading as MacIntel) → Apple Maps; everything else →
-// the Google Maps universal dir link (Android hands it to the Maps app). A
-// located order navigates by its validated coords — the exact pin the route was
-// solved on — so the maps app can't re-geocode the text to a different spot.
-// Text (+ ", ON" to stay in-province) is the fallback for unlocated orders.
+// the Google Maps universal dir link (Android hands it to the Maps app).
+// Navigation goes by the order's ADDRESS (+ ", ON" to stay in-province) — the
+// text the installer typed is the source of truth, and a mis-geocoded pin must
+// not steer the truck to the wrong spot. Coords are only the fallback for an
+// addressless order (the button isn't even rendered without an address).
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function directionsUrl(item){
+  const addr = String(item.address || '').trim();
   const c = coordsOf(item);
-  const dest = c ? enc(c.lat + ',' + c.lng) : enc(String(item.address).trim() + ', ON');
+  const dest = addr ? enc(addr + ', ON') : (c ? enc(c.lat + ',' + c.lng) : '');
   return IS_IOS ? `https://maps.apple.com/?daddr=${dest}`
                 : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
 }
@@ -153,8 +155,8 @@ async function wlDownload(){
 
 // ── route optimization (land mode) ──────────────────────────────────────────
 // Geocode every pending order (bounded to ~80 km of the crew — js/route.js),
-// pull a road-distance matrix, solve the best open path on-device, then rewrite
-// `order` so the list follows it. With a home pin (Settings) the route ends
+// pull a road-distance matrix (straight-line fallback), solve the best open
+// path on-device, then rewrite `order` so the list follows it. With a home pin (Settings) the route ends
 // moving toward home; otherwise the first order stays the start. Done orders
 // are excluded, so re-optimizing tomorrow just re-plans what's left.
 
@@ -223,7 +225,7 @@ function updateRouteProgress(p){
   if(!prog) return;
   if(p.phase === 'locate') prog.textContent = 'Getting your location…';
   else if(p.phase === 'geocode') prog.textContent = `Looking up addresses ${p.done}/${p.total}…`;
-  else if(p.phase === 'matrix') prog.textContent = p.total ? `Building road distances ${p.done}/${p.total}…` : 'Building road distances…';
+  else if(p.phase === 'matrix') prog.textContent = p.total ? `Getting road distances ${p.done}/${p.total}…` : 'Getting road distances…';
   else if(p.phase === 'solve') prog.textContent = 'Finding the best order…';
 }
 
