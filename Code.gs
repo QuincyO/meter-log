@@ -1296,9 +1296,12 @@ function installerGapStops(installerId, installer, date) {
 }
 
 /** The display names of the installer's same-letter boat-team partners (the
- *  array form of teamHeader().partner). */
+ *  array form of teamHeader().partner). Land crews share one sub but each works
+ *  an independent route, so they have no partners — returning [] keeps every land
+ *  installer's WO→WO gaps (and the dispatch pre-fill) measured off their own log
+ *  only, never merged with a crewmate's timeline. */
 function teamPartnerNames(team, selfH) {
-  if (!team) return [];
+  if (!team || String(team.type || '').trim().toLowerCase() === 'land') return [];
   selfH = String(selfH || '').trim();
   const letter = team.memberLetters[selfH] || '';
   return Object.keys(team.memberLetters)
@@ -1456,9 +1459,54 @@ function saveEmployee(b) {
     if (fields.subName) ensureName('Subs', fields.subName);
   }
   const r = upsertByHeader('Employees', 'hNumber', h, fields);
+  // Land self-join: picking a sub in capture Settings (land mode) also adds this
+  // installer to that sub's land crew — a land crew is just its sub's people, not a
+  // numbered boat. Gated to land + an explicit subName so boat/admin saves (which
+  // don't send workType, or send boat) never touch team membership.
+  if (b.subName != null && normWorkType(b.workType) === 'land') {
+    joinLandCrewBySub(h, fields.subName);
+  }
   const res = { ok: true, hNumber: h };
   res[r.created ? 'created' : 'updated'] = true;
   return res;
+}
+
+/** Land-crew self-join: move this installer onto the land crew whose sub foreman
+ *  matches `subName` (land crews are keyed by sub, not a number), removing them
+ *  from any other land crew first. An empty subName just removes them. Creates the
+ *  crew if no land team carries that sub yet. Boat teams are never touched — boat
+ *  membership stays admin-managed. The stored letter is cosmetic for land (partner
+ *  merging is boat-only, see teamPartnerNames). */
+function joinLandCrewBySub(hNumber, subName) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  if (!h) return;
+  const target = String(subName == null ? '' : subName).trim();
+  const norm = v => String(v == null ? '' : v).trim().toLowerCase();
+  const landTeams = teamsList().filter(t => normWorkType(t.type) === 'land');
+
+  let joined = false;
+  landTeams.forEach(t => {
+    const letters = normalizeLetters(parseMemberLetters(t.memberLetters));
+    const isTarget = target && norm(t.subName) === norm(target);
+    let changed = false;
+    if (isTarget && !joined) {
+      if (letters[h] == null) { letters[h] = 'A'; changed = true; }
+      joined = true;
+    } else if (letters[h] != null) {
+      delete letters[h]; changed = true;   // moved off a different crew, or cleared
+    }
+    if (changed) upsertByHeader('Teams', 'id', t.id, { memberLetters: JSON.stringify(letters) });
+  });
+
+  // No land crew carries this sub yet → create one seeded with this installer.
+  if (target && !joined) {
+    const id = newId();
+    ensureName('Subs', target);
+    upsertByHeader('Teams', 'id', id, {
+      id: id, boatNumber: '', boatName: '', captainName: '',
+      subName: target, memberLetters: JSON.stringify({ [h]: 'A' }), type: 'land'
+    });
+  }
 }
 
 /** Remove a crew member and scrub them out of any team rosters / captaincies. */

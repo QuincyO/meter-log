@@ -62,11 +62,14 @@ function setMode(m){
   applyModeUI();
 }
 // Mode-dependent chrome: the land daily log always prints the delay columns, so
-// the "include delays" choice only exists in boat mode.
+// the "include delays" choice only exists in boat mode. Land has no dock, so its
+// end-of-day bookends are a plain Start / End time rather than Departure / Returned.
 function applyModeUI(){
   const land = workMode()==='land';
   $('eodIncludeDelaysWrap').classList.toggle('hide', land);
   if(land) $('eodIncludeDelays').checked = true;
+  $('lblDeparture').innerHTML = land ? 'Start time' : 'Departure time <span style="font-weight:500">(left dock)</span>';
+  $('lblReturned').textContent = land ? 'End time' : 'Returned to land';
 }
 $('modeBoat').onclick = () => setMode('boat');
 $('modeLand').onclick = () => setMode('land');
@@ -87,7 +90,7 @@ function setStatus(s){
   $('utiFields').classList.toggle('hide', s!=='UTI');
   $('otherFields').classList.toggle('hide', s!=='OTHER');
   $('requestedMeter').classList.toggle('hide', !(s==='INSTALLED'||s==='UTI'));
-  setNoRead(false); setSolar(false); setRequested(false);
+  setNoRead(false); setSolar(false); setRequested(false); setNoGps(false);
 }
 $('utiReason').onchange = e => {
   const other = e.target.value === 'Other';
@@ -140,6 +143,22 @@ function setSolar(on){
 
 // ── location + auto address ───────────────────────────────────────────────
 let coords = { lat:null, lng:null };
+
+// ── no-GPS override ────────────────────────────────────────────────────────
+// GPS is required on a normal log so a row never lands without coordinates. When
+// there's no signal / GPS is denied, the installer can flip this to log the stop
+// anyway with blank coords (the address stays whatever they typed). Deliberate
+// opt-in so an accidental missing fix is still caught. Reset after every log.
+let noGps = false;
+$('noGpsToggle').onclick = () => setNoGps(!noGps);
+function setNoGps(on){
+  noGps = on;
+  $('noGpsToggle').classList.toggle('toggle-on', on);
+  $('noGpsToggle').textContent = on
+    ? 'No GPS ✓ — will log without coordinates'
+    : 'No GPS here? Log without coordinates';
+  if(on && coords.lat==null) $('locText').textContent = 'Location: logging without GPS';
+}
 
 // Stream GPS fixes and stop as soon as the position is confidently tight —
 // when a fix reports `accuracy <= targetAccuracy` metres (the API gives accuracy
@@ -315,8 +334,9 @@ $('logStop').onclick = () => {
   if(status==='UTI' && !$('utiReason').value){ toast('Pick a UTI reason'); return; }
   if(status==='INSTALLED' && noRead && !$('installOldJ').value.trim()){ toast('Scan or type the old J#'); return; }
   // GPS is required on every log — capture the fix at the stop (↻ Refresh) so no
-  // row lands without coordinates.
-  if(coords.lat==null || coords.lng==null){ toast('GPS location is required — tap ↻ Refresh at the stop'); return; }
+  // row lands without coordinates. The "No GPS" override lets the installer log
+  // without a fix when there's no signal (blank coords stored).
+  if(!noGps && (coords.lat==null || coords.lng==null)){ toast('GPS location is required — tap ↻ Refresh, or use “No GPS here?”'); return; }
   if(addrConflictPending){ toast('Choose which address is right first'); return; }
 
   const num = v => v.trim()==='' ? null : Number(v.trim());
@@ -376,7 +396,7 @@ $('logStop').onclick = () => {
                             'Unaccounted logged ✓');
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
   $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
-  setNoRead(false); setSolar(false); setRequested(false);
+  setNoRead(false); setSolar(false); setRequested(false); setNoGps(false);
   // Manual GPS: don't auto-fetch for the next order. Clear the last fix so it
   // can't be silently attached to the next stop — the installer taps ↻ Refresh
   // once they're at the next location.
@@ -1308,6 +1328,9 @@ $('saveSettings').onclick = () => {
     const sub = $('cfgSub').value.trim();
     store.set('subName', sub);
     payload.subName = sub;
+    // In land mode, picking a sub also joins that sub's crew server-side
+    // (joinLandCrewBySub). workType tells the spine which mode this save is for.
+    payload.workType = workMode();
   }
   // Home address (optional, this device only) — pin it now so Optimize route
   // can end the day heading toward home. Saved offline (or a miss): the text

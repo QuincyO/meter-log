@@ -25,7 +25,7 @@ Do this once per phone, with signal if possible:
 1. Open the app link in the phone's browser. For quickest access, add it to the home screen (browser menu → "Add to Home Screen") — it then opens full-screen like an app, even offline.
 2. Tap **☰** (top right) → **⚙︎ Settings**. The "Who are you?" card opens.
 3. Enter your **First name**, **Last name**, and **Employee # (H)** — the H number is your unique ID; names can repeat, H numbers can't.
-4. **Sub foreman** is optional: pick yours only if you are *not* on a boat/land team (a team's sub always wins over this setting).
+4. **Sub foreman**: pick yours if you are *not* already on a team (a team's sub always wins over this setting). In **Land mode**, picking your sub here also **adds you to that sub's crew** — a land crew is just its sub's installers. Once you're on a crew, this field locks ("Assigned with your crew").
 5. **Home address** is optional too: with it set, **🧭 Optimize route** on the worklist plans your day to finish heading toward home (it starts at the far end and works back). The hint line under the field shows the exact spot it matched — if that's the wrong town, add the town to the address and Save again.
 6. Tap **Save**.
 
@@ -93,6 +93,7 @@ There's also the one-tap **Already installed here · mark spot** button: it drop
 - The app grabs your GPS position while you fill in the form; the grey line shows it ("Location: 44.9, -79.9 (±8 m)").
 - Tap **↻ Refresh** to fill the address field from GPS. The address is editable — fix it or type your own (a landmark is fine), and use the small **Unit** box for unit numbers.
 - No signal? The stop keeps its GPS position with a blank address, and the app fills the address in by itself once you're back online. Spots you've been to before resolve even offline.
+- **No GPS at all?** If the phone can't get a fix (denied or no signal), tap **No GPS here? Log without coordinates** below the location line, then log as usual — the stop saves with a blank position (type an address so it's still findable). The toggle resets after each log, so it only affects the one stop.
 
 ---
 
@@ -165,7 +166,7 @@ When the day's done, close it out — this files the day's record and produces t
 
 1. Tap **End of day**.
 2. Skim the tally and stop list; tap any stop to fix it.
-3. Enter the **Departure time (left dock)** and **Returned to land** times.
+3. Enter the day's bookend times: **Departure time (left dock)** and **Returned to land** on a boat day; **Start time** and **End time** on a land day.
 4. Do the **travel review**: the app shows the gap between each pair of work orders. For each gap, the untouched part counts as travel; add a reason + minutes row to carve out anything that wasn't travel (a lunch on the water, a wait). If you flagged a stop **Requested ✓**, a **Dispatch** row is already filled in with the calculated wait — adjust it if it's off.
 5. Add day **Notes** if you have any.
 6. Leave **Include delays & travel time on PDF** checked unless told otherwise.
@@ -207,13 +208,22 @@ Two simple name lists with **Add** and ✕ — no H numbers. Names typed on a te
 
 ### Boat Teams (or "Crews" in Land mode)
 
-One card per boat or land crew:
+**Boat mode** — one card per boat:
 
-1. Tap **+ New boat** (or **+ New crew**).
-2. Fill the **Boat number** (Land: **Crew number**), optional **Boat name**, **Captain** (boat only), and **Sub / subforeman**.
+1. Tap **+ New boat**.
+2. Fill the **Boat number**, optional **Boat name**, **Captain**, and **Sub / subforeman**.
 3. Add the crew: type a name — someone already in the crew list links by H number, a brand-new name is created on the spot.
 4. Give each member a **team letter**. Same letter = partners: Boat 11's two A's are team **11A**. The letters are what fill in the daily-log header automatically at end of day.
-5. Tap **Save boat** (or **Save crew**). **Delete** removes the whole card.
+5. Tap **Save boat**. **Delete** removes the whole card.
+
+**Land mode** — one card per **sub foreman's crew** (no crew numbers — a land crew is just that sub's people):
+
+1. Tap **+ New crew**.
+2. Pick the **Sub foreman** — that's the crew's identity.
+3. Add installers by name here, or let them add themselves by picking that sub in the capture app's **Settings** (either way they join the same crew).
+4. Tap **Save crew**. **Delete** removes the whole card.
+
+Land installers each run their own route, so they aren't paired as partners and their travel times are measured independently.
 
 ---
 

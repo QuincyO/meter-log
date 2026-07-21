@@ -153,6 +153,7 @@
     <div class="loc" id="locText">Location: not captured yet</div>
     <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
   </div>
+  <button class="ghost" id="noGpsToggle" type="button" style="width:100%;margin-top:10px">No GPS here? Log without coordinates</button>
 
   <!-- Plan mode: the planned address and the GPS one disagree — user picks -->
   <div class="addr-conflict hide" id="addrConflict">
@@ -292,11 +293,11 @@
       <div id="eodList"></div>
       <div class="row2" style="margin-top:4px">
         <div>
-          <label for="eodDeparture">Departure time <span style="font-weight:500">(left dock)</span></label>
+          <label for="eodDeparture" id="lblDeparture">Departure time <span style="font-weight:500">(left dock)</span></label>
           <input id="eodDeparture" type="time">
         </div>
         <div>
-          <label for="eodReturned">Returned to land</label>
+          <label for="eodReturned" id="lblReturned">Returned to land</label>
           <input id="eodReturned" type="time">
         </div>
       </div>

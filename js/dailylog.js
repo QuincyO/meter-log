@@ -296,16 +296,19 @@ export function renderLandDailyLog(summary){
     });
   };
 
-  // ── header strip: Name / Date / Sign / Weather + DELAYS (MIN) title ────────
+  // ── header strip: Name / Date / Start / End / Sign / Weather + DELAYS (MIN) ─
+  // Land has no dock: the bookend clocks read as a plain Start / End of day.
   let y = MARGIN;
   const leftW = spanW(0, DELAY0);
-  const idW = leftW / 4;
   const idFields = [
     ['Name:',    s.installer || ''],
     ['Date:',    s.date || ''],
+    ['Start:',   s.departure || ''],
+    ['End:',     s.returned || ''],
     ['Sign:',    ''],
     ['Weather:', s.weather || ''],
   ];
+  const idW = leftW / idFields.length;
   idFields.forEach((f, i) => {
     const x = MARGIN + i*idW;
     doc.setFillColor(238, 241, 245);
