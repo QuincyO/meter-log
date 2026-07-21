@@ -18,7 +18,7 @@ import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
 import { geocodeOne } from '../route.js';
-import { utiReasonOptionsHTML } from '../utiReasons.js';
+import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -505,6 +505,11 @@ function makeStopCard(s, onSaved, opts){
   const pos = opts && opts.pos;
   const card = document.createElement('div');
   card.className = 'stopcard';
+  // A stored reason that isn't one of the known picks is an "Other" free-text
+  // (usually "Other: …") — preselect Other and reveal its box with the text.
+  const reasonVal = s.utiReason == null ? '' : String(s.utiReason);
+  const reasonIsOther = reasonVal !== '' && !UTI_REASONS.includes(reasonVal);
+  const otherText = reasonIsOther ? reasonVal.replace(/^Other:\s*/, '') : '';
   card.innerHTML = `
     <div class="sc-head">
       <div class="sc-sum">${summaryHTML(s, pos)}</div>
@@ -526,7 +531,10 @@ function makeStopCard(s, onSaved, opts){
       <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
       <label>Meter read</label><input class="mono" inputmode="numeric" data-f="read" value="${attr(s.meterRead)}">
       <label>Received read (solar)</label><input class="mono" inputmode="numeric" data-f="readRecv" value="${attr(s.meterReadReceived)}">
-      <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
+      <label>UTI reason</label>
+      <select class="mono" data-f="utiReason">${utiReasonOptionsHTML(s.utiReason)}</select>
+      <label data-f="utiOtherLabel" class="${reasonIsOther?'':'hide'}">What happened?</label>
+      <textarea data-f="utiOther" class="${reasonIsOther?'':'hide'}">${esc(otherText)}</textarea>
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary sc-save" data-act="save">Save changes</button>
       ${opts && opts.removable ? '<button class="danger sc-remove" data-act="remove">Remove from log…</button>' : ''}
@@ -541,6 +549,21 @@ function makeStopCard(s, onSaved, opts){
     toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
   };
 
+  // A UTI never installs a new meter, so switching to UTI drops the New J#.
+  const statusSel = card.querySelector('[data-f="status"]');
+  const newJInput = card.querySelector('[data-f="newJ"]');
+  statusSel.onchange = () => { if(statusSel.value === 'UTI') newJInput.value = ''; };
+
+  // "Other" reveals a free-text box (mirrors the main capture form).
+  const reasonSel = card.querySelector('[data-f="utiReason"]');
+  const otherBox  = card.querySelector('[data-f="utiOther"]');
+  const otherLbl  = card.querySelector('[data-f="utiOtherLabel"]');
+  reasonSel.onchange = () => {
+    const isOther = reasonSel.value === 'Other';
+    otherBox.classList.toggle('hide', !isOther);
+    otherLbl.classList.toggle('hide', !isOther);
+  };
+
   card.querySelector('[data-act="save"]').onclick = () => {
     const c = cfg();
     if(!c.url || !c.token){ toast('Add your URL first'); return; }
@@ -548,13 +571,18 @@ function makeStopCard(s, onSaved, opts){
     // queue is FIFO so its addStop reaches the server before this updateStop,
     // and both carry the same client id, so the edit applies to the right row.
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
+    const statusVal = g('status');
+    // "Other" stores as "Other: <text>", matching the main capture form.
+    const reasonPick = g('utiReason');
+    const utiReason = reasonPick === 'Other' ? ('Other: ' + g('utiOther')) : reasonPick;
     const payload = {
       token:c.token, action:'updateStop', id:s.id,
       workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
-      status:g('status'), newJNumber:g('newJ'), oldJNumber:g('oldJ'),
+      // A UTI can't carry a New J# — enforce it even if the field wasn't cleared.
+      status:statusVal, newJNumber: statusVal==='UTI' ? '' : g('newJ'), oldJNumber:g('oldJ'),
       meterRead: g('read')===''? null : Number(g('read')),
       meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
-      utiReason:g('utiReason'), notes:g('notes')
+      utiReason, notes:g('notes')
     };
     // Optimistic DOM update — matches what the server will persist
     Object.assign(s, payload);
