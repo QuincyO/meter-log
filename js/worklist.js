@@ -153,8 +153,8 @@ async function wlDownload(){
 
 // ── route optimization (land mode) ──────────────────────────────────────────
 // Geocode every pending order (bounded to ~80 km of the crew — js/route.js),
-// pull a road-distance matrix, solve the best open path on-device, then rewrite
-// `order` so the list follows it. With a home pin (Settings) the route ends
+// build a straight-line distance matrix, solve the best open path on-device,
+// then rewrite `order` so the list follows it. With a home pin (Settings) the route ends
 // moving toward home; otherwise the first order stays the start. Done orders
 // are excluded, so re-optimizing tomorrow just re-plans what's left.
 
@@ -185,7 +185,7 @@ async function optimizeRouteHandler(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, mode } = await optimizeRoute(pending, updateRouteProgress, home);
+    const { orderedIds, parkedIds, mode } = await optimizeRoute(pending, updateRouteProgress, home);
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
@@ -206,8 +206,7 @@ async function optimizeRouteHandler(){
     // a pick in Edit. Counted separately so the toast says what to fix.
     const ambig = pending.filter(x => x.geoAmbig).length;
     const failed = parkedIds.length - ambig;
-    const extra = (usedFallback ? ' — straight-line (road data unavailable)' : '')
-      + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
+    const extra = (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '');
     toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
   } catch {
@@ -217,13 +216,12 @@ async function optimizeRouteHandler(){
   }
 }
 
-// Live progress line for the long optimize run (locate → geocode → matrix → solve).
+// Live progress line for the long optimize run (locate → geocode → solve).
 function updateRouteProgress(p){
   const prog = $('wlRouteProgress');
   if(!prog) return;
   if(p.phase === 'locate') prog.textContent = 'Getting your location…';
   else if(p.phase === 'geocode') prog.textContent = `Looking up addresses ${p.done}/${p.total}…`;
-  else if(p.phase === 'matrix') prog.textContent = p.total ? `Building road distances ${p.done}/${p.total}…` : 'Building road distances…';
   else if(p.phase === 'solve') prog.textContent = 'Finding the best order…';
 }
 

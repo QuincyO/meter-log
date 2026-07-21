@@ -55,6 +55,43 @@ cp /tmp/gas/appsscript.json ./appsscript.json
 git add appsscript.json && git commit -m "Use the project's real Apps Script manifest"
 ```
 
+## Google Maps Platform key (one-time setup)
+
+The 🧭 Optimize route feature (`js/route.js`) forward-geocodes worklist
+addresses with the **Google Geocoding API**, called straight from the phone
+with the key in `js/config.js` (`GMAPS_API_KEY`). Everything else in the
+pipeline (the distance matrix and the TSP solve) runs locally and costs
+nothing — geocoding is the **only** billable call, it's made once per new
+order (pins are cached on the order), and the setup below makes it impossible
+to exceed the 10,000-calls/month free tier.
+
+1. **Create a project** at [console.cloud.google.com](https://console.cloud.google.com)
+   (e.g. `meter-log`) — use the same Google account that owns the Sheet.
+2. **Enable billing** on the project (Google requires a card on file even for
+   free-tier use; the steps below guarantee it's never charged).
+3. **APIs & Services ▸ Library** — enable the **Geocoding API**. Enable
+   *nothing else* (no Maps JavaScript, Places, or Routes API): an API that
+   isn't enabled can't bill.
+4. **APIs & Services ▸ Credentials ▸ Create credentials ▸ API key**, then
+   click the new key and restrict it:
+   - **Application restrictions ▸ Websites** — add the GitHub Pages origin
+     (`https://<owner>.github.io/*`) and `http://localhost:8731/*` (local dev).
+   - **API restrictions ▸ Restrict key** — tick only **Geocoding API**.
+5. **Cap the quota (this is what guarantees $0):** APIs & Services ▸
+   Geocoding API ▸ **Quotas & System Limits** — edit *Requests per day* down to
+   **300** (300 × 31 = 9,300 < the 10,000 free calls/month). Past the cap,
+   lookups return `OVER_QUERY_LIMIT`; the app treats that as a miss, the order
+   parks with 📍?, and re-optimizing the next day picks it up — degraded, never
+   billed.
+6. **Billing ▸ Budgets & alerts** — create a **$1 budget** with an email alert
+   as a belt-and-suspenders tripwire. If that email ever arrives, something
+   about the setup above has drifted.
+7. Paste the key into `js/config.js` as `GMAPS_API_KEY` and push.
+
+If usage grows (more installers planning daily), raise the daily cap in step 5
+and expect ~US$5 per extra 1,000 geocodes past the free 10k — cost scales with
+*new orders added*, never with re-optimizing already-pinned lists.
+
 ## After a schema change
 
 When tabs/columns change you still need to run `setupSheets()` once from the
