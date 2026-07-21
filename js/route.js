@@ -24,15 +24,25 @@
 // Google is hit with bare fetch() — NEVER apiGet/apiPost, which inject the Apps
 // Script token + URL. This module deliberately does not import api.js: the
 // Apps Script backend is not in this path (see CLAUDE.md — the whole point is
-// to keep the heavy work off the Apps Script cloud). The key is referrer-
-// restricted + quota-capped so it can't bill past the free tier (see DEPLOY.md).
-import { GMAPS_API_KEY } from './config.js';
+// to keep the heavy work off the Apps Script cloud). The key is API-restricted
+// + quota-capped so it can't bill past the free tier (see DEPLOY.md — no
+// referrer restriction: the Geocoding web service rejects those keys).
+import { GMAPS_API_KEY, ORS_API_KEY } from './config.js';
 import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
 
 const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const MATRIX_URL  = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
+
+// OpenRouteService — the free hosted BACKUP for both lookups (config.js
+// ORS_API_KEY). Geocoding is Pelias (GeoJSON, lng/lat); the matrix is a single
+// POST capped at ORS_MATRIX_MAX location-PAIRS (the free plan's 3,500 ≈ 59
+// stops) — a bigger list skips ORS and solves straight-line. Only ever reached
+// when the Google/OSRM primary returns nothing; see optimizeRoute.
+const ORS_GEOCODE_URL = 'https://api.openrouteservice.org/geocode/search';
+const ORS_MATRIX_URL  = 'https://api.openrouteservice.org/v2/matrix/driving-car';
+const ORS_MATRIX_MAX  = 3500;
 
 // Google allows ~50 geocodes/sec; the small gap just keeps a 189-address run
 // polite and the progress line readable.
@@ -155,21 +165,63 @@ async function geocodeAll(items, onProgress, center){
 // One address → {lat, lng, label} — plus an `ambig` candidate list when it
 // matches several distinct places — or null. Never throws: a network/parse
 // failure is just a miss, and the caller parks the order for manual fixing.
-// With a center the search is biased to a GEO_RADIUS_KM box around it — but
-// Google's `bounds`/`region` are a SOFT bias only (never a hard filter), so
-// the local haversine check below is what actually gates: an out-of-circle
-// result can only park an order, never keep a far-away wrong pin. Exported:
-// capture.js pins the Settings home address and worklist.js retries it with
-// this same call.
+// TWO providers: Google first, OpenRouteService second (config.js ORS_API_KEY,
+// blank = disabled) — so a rejected/over-quota Google key still resolves via
+// ORS instead of parking every order. With a center the search is biased to a
+// GEO_RADIUS_KM box around it, but the provider bounds are a SOFT bias only
+// (never a hard filter), so the local haversine gate in pickBest() is what
+// actually gates: an out-of-circle result can only park an order, never keep a
+// far-away wrong pin. Exported: capture.js pins the Settings home address and
+// worklist.js retries it with this same call.
 
-// The last KEY-level geocode rejection seen (REQUEST_DENIED etc.) — reset per
-// optimizeRoute run and surfaced as its geoReason, so "the key is broken" is
-// distinguishable from "the address didn't match" without route.js touching UI.
+// The last KEY-level Google rejection seen (REQUEST_DENIED etc.), and whether
+// the ORS backup produced any returned hit — both reset per optimizeRoute run.
+// geoKeyError surfaces as geoReason ("the key is broken" ≠ "no match"), but is
+// suppressed when orsGeoUsed carried the run — without route.js touching UI.
 let geoKeyError = null;
+let orsGeoUsed = false;
 
 export async function geocodeOne(address, center){
   const text = String(address || '').trim();
   if(!text) return null;
+  const g = await googleGeocode(text, center);
+  if(g) return g;
+  if(ORS_API_KEY){
+    const o = await orsGeocode(text, center);
+    if(o){ orsGeoUsed = true; return o; }
+  }
+  return null;
+}
+
+// Rank normalized hits [{lat,lng,label,place}] into the geocodeOne result:
+// hard-gate to GEO_RADIUS_KM around center, then detect ambiguity (the same
+// address in distinct places — different `place` AND > AMBIG_KM apart, so
+// same-town rivals like an address point vs its street centroid don't count).
+// Surfaced, never auto-picked. Shared by both providers so the gate/ambiguity
+// behavior can't drift between them.
+function pickBest(hits, center){
+  const inCircle = (hits || []).filter(h =>
+    h && isFinite(h.lat) && isFinite(h.lng) &&
+    !(center && haversine(h, center) > GEO_RADIUS_KM * 1000));
+  if(!inCircle.length) return null;
+  const best = inCircle[0];
+  const rivals = inCircle.filter(hh =>
+    hh.place !== best.place && haversine(hh, best) > AMBIG_KM * 1000);
+  if(rivals.length){
+    const seen = {}; const cands = [];
+    for(const hh of [best, ...rivals]){
+      if(seen[hh.place]) continue;
+      seen[hh.place] = 1;
+      cands.push({ label: hh.label, lat: hh.lat, lng: hh.lng });
+    }
+    return { lat: best.lat, lng: best.lng, label: best.label, ambig: cands.slice(0, 3) };
+  }
+  return { lat: best.lat, lng: best.lng, label: best.label };
+}
+
+// Provider 1 — Google Geocoding. Records geoKeyError on a key-level status so
+// the toast can name a broken key vs a plain no-match. Null on any failure.
+async function googleGeocode(text, center){
   let url = `${GEOCODE_URL}?address=${encodeURIComponent(text + ', ON, Canada')}`
     + `&components=country:CA&region=ca`
     + `&key=${encodeURIComponent(GMAPS_API_KEY)}`;
@@ -185,9 +237,7 @@ export async function geocodeOne(address, center){
     const data = await res.json();
     // status covers ZERO_RESULTS, OVER_QUERY_LIMIT (the daily quota cap that
     // guarantees $0 — see DEPLOY.md), REQUEST_DENIED (bad/missing key) — all
-    // just a miss here; the order parks and can be retried tomorrow. Key-level
-    // statuses are remembered so the optimize toast can say the key is the
-    // problem, not the addresses.
+    // just a miss here; the order parks (or falls to ORS) and can be retried.
     if(!data || data.status !== 'OK'){
       if(data && data.status && data.status !== 'ZERO_RESULTS'){
         console.warn('Geocode failed:', data.status, data.error_message || '');
@@ -199,32 +249,40 @@ export async function geocodeOne(address, center){
     const hits = (data.results || []).map(r => {
       const loc = r && r.geometry && r.geometry.location;
       if(!loc || !isFinite(loc.lat) || !isFinite(loc.lng)) return null;
-      const { lat, lng } = loc;
-      if(center && haversine({ lat, lng }, center) > GEO_RADIUS_KM * 1000) return null;
-      return { lat, lng, label: r.formatted_address || text, place: placeOf(r) };
+      return { lat: loc.lat, lng: loc.lng, label: r.formatted_address || text, place: placeOf(r) };
     }).filter(Boolean);
-    if(!hits.length) return null;
-    const best = hits[0];
-    // Ambiguity: the same address in distinct places (different locality AND
-    // > AMBIG_KM apart — same-town rivals like an address point vs its street
-    // centroid don't count). Surfaced, never auto-picked.
-    const rivals = hits.filter(hh =>
-      hh.place !== best.place && haversine(hh, best) > AMBIG_KM * 1000);
-    if(rivals.length){
-      const seen = {}; const cands = [];
-      for(const hh of [best, ...rivals]){
-        if(seen[hh.place]) continue;
-        seen[hh.place] = 1;
-        cands.push({ label: hh.label, lat: hh.lat, lng: hh.lng });
-      }
-      return { lat: best.lat, lng: best.lng, label: best.label, ambig: cands.slice(0, 3) };
-    }
-    return { lat: best.lat, lng: best.lng, label: best.label };
+    return pickBest(hits, center);
   } catch { return null; }
 }
 
-// The "place" a result belongs to, for the ambiguity check — the town (or,
-// rural, the township/county) from Google's address_components.
+// Provider 2 — OpenRouteService geocoding (Pelias). GeoJSON, coordinates in
+// [lng, lat] order (the one conversion point). focus.point biases, boundary.*
+// bounds; pickBest re-gates locally regardless. Null on any failure.
+async function orsGeocode(text, center){
+  let url = `${ORS_GEOCODE_URL}?api_key=${encodeURIComponent(ORS_API_KEY)}`
+    + `&text=${encodeURIComponent(text)}&boundary.country=CA&size=5`;
+  if(center){
+    url += `&focus.point.lon=${center.lng}&focus.point.lat=${center.lat}`
+      + `&boundary.circle.lon=${center.lng}&boundary.circle.lat=${center.lat}`
+      + `&boundary.circle.radius=${GEO_RADIUS_KM}`;   // km
+  }
+  try {
+    const res = await fetch(url);
+    if(!res.ok){ console.warn('ORS geocode failed: HTTP', res.status); return null; }
+    const data = await res.json().catch(() => null);
+    const hits = ((data && data.features) || []).map(f => {
+      const c = f && f.geometry && f.geometry.coordinates;   // [lng, lat]
+      const p = (f && f.properties) || {};
+      if(!c || !isFinite(c[0]) || !isFinite(c[1])) return null;
+      const place = String(p.locality || p.localadmin || p.county || p.region || '').toLowerCase();
+      return { lat: c[1], lng: c[0], label: p.label || text, place };
+    }).filter(Boolean);
+    return pickBest(hits, center);
+  } catch { return null; }
+}
+
+// The "place" a Google result belongs to, for the ambiguity check — the town
+// (or, rural, the township/county) from Google's address_components.
 function placeOf(result){
   const comps = (result && result.address_components) || [];
   for(const type of ['locality', 'administrative_area_level_3', 'administrative_area_level_2'])
@@ -312,6 +370,40 @@ async function osrmMatrix(coords, osrmUrl){
     if(attempt === 0) await sleep(MATRIX_MS);
   }
   return { error: 'OSRM ' + reason };
+}
+
+// ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
+// One POST to ORS's hosted matrix (config.js ORS_API_KEY): free, no tiling, but
+// capped at ORS_MATRIX_MAX location-PAIRS — a list over the cap skips ORS so the
+// run solves straight-line rather than erroring. Returns { D } (N×N metres) or
+// { error } (caller then falls to straight-line). Reached only when the primary
+// (Google Routes / OSRM) failed. GOTCHA: ORS speaks GeoJSON order — lng,lat —
+// the reverse of the {lat,lng} we store; the map below is the one conversion.
+async function orsMatrix(coords){
+  const n = coords.length;
+  if(n * n > ORS_MATRIX_MAX) return { error: `ORS matrix too big (${n} stops)` };
+  const body = JSON.stringify({
+    locations: coords.map(c => [c.lng, c.lat]), metrics: ['distance'], units: 'm' });
+  let reason = 'no response';
+  for(let attempt = 0; attempt < 2; attempt++){
+    try {
+      const res = await fetch(ORS_MATRIX_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+        body });
+      const data = await res.json().catch(() => null);
+      if(res.ok && data && Array.isArray(data.distances))
+        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))) };
+      const err = data && data.error;
+      reason = (err && (err.message || err)) || `HTTP ${res.status}`;
+      console.warn('ORS matrix failed:', res.status, data);
+    } catch(e){
+      reason = navigator.onLine ? 'network error' : 'offline';
+      console.warn('ORS matrix failed:', e);
+    }
+    if(attempt === 0) await sleep(MATRIX_MS);
+  }
+  return { error: 'ORS ' + reason };
 }
 
 // One matrix chunk, with a single retry. Returns { els } (each element
@@ -518,21 +610,24 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // place with coords). onProgress({phase, done, total}): optional UI callback.
 // home: {lat,lng} of the installer's saved home pin, or null.
 // opts.osrmUrl: a self-hosted OSRM base URL (the desktop planner passes its
-// local Docker instance) — the matrix then comes from OSRM in one free call,
-// with straight-line (never Google) as its only fallback; omitted = the phone
-// path, byte-for-byte the budget-guarded Google matrix behavior.
+// local Docker instance) — the matrix primary is then OSRM instead of Google;
+// omitted = the phone path (budget-guarded Google matrix). Both paths back up
+// through OpenRouteService (config.js ORS_API_KEY) before straight-line, and
+// geocoding backs up Google → ORS → park.
 // Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
-// geoReason } — orderedIds is the optimized sequence of located orders;
+// geoReason, note } — orderedIds is the optimized sequence of located orders;
 // parkedIds are the ones flagged geoFail (wouldn't geocode) or geoAmbig
 // (matched several towns) — they may still carry their last good pin — or
 // with no coords at all; usedFallback means the solve ran on straight-line
 // distances, and fallbackReason says why ('' otherwise); geoReason is a
-// key-level geocoding failure note (bad/over-quota key) or null; mode is
-// 'home' (path ends moving toward home — the start naturally lands at the far
-// side of the day's cluster, "furthest away, working back") or 'first' (no
-// home pin: the list's first order stays the start, end open).
+// key-level geocoding failure note (bad/over-quota key with no ORS rescue) or
+// null; note is a short "…via OpenRouteService backup" string when ORS carried
+// geocoding and/or the matrix (else null); mode is 'home' (path ends moving
+// toward home — the start naturally lands at the far side of the day's cluster,
+// "furthest away, working back") or 'first' (no home pin: the list's first
+// order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
-  geoKeyError = null;
+  geoKeyError = null; orsGeoUsed = false;
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -552,13 +647,17 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // which is what keeps the callers' failed/ambig toast arithmetic exact.
   const located = pendingItems.filter(x => !isParked(x));
   const parkedIds = pendingItems.filter(isParked).map(x => x.id);
-  const geoReason = geoKeyError
+  // A Google key rejection only alarms the user when ORS didn't rescue the run;
+  // if the backup carried it, that's reassuring `note` territory, not geoReason.
+  const geoReason = (geoKeyError && !orsGeoUsed)
     ? geoKeyError + ' — check the Google API key setup (DEPLOY.md)' : null;
+  const notes = [];
+  if(orsGeoUsed) notes.push('addresses');
 
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2)
-    return { orderedIds: located.map(x => x.id), parkedIds,
-      usedFallback:false, fallbackReason:'', mode:'first', geoReason };
+    return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
+      fallbackReason:'', mode:'first', geoReason, note: orsNote(notes) };
 
   // Route anchor: with a home pin the solve is pinned AT home and the tour is
   // read backwards — on the symmetrized matrix that IS the pinned-END path, so
@@ -570,8 +669,16 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const coords = homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
 
   onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-  const res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
-                           : await buildMatrix(coords, onProgress);
+  // Matrix: primary (OSRM on the planner, else budget-guarded Google) →
+  // OpenRouteService backup → straight-line. ORS is only reached when the
+  // primary returns nothing; a straight-line solve then means BOTH failed.
+  let res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
+                         : await buildMatrix(coords, onProgress);
+  if(!res.D && ORS_API_KEY){
+    const ors = await orsMatrix(coords);
+    if(ors.D){ notes.push('roads'); res = ors; }
+    else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
+  }
   let D = res.D, usedFallback = false, fallbackReason = '';
   if(!D){
     D = haversineMatrix(coords);
@@ -584,5 +691,11 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const orderedIds = homeC
     ? tour.slice().reverse().slice(0, -1).map(i => located[i - 1].id)  // home node (0) dropped off the end
     : tour.map(i => located[i].id);
-  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason };
+  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note: orsNote(notes) };
+}
+
+// "addresses"/"roads" → the reassuring toast line naming what the ORS backup
+// carried this run (null when it didn't engage).
+function orsNote(parts){
+  return parts.length ? parts.join(' + ') + ' via OpenRouteService backup' : null;
 }

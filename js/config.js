@@ -9,11 +9,21 @@ export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 
 // Google Maps Platform API key (land-mode route optimization — js/route.js:
 // forward geocoding + the Routes API road-distance matrix; nothing else).
-// Create it per DEPLOY.md §"Google Maps Platform key": referrer-restricted to
-// this site, API-restricted to the Geocoding + Routes APIs, geocoding
-// quota-capped at 300 requests/day, and the matrix guarded by the per-device
-// element budget in js/route.js — so it can't bill past the free tiers. Same
-// documented tradeoff as SHARED_TOKEN: it sits in client source on a
-// public-capable GitHub Pages site, mitigated by keeping the repo private +
-// the restrictions above.
+// Create it per DEPLOY.md §"Google Maps Platform key": NO application
+// restriction (the Geocoding web service rejects referrer-restricted keys
+// outright — see DEPLOY.md), API-restricted to the Geocoding + Routes APIs,
+// geocoding quota-capped at 300 requests/day, and the matrix guarded by the
+// per-device element budget in js/route.js — so it can't bill past the free
+// tiers. Same documented tradeoff as SHARED_TOKEN: it sits in client source
+// on a public-capable GitHub Pages site, mitigated by keeping the repo
+// private + the quota caps above.
 export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';
+
+// OpenRouteService API token — the free, hosted BACKUP for both land-mode
+// lookups in js/route.js: forward geocoding (when Google is rejected or misses)
+// and the road-distance matrix (when Google Routes / the local OSRM is down).
+// Never the primary — the optimizer only falls to ORS when the primary returns
+// nothing, then to straight-line. Free key from openrouteservice.org (see
+// DEPLOY.md §"OpenRouteService backup"); leave '' to disable the fallback
+// entirely. Same public-client-key tradeoff as GMAPS_API_KEY above.
+export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYxNDdkYzE3ZmFjYzQ5Yzk5ZGVhNjI1OTA4ZjUzZTc3IiwiaCI6Im11cm11cjY0In0=';
