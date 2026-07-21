@@ -1,6 +1,6 @@
 # Stops
 
-_281 rows · exported 2026-07-20 03:52 America/Toronto_
+_322 rows · exported 2026-07-21 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -285,3 +285,44 @@ _281 rows · exported 2026-07-20 03:52 America/Toronto_
 | 1784129548057-ut111d | 2026-07-15 11:32:28 | Phillip Monteiro | 640028 |  | 141 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.156282 | -79.572707 | J4608718 | J3383712 | 60669 | INSTALLED |  |  |  |  |  |  |
 | 1784133152176-suh1pm | 2026-07-15 12:32:32 | Quincy Orta | 640333 |  | 144 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.154919 | -79.571539 |  | J3082595 | 42979 | UTI | Emergency Electrical Repair |  |  |  |  |  |
 | 1784401690284-68ktjc | 2026-07-18 15:08:10 | Quincy Orta |  |  | 14 Christine Pl, Orillia, ON L3V 7P1, Canada | 44.596264 | -79.430242 |  |  |  | DONE |  |  |  |  |  | land |
+| 1784552389355-wqf9g4 | 2026-07-20 8:59:49 | Quincy Orta | 693799 |  | 109 Glencairn Crescent, Huntsville, ON P1H 2J4, Canada | 45.38512 | -79.230181 | J4612784 | J3453747 | 5275 | INSTALLED |  |  |  |  |  | land |
+| 1784552995075-rnwq5y | 2026-07-20 9:09:55 | Quincy Orta | 693753 |  | 628 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.380893 | -79.233677 | J4612783 | J4016047 | 9957 | INSTALLED |  |  |  |  |  | land |
+| 1784553336778-5utg02 | 2026-07-20 9:15:36 | Phillip Monteiro | 665003 |  | 27 Bowyer Rd | 45.332104 | -79.20895 | J4640694 | J3081304 | 49411 | INSTALLED |  |  |  |  |  | land |
+| 1784553464854-egom70 | 2026-07-20 9:17:44 | Quincy Orta | 693887 |  | 615 Old North Rd | 45.38016 | -79.232586 | J4612781 | J2071027 | 88542 | INSTALLED |  |  |  |  |  | land |
+| 1784553892258-tblicj | 2026-07-20 9:24:52 | Quincy Orta | 693812 |  | 44 Glencairn Cres | 45.380129 | -79.229366 | J4612782 | J3453769 | 20690 | INSTALLED |  |  |  |  |  | land |
+| 1784553903736-xofbf7 | 2026-07-20 9:25:03 | Phillip Monteiro | 666166 |  | 64 Bowyer Rd | 45.380205 | -79.176229 | J4640695 | J3697740 | 46214 | INSTALLED |  |  |  |  |  | land |
+| 1784554461229-xf1fip | 2026-07-20 9:34:21 | Phillip Monteiro | 665254 |  | 96 Bowyer Rd | 45.37977 | -79.178574 | J4610721 | J3168487 | 21829 | INSTALLED |  |  |  |  |  | land |
+| 1784554595581-xeohep | 2026-07-20 9:36:35 | Quincy Orta | 693893 |  | 62 Glencairn Cres | 45.380126 | -79.229332 | J4615825 | J3392209 | 54855 | INSTALLED |  |  |  |  |  | land |
+| 1784554886593-ybvihk | 2026-07-20 9:41:26 | Phillip Monteiro | 669297 |  | 103 Bowyer Rd | 45.379759 | -79.180338 | J4610722 | J3929361 | 94843 | INSTALLED |  |  |  |  |  | land |
+| 1784555363283-0h7u7z | 2026-07-20 9:49:23 | Phillip Monteiro | 668670 |  | 149 Bowyer Rd | 45.379602 | -79.178911 | J4610723 | J4147082 | 8857 | INSTALLED |  |  |  |  |  | land |
+| 1784555925072-dcyr9g | 2026-07-20 9:58:45 | Quincy Orta | 693764 |  | 68 Breisacher Rd | 45.37823 | -79.295485 | J4615827 | J4054694 | 50143 | INSTALLED |  |  |  |  |  | land |
+| 1784555941167-85zgkw | 2026-07-20 9:59:01 | Phillip Monteiro | 669650 |  | 165 Bowyer Rd | 45.377826 | -79.183169 | J4610724 | J4086870 | 55131 | INSTALLED |  |  |  |  |  | land |
+| 1784557290241-qf3nc6 | 2026-07-20 10:21:30 | Quincy Orta | 693795 |  | 3348 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.400052 | -79.345077 | J4615826 | J2690265 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784558320803-rvvto9 | 2026-07-20 10:38:40 | Phillip Monteiro | 668154 |  | 142 Williamsport Rd | 45.377614 | -79.186103 | 369951115 | J3168578 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784558517168-iu47it | 2026-07-20 10:41:57 | Quincy Orta | 694020 |  | 3316 Ravenscliffe Rd | 45.398324 | -79.344714 | J4615828 | J3756445 | 88273 | INSTALLED |  |  |  |  |  | land |
+| 1784558713324-dl6ima | 2026-07-20 10:45:13 | Phillip Monteiro | 665235 |  | 175 Williamsport Rd | 45.366362 | -79.197397 | J4610726 | J3385535 | 92415 | INSTALLED |  |  |  |  |  | land |
+| 1784559164637-5rl2t9 | 2026-07-20 10:52:44 | Quincy Orta | 693987 |  | 2751 Ravenscliffe Rd | 45.37565 | -79.335359 | J4615817 | J3298833 | 12198 | INSTALLED |  |  |  |  |  | land |
+| 1784559335632-iei2v2 | 2026-07-20 10:55:35 | Phillip Monteiro | 665745 |  | 249 Williamsport Rd | 45.365516 | -79.196224 | J4610727 | J3168519 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784559900396-8uhser | 2026-07-20 11:05:00 | Phillip Monteiro | 668403 |  | 284 Williamsport Rd | 45.366169 | -79.192184 | J4610728 | J3168517 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784560077285-f22p7x | 2026-07-20 11:07:57 | Quincy Orta | 693813 |  | 92 Vernon Ln, Huntsville, ON P1H 2J2, Canada | 45.349932 | -79.33193 | J4615818 | J3134951 | 3452 | INSTALLED |  |  |  |  |  | land |
+| 1784560575679-whaeey | 2026-07-20 11:16:15 | Phillip Monteiro | 666382 |  | 307 Williamsport Rd | 45.366169 | -79.192184 | J4610729 | J4199060 | 20146 | INSTALLED |  |  |  |  |  | land |
+| 1784560943674-5854i9 | 2026-07-20 11:22:23 | Quincy Orta | 693768 |  | 281 Vernon Shores Ave, Huntsville, ON P1H 2J2, Canada | 45.348434 | -79.324591 | J4615820 | J3134889 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784561529281-inp3ij | 2026-07-20 11:32:09 | Quincy Orta | 693926 |  | 151 Vernon Shores Ave | 45.346465 | -79.329812 | J4615819 | J4215826 | 14281 | INSTALLED |  |  |  |  |  | land |
+| 1784562577487-ypv93i | 2026-07-20 11:49:37 | Quincy Orta | 693954 |  | 143 Vernon Shores Ave | 45.346244 | -79.330507 | J4615822 | J3134949 | 99636 | INSTALLED |  |  |  |  |  | land |
+| 1784563564145-220co2 | 2026-07-20 12:06:04 | Quincy Orta | 693956 |  | 300 South Dr |  |  | J4615821 | J3134937 | 10176 | INSTALLED |  |  |  |  |  | land |
+| 1784565447144-3fouda | 2026-07-20 12:37:27 | Quincy Orta | 693963 |  | 219 South Dr, Huntsville, ON P1H 2J2, Canada | 45.342023 | -79.333008 | J4615823 | J3299486 | 36713 | INSTALLED |  |  |  |  |  | land |
+| 1784566006836-zvroc0 | 2026-07-20 12:46:46 | Quincy Orta | 693841 |  | 143 South Dr | 45.343427 | -79.33792 | J4615824 | J3168768 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784566489886-1xnd5d | 2026-07-20 12:54:49 | Quincy Orta | 693952 |  | 207 South Dr | 45.342178 | -79.333741 | J4770139 | J3168759 | 97923 | INSTALLED |  |  |  |  |  | land |
+| 1784561289079-f2vx3b | 2026-07-20 11:28:09 | Phillip Monteiro | 668177 |  | 310 Williamsport Rd | 45.367302 | -79.187493 | J4610730 | J3168572 | 69484 | INSTALLED |  |  |  |  |  | land |
+| 1784561712019-4tnwkg | 2026-07-20 11:35:12 | Phillip Monteiro | 669017 |  | 324 Williamsport Rd | 45.369272 | -79.187993 | J4610731 | J3168570 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784562099692-i4molp | 2026-07-20 11:41:39 | Phillip Monteiro | 665440 |  | 338 Williamsport Rd | 45.369272 | -79.187993 | J4610732 | J3884524 | 70905 | INSTALLED |  |  |  |  |  | land |
+| 1784563421760-ryaxbu | 2026-07-20 12:03:41 | Phillip Monteiro | 666361 |  | 365 Williamsport Rd | 45.369272 | -79.187993 | J4610733 | J3168532 | 73282 | INSTALLED |  |  |  |  |  | land |
+| 1784563794384-3s9d0j | 2026-07-20 12:09:54 | Phillip Monteiro | 664653 |  | 379 Williamsport Rd | 45.369272 | -79.187993 | J4610734 | J3168530 | 75494 | INSTALLED |  |  |  |  |  | land |
+| 1784571753643-2kk0lm | 2026-07-20 14:22:33 | Phillip Monteiro | 668738 |  | 79 Groeger Rd |  |  | J4610735 | J4150805 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1784572312199-82uck6 | 2026-07-20 14:31:52 | Phillip Monteiro | 666245 |  | 133 Groeger Rd |  |  | J4610736 | J3467158 | 98265 | INSTALLED |  |  |  |  |  | land |
+| 1784572989897-mpud0o | 2026-07-20 14:43:09 | Quincy Orta | 693932 |  | 4501 Aspdin Rd |  |  | J4770140 | J3168036 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784573216304-xq4voo | 2026-07-20 14:46:56 | Phillip Monteiro | 667404 |  | 141 Groeger Rd |  |  | J4610737 | J3218866 | 5938 | INSTALLED |  |  |  |  |  | land |
+| 1784573993055-eb2kic | 2026-07-20 14:59:53 | Quincy Orta | 693933 |  | 1054 Butler Mill Rd |  |  | J4770138 | J3789478 | 96110 | INSTALLED |  |  |  |  |  | land |
+| 1784574072160-ks6ob8 | 2026-07-20 15:01:12 | Phillip Monteiro | 666143 |  | 24 Robert Rd E |  |  | J4610738 | J3673665 | 75291 | INSTALLED |  |  |  |  |  | land |
+| 1784574411774-w62ssz | 2026-07-20 15:06:51 | Phillip Monteiro | 668176 |  | 48 Robert Rd E |  |  | J4610739 | J3467041 | 34371 | INSTALLED |  |  |  |  |  | land |
+| 1784574843154-13obyq | 2026-07-20 15:14:03 | Quincy Orta | 693934 | 20 | 1027 Stroud Beach Rd, Utterson, ON P0B 1M0, Canada | 45.272273 | -79.452239 | J4770141 | J2072828 | 11073 | INSTALLED |  |  |  |  |  | land |
