@@ -187,7 +187,8 @@ async function optimizeRouteHandler(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, mode } = await optimizeRoute(pending, updateRouteProgress, home);
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason } =
+      await optimizeRoute(pending, updateRouteProgress, home);
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
@@ -204,13 +205,17 @@ async function optimizeRouteHandler(){
     }
     await renderWorklist();
     await planAdvance();
-    // Parked = wouldn't map at all; ambiguous = matched several towns and needs
-    // a pick in Edit. Counted separately so the toast says what to fix.
-    const ambig = pending.filter(x => x.geoAmbig).length;
+    // Parked = wouldn't map (may still carry its last good pin); ambiguous =
+    // matched several towns and needs a pick in Edit. Counted separately so
+    // the toast says what to fix; the flags partition the parked set, so the
+    // subtraction is exact.
+    const short = s => String(s || '').length > 70 ? String(s).slice(0, 70) + '…' : String(s || '');
+    const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
-    const extra = (usedFallback ? ' — straight-line (road data unavailable)' : '')
+    const extra = (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
-      + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '');
+      + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
+      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '');
     toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
   } catch {
     toast('Route optimization failed — try again');

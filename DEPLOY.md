@@ -107,6 +107,10 @@ Costs scale with *new orders* (geocoding) and *optimize runs* (matrix
 elements) — re-optimizing an already-pinned list re-bills only the matrix,
 never the geocodes.
 
+If every optimize run still ends in a straight-line toast after the key is in
+place, see "the optimize toast says straight-line" under Troubleshooting — the
+toast names the concrete cause.
+
 ## Desktop planner + local OSRM (one-time setup)
 
 `planner.html` is the office-side planning app: pick an installer, load/paste
@@ -174,6 +178,20 @@ functions.
 - **The `/exec` URL changed** — someone created a new deployment instead of
   redeploying. Put the old deployment's ID back, or update `DEPLOYMENT_ID` in the
   workflow **and** `WEB_APP_URL` in all three HTML files to match.
+- **The optimize toast says "straight-line (…)" even though the key is set** —
+  the parenthetical names the cause; the full Google response is in the
+  browser console (`console.warn`).
+  - `REQUEST_DENIED` / `PERMISSION_DENIED`: in the Cloud console check that
+    (a) the key's **Websites** restriction includes the *exact* serving origin
+    — `https://<owner>.github.io/*` **and** `http://localhost:8731/*` — and
+    (b) **both** the Geocoding API *and* the Routes API are enabled on the
+    key's project **and** ticked in the key's **API restrictions**. A key with
+    only Geocoding enabled geocodes fine but every matrix call is rejected —
+    permanent straight-line routes that look like the key "isn't helping".
+  - `OVER_QUERY_LIMIT` / `monthly road-data budget spent`: the $0 guardrails
+    (daily geocode cap, `MATRIX_FREE_ELEMENTS`) working as designed — routes
+    go straight-line until the quota/month resets.
+  - `network error` / `offline`: no path to Google at all (signal, firewall).
 
 ## Hourly dispatch-average refresh (one-time setup)
 
