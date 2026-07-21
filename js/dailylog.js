@@ -405,10 +405,16 @@ export function renderLandDailyLog(summary){
   if(y + LAND_TOTAL_H > pageH - MARGIN){ doc.addPage(); y = MARGIN; }
   const installed = stops.filter(x => x.status==='INSTALLED').length;
   const uti       = stops.filter(x => x.status==='UTI').length;
+  // Visited count matches the boat sheet's footer: VISITED + UNACCOUNTED + DONE.
+  // These stops never earn a land body row (only INSTALLED/UTI print), so the
+  // totals line is where they surface.
+  const visited   = stops.filter(x =>
+    x.status==='VISITED' || x.status==='UNACCOUNTED' || x.status==='DONE').length;
   doc.setFillColor(238, 241, 245);
   doc.rect(colX[0], y, spanW(0, DELAY0), LAND_TOTAL_H, 'FD');
   put(colX[0], y, spanW(0, DELAY0), LAND_TOTAL_H,
-      `Totals · ${installed} Install · ${uti} UTI`, { bold:true, size:8.5 });
+      `Totals · ${installed} Install · ${uti} UTI` + (visited ? ` · ${visited} Visited` : ''),
+      { bold:true, size:8.5 });
   LAND_DELAY_COLS.forEach((c, i) => {
     const ci = DELAY0 + i;
     doc.rect(colX[ci], y, colW[ci], LAND_TOTAL_H);
