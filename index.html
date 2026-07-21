@@ -69,11 +69,22 @@
     <button class="scanbtn" id="requestedMeter" type="button">Requested?</button>
   </div>
 
+  <!-- Address block sits right under the WO# so the installer can kick off the
+       GPS/address fetch first, then fill the rest while the fix settles. Shared
+       across INSTALLED / UTI / OTHER. -->
+  <label for="addr">Address / landmark <span style="font-weight:500">(tap Refresh to fill from GPS · editable)</span></label>
+  <div class="addrrow">
+    <input id="unit" class="mono" placeholder="Unit" aria-label="Unit">
+    <input id="addr">
+  </div>
+  <div class="locrow">
+    <div class="loc" id="locText">Location: not captured yet</div>
+    <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
+  </div>
+  <button class="ghost" id="noGpsToggle" type="button" style="width:100%;margin-top:10px">No GPS here? Log without coordinates</button>
+
   <!-- INSTALLED fields -->
   <div id="installFields">
-    <label for="newJ">New J#</label>
-    <input id="newJ" class="mono" autocapitalize="characters">
-
     <label for="installOldJ">Old J#</label>
     <input id="installOldJ" class="mono" autocapitalize="characters">
 
@@ -100,6 +111,9 @@
       <label for="nrOther" id="nrOtherLabel" class="hide">What happened?</label>
       <textarea id="nrOther" class="hide"></textarea>
     </div>
+
+    <label for="newJ">New J#</label>
+    <input id="newJ" class="mono" autocapitalize="characters">
   </div>
 
   <!-- UTI fields -->
@@ -122,26 +136,17 @@
     <button class="ghost" id="markDone" style="width:100%;margin-top:12px">Already installed here · mark spot</button>
   </div>
 
-  <label for="addr">Address / landmark <span style="font-weight:500">(tap Refresh to fill from GPS · editable)</span></label>
-  <div class="addrrow">
-    <input id="unit" class="mono" placeholder="Unit" aria-label="Unit">
-    <input id="addr">
-  </div>
-  <div class="locrow">
-    <div class="loc" id="locText">Location: not captured yet</div>
-    <button class="locbtn" id="refreshLoc" type="button">↻ Refresh</button>
-  </div>
-  <button class="ghost" id="noGpsToggle" type="button" style="width:100%;margin-top:10px">No GPS here? Log without coordinates</button>
+  <label for="stopNotes">Notes <span style="font-weight:500">(optional)</span></label>
+  <textarea id="stopNotes" placeholder="Anything worth noting on this stop…"></textarea>
 
-  <!-- Plan mode: the planned address and the GPS one disagree — user picks -->
+  <!-- Plan mode: the planned address and the GPS one disagree — user picks.
+       Sits just above Log stop so it surfaces last, once the GPS address has
+       resolved to compare against the plan. -->
   <div class="addr-conflict hide" id="addrConflict">
     <div class="ac-title">GPS found a different address — which one is right?</div>
     <button class="ac-opt" id="acPlanned" type="button"></button>
     <button class="ac-opt" id="acGps" type="button"></button>
   </div>
-
-  <label for="stopNotes">Notes <span style="font-weight:500">(optional)</span></label>
-  <textarea id="stopNotes" placeholder="Anything worth noting on this stop…"></textarea>
 
   <button class="primary" id="logStop">Log stop</button>
 
