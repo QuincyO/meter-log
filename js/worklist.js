@@ -187,7 +187,7 @@ async function optimizeRouteHandler(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason } =
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note } =
       await optimizeRoute(pending, updateRouteProgress, home);
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
@@ -215,7 +215,8 @@ async function optimizeRouteHandler(){
     const extra = (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
-      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '');
+      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
+      + (note ? ` · ${short(note)}` : '');
     toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
   } catch {
     toast('Route optimization failed — try again');

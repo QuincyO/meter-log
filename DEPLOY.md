@@ -111,6 +111,9 @@ Setup, with the guardrails that keep it at $0:
    client budget, is the real account-wide guard).
 8. Paste the key into `js/config.js` as `GMAPS_API_KEY` and push.
 
+For a free, hosted fallback when this key is rejected/over-quota or the matrix
+is unavailable, also set up ORS — see §"OpenRouteService backup".
+
 Costs scale with *new orders* (geocoding) and *optimize runs* (matrix
 elements) — re-optimizing an already-pinned list re-bills only the matrix,
 never the geocodes.
@@ -172,6 +175,36 @@ The planner's geocoding uses the same `GMAPS_API_KEY` — same key, same
 restrictions (API-restricted, no application restriction — see §"Google Maps
 Platform key"), nothing to change.
 
+## OpenRouteService backup (optional)
+
+`js/route.js` falls back to **OpenRouteService** (ORS) — a free, hosted OSM
+service — whenever a Google/OSRM primary comes up empty, so a rejected Google
+key or a matrix outage still produces a real route instead of parked orders and
+straight lines. It backs up **both** lookups:
+
+- **Geocoding:** Google → **ORS** → park. A `REQUEST_DENIED`/over-quota Google
+  key (or a plain miss) retries the address on ORS before parking it.
+- **Road matrix:** Google Routes (phone) / local OSRM (planner) → **ORS** →
+  straight-line. ORS's hosted matrix is one free call, capped at ~3,500
+  location-pairs (≈ **59 stops**) — a bigger list skips ORS and solves
+  straight-line.
+
+When ORS carries a run, the optimize toast says so (e.g. "roads via
+OpenRouteService backup"); a Google-key rejection that ORS rescued no longer
+raises the "check the Google key" warning.
+
+Setup (2 minutes, free, no card):
+
+1. Sign up at [openrouteservice.org](https://openrouteservice.org/dev/#/signup)
+   (HeiGIT account) and request a **free token** (the "standard" plan).
+2. Paste it into `js/config.js` as `ORS_API_KEY` and push. Leave it `''` to
+   disable the fallback entirely.
+
+ORS is **backup-only**, so its volume is a small fraction of the generous free
+quota even on a heavy day — it's only hit when Google/OSRM already failed. Same
+public-client-key tradeoff as the keys above (client source on a public-capable
+Pages site, mitigated by keeping the repo private).
+
 ## After a schema change
 
 When tabs/columns change you still need to run `setupSheets()` once from the
@@ -207,6 +240,10 @@ functions.
   - No straight-line note at all, just "N parked": geocoding failed before
     routing ever started — with fewer than two pinned orders there is no
     route to solve, straight-line or otherwise. Fix the lookups first.
+  - **Setting `ORS_API_KEY`** (§"OpenRouteService backup") sidesteps most of the
+    above: a rejected Google key then falls to ORS instead of parking, and the
+    toast reads "…via OpenRouteService backup". If ORS is *also* failing, the
+    reason after `· ORS` names it (e.g. 403 = bad ORS token).
 
 ## Hourly dispatch-average refresh (one-time setup)
 

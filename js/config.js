@@ -18,3 +18,12 @@ export const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr';
 // on a public-capable GitHub Pages site, mitigated by keeping the repo
 // private + the quota caps above.
 export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';
+
+// OpenRouteService API token — the free, hosted BACKUP for both land-mode
+// lookups in js/route.js: forward geocoding (when Google is rejected or misses)
+// and the road-distance matrix (when Google Routes / the local OSRM is down).
+// Never the primary — the optimizer only falls to ORS when the primary returns
+// nothing, then to straight-line. Free key from openrouteservice.org (see
+// DEPLOY.md §"OpenRouteService backup"); leave '' to disable the fallback
+// entirely. Same public-client-key tradeoff as GMAPS_API_KEY above.
+export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYxNDdkYzE3ZmFjYzQ5Yzk5ZGVhNjI1OTA4ZjUzZTc3IiwiaCI6Im11cm11cjY0In0=';

@@ -168,7 +168,7 @@ async function optimize(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason } =
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note } =
       await optimizeRoute(pending, progress, home, { osrmUrl });
     const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
@@ -184,7 +184,8 @@ async function optimize(){
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked below` : '')
-      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : ''));
+      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
+      + (note ? ` · ${short(note)}` : ''));
   } catch {
     toast('Optimize failed — try again');
   } finally {

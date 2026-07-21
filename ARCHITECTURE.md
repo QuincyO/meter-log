@@ -420,14 +420,19 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   API-restricted to Geocoding + Routes (no referrer restriction — the
   Geocoding web service rejects those keys, see DEPLOY.md) and quota-capped
   per DEPLOY.md so it can never bill past the 10k/month free tier; past the
-  daily cap new orders just park until tomorrow) → pull a **road-distance
+  daily cap new orders just park until tomorrow) — **with an
+  OpenRouteService (ORS) backup** (`config.js` `ORS_API_KEY`, blank = disabled):
+  a Google rejection/over-quota/miss retries the address on ORS (Pelias,
+  GeoJSON `[lng,lat]`) before parking → pull a **road-distance
   matrix from the Google Routes API** (tiled in 625-element requests; Google
   bills per stop-pair, so a per-device monthly element budget in
-  `js/route.js`/localStorage guards the free tier) with a **straight-line
-  haversine fallback** when the matrix fails or the budget is spent → solve
-  the open-path TSP locally
-  (nearest-neighbour + 2-opt + Or-opt) → rewrite `order`. **Matching is biased
-  AND hard-bounded to `GEO_RADIUS_KM` (80 km) around the crew** — a `bounds`
+  `js/route.js`/localStorage guards the free tier), then **ORS's hosted matrix**
+  (one free call, `[lng,lat]`, capped at ~3,500 pairs ≈ 59 stops), then a
+  **straight-line haversine fallback** when both fail or the budget is spent →
+  solve the open-path TSP locally
+  (nearest-neighbour + 2-opt + Or-opt) → rewrite `order`. ORS is strictly a
+  backup — only reached when the primary returns nothing. **Matching is biased
+  AND hard-bounded to `GEO_RADIUS_KM` (currently 240 km) around the crew** — a `bounds`
   box + `region=ca` (soft bias only on Google) plus the local haversine belt,
   which is the actual gate — so a same-named street one
   region over parks instead of matching; the gate center is the phone's GPS,
@@ -450,19 +455,21 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   coords and no flags (never geocoded, or the flags were shed by a ⇩ Download
   — they never ride the sync) shows a muted "no pin" pill, derived from
   `isParked`. The flags are phone-local, never uploaded. `optimizeRoute` returns `{ orderedIds,
-  parkedIds, usedFallback, fallbackReason, mode, geoReason }`:
+  parkedIds, usedFallback, fallbackReason, mode, geoReason, note }`:
   `fallbackReason` is the concrete reason the solve fell back to straight-line
-  (Google's error status/message, `OSRM <reason>`, or the spent budget) and
-  `geoReason` flags a key-level geocode rejection (`REQUEST_DENIED` etc.) —
-  both surfaced in the optimize toast so a broken key no longer looks like
-  "offline". The solve is **pinned**: with a home pin (Settings →
+  (Google's error status/message, `OSRM`/`ORS <reason>`, or the spent budget —
+  both providers' reasons joined when both matrix sources failed) and
+  `geoReason` flags a key-level geocode rejection (`REQUEST_DENIED` etc.) that
+  ORS did **not** rescue; `note` is the reassuring "addresses/roads via
+  OpenRouteService backup" line when ORS carried the run — all surfaced in the
+  optimize toast so a broken key no longer looks like "offline". The solve is **pinned**: with a home pin (Settings →
   `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at save) the
   path is solved pinned at home and read backwards — ending the day moving
   toward home, the start landing at the far side of the cluster — otherwise the
   list's first order is pinned as the start with the end open.
   `optimizeRoute` also takes `opts.osrmUrl` — the **desktop planner's** matrix
-  source: one free `table` call against a self-hosted OSRM (straight-line as
-  its only fallback, never the billable Google path), which is how the office
+  source: one free `table` call against a self-hosted OSRM (then the ORS backup,
+  then straight-line — never the billable Google path), which is how the office
   plans a route at zero matrix cost and uploads it for the phone to Download
   (see the planner page bullet under "The three layers").
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
