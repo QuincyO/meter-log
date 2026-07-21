@@ -26,7 +26,8 @@ Do this once per phone, with signal if possible:
 2. Tap **☰** (top right) → **⚙︎ Settings**. The "Who are you?" card opens.
 3. Enter your **First name**, **Last name**, and **Employee # (H)** — the H number is your unique ID; names can repeat, H numbers can't.
 4. **Sub foreman** is optional: pick yours only if you are *not* on a boat/land team (a team's sub always wins over this setting).
-5. Tap **Save**.
+5. **Home address** is optional too: with it set, **🧭 Optimize route** on the worklist plans your day to finish heading toward home (it starts at the far end and works back). The hint line under the field shows the exact spot it matched — if that's the wrong town, add the town to the address and Save again.
+6. Tap **Save**.
 
 That's it. Everything you log from now on is tagged with your name and H number. If you try to log a stop before doing this, the app stops you with an "Add your name first" message and opens Settings for you.
 
@@ -121,6 +122,18 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app, **Edit** changes it.
 
 An order checks itself off automatically when its work order # is actually logged.
+
+### Optimize route
+
+Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best driving order for you:
+
+- Each address is looked up and matched **near where you are** (within about 80 km), so "Main St" means *your* Main St, not one in another city.
+- With a **Home address** in Settings, the route ends heading toward home — the first stop is the far end of the day, and you work your way back. With no home set, whatever order is first in your list stays the starting point.
+- An address that can't be matched nearby gets a **📍?** tag and drops to the bottom — fix the address (Edit) and optimize again.
+- An address that matches **more than one town** gets a **⚠ which town?** tag: open **Edit** and tap the right place from the list — one tap pins it, and the next optimize routes it.
+- Orders it has already pinned show directions (🧭) to that exact spot, so the maps app takes you to the same place the route was planned around.
+
+Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 
 ### Plan mode
 

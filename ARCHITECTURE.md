@@ -135,7 +135,11 @@ from it; the real `endOfDay` later fills the blanks),
 `saveWorklist` (whole-list replace of one installer's saved `Worklist` rows —
 the planning page's explicit **Upload** button; delete-then-append keyed on the
 employee **H number** (names can collide, H numbers can't), so a re-upload
-never duplicates and an empty upload clears the saved copy),
+never duplicates and an empty upload clears the saved copy; `order` is
+**renumbered server-side** 0,10,20… by sorted position on every upload — never
+written verbatim — so duplicate/blank order values from old clients can't
+round-trip; the nightly `clearDoneWorklistJob` runs the same
+`normalizeWorklistOrders()` repair across every installer's rows),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
@@ -164,8 +168,9 @@ gap — for the end-of-day subtraction step — see "Travel vs delay" and "Dispa
 downtime"), `archived` (one installer's removed stops for a date — edit.html's
 "Removed stops" list, so a removal can be inspected and restored), `worklist`
 (one installer's saved `Worklist` planned orders, matched on the employee
-**H number** — the planning page's explicit **Download** button, which replaces
-the phone's local list with them).
+**H number** and returned **sorted** — order asc, blanks last, createdAt tie —
+the planning page's explicit **Download** button, which replaces the phone's
+local list with them, renumbering by array position as it lands).
 
 ---
 
@@ -266,6 +271,10 @@ point in `js/pages/`. Shared modules in `js/`:
 - **`queue.js`** (offline queue; UI side-effects via `setQueueHooks`),
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
+- **`worklist.js`** (the worklist screen + plan mode), **`route.js`** (the
+  optimize pipeline: ORS forward geocoding bounded to ~80 km of the crew +
+  road-distance matrix + pinned open-path TSP — see "Work modes" ▸ "Route
+  optimization").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
 - **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`.
@@ -382,15 +391,38 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   copy-street-forward cut repeat typing on same-street runs. Each card with an
   address gets a 🧭 **Directions** button — it opens the OS maps app in a new
   context (Apple Maps on iOS, the Google Maps universal dir link elsewhere) on
-  the address plus an `", ON"` region hint; no coordinates are involved, orders
-  only carry free text. The explicit **⇪ Upload / ⇩ Download** buttons move the
-  list between devices via the sheet's `Worklist` tab (see "Client-side
-  storage" and the `Worklist` row shape). **Plan mode**
-  (`localStorage['planMode']`, toggled on the worklist screen) feeds the capture
-  form: the first pending order pre-fills it, each logged stop advances to the
-  next, Skip sends the current order to the back of the queue. If the planned
-  address and the GPS-resolved one materially disagree, an inline chooser makes
-  the installer pick before the stop can be logged.
+  the order's **cached coords when it has them** (the exact pin the route was
+  solved on — the maps app can't re-geocode the text to a different spot),
+  falling back to the address text plus an `", ON"` region hint. The explicit
+  **⇪ Upload / ⇩ Download** buttons move the list between devices via the
+  sheet's `Worklist` tab (see "Client-side storage" and the `Worklist` row
+  shape). **Plan mode** (`localStorage['planMode']`, toggled on the worklist
+  screen) feeds the capture form: the first pending order pre-fills it, each
+  logged stop advances to the next, Skip sends the current order to the back of
+  the queue. If the planned address and the GPS-resolved one materially
+  disagree, an inline chooser makes the installer pick before the stop can be
+  logged.
+- **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
+  screen; online-only). The whole pipeline runs on the phone: forward-geocode
+  every pending order (OpenRouteService/Pelias, key in `config.js`) → pull an
+  ORS road-distance matrix (chunked for the free tier; straight-line haversine
+  fallback) → solve the open-path TSP locally (nearest-neighbour + 2-opt +
+  Or-opt) → rewrite `order`. **Matching is focused AND hard-bounded to
+  `GEO_RADIUS_KM` (80 km) around the crew** — Pelias `focus.point` +
+  `boundary.circle`, plus a local haversine belt — so a same-named street one
+  region over parks instead of matching; the gate center is the phone's GPS,
+  falling back to the list's own median (also used when the fix is > 80 km from
+  the list — planning far from the route area must not invalidate good pins),
+  then the home pin. Stored coords are **revalidated against the circle every
+  run**, so historical wrong-town pins self-heal. An address matching several
+  distinct places gets **no coords + `geoAmbig`** (the "⚠ which town?" badge;
+  Edit shows the candidates as one-tap chips), a no-match gets `geoFail`
+  (`📍?`) — both park at the bottom until fixed; the flags are phone-local,
+  never uploaded. The solve is **pinned**: with a home pin (Settings →
+  `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at save) the
+  path is solved pinned at home and read backwards — ending the day moving
+  toward home, the start landing at the far side of the cluster — otherwise the
+  list's first order is pinned as the start with the end open.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 
@@ -688,9 +720,14 @@ installer's saved rows.
 | `address`     | string | free-text `"num street"` / landmark                          |
 | `oldJNumber`  | string | optional old J#                                              |
 | `wlStatus`    | string | `'pending'` \| `'done'`                                      |
-| `order`       | number | manual sort position (`''` for legacy unordered items)       |
+| `order`       | number | sort position — **renumbered 0,10,20… by `saveWorklist` on every upload** (blanks-last, `createdAt` tie), re-repaired nightly by `normalizeWorklistOrders()`; `''` only on legacy rows that predate the renumbering |
 | `createdAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
 | `updatedAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
+| `lat` / `lng` | number | the order's cached geocode pin (`''` when not located) — round-tripped so a downloaded list routes without re-geocoding |
+
+The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
+"Route optimization") deliberately do **not** ride the sync: `wireShape` strips
+them on upload and the next optimize re-derives them.
 
 ---
 
