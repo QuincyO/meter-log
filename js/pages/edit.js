@@ -7,6 +7,7 @@ import { apiGet, apiPost } from '../api.js';
 import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
+import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
 let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[] };
 
@@ -279,6 +280,11 @@ function summaryHTML(s, pos){
 function stopCard(s, pos){
   const card = document.createElement('div');
   card.className = 'stopcard';
+  // A stored reason that isn't one of the known picks is an "Other" free-text
+  // (usually "Other: …") — preselect Other and reveal its box with the text.
+  const reasonVal = s.utiReason == null ? '' : String(s.utiReason);
+  const reasonIsOther = reasonVal !== '' && !UTI_REASONS.includes(reasonVal);
+  const otherText = reasonIsOther ? reasonVal.replace(/^Other:\s*/, '') : '';
   card.innerHTML = `
     <div class="sc-head">
       <div class="sc-sum">${summaryHTML(s, pos)}</div>
@@ -301,7 +307,10 @@ function stopCard(s, pos){
       <label>Old J#</label><input class="mono" data-f="oldJ" value="${attr(s.oldJNumber)}">
       <label>Meter read</label><input class="mono" inputmode="numeric" data-f="read" value="${attr(s.meterRead)}">
       <label>Received read (solar)</label><input class="mono" inputmode="numeric" data-f="readRecv" value="${attr(s.meterReadReceived)}">
-      <label>UTI reason</label><input data-f="utiReason" value="${attr(s.utiReason)}">
+      <label>UTI reason</label>
+      <select class="mono" data-f="utiReason">${utiReasonOptionsHTML(s.utiReason)}</select>
+      <label data-f="utiOtherLabel" class="${reasonIsOther?'':'hide'}">What happened?</label>
+      <textarea data-f="utiOther" class="${reasonIsOther?'':'hide'}">${esc(otherText)}</textarea>
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary" data-act="save">Save changes</button>
       <button class="danger" data-act="remove">Remove from log…</button>
@@ -316,16 +325,36 @@ function stopCard(s, pos){
     toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
   };
 
+  // A UTI never installs a new meter, so switching to UTI drops the New J#.
+  const statusSel = card.querySelector('[data-f="status"]');
+  const newJInput = card.querySelector('[data-f="newJ"]');
+  statusSel.onchange = () => { if(statusSel.value === 'UTI') newJInput.value = ''; };
+
+  // "Other" reveals a free-text box (mirrors the capture form).
+  const reasonSel = card.querySelector('[data-f="utiReason"]');
+  const otherBox  = card.querySelector('[data-f="utiOther"]');
+  const otherLbl  = card.querySelector('[data-f="utiOtherLabel"]');
+  reasonSel.onchange = () => {
+    const isOther = reasonSel.value === 'Other';
+    otherBox.classList.toggle('hide', !isOther);
+    otherLbl.classList.toggle('hide', !isOther);
+  };
+
   card.querySelector('[data-act="save"]').onclick = async () => {
     const g = f => card.querySelector(`[data-f="${f}"]`).value.trim();
+    const statusVal = g('status');
+    // "Other" stores as "Other: <text>", matching the capture form's convention.
+    const reasonPick = g('utiReason');
+    const utiReason = reasonPick === 'Other' ? ('Other: ' + g('utiOther')) : reasonPick;
     const payload = {
       action:'updateStop', id:s.id, date:state.date,
       arrivalTime: g('arr'),
       workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
-      status:g('status'), newJNumber:g('newJ'), oldJNumber:g('oldJ'),
+      // A UTI can't carry a New J# — enforce it even if the field wasn't cleared.
+      status:statusVal, newJNumber: statusVal==='UTI' ? '' : g('newJ'), oldJNumber:g('oldJ'),
       meterRead: g('read')===''? null : Number(g('read')),
       meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
-      utiReason:g('utiReason'), notes:g('notes')
+      utiReason, notes:g('notes')
     };
     try{
       await post(payload);

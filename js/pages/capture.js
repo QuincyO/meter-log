@@ -17,6 +17,7 @@ import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist } from '../worklist.js';
 import { geocodeOne } from '../route.js';
+import { utiReasonOptionsHTML } from '../utiReasons.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -92,6 +93,7 @@ function setStatus(s){
   $('requestedMeter').classList.toggle('hide', !(s==='INSTALLED'||s==='UTI'));
   setNoRead(false); setSolar(false); setRequested(false); setNoGps(false);
 }
+$('utiReason').innerHTML = utiReasonOptionsHTML('');
 $('utiReason').onchange = e => {
   const other = e.target.value === 'Other';
   $('utiOther').classList.toggle('hide', !other);

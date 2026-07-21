@@ -104,31 +104,8 @@
   <!-- UTI fields -->
   <div id="utiFields" class="hide">
     <label for="utiReason">Reason</label>
-    <select id="utiReason" class="mono">
-      <option value="" selected disabled>Select a reason…</option>
-      <option>Appointment Needed</option>
-      <option>Bad Road</option>
-      <option>Breaker Before Meter</option>
-      <option>Could Not Locate</option>
-      <option>Customer Delay/Change</option>
-      <option>Denied Access</option>
-      <option>Electrical Repair</option>
-      <option>Device Not Listed</option>
-      <option>Gas - Natural too close</option>
-      <option>Gas - Propane too close</option>
-      <option>Incorrect/Missing Info</option>
-      <option>Inside Meter - Need Appointment</option>
-      <option>Key Required</option>
-      <option>Meter Removed/Disconnected</option>
-      <option>No Access</option>
-      <option>No Power</option>
-      <option>Schedule Change</option>
-      <option>Theft/Tamper/Vandalism</option>
-      <option>Unsafe Conditions</option>
-      <option>Water Access</option>
-      <option>Wrong Meter</option>
-      <option>Other</option>
-    </select>
+    <!-- Options populated from the shared UTI_REASONS list in js/pages/capture.js -->
+    <select id="utiReason" class="mono"></select>
     <label for="utiOther" id="utiOtherLabel" class="hide">What happened?</label>
     <textarea id="utiOther" class="hide"></textarea>
     <label for="oldJ">Old J#</label>
