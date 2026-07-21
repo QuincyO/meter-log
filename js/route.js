@@ -48,7 +48,7 @@ const GEOCODE_MS    = 120;
 const BLOCK                = 25;
 const MATRIX_MS            = 200;
 const MATRIX_FREE_ELEMENTS = 9000;
-const GEO_RADIUS_KM = 80;    // only match addresses this close to the crew — a
+const GEO_RADIUS_KM = 120;    // only match addresses this close to the crew — a
                              // same-named street one region over must park, not
                              // match. Single tune knob; optimizing far from the
                              // route area gates on the list's own median instead
