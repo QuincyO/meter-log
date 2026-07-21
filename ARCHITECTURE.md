@@ -144,8 +144,8 @@ from it; the real `endOfDay` later fills the blanks),
 `saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
 `saveDay`,
 `saveWorklist` (whole-list replace of one installer's saved `Worklist` rows —
-the planning page's explicit **Upload** button; delete-then-append keyed on the
-employee **H number** (names can collide, H numbers can't), so a re-upload
+the planning page's explicit **Upload** button; a batched body rewrite keyed on
+the employee **H number** (names can collide, H numbers can't), so a re-upload
 never duplicates and an empty upload clears the saved copy; `order` is
 **renumbered server-side** 0,10,20… by sorted position on every upload — never
 written verbatim — so duplicate/blank order values from old clients can't
@@ -433,11 +433,23 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   falling back to the list's own median (also used when the fix is > 80 km from
   the list — planning far from the route area must not invalidate good pins),
   then the home pin. Stored coords are **revalidated against the circle every
-  run**, so historical wrong-town pins self-heal. An address matching several
-  distinct places gets **no coords + `geoAmbig`** (the "⚠ which town?" badge;
-  Edit shows the candidates as one-tap chips), a no-match gets `geoFail`
-  (`📍?`) — both park at the bottom until fixed; the flags are phone-local,
-  never uploaded. The solve is **pinned**: with a home pin (Settings →
+  run** — but a stored pin is **never blanked**: an out-of-circle ("stale") pin
+  is re-geocoded and only a successful in-circle match (or an explicit
+  which-town pick) replaces it; a miss keeps the last good pin and parks the
+  order by flag, so the pin still rides the next Worklist upload for future
+  runs. **Parked = `geoFail` ∪ `geoAmbig` ∪ no-coords** (`isParked`) — parked
+  orders never enter the matrix or the solve, even when they still carry a
+  kept pin. An address matching several distinct places gets `geoAmbig` (the
+  "⚠ which town?" badge; Edit shows the candidates as one-tap chips), a
+  no-match gets `geoFail` (`📍?`) — both park at the bottom until fixed
+  (existing coords, if any, are kept but not routed); the flags are
+  phone-local, never uploaded. `optimizeRoute` returns `{ orderedIds,
+  parkedIds, usedFallback, fallbackReason, mode, geoReason }`:
+  `fallbackReason` is the concrete reason the solve fell back to straight-line
+  (Google's error status/message, `OSRM <reason>`, or the spent budget) and
+  `geoReason` flags a key-level geocode rejection (`REQUEST_DENIED` etc.) —
+  both surfaced in the optimize toast so a broken key no longer looks like
+  "offline". The solve is **pinned**: with a home pin (Settings →
   `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at save) the
   path is solved pinned at home and read backwards — ending the day moving
   toward home, the start landing at the far side of the cluster — otherwise the
@@ -729,8 +741,9 @@ A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
 A flat copy of one phone's IndexedDB `worklist` record, keyed per installer on
 the employee **H number** (unlike the name-filtered `Stops`/`Tracker` tabs —
 names can collide, H numbers can't). Written **only** by the planning screen's
-explicit Upload (`saveWorklist`, a delete-then-append whole-list replace of
-that H number's rows) and read only by Download (`?action=worklist&hNumber=…`)
+explicit Upload (`saveWorklist`, a batched whole-list replace of that H
+number's rows — one body rewrite + one trailing-row delete, so the cost stays
+flat regardless of list size) and read only by Download (`?action=worklist&hNumber=…`)
 — never touched automatically, so the sheet copy is a transfer/backup medium
 and the phone's IndexedDB stays the working copy. An empty upload clears the
 installer's saved rows.
@@ -747,7 +760,7 @@ installer's saved rows.
 | `order`       | number | sort position — **renumbered 0,10,20… by `saveWorklist` on every upload** (blanks-last, `createdAt` tie), re-repaired nightly by `normalizeWorklistOrders()`; `''` only on legacy rows that predate the renumbering |
 | `createdAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
 | `updatedAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
-| `lat` / `lng` | number | the order's cached geocode pin (`''` when not located) — round-tripped so a downloaded list routes without re-geocoding |
+| `lat` / `lng` | number | the order's cached geocode pin — round-tripped so a downloaded list routes without re-geocoding. `''` only when the order was **never** located or its address was hand-edited (which clears the pin on purpose); a failed re-geocode parks the order but never blanks the stored pin |
 
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips

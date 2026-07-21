@@ -129,8 +129,9 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 
 - Each address is looked up and matched **near where you are** (within about 80 km), so "Main St" means *your* Main St, not one in another city.
 - With a **Home address** in Settings, the route ends heading toward home — the first stop is the far end of the day, and you work your way back. With no home set, whatever order is first in your list stays the starting point.
-- An address that can't be matched nearby gets a **📍?** tag and drops to the bottom — fix the address (Edit) and optimize again.
+- An address that can't be matched nearby gets a **📍?** tag and drops to the bottom — fix the address (Edit) and optimize again. If the order was pinned before, it **keeps its old pin** — it just sits out of the route until the address is fixed.
 - An address that matches **more than one town** gets a **⚠ which town?** tag: open **Edit** and tap the right place from the list — one tap pins it, and the next optimize routes it.
+- If the road distances couldn't be fetched, the finished message says **why** (for example the map key was rejected) and the route is planned on straight-line distances instead — still usable, just blind to rivers and detours.
 - The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.

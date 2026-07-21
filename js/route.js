@@ -4,8 +4,12 @@
 //
 //   1. geocode every order's text address → coords (Google Geocoding API),
 //      biased AND hard-bounded to GEO_RADIUS_KM around the crew (wrong-town
-//      matches park instead), revalidating previously stored pins against the
-//      same circle so old bad coords self-heal; results cached ON the order;
+//      matches park instead), re-geocoding previously stored pins that fall
+//      outside the circle — a stored pin is only ever REPLACED by a successful
+//      new match (or an explicit which-town pick), never blanked: a miss or an
+//      ambiguity keeps the last good pin and parks the order by flag, so the
+//      pin survives to the Worklist sheet for future runs; results cached ON
+//      the order;
 //   2. pull a road-distance matrix from the Google Routes API (tiled in
 //      625-element requests), falling back to straight-line (haversine)
 //      distances when the call fails OR the monthly element budget is spent —
@@ -66,6 +70,15 @@ export function coordsOf(item){
     ? { lat: Number(lat), lng: Number(lng) } : null;
 }
 
+// Parked = excluded from routing: the address didn't map (geoFail), matched
+// several towns (geoAmbig), or has no pin at all. A parked order can still
+// CARRY coords — a stale pin whose re-geocode missed keeps its last good pin
+// (never blanked) but must not be routed on it. Exported: planner.js keys the
+// map's warning markers on it.
+export function isParked(item){
+  return !!(item && (item.geoFail || (item.geoAmbig && item.geoAmbig.length))) || !coordsOf(item);
+}
+
 // One coarse position fix for the geocode gate (NOT the route anchor — that's
 // the home pin / first order). Never rejects: no GPS, a denied prompt, or an
 // unanswered permission dialog all resolve null. The extra hard race matters
@@ -93,22 +106,33 @@ function medianCenter(items){
 // ── forward geocoding ────────────────────────────────────────────────────────
 // Fill lat/lng on every pending order that lacks them — and REVALIDATE the ones
 // that have them: a stored pin farther than GEO_RADIUS_KM from the gate center
-// is stale (the wrong-town matches this circle exists to prevent), so its
-// coords are cleared and the address re-geocoded inside the circle. Each result
-// (or the geoFail/geoAmbig flag) is persisted to IndexedDB immediately — that
-// persisted copy IS the cache, so a cancelled or retried run only re-hits the
-// addresses still unresolved, and in-radius items cost zero network. An
-// ambiguous match (same address in several places) deliberately gets NO coords
-// — the route must not silently pick a town; the card shows the choices instead
-// (worklist.js). The ", ON, Canada" text bias stays: the crew ranges
-// province-wide, and the circle (not the text) is what pins the region.
+// is stale (the wrong-town matches this circle exists to prevent), so the
+// address is re-geocoded inside the circle. A stored pin is NEVER blanked:
+// only a successful new match replaces it — a miss (geoFail) or an ambiguity
+// (geoAmbig) keeps the last good pin and parks the order by flag (isParked),
+// so the pin still rides the next Worklist upload. Each result (or flag) is
+// persisted to IndexedDB immediately — that persisted copy IS the cache, so a
+// cancelled or retried run only re-hits the addresses still unresolved, and
+// in-radius items cost zero network. An ambiguous match (same address in
+// several places) deliberately gets no NEW coords — the route must not
+// silently pick a town; the card shows the choices instead (worklist.js).
+// The ", ON, Canada" text bias stays: the crew ranges province-wide, and the
+// circle (not the text) is what pins the region.
 async function geocodeAll(items, onProgress, center){
   let done = 0;
   for(const item of items){
     const c = coordsOf(item);
     const stale = !!(c && center && haversine(c, center) > GEO_RADIUS_KM * 1000);
+    if(c && !stale && (item.geoFail || item.geoAmbig)){
+      // In-radius pin with leftover parked flags (a previous run's miss, gate
+      // has since moved into range) — heal, or the order stays parked forever:
+      // only the !c || stale branch below ever re-processes an item.
+      item.geoFail = false; item.geoAmbig = undefined;
+      const stored = (await idb.get('worklist', item.id)) || item;
+      await idb.put('worklist', Object.assign({}, stored, {
+        geoFail: false, geoAmbig: undefined, updatedAt: stamp() }));
+    }
     if(!c || stale){
-      if(stale){ item.lat = undefined; item.lng = undefined; }
       const hit = await geocodeOne(item.address, center);
       if(hit && !hit.ambig){
         item.lat = hit.lat; item.lng = hit.lng; item.geoFail = false; item.geoAmbig = undefined;
@@ -137,6 +161,12 @@ async function geocodeAll(items, onProgress, center){
 // result can only park an order, never keep a far-away wrong pin. Exported:
 // capture.js pins the Settings home address and worklist.js retries it with
 // this same call.
+
+// The last KEY-level geocode rejection seen (REQUEST_DENIED etc.) — reset per
+// optimizeRoute run and surfaced as its geoReason, so "the key is broken" is
+// distinguishable from "the address didn't match" without route.js touching UI.
+let geoKeyError = null;
+
 export async function geocodeOne(address, center){
   const text = String(address || '').trim();
   if(!text) return null;
@@ -151,12 +181,21 @@ export async function geocodeOne(address, center){
   }
   try {
     const res = await fetch(url);
-    if(!res.ok) return null;
+    if(!res.ok){ console.warn('Geocode failed: HTTP', res.status); return null; }
     const data = await res.json();
     // status covers ZERO_RESULTS, OVER_QUERY_LIMIT (the daily quota cap that
     // guarantees $0 — see DEPLOY.md), REQUEST_DENIED (bad/missing key) — all
-    // just a miss here; the order parks and can be retried tomorrow.
-    if(!data || data.status !== 'OK') return null;
+    // just a miss here; the order parks and can be retried tomorrow. Key-level
+    // statuses are remembered so the optimize toast can say the key is the
+    // problem, not the addresses.
+    if(!data || data.status !== 'OK'){
+      if(data && data.status && data.status !== 'ZERO_RESULTS'){
+        console.warn('Geocode failed:', data.status, data.error_message || '');
+        if(/^(REQUEST_DENIED|OVER_QUERY_LIMIT|OVER_DAILY_LIMIT)$/.test(data.status))
+          geoKeyError = data.status;
+      }
+      return null;
+    }
     const hits = (data.results || []).map(r => {
       const loc = r && r.geometry && r.geometry.location;
       if(!loc || !isFinite(loc.lat) || !isFinite(loc.lng)) return null;
@@ -195,11 +234,14 @@ function placeOf(result){
 }
 
 // ── road-distance matrix (Google Routes API, tiled) ──────────────────────────
-// Returns an N×N array of driving distances in metres, or null when the run
-// must solve on straight-line instead: any chunk failing after a retry
-// (offline, quota, bad key) or the monthly element budget not covering N².
-// Road distance is asymmetric (one-way streets); solve() symmetrizes so the
-// 2-opt segment-reversal math stays valid — the asymmetry is minor here.
+// Returns { D } — an N×N array of driving distances in metres — or { error }
+// (a short human-readable reason) when the run must solve on straight-line
+// instead: any chunk failing after a retry (offline, quota, bad key) or the
+// monthly element budget not covering N². The reason rides optimizeRoute's
+// fallbackReason into the toast, so "the key is rejected" stops looking like
+// "offline". Road distance is asymmetric (one-way streets); solve()
+// symmetrizes so the 2-opt segment-reversal math stays valid — the asymmetry
+// is minor here.
 
 // This device's spent-elements ledger, reset each calendar month. Spend is
 // recorded per successful chunk — Google bills each request even if a later
@@ -218,7 +260,8 @@ function matrixBudgetSpend(elements){
 
 async function buildMatrix(coords, onProgress){
   const n = coords.length;
-  if(n * n > matrixBudgetLeft()) return null;      // budget spent → straight-line
+  if(n * n > matrixBudgetLeft())                   // budget spent → straight-line
+    return { error: 'monthly road-data budget spent' };
   const D = Array.from({ length: n }, () => new Float64Array(n));
   const blocks = [];
   for(let s = 0; s < n; s += BLOCK) blocks.push([s, Math.min(s + BLOCK, n)]);
@@ -226,10 +269,10 @@ async function buildMatrix(coords, onProgress){
   let done = 0;
   for(const [si, se] of blocks){
     for(const [di, de] of blocks){
-      const els = await matrixCall(coords.slice(si, se), coords.slice(di, de));
-      if(!els) return null;                        // abort → haversine fallback
+      const r = await matrixCall(coords.slice(si, se), coords.slice(di, de));
+      if(r.error) return { error: r.error };       // abort → haversine fallback
       matrixBudgetSpend((se - si) * (de - di));
-      for(const el of els){
+      for(const el of r.els){
         if(el == null || el.originIndex == null || el.destinationIndex == null) continue;
         D[si + el.originIndex][di + el.destinationIndex] =
           el.condition === 'ROUTE_EXISTS' ? Number(el.distanceMeters || 0) : Infinity;
@@ -239,42 +282,50 @@ async function buildMatrix(coords, onProgress){
     }
   }
   for(let i = 0; i < n; i++) D[i][i] = 0;
-  return D;
+  return { D };
 }
 
 // ── road-distance matrix (self-hosted OSRM — the desktop planner's source) ───
 // One GET against a local/self-hosted OSRM `table` service: free, unmetered,
 // and big enough that the whole day fits in a single call (no tiling, no
-// budget). Returns the N×N metres array or null (caller falls back to
-// straight-line — deliberately NEVER into the billable Google path: a planner
-// run with OSRM down should degrade free and visibly, not quietly spend).
-// GOTCHA: OSRM speaks GeoJSON coordinate order — lng,lat — the reverse of the
-// {lat,lng} we store; the join below is the one conversion point.
+// budget). Returns { D } — the N×N metres array — or { error } (caller falls
+// back to straight-line — deliberately NEVER into the billable Google path: a
+// planner run with OSRM down should degrade free and visibly, not quietly
+// spend). GOTCHA: OSRM speaks GeoJSON coordinate order — lng,lat — the reverse
+// of the {lat,lng} we store; the join below is the one conversion point.
 async function osrmMatrix(coords, osrmUrl){
   const pts = coords.map(c => `${c.lng},${c.lat}`).join(';');
   const url = `${String(osrmUrl).replace(/\/+$/, '')}/table/v1/driving/${pts}?annotations=distance`;
+  let reason = 'no response';
   for(let attempt = 0; attempt < 2; attempt++){
     try {
       const res = await fetch(url);
-      if(res.ok){
-        const data = await res.json();
-        if(data && data.code === 'Ok' && Array.isArray(data.distances))
-          return data.distances.map(row => row.map(v => v == null ? Infinity : Number(v)));
-      }
-    } catch { /* fall through to retry / null */ }
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      if(data && data.code === 'Ok' && Array.isArray(data.distances))
+        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))) };
+      reason = res.ok ? ((data && data.code) || 'bad response') : `HTTP ${res.status}`;
+      console.warn('OSRM table failed:', reason);
+    } catch(e){
+      reason = navigator.onLine ? 'network error' : 'offline';
+      console.warn('OSRM table failed:', e);
+    }
     if(attempt === 0) await sleep(MATRIX_MS);
   }
-  return null;
+  return { error: 'OSRM ' + reason };
 }
 
-// One matrix chunk, with a single retry. Returns the element array (each
-// {originIndex, destinationIndex, distanceMeters, condition}) or null. The
-// FieldMask header is mandatory — Google rejects the request without it.
+// One matrix chunk, with a single retry. Returns { els } (each element
+// {originIndex, destinationIndex, distanceMeters, condition}) or { error } —
+// the reason built from Google's error body ({error:{code,message,status}},
+// or [{error:{…}}] on the streamed array form) so a rejected key reads as
+// REQUEST_DENIED/PERMISSION_DENIED in the toast, not as generic "unavailable".
+// The FieldMask header is mandatory — Google rejects the request without it.
 async function matrixCall(origins, destinations){
   const wp = c => ({ waypoint: { location: { latLng: { latitude: c.lat, longitude: c.lng } } } });
   const body = JSON.stringify({
     origins: origins.map(wp), destinations: destinations.map(wp),
     travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE' });
+  let reason = 'no response';
   for(let attempt = 0; attempt < 2; attempt++){
     try {
       const res = await fetch(MATRIX_URL, {
@@ -284,14 +335,19 @@ async function matrixCall(origins, destinations){
           'X-Goog-Api-Key': GMAPS_API_KEY,
           'X-Goog-FieldMask': 'originIndex,destinationIndex,distanceMeters,condition' },
         body });
-      if(res.ok){
-        const data = await res.json();
-        if(Array.isArray(data)) return data;
-      }
-    } catch { /* fall through to retry / null */ }
+      const data = await res.json().catch(() => null);
+      if(res.ok && Array.isArray(data)) return { els: data };
+      const err = data && (Array.isArray(data) ? (data[0] && data[0].error) : data.error);
+      reason = err ? `${err.status || ('HTTP ' + res.status)}${err.message ? ' — ' + err.message : ''}`
+                   : `HTTP ${res.status}`;
+      console.warn('Routes matrix chunk failed:', res.status, data);
+    } catch(e){
+      reason = navigator.onLine ? 'network error' : 'offline';
+      console.warn('Routes matrix chunk failed:', e);
+    }
     if(attempt === 0) await sleep(MATRIX_MS);
   }
-  return null;
+  return { error: reason };
 }
 
 // Straight-line fallback matrix (metres). Symmetric by construction. A uniform
@@ -465,14 +521,18 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // local Docker instance) — the matrix then comes from OSRM in one free call,
 // with straight-line (never Google) as its only fallback; omitted = the phone
 // path, byte-for-byte the budget-guarded Google matrix behavior.
-// Returns { orderedIds, parkedIds, usedFallback, mode } — orderedIds is the
-// optimized sequence of located orders; parkedIds are the ones that wouldn't
-// geocode (geoFail) or matched several towns (geoAmbig); usedFallback means
-// the solve ran on straight-line distances (matrix failed or budget spent);
-// mode is 'home' (path ends moving toward home — the start naturally lands at
-// the far side of the day's cluster, "furthest away, working back") or 'first'
-// (no home pin: the list's first order stays the start, end open).
+// Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
+// geoReason } — orderedIds is the optimized sequence of located orders;
+// parkedIds are the ones flagged geoFail (wouldn't geocode) or geoAmbig
+// (matched several towns) — they may still carry their last good pin — or
+// with no coords at all; usedFallback means the solve ran on straight-line
+// distances, and fallbackReason says why ('' otherwise); geoReason is a
+// key-level geocoding failure note (bad/over-quota key) or null; mode is
+// 'home' (path ends moving toward home — the start naturally lands at the far
+// side of the day's cluster, "furthest away, working back") or 'first' (no
+// home pin: the list's first order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
+  geoKeyError = null;
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -486,12 +546,19 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
 
   await geocodeAll(pendingItems, onProgress, gate);
 
-  const located = pendingItems.filter(coordsOf);
-  const parkedIds = pendingItems.filter(x => !coordsOf(x)).map(x => x.id);
+  // Post-geocodeAll invariant: every pending item is either located (coords,
+  // no flags) or parked with exactly one of geoFail/geoAmbig set (geocodeAll
+  // processes every coord-less item and heals stale flags on in-radius ones) —
+  // which is what keeps the callers' failed/ambig toast arithmetic exact.
+  const located = pendingItems.filter(x => !isParked(x));
+  const parkedIds = pendingItems.filter(isParked).map(x => x.id);
+  const geoReason = geoKeyError
+    ? geoKeyError + ' — check the Google API key setup (DEPLOY.md)' : null;
 
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2)
-    return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false, mode:'first' };
+    return { orderedIds: located.map(x => x.id), parkedIds,
+      usedFallback:false, fallbackReason:'', mode:'first', geoReason };
 
   // Route anchor: with a home pin the solve is pinned AT home and the tour is
   // read backwards — on the symmetrized matrix that IS the pinned-END path, so
@@ -503,15 +570,19 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const coords = homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
 
   onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-  let D = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
-                       : await buildMatrix(coords, onProgress);
-  let usedFallback = false;
-  if(!D){ D = haversineMatrix(coords); usedFallback = true; }
+  const res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
+                           : await buildMatrix(coords, onProgress);
+  let D = res.D, usedFallback = false, fallbackReason = '';
+  if(!D){
+    D = haversineMatrix(coords);
+    usedFallback = true;
+    fallbackReason = res.error || 'road data unavailable';
+  }
 
   onProgress && onProgress({ phase:'solve' });
   const tour = solve(D, true);
   const orderedIds = homeC
     ? tour.slice().reverse().slice(0, -1).map(i => located[i - 1].id)  // home node (0) dropped off the end
     : tour.map(i => located[i].id);
-  return { orderedIds, parkedIds, usedFallback, mode };
+  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason };
 }

@@ -1013,9 +1013,11 @@ function wlCmp(a, b) {
 /** Whole-list replace of one installer's Worklist rows — the planning page's
  *  explicit Upload button (manual only, never automatic). Keyed on the employee
  *  H number, NOT the display name — names can collide, H numbers can't (the
- *  installer column is a readable label only). Delete-then-append (the
- *  saveTravel pattern) so a re-upload or double-tap never duplicates. An empty
- *  orders array is a valid upload — it clears the installer's saved copy.
+ *  installer column is a readable label only). Batched whole-list replace —
+ *  the installer's old rows drop out of one body rewrite, so a re-upload or
+ *  double-tap never duplicates and the cost stays flat regardless of list
+ *  size. An empty orders array is a valid upload — it clears the installer's
+ *  saved copy.
  *  `order` is renumbered 0,10,20… by sorted position on every upload (never
  *  written verbatim) — old app versions uploaded duplicate/blank order values
  *  and this is where they stop round-tripping. */
@@ -1027,28 +1029,44 @@ function saveWorklist(b) {
   const emp = employeeByH(h);
   const installer = emp ? fullName(emp) : String(b.installer || '').trim();
 
-  // Drop this H number's existing rows, bottom-up so indexes stay valid.
   const data = sh.getDataRange().getValues();
   const hCol = data[0].indexOf('hNumber');
-  for (let r = data.length - 1; r >= 1; r--) {
-    if (String(data[r][hCol]).trim() === h) sh.deleteRow(r + 1);
-  }
-  bustRows('Worklist');
+  if (hCol === -1) return { ok: false, error: 'Worklist headers missing — run setupSheets()' };
+
+  // One body rewrite instead of a per-row delete loop (each deleteRow is a
+  // slow round-trip — a 40-order re-upload used to do 40 of them): every other
+  // installer's rows as read (order preserved) + this upload's rows, one
+  // setValues, then at most one trailing-row delete. All rows normalized to
+  // one width so setValues is legal — kept rows come back at getDataRange
+  // width, new rows at WORKLIST_HEADERS length; the new-row layout is still
+  // positional on the canonical header order (same assumption the old append
+  // made).
+  const width = Math.max(data[0].length, WORKLIST_HEADERS.length);
+  const pad = row => { const r = row.slice(0, width); while (r.length < width) r.push(''); return r; };
+  const kept = data.slice(1).filter(r => String(r[hCol]).trim() !== h).map(pad);
 
   // Sorting before renumbering is an identity transform for current clients
   // (they upload allSorted() output, sorted by this same comparator) but keeps
   // the numbering sane for an old/hand-crafted sender.
   const orders = (b.orders || []).filter(o => o && o.id).sort(wlCmp);
-  if (orders.length) {
-    sh.getRange(sh.getLastRow() + 1, 1, orders.length, WORKLIST_HEADERS.length).setValues(
-      orders.map((o, i) => [ String(o.id), installer, h,
-        o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
-        o.wlStatus === 'done' ? 'done' : 'pending',
-        i * 10,
-        o.createdAt || '', o.updatedAt || '',
-        o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng) ]));
-    bustRows('Worklist');
+  const added = orders.map((o, i) => pad([ String(o.id), installer, h,
+    o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
+    o.wlStatus === 'done' ? 'done' : 'pending',
+    i * 10,
+    o.createdAt || '', o.updatedAt || '',
+    o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng) ]));
+
+  const body = kept.concat(added);
+  const oldRows = data.length - 1;
+  if (body.length) sh.getRange(2, 1, body.length, width).setValues(body);
+  const excess = oldRows - body.length;
+  if (excess > 0) {
+    // deleteRows throws if it would remove every non-frozen physical row
+    // (empty upload into a sheet trimmed to its data) — clear instead then.
+    if (sh.getMaxRows() - excess >= 2) sh.deleteRows(2 + body.length, excess);
+    else sh.getRange(2 + body.length, 1, excess, width).clearContent();
   }
+  bustRows('Worklist');
   return { ok: true, count: orders.length };
 }
 
@@ -1066,27 +1084,39 @@ function worklistFor(hNumber) {
 /** Nightly cleanup: remove every completed worklist row across all installers.
  *  Done orders matter only for the day they're logged, so a nightly time trigger
  *  runs this to clear them from the sheet (the phone prunes its own done cache on
- *  load). Bottom-up delete keeps row indexes valid; header-driven so a reordered
- *  tab is safe. Returns the number of rows removed. Install the trigger once via
+ *  load). One batch body rewrite (kept rows + one trailing delete), not per-row
+ *  deletes; header-driven so a reordered tab is safe. Runs from a time trigger
+ *  OUTSIDE the doPost lock, and a stale-read whole-body rewrite could clobber a
+ *  concurrent upload — so it takes the script lock itself (and calls the
+ *  lockless normalize core: LockService locks are not reentrant). Returns the
+ *  number of rows removed. Install the trigger once via
  *  createClearDoneWorklistTrigger(). */
 function clearDoneWorklistJob() {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
-  if (!sh) return 0;
-  const data = sh.getDataRange().getValues();
-  if (data.length < 2) return 0;
-  const statusCol = data[0].indexOf('wlStatus');
-  if (statusCol === -1) return 0;
-  let removed = 0;
-  for (let r = data.length - 1; r >= 1; r--) {
-    if (String(data[r][statusCol]).trim().toLowerCase() === 'done') { sh.deleteRow(r + 1); removed++; }
-  }
-  if (removed) bustRows('Worklist');
-  Logger.log('clearDoneWorklistJob removed %s done worklist rows.', removed);
-  // Renumber what's left so the deleted rows don't leave gapped order values —
-  // and so installers who never re-upload still get their historical
-  // duplicate/blank orders healed within a day.
-  normalizeWorklistOrders();
-  return removed;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) { Logger.log('clearDoneWorklistJob: lock busy, skipped.'); return 0; }
+  try {
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
+    if (!sh) return 0;
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return 0;
+    const statusCol = data[0].indexOf('wlStatus');
+    if (statusCol === -1) return 0;
+    const width = data[0].length;
+    const kept = data.slice(1).filter(r => String(r[statusCol]).trim().toLowerCase() !== 'done');
+    const removed = data.length - 1 - kept.length;
+    if (removed) {
+      if (kept.length) sh.getRange(2, 1, kept.length, width).setValues(kept);
+      if (sh.getMaxRows() - removed >= 2) sh.deleteRows(2 + kept.length, removed);
+      else sh.getRange(2 + kept.length, 1, removed, width).clearContent();
+      bustRows('Worklist');
+    }
+    Logger.log('clearDoneWorklistJob removed %s done worklist rows.', removed);
+    // Renumber what's left so the deleted rows don't leave gapped order values —
+    // and so installers who never re-upload still get their historical
+    // duplicate/blank orders healed within a day.
+    normalizeWorklistOrdersCore();
+    return removed;
+  } finally { lock.releaseLock(); }
 }
 
 /** Renumber every installer's Worklist `order` column to a clean 0,10,20…

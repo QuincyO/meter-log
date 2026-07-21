@@ -18,7 +18,7 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf } from '../route.js';
+import { optimizeRoute, geocodeOne, coordsOf, isParked } from '../route.js';
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order
@@ -168,7 +168,7 @@ async function optimize(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, mode } =
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason } =
       await optimizeRoute(pending, progress, home, { osrmUrl });
     const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
@@ -177,12 +177,14 @@ async function optimize(){
     items = seq;
     for(const x of items) await idb.put('worklist', x);
     render();
-    const ambig = pending.filter(x => x.geoAmbig).length;
+    const short = s => String(s || '').length > 70 ? String(s).slice(0, 70) + '…' : String(s || '');
+    const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
     toast((mode === 'home' ? 'Route ends near the anchor ✓' : 'Route starts at the first order ✓')
-      + (usedFallback ? ' — OSRM unreachable, straight-line used' : '')
+      + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
-      + (ambig > 0 ? ` · ${ambig} need a town picked below` : ''));
+      + (ambig > 0 ? ` · ${ambig} need a town picked below` : '')
+      + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : ''));
   } catch {
     toast('Optimize failed — try again');
   } finally {
@@ -224,6 +226,8 @@ function render(){
     const row = document.createElement('div');
     row.className = 'plrow' + (item.wlStatus === 'done' ? ' pldone' : '');
     const located = !!coordsOf(item);
+    // Flag badges BEFORE the located check — a parked order keeps its last
+    // good pin, so coords-present must not hide its warning state.
     const tag = item.geoFail ? ' <span class="pltag" title="Address didn’t map">📍?</span>'
       : (item.geoAmbig && item.geoAmbig.length) ? ' <span class="pltag">⚠ which town?</span>'
       : (located ? '' : ' <span class="pltag pltag-mute" title="Not geocoded yet">·</span>');
@@ -240,7 +244,7 @@ function render(){
     row.querySelectorAll('.chip').forEach(chip => { chip.onclick = async () => {
       const c = item.geoAmbig[Number(chip.dataset.ci)];
       if(!c) return;
-      item.lat = c.lat; item.lng = c.lng; item.geoAmbig = undefined; item.updatedAt = stamp();
+      item.lat = c.lat; item.lng = c.lng; item.geoFail = false; item.geoAmbig = undefined; item.updatedAt = stamp();
       await idb.put('worklist', item);
       toast('Town pinned ✓ — optimize again to route it');
       render();
@@ -258,7 +262,10 @@ function render(){
 }
 
 // Numbered pins in route order + the connecting line, so a wrong-town pin or a
-// zig-zag is obvious before it reaches the phone. Pending-located only.
+// zig-zag is obvious before it reaches the phone. A parked order that still
+// carries a pin (kept, never blanked) shows as a muted "!" marker OFF the
+// line — visible (catching bad pins before upload is this map's job, and a
+// far pin zooming the map out is the feature) but never read as a route stop.
 function renderMap(){
   if(typeof L === 'undefined') return;         // vendored Leaflet not loaded yet
   if(!map){
@@ -268,18 +275,21 @@ function renderMap(){
     mapLayer = L.layerGroup().addTo(map);
   }
   mapLayer.clearLayers();
-  const pts = [];
+  const pts = [], all = [];
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);
     if(!c) return;
-    pts.push([c.lat, c.lng]);
-    L.marker([c.lat, c.lng], { icon: L.divIcon({ className:'plpin',
-      html:`<span>${i + 1}</span>`, iconSize:[26,26], iconAnchor:[13,13] }) })
-      .bindTooltip(`${i + 1}. ${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}`)
+    const parked = isParked(item);
+    if(!parked) pts.push([c.lat, c.lng]);       // polyline + numbering: routed only
+    all.push([c.lat, c.lng]);
+    L.marker([c.lat, c.lng], { icon: L.divIcon({
+      className: 'plpin' + (parked ? ' plpin-parked' : ''),
+      html:`<span>${parked ? '!' : i + 1}</span>`, iconSize:[26,26], iconAnchor:[13,13] }) })
+      .bindTooltip(`${parked ? '⚠ parked — ' : (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}`)
       .addTo(mapLayer);
   });
   if(pts.length > 1) L.polyline(pts, { weight: 3, opacity: .7 }).addTo(mapLayer);
-  if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.2));
+  if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.2));
 }
 
 // ── wiring ──────────────────────────────────────────────────────────────────

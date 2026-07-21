@@ -91,6 +91,8 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .plpin{background:var(--amber);border:2px solid #fff;border-radius:50%;
        box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
 .plpin span{font:800 12px/1 Inter,system-ui,sans-serif;color:#1a1300}
+/* a parked order's kept pin — visible but clearly not a route stop */
+.plpin-parked{background:var(--line);opacity:.75}
 
 .empty{color:var(--ink-soft);font-size:14px;padding:8px 2px}
 
