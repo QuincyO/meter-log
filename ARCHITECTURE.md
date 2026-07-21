@@ -842,6 +842,21 @@ the time to go and check":
    `Return` leg. No overlap with the "Delay Time:" box — subtracted minutes live in their
    own bucket, not in travel.
 
+**Land-mode lead gap (first WO downtime).** The chronologically-first WO is never a
+WO→WO gap's *arriving* stop, so on a boat day its card shows only the read-only
+`Launch` leg — no way to subtract downtime. On a **land day** (travel isn't printed
+anyway) that WO still needs to carry delay minutes, so both the `?action=idle`
+handler and the offline `computeGapsLocal(…, land)` prepend a zero-length **`lead`
+gap** on the first stop, anchored `HH:MM–HH:MM` on the stop's own clock (`from==to`,
+so it collides with no real WO→WO or `Launch` gap and round-trips on reopen). The EOD
+card renders it as an **"Add downtime"** editor (`g.lead`) instead of "Travel in",
+and it saves through `saveTravel` as an ordinary gap-tagged `Downtime` row carrying
+the first WO#, so the land PDF's per-WO `byWO` bucket lands it on that row. Land is
+the caller's `workType`, else inferred from the day's stops (same as
+`buildDaySummary`). Boat days are untouched. The lead gap lives only in the `idle`
+read + client editor path, **not** in `computeIdle` used by `buildDaySummary`, so no
+bogus 0-minute `Timing`/travel row is written.
+
 The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
 are field-adjustable.
 

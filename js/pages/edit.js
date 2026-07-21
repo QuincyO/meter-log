@@ -163,7 +163,7 @@ function renderStops(){
 let gapByToId = {};
 function setGapData(gaps){
   gapData = (gaps||[]).map(g => ({
-    start:g.start, end:g.end, idleMin:g.idleMin, toWO:g.toWO||'', toId:g.toId,
+    start:g.start, end:g.end, idleMin:g.idleMin, toWO:g.toWO||'', toId:g.toId, lead:!!g.lead,
     allocations:(g.allocations||[]).map(a => ({ category:a.category, minutes:Number(a.minutes)||0 })),
     _views:[]   // every rendered editor for this gap, so edits stay in sync
   }));
@@ -240,11 +240,16 @@ function renderStopTravel(box, s, pos){
   const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
   const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
   const arrow = () => body.classList.contains('hide') ? '▸' : '▾';
-  const onNet = () => { const n = gapNet(g);
-    toggle.innerHTML = `${arrow()} Travel in: <b style="color:${n.over?'#c0392b':'#1a7f37'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
+  // The land-mode lead gap has no travel to net against — it's just a slot to
+  // attribute downtime to the first WO, so it shows the running total, not net.
+  const onNet = g.lead
+    ? () => { const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
+        toggle.innerHTML = `${arrow()} Downtime: <b style="color:#1a7f37">${used} min</b>`; }
+    : () => { const n = gapNet(g);
+        toggle.innerHTML = `${arrow()} Travel in: <b style="color:${n.over?'#c0392b':'#1a7f37'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
   toggle.onclick = () => { body.classList.toggle('hide'); onNet(); };
   const meta = document.createElement('div'); meta.className = 'sc-meta'; meta.style.marginBottom = '4px';
-  meta.textContent = `${g.start}–${g.end} · ${g.idleMin} min gap`;
+  meta.textContent = g.lead ? 'First stop · downtime on this WO' : `${g.start}–${g.end} · ${g.idleMin} min gap`;
   body.appendChild(meta);
   body.appendChild(allocEditor(g, onNet));
   box.appendChild(toggle); box.appendChild(body);
