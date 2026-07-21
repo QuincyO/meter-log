@@ -40,7 +40,18 @@
 .wl-done-card{opacity:.55}
 .wl-counts{font-weight:800;font-size:15px;color:var(--ink);margin:14px 2px 0}
 .wl-counts:empty{margin:0}
-.wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Full address, wrapped — never ellipsis-clipped: the crew must be able to
+   read the whole address (and any state pill must never be pushed off-screen,
+   which is why the pill lives in the title row, not here). */
+.wl-body{font-size:14px;color:var(--ink-soft);margin-top:4px;white-space:normal;overflow-wrap:anywhere}
+/* routing-state pill next to the WO# (fix address / pick a town / no pin) */
+.wl-flag{display:inline-block;vertical-align:middle;margin-left:6px;padding:2px 8px;border-radius:999px;
+         font-size:12px;font-weight:800;color:var(--amber-press);background:#FEF3E2;
+         border:1px solid var(--amber);white-space:nowrap}
+.wl-flag-mute{color:var(--ink-soft);background:var(--surface);border-color:var(--line);font-weight:700}
+/* card town-chips reuse .wl-chips/.chip, but must show their full label */
+.wl-towns .chip{height:auto;min-height:36px;padding:6px 14px;white-space:normal;overflow:visible;
+                text-overflow:clip;text-align:left}
 .wl-actions{display:flex;gap:8px;flex-wrap:wrap;flex:none}
 /* recent-street chips */
 .wl-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}

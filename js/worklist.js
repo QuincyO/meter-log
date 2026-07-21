@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, geocodeOne } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne } from './route.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -276,21 +276,28 @@ function makeWlCard(item){
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
   const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
-  // A parked order: its address wouldn't geocode (📍?) or matched several towns
-  // (⚠ — the choices wait in Edit), so route optimize skipped it and left it at
-  // the bottom. Fix / pick in Edit to re-route it next run.
-  const geoTag = item.geoFail
-    ? ' <span class="muted" title="Address didn’t map — fix it to route" style="font-size:13px">📍?</span>'
-    : (item.geoAmbig && item.geoAmbig.length)
-      ? ` <span class="muted" title="Matches ${item.geoAmbig.length} places — tap Edit to pick the town" style="font-size:13px">⚠ which town?</span>`
-      : '';
+  // The routing-state pill lives in the TITLE row, never at the tail of the
+  // address line — the address wraps to full length, and a pill at the end of
+  // a long line was invisible in practice. States: 📍 fix address (geocode
+  // missed — parked), ⚠ pick a town (matched several places — parked, chips
+  // below), muted "no pin" (no coords and no flags — never geocoded, or the
+  // flags were shed by a ⇩ Download; the next optimize will look it up).
+  const cands = (item.geoAmbig && item.geoAmbig.length) ? item.geoAmbig : null;
+  const pill = item.wlStatus === 'done' ? ''
+    : item.geoFail ? ' <span class="wl-flag" title="Address didn’t map — fix it to route">📍 fix address</span>'
+    : cands ? ` <span class="wl-flag" title="Matches ${cands.length} places — tap a town below">⚠ pick a town</span>`
+    : isParked(item) ? ' <span class="wl-flag wl-flag-mute" title="Not looked up yet — optimize will pin it">no pin</span>'
+    : '';
   const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
-  // Cards deliberately show only WO# + address — glanceable while driving a route.
+  // Cards deliberately show only WO# + address (+ the routing pill/chips) —
+  // glanceable while driving a route.
   card.innerHTML = `
     ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>' : ''}
     <div class="wl-main">
-      <strong>${title}</strong>${doneTag}
-      ${addr ? `<div class="wl-body">${addr}${geoTag}</div>` : ''}
+      <strong>${title}</strong>${doneTag}${pill}
+      ${addr ? `<div class="wl-body">${addr}</div>` : ''}
+      ${cands ? `<div class="wl-chips wl-towns">${cands.map(c =>
+        `<button class="chip" type="button">${esc(c.label)}</button>`).join('')}</div>` : ''}
     </div>
     <div class="wl-actions">
       ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
@@ -298,6 +305,9 @@ function makeWlCard(item){
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
     </div>`;
+  // Town chips right on the card (same one-tap pick as the Edit form).
+  if(cands) [...card.querySelectorAll('.wl-towns .chip')].forEach((b, i) =>
+    b.onclick = () => pickTown(item, cands[i]));
   // Directions hands the address to the OS maps app in a new context — never
   // navigate the PWA itself away mid-shift. Shown on done cards too (revisits).
   const mapBtn = card.querySelector('[data-act="map"]');
@@ -430,11 +440,23 @@ function wlOpenForm(item){
   $('wlForm').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-// The which-town chips: an optimize that found the same address in several
-// places parks the order and stores the candidates; tapping one locks that
-// town in — full label into the address, pin coords onto the order — so the
-// next optimize routes it. Typing a better address instead also works (wlSave
-// clears the flag with the coords).
+// Lock an ambiguous order to one town: full label into the address, pin coords
+// onto the order, flags cleared — so the next optimize routes it. The single
+// pick path behind BOTH chip rows (the card's and the Edit form's), so the two
+// can't drift. Typing a better address instead also works (wlSave clears the
+// flag with the coords).
+async function pickTown(item, c){
+  const stored = (await idb.get('worklist', item.id)) || item;
+  await idb.put('worklist', Object.assign({}, stored, {
+    address: c.label, lat: c.lat, lng: c.lng,
+    geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
+  toast('Pinned ✓ — ' + c.label);
+  await renderWorklist();
+  await planAdvance();
+}
+
+// The which-town chips inside the Edit form (the card shows the same chips
+// inline — this copy stays for whoever reaches the order through Edit).
 function renderAmbig(item){
   const hint = $('wlAmbigHint'), box = $('wlAmbig');
   const cands = (item && item.geoAmbig) || [];
@@ -442,16 +464,9 @@ function renderAmbig(item){
   hint.classList.remove('hide'); box.classList.remove('hide');
   box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
   [...box.children].forEach((b, i) => b.onclick = async () => {
-    const c = cands[i];
-    const stored = (await idb.get('worklist', item.id)) || item;
-    await idb.put('worklist', Object.assign({}, stored, {
-      address: c.label, lat: c.lat, lng: c.lng,
-      geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
-    toast('Pinned ✓ — ' + c.label);
     _wlEditId = null;
     $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
-    await renderWorklist();
-    await planAdvance();
+    await pickTown(item, cands[i]);
   });
 }
 

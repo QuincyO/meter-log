@@ -440,11 +440,16 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   order by flag, so the pin still rides the next Worklist upload for future
   runs. **Parked = `geoFail` ∪ `geoAmbig` ∪ no-coords** (`isParked`) — parked
   orders never enter the matrix or the solve, even when they still carry a
-  kept pin. An address matching several distinct places gets `geoAmbig` (the
-  "⚠ which town?" badge; Edit shows the candidates as one-tap chips), a
-  no-match gets `geoFail` (`📍?`) — both park at the bottom until fixed
-  (existing coords, if any, are kept but not routed); the flags are
-  phone-local, never uploaded. `optimizeRoute` returns `{ orderedIds,
+  kept pin. An address matching several distinct places gets `geoAmbig` (a
+  "⚠ pick a town" pill on the card, with the candidate towns as one-tap chips
+  **right on the card** — the Edit form repeats them), a no-match gets
+  `geoFail` (a "📍 fix address" pill) — both park at the bottom until fixed
+  (existing coords, if any, are kept but not routed). The pills sit in the
+  card's **title row**, next to the WO# — never at the tail of the address
+  line, which wraps to full length and used to clip them; an order with no
+  coords and no flags (never geocoded, or the flags were shed by a ⇩ Download
+  — they never ride the sync) shows a muted "no pin" pill, derived from
+  `isParked`. The flags are phone-local, never uploaded. `optimizeRoute` returns `{ orderedIds,
   parkedIds, usedFallback, fallbackReason, mode, geoReason }`:
   `fallbackReason` is the concrete reason the solve fell back to straight-line
   (Google's error status/message, `OSRM <reason>`, or the spent budget) and
