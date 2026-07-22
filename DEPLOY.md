@@ -220,6 +220,47 @@ The mediagis image sends `Access-Control-Allow-Origin: *`, so the HTTPS→
 localhost call works like OSRM's; if the console ever shows a CORS error, front
 it with the same one-line Caddy proxy noted for OSRM above.
 
+## Cloning the local servers to another PC (SSD bundle)
+
+Setting OSRM + Nominatim up from scratch means a big map download and a
+~hour-long Nominatim import. To stand a **second** PC up in minutes instead,
+copy the already-built data on an SSD. Two `scripts/` helpers do it:
+
+- **`scripts/export-geo-bundle.ps1`** (run on the working PC) writes a
+  self-contained bundle folder:
+  - OSRM's preprocessed `*.osrm*` files — the finished graph, portable as-is —
+    plus the `osrm/osrm-backend` image saved to a tar.
+  - Nominatim's imported DB lives *inside* its container, so the script
+    `docker commit`s the (cleanly stopped) container into a `nominatim-ontario`
+    image and `docker save`s it. That image carries the `import-finished`
+    marker, so on the target it **skips the import and just serves**.
+
+  ```powershell
+  cd <repo>\scripts
+  .\export-geo-bundle.ps1 -Dest Q:\geo-bundle   # Q: = the SSD
+  ```
+
+  (Defaults assume the data is `D:\osrm\ontario-260721.osrm*`; override with
+  `-OsrmData` / `-OsrmBase`.) Copy the whole `geo-bundle` folder to the SSD.
+
+- **`scripts/setup-geo-on-new-pc.ps1`** (run from the bundle folder on the SSD,
+  in an **Admin** PowerShell) installs Docker Desktop via `winget` if missing,
+  `docker load`s both images, copies the OSRM files to a local disk, and starts
+  both containers on 5000 / 8080 — no download, no import.
+
+  ```powershell
+  Set-ExecutionPolicy -Scope Process Bypass -Force   # if scripts are blocked
+  .\setup-geo-on-new-pc.ps1
+  ```
+
+  If Docker wasn't installed it installs it and stops — launch Docker Desktop
+  once (accept the WSL2 update / reboot if asked), then re-run. The images load
+  from local Docker storage (Postgres won't run off an exFAT SSD), so the copy
+  is a one-time few-minute local read, not a re-import.
+
+Re-run the export whenever you refresh the Ontario map (new `.pbf` → re-run the
+OSRM preprocess + the Nominatim import once on the primary PC, then re-export).
+
 ## OpenRouteService backup (optional)
 
 `js/route.js` falls back to **OpenRouteService** (ORS) — a free, hosted OSM
