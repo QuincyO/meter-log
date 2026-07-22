@@ -48,7 +48,18 @@ export function reorderRouteGroup(items, key, orderedIds){
     throw new Error('Reorder ids must contain the same route group');
   }
   const byId = new Map(members.map(x => [String(x.id), x]));
-  slots.forEach((slot, index) => { source[slot] = byId.get(ids[index]); });
+  const arranged = Array(members.length).fill(null);
+  const lockedIds = new Set();
+  members.forEach(x => {
+    if(!x.lockedDate) return;
+    const at = Number(x.lockedSlot) - 1;
+    if(at < 0 || at >= arranged.length || arranged[at]) throw new Error('Locked route slot is invalid');
+    arranged[at] = x; lockedIds.add(String(x.id));
+  });
+  const free = ids.filter(id => !lockedIds.has(id)).map(id => byId.get(id));
+  let freeAt = 0;
+  for(let i = 0; i < arranged.length; i++) if(!arranged[i]) arranged[i] = free[freeAt++];
+  slots.forEach((slot, index) => { source[slot] = arranged[index]; });
   return source.map((item, index) => Object.assign({}, item, { order:index * 10 }));
 }
 
@@ -136,7 +147,9 @@ export function initWorklistRouteView(opts){
   function markerTooltip(item, position, parked){
     const prefix = parked ? '⚠ Parked — ' : `${position}. `;
     const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
-    return `${prefix}${wo}${esc(item.address || 'No address')}`;
+    const eta = item.scheduledEta ? ` · ETA ${esc(item.scheduledEta)}` : '';
+    const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
+    return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}`;
   }
 
   function renderMap(group){
@@ -173,18 +186,20 @@ export function initWorklistRouteView(opts){
 
   function routeCard(item, index){
     const card = document.createElement('div');
-    card.className = 'wl-route-card';
+    card.className = 'wl-route-card' + (item.lockedDate ? ' locked' : '');
     card.dataset.id = item.id;
     const cardState = routeCardState(item);
     const state = cardState ? `<span class="wl-route-state">${cardState}</span>` : '';
     card.innerHTML = `
-      <button class="wl-route-handle" type="button" aria-label="Drag to reorder">⠿</button>
+      ${item.lockedDate ? '<span aria-label="Locked position">🔒</span>' : '<button class="wl-route-handle" type="button" aria-label="Drag to reorder">⠿</button>'}
       <span class="wl-route-pos">${index + 1}</span>
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
+        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${item.scheduledEta ? `ETA ${esc(item.scheduledEta)}` : ''}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
-    wireDrag(card.querySelector('.wl-route-handle'), card);
+    const handle = card.querySelector('.wl-route-handle');
+    if(handle) wireDrag(handle, card);
     return card;
   }
 
@@ -201,7 +216,8 @@ export function initWorklistRouteView(opts){
     await refresh();
     const next = [...listEl.querySelectorAll('.wl-route-card')]
       .find(x => x.dataset.id === String(focusId));
-    if(next) next.querySelector('.wl-route-handle').focus();
+    const nextHandle = next && next.querySelector('.wl-route-handle');
+    if(nextHandle) nextHandle.focus();
   }
 
   function wireDrag(handle, card){

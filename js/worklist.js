@@ -16,11 +16,40 @@ import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
+import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let planEstimate = null;        // set by initWorklist (capture.js): async () => string
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
+
+function nextWeekday(date){
+  const d = new Date(`${date}T12:00:00`);
+  while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function planShape(){
+  return {
+    routeStartDate:$('wlRouteDate').value || nextWeekday(localDate()),
+    firstStopTime:$('wlRouteTime').value || '08:00',
+    paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
+    paceSource:store.get('wlPaceSource') || 'fallback'
+  };
+}
+function savePlanLocal(){
+  const p = planShape();
+  store.set('wlRouteDate', p.routeStartDate); store.set('wlRouteTime', p.firstStopTime);
+  store.set('wlPaceMin', String(p.paceMin));
+  return p;
+}
+function loadPlanFields(plan){
+  const p = plan || {};
+  $('wlRouteDate').value = p.routeStartDate || store.get('wlRouteDate') || nextWeekday(localDate());
+  $('wlRouteTime').value = p.firstStopTime || store.get('wlRouteTime') || '08:00';
+  $('wlPace').value = String(Math.max(1, Number(p.paceMin || store.get('wlPaceMin')) || 30));
+  store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
+  savePlanLocal();
+}
 
 // ── ordering ────────────────────────────────────────────────────────────────
 // Manual order wins; items from before the `order` field sort after any ordered
@@ -111,7 +140,11 @@ function wireShape(x){
     wlStatus:x.wlStatus||'pending', order:x.order,
     lat:x.lat, lng:x.lng,
     createdAt:x.createdAt||'', updatedAt:x.updatedAt||'',
-    day:(x.day == null || x.day === '') ? '' : Number(x.day) };
+    day:(x.day == null || x.day === '') ? '' : Number(x.day),
+    appointmentDate:x.appointmentDate||'', appointmentTime:x.appointmentTime||'',
+    lockedDate:x.lockedDate||'', lockedSlot:x.lockedSlot||'',
+    scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
+    scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'' };
 }
 
 async function wlUpload(){
@@ -122,7 +155,7 @@ async function wlUpload(){
   if(!items.length && !confirm('Your local worklist is empty — uploading will clear your saved copy on the sheet. Continue?')) return;
   try {
     const r = await withActivity('Uploading worklist…', () => apiPost({ action:'saveWorklist',
-      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape) }));
+      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape), plan:savePlanLocal() }));
     toast(r && r.ok ? `Uploaded ${r.count} orders ✓`
                     : 'Upload failed — ' + ((r && r.error) || 'try again'));
   } catch { toast('Upload failed — check signal'); }
@@ -140,7 +173,7 @@ export async function syncWorklist(){
   if(!items.length) return;
   try {
     await withActivity('Syncing worklist…', () => apiPost({ action:'saveWorklist',
-      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape) }));
+      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape), plan:savePlanLocal() }));
   } catch { /* best-effort — the manual ⇪ Upload is the loud fallback */ }
 }
 
@@ -173,8 +206,15 @@ async function wlDownload(){
         lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
         lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
         createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
-        day: (o.day === '' || o.day == null) ? '' : Number(o.day) });
+        day: (o.day === '' || o.day == null) ? '' : Number(o.day),
+        appointmentDate:String(o.appointmentDate||''), appointmentTime:String(o.appointmentTime||''),
+        lockedDate:String(o.lockedDate||''),
+        lockedSlot:(o.lockedSlot === '' || o.lockedSlot == null) ? '' : Number(o.lockedSlot),
+        scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
+        scheduledSlot:(o.scheduledSlot === '' || o.scheduledSlot == null) ? '' : Number(o.scheduledSlot),
+        scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin) });
     }
+    if(r.plan) loadPlanFields(r.plan);
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
@@ -219,15 +259,23 @@ async function optimizeRouteHandler(straightLine){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note,
-            dayOf, dayFallback } =
-      await optimizeRoute(pending, updateRouteProgress, home, { target, straightLine });
+    const base = await optimizeRoute(pending, updateRouteProgress, home, { straightLine });
+    const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
+    const refreshed = await allSorted();
+    const refreshedById = {}; refreshed.forEach(x => { refreshedById[x.id] = x; });
+    const blocked = parkedIds.map(id => refreshedById[id]).filter(x =>
+      x && (x.appointmentDate || x.lockedDate));
+    if(blocked.length) throw new Error('Fix the address before routing constrained ' +
+      blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
+    const routed = base.orderedIds.map(id => refreshedById[id]).filter(Boolean);
+    const scheduled = scheduleRouteConstraints(routed, base.orderedIds, { ...planShape(), target });
+    const orderedIds = scheduled.orderedIds, dayOf = scheduled.dayOf;
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
     // order (e.g. 0) and collides with the new first pending stop. `day` rides
     // along (parked/done unassigned) so the dividers render + sync on upload.
-    const all = await allSorted();
+    const all = refreshed;
     const doneIds = all.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; all.forEach(x => { byId[x.id] = x; });
     let i = 0;
@@ -236,8 +284,11 @@ async function optimizeRouteHandler(straightLine){
       if(!item) continue;
       const order = (i++) * 10;
       const day = (dayOf && dayOf[id]) ? dayOf[id] : '';
-      if(item.order !== order || item.day !== day)
-        await idb.put('worklist', Object.assign({}, item, { order, day, updatedAt: stamp() }));
+      const s = scheduled.scheduleById[id] || {};
+      await idb.put('worklist', Object.assign({}, item, {
+        order, day, scheduledDate:s.date||'', scheduledEta:s.eta||'',
+        scheduledSlot:s.slot||'', scheduledWaitMin:s.waitMin||'', updatedAt:stamp()
+      }));
     }
     await renderWorklist();
     await planAdvance();
@@ -250,15 +301,14 @@ async function optimizeRouteHandler(straightLine){
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     const extra = (days > 1 ? ` · ${days} days of ${target}` : '')
-      + (dayFallback ? ' — set a Home pin in Settings to end each day near home' : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
       + (note ? ` · ${short(note)}` : '');
     toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
-  } catch {
-    toast('Route optimization failed — try again');
+  } catch (err) {
+    toast((err && err.message) || 'Route optimization failed — try again');
   } finally {
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
@@ -276,6 +326,11 @@ function bindOptimizeGesture(btn, onStraightLine, onRoadMatrix, holdMs=2000){
     holdTimer = null;
     pointerId = null;
   };
+
+  // iOS can show its selection loupe even with user-select/touch-callout CSS.
+  // Cancel the native touch default before it can steal the two-second hold.
+  btn.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
+  btn.addEventListener('selectstart', e => e.preventDefault());
 
   btn.addEventListener('pointerdown', e => {
     if(e.isPrimary === false || e.button !== 0) return;
@@ -399,9 +454,10 @@ export async function renderWorklist(){
     if(d && d !== curDay){
       curDay = d;
       const count = pending.filter(p => (p.day || null) === d).length;
+      const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
       const div = document.createElement('div');
       div.className = 'wl-day';
-      div.innerHTML = `<span class="wl-day-dot"></span>Day ${d} · ${count} meter${count === 1 ? '' : 's'}`
+      div.innerHTML = `<span class="wl-day-dot"></span>Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
         + `<span class="wl-day-eta">${esc(wlDayEta(count))}</span>`;
       list.appendChild(div);
     }
@@ -428,22 +484,54 @@ async function refreshAvgDay(){
   const c = cfg();
   if(!c.hNumber || !navigator.onLine) return;
   try{
-    // Scope the avg to the phone's current work mode (boat/land) — the field tool
-    // is always in one mode, so its target reference should match.
-    const wt = store.get('workMode')==='land' ? 'land' : 'boat';
-    const r = await apiGet('installerMetrics', { hNumber: c.hNumber, workType: wt });
+    // Worklist routing is a land workflow, so use land stops even when the
+    // capture screen was last left in boat mode.
+    const r = await apiGet('installerMetrics', { hNumber: c.hNumber, workType:'land' });
     const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
     if(m){
-      wlAvgLogMin = (m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin);
+      wlAvgLogMin = (m.recent30AvgLogMin === '' || m.recent30AvgLogMin == null)
+        ? ((m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin))
+        : Number(m.recent30AvgLogMin);
       const perDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
+      if(store.get('wlPaceSource') !== 'override' && wlAvgLogMin){
+        $('wlPace').value = String(wlAvgLogMin); store.set('wlPaceMin', String(wlAvgLogMin));
+        store.set('wlPaceSource', 'recent30');
+      }
       if(el) el.textContent = perDay ? `your avg ${perDay}/day` : '';
+      $('wlPaceHint').textContent = wlAvgLogMin
+        ? `Recent 30-workday pace: ${wlAvgLogMin} min/stop`
+        : 'No pace history yet — using the editable 30 min/stop fallback.';
     }
   } catch {}
 }
 
+function appointmentBadge(item){
+  if(!item.appointmentDate || !item.appointmentTime) return '';
+  return `<span class="wl-badge appt">🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}</span>`;
+}
+function scheduleBadge(item){
+  if(!item.scheduledDate || !item.scheduledEta) return '';
+  const wait = Number(item.scheduledWaitMin) > 0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : '';
+  return `<span class="wl-badge">ETA ${esc(item.scheduledEta)}${wait}</span>`;
+}
+async function toggleOrderLock(item){
+  const stored = (await idb.get('worklist', item.id)) || item;
+  if(stored.lockedDate){
+    await idb.put('worklist', Object.assign({}, stored, { lockedDate:'', lockedSlot:'', updatedAt:stamp() }));
+    toast('Position unlocked');
+  } else {
+    const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
+    const { day, slot } = currentRoutePlacement(pending, stored.id, targetVal());
+    const date = stored.scheduledDate || stored.appointmentDate || addWorkdays(planShape().routeStartDate, day - 1);
+    await idb.put('worklist', Object.assign({}, stored, { lockedDate:date, lockedSlot:slot, updatedAt:stamp() }));
+    toast(`Locked to ${date} · slot ${slot}`);
+  }
+  await renderWorklist();
+}
+
 function makeWlCard(item){
   const card = document.createElement('div');
-  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '');
+  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '') + (item.lockedDate ? ' locked' : '');
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
   const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
@@ -463,15 +551,19 @@ function makeWlCard(item){
   // Cards deliberately show only WO# + address (+ the routing pill/chips) —
   // glanceable while driving a route.
   card.innerHTML = `
-    ${item.wlStatus !== 'done' ? '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>' : ''}
+    ${item.wlStatus !== 'done' ? (item.lockedDate
+      ? '<span class="wl-pos" aria-hidden="true"></span>'
+      : '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>') : ''}
     <div class="wl-main">
       <strong>${title}</strong>${doneTag}${pill}
       ${addr ? `<div class="wl-body">${addr}</div>` : ''}
+      <div class="wl-badges">${appointmentBadge(item)}${scheduleBadge(item)}${item.lockedDate ? `<span class="wl-badge">🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
       ${cands ? `<div class="wl-chips wl-towns">${cands.map(c =>
         `<button class="chip" type="button">${esc(c.label)}</button>`).join('')}</div>` : ''}
     </div>
     <div class="wl-actions">
       ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
+      ${item.wlStatus !== 'done' ? `<button class="wl-lock${item.lockedDate ? ' on' : ''}" data-act="lock" type="button" aria-label="${item.lockedDate ? 'Unlock position' : 'Lock current position'}">${item.lockedDate ? '🔒' : '🔓'}</button>` : ''}
       ${item.address ? '<button class="wl-map" data-act="map" type="button" aria-label="Directions">🧭</button>' : ''}
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
@@ -484,6 +576,8 @@ function makeWlCard(item){
   const mapBtn = card.querySelector('[data-act="map"]');
   if(mapBtn) mapBtn.onclick = () => openDirections(item);
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
+  const lockBtn = card.querySelector('[data-act="lock"]');
+  if(lockBtn) lockBtn.onclick = () => toggleOrderLock(item);
   card.querySelector('[data-act="del"]').onclick = async () => {
     await idb.del('worklist', item.id);
     toast('Order removed');
@@ -497,7 +591,8 @@ function makeWlCard(item){
       window.scrollTo({ top:0, behavior:'smooth' });
       toast('Prefilled from worklist ✓');
     };
-    wireDrag(card.querySelector('.wl-handle'), card);
+    const handle = card.querySelector('.wl-handle');
+    if(handle) wireDrag(handle, card);
   }
   return card;
 }
@@ -582,20 +677,39 @@ function renumberCards(list){
 // Persist the on-screen order of the PENDING cards (done cards keep their spot
 // at the bottom of the sort by getting trailing order values).
 async function persistOrder(){
-  const ids = [...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id);
+  let ids = [...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id);
   const items = (await idb.all('worklist')) || [];
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
+  const pending = items.filter(x => x.wlStatus !== 'done');
+  let schedule = null;
+  if(pending.some(x => x.lockedDate)){
+    try{
+      const pendingIds = ids.filter(id => byId[id] && byId[id].wlStatus !== 'done');
+      schedule = scheduleRouteConstraints(pending, pendingIds, { ...planShape(), target:targetVal() });
+      ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && byId[id].wlStatus === 'done'));
+    } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
+  }
   let i = 0;
   for(const id of ids){
     const item = byId[id];
     if(!item) continue;
     const order = (i++) * 10;
-    if(item.order !== order) await idb.put('worklist', Object.assign({}, item, { order, updatedAt: stamp() }));
+    const s = schedule && schedule.scheduleById[id];
+    if(item.order !== order || s) await idb.put('worklist', Object.assign({}, item, {
+      order, day:s ? schedule.dayOf[id] : item.day,
+      scheduledDate:s ? s.date : item.scheduledDate, scheduledEta:s ? s.eta : item.scheduledEta,
+      scheduledSlot:s ? s.slot : item.scheduledSlot, scheduledWaitMin:s ? s.waitMin : item.scheduledWaitMin,
+      updatedAt: stamp()
+    }));
   }
+  await renderWorklist();
   await planAdvance();   // the first pending order may have changed
 }
 
 // ── add / edit form ─────────────────────────────────────────────────────────
+function paintTimedFields(){
+  $('wlAppointmentFields').classList.toggle('hide', !$('wlTimed').checked);
+}
 function wlOpenForm(item){
   _wlEditId = item ? item.id : null;
   const a = splitAddr(item ? item.address : '');
@@ -603,6 +717,10 @@ function wlOpenForm(item){
   $('wlNum').value    = a.num;
   $('wlStreet').value = a.street;
   $('wlOldJ').value   = item ? (item.oldJNumber||'') : '';
+  $('wlTimed').checked = Boolean(item && item.appointmentDate && item.appointmentTime);
+  $('wlAppointmentDate').value = item ? (item.appointmentDate||'') : '';
+  $('wlAppointmentTime').value = item ? (item.appointmentTime||'') : '';
+  paintTimedFields();
   $('wlForm').classList.remove('hide');
   $('wlAddBtn').textContent = '✕ Cancel';
   renderChips();
@@ -664,13 +782,24 @@ async function wlSave(){
   const wo = $('wlWo').value.trim();
   const address = joinAddr($('wlNum').value, $('wlStreet').value);
   if(!wo && !address){ toast('Enter a work order # or address'); return; }
+  const timed = $('wlTimed').checked;
+  const appointmentDate = timed ? $('wlAppointmentDate').value : '';
+  const appointmentTime = timed ? $('wlAppointmentTime').value : '';
+  if(timed && (!appointmentDate || !appointmentTime)){
+    toast('Choose both an appointment date and time'); return;
+  }
   const now = stamp();
   let item;
   if(_wlEditId){
     const existing = (await idb.get('worklist', _wlEditId)) || {};
     item = Object.assign({}, existing, {
-      id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(), updatedAt:now
+      id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(),
+      appointmentDate, appointmentTime, updatedAt:now
     });
+    if(existing.appointmentDate !== appointmentDate || existing.appointmentTime !== appointmentTime){
+      item.scheduledDate = ''; item.scheduledEta = '';
+      item.scheduledSlot = ''; item.scheduledWaitMin = '';
+    }
     // Address changed → the cached coords are stale; drop them (and the parked/
     // ambiguous flags) so the next optimize re-geocodes the new address.
     if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined; }
@@ -680,6 +809,7 @@ async function wlSave(){
     item = {
       id: now + '-' + Math.random().toString(36).slice(2,6),
       workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(),
+      appointmentDate, appointmentTime,
       wlStatus:'pending', order:(last ? Number(last.order) : -10) + 10,
       createdAt:now, updatedAt:now
     };
@@ -693,6 +823,7 @@ async function wlSave(){
     // Copy-street-forward: same street, next house — clear WO/number/old J,
     // keep the street, and put the cursor on the house number.
     $('wlWo').value=''; $('wlNum').value=''; $('wlOldJ').value='';
+    $('wlTimed').checked=false; $('wlAppointmentDate').value=''; $('wlAppointmentTime').value=''; paintTimedFields();
     renderChips();
     $('wlWo').focus();
   }
@@ -814,6 +945,15 @@ export function initWorklist(opts){
     const v = Math.max(1, Math.floor(Number($('wlTarget').value) || 24));
     $('wlTarget').value = String(v); store.set('wlTarget', String(v));
   };
+  loadPlanFields();
+  $('wlRouteDate').onchange = savePlanLocal;
+  $('wlRouteTime').onchange = savePlanLocal;
+  $('wlPace').onchange = () => {
+    store.set('wlPaceSource', 'override');
+    const p = savePlanLocal(); $('wlPace').value = String(p.paceMin);
+    $('wlPaceHint').textContent = `Plan override: ${p.paceMin} min/stop`;
+  };
+  $('wlTimed').onchange = paintTimedFields;
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);

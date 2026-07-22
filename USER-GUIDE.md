@@ -122,11 +122,25 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 3. Drag the **⠿** handle to put the orders in driving order.
 4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app, **Edit** changes it.
 
+For a timed visit, turn on **🔔 Timed appointment** while adding or editing the
+order and choose its date and time. Use the **🔓** button on a card to lock its
+current weekday and queue slot; it becomes **🔒** and cannot be dragged until
+you unlock it.
+
 An order checks itself off automatically when its work order # is actually logged.
 
 ### Optimize route
 
 Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best driving order for you:
+
+- Set **Route starts**, **First stop at**, and **Pace (min/stop)** above Optimize.
+  Pace uses your latest 30 land workdays when available and remains editable.
+- Appointment stops are placed no later than their entered time, allowing arrival
+  up to 20 minutes early. Earlier arrival is shown as waiting time, and that wait
+  shifts the ETAs after it. Weekends are not route days.
+- Locked stops keep their exact date and slot while the remaining stops optimize
+  around them. If two constraints conflict, the route is left unchanged and the
+  message names the affected work order.
 
 - Each address is looked up and matched **near where you are** (within the app's search radius), so "Main St" means *your* Main St, not one in another city.
 - With a **Home address** in Settings, the route ends heading toward home — the first stop is the far end of the day, and you work your way back. With no home set, whatever order is first in your list stays the starting point.

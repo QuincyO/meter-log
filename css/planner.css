@@ -67,6 +67,8 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .pltargetrow{display:flex;align-items:center;gap:10px}
 .pltargetrow input{width:90px;flex:none}
 .pltargetrow #plAvgDay{margin:0}
+.plschedule{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;margin-top:6px}
+.plschedule label{margin-bottom:0}.plschedule input{margin-top:4px;padding:8px;font-size:14px}
 
 /* day-group header in the order list */
 .plday{display:flex;align-items:center;gap:8px;margin:14px 0 4px;padding-top:10px;
@@ -90,6 +92,12 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .pldone .plmain{color:var(--ink-soft)}
 .plmain{flex:1;min-width:0}
 .pladdr{color:var(--ink-soft);font-size:13px;margin-top:1px;overflow-wrap:anywhere}
+.plmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;color:var(--ink-soft);font-size:11px;font-weight:800}
+.plappt{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-top:7px}
+.plappt label{margin:0}.plappt input{min-height:36px;padding:6px 8px;font-size:12px}
+.pllock{height:36px;border:1px solid var(--line);border-radius:9px;background:var(--panel);cursor:pointer}
+.pllock.on{border-color:var(--amber);background:#FEF3E2}
+.plrow.locked{background:#FFFBF2}
 .pltag{font-size:12px;font-weight:700;color:var(--amber-press)}
 .pltag-mute{color:var(--line)}
 .plchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}

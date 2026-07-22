@@ -17,8 +17,9 @@ import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
-import { stamp } from '../time.js';
+import { stamp, localDate } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked } from '../route.js';
+import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order
@@ -33,6 +34,27 @@ const dayColor = d => DAY_COLORS[((Number(d) || 1) - 1) % DAY_COLORS.length];
 // The picked installer's cadence, from installerMetrics — sizes the day ETA and
 // the avg/day hint. avgLogMin = minutes per meter; avgPerDay = meters/day.
 let avgLogMin = null, avgPerDay = null;
+
+function nextWeekday(date){
+  const d = new Date(`${date}T12:00:00`);
+  while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function planShape(){
+  return {
+    routeStartDate:$('plRouteDate').value || nextWeekday(localDate()),
+    firstStopTime:$('plRouteTime').value || '08:00',
+    paceMin:Math.max(1, Math.round(Number($('plPace').value) || 30)),
+    paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback'
+  };
+}
+function loadPlan(plan){
+  const p = plan || {};
+  $('plRouteDate').value = p.routeStartDate || nextWeekday(localDate());
+  $('plRouteTime').value = p.firstStopTime || '08:00';
+  $('plPace').value = String(Math.max(1, Number(p.paceMin) || 30));
+  store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
+}
 
 function setStatus(kind, text){
   const p = $('status'), t = $('statusText');
@@ -64,15 +86,23 @@ async function showAvgDay(){
   const h = hNumber();
   if(!h) return;
   try{
-    const r = await apiGet('installerMetrics', { hNumber: h });
+    const r = await apiGet('installerMetrics', { hNumber: h, workType:'land' });
     const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
     if(m){
       avgPerDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
-      avgLogMin = (m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin);
+      avgLogMin = (m.recent30AvgLogMin === '' || m.recent30AvgLogMin == null)
+        ? ((m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin))
+        : Number(m.recent30AvgLogMin);
+      if(store.get('plannerPaceSource:' + h) !== 'override' && avgLogMin){
+        $('plPace').value = String(avgLogMin); store.set('plannerPaceSource:' + h, 'recent30');
+      }
     }
     if(el) el.textContent = avgPerDay
       ? `their avg ${avgPerDay}/day${avgLogMin ? ` · ~${avgLogMin} min/meter` : ''}`
       : 'no history yet';
+    $('plPaceHint').textContent = avgLogMin
+      ? `Recent 30-workday pace: ${avgLogMin} min/stop`
+      : 'No pace history yet — using the editable 30 min/stop fallback.';
   } catch { if(el) el.textContent = ''; }
 }
 
@@ -123,7 +153,11 @@ function wireShape(x){
     wlStatus:x.wlStatus||'pending', order:x.order,
     lat:x.lat, lng:x.lng,
     createdAt:x.createdAt||'', updatedAt:x.updatedAt||'',
-    day:(x.day == null || x.day === '') ? '' : Number(x.day) };
+    day:(x.day == null || x.day === '') ? '' : Number(x.day),
+    appointmentDate:x.appointmentDate||'', appointmentTime:x.appointmentTime||'',
+    lockedDate:x.lockedDate||'', lockedSlot:x.lockedSlot||'',
+    scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
+    scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'' };
 }
 
 async function loadList(){
@@ -143,7 +177,13 @@ async function loadList(){
       lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
       lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
       createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
-      day: (o.day === '' || o.day == null) ? '' : Number(o.day) })));
+      day: (o.day === '' || o.day == null) ? '' : Number(o.day),
+      appointmentDate:String(o.appointmentDate||''), appointmentTime:String(o.appointmentTime||''),
+      lockedDate:String(o.lockedDate||''), lockedSlot:(o.lockedSlot===''||o.lockedSlot==null)?'':Number(o.lockedSlot),
+      scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
+      scheduledSlot:(o.scheduledSlot===''||o.scheduledSlot==null)?'':Number(o.scheduledSlot),
+      scheduledWaitMin:(o.scheduledWaitMin===''||o.scheduledWaitMin==null)?'':Number(o.scheduledWaitMin) })));
+    loadPlan(r.plan);
     setStatus('ok','Synced');
     toast(`Loaded ${items.length} orders ✓`);
   } catch { setStatus('off','Error'); toast('Load failed — check signal'); }
@@ -214,15 +254,23 @@ async function optimize(){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
     const home = await homePin(geocodeUrl);
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note,
-            dayOf, dayFallback } =
-      await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl, target });
-    const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
+    const base = await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl });
+    const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
+    const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
+    if(blocked.length) throw new Error('Fix the address before routing constrained ' +
+      blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
+    const routed = base.orderedIds.map(id => byId[id]).filter(Boolean);
+    const scheduled = scheduleRouteConstraints(routed, base.orderedIds, { ...planShape(), target });
+    const orderedIds = scheduled.orderedIds, dayOf = scheduled.dayOf;
+    const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
     const seq = [...orderedIds, ...parkedIds, ...doneIds].map(id => byId[id]).filter(Boolean);
     seq.forEach((x, i) => {
       x.order = i * 10; x.updatedAt = stamp();
       x.day = (dayOf && dayOf[x.id]) ? dayOf[x.id] : '';   // parked/done stay unassigned
+      const s = scheduled.scheduleById[x.id] || {};
+      x.scheduledDate=s.date||''; x.scheduledEta=s.eta||'';
+      x.scheduledSlot=s.slot||''; x.scheduledWaitMin=s.waitMin||'';
     });
     items = seq;
     for(const x of items) await idb.put('worklist', x);
@@ -233,14 +281,13 @@ async function optimize(){
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     toast((mode === 'home' ? 'Route ends near the anchor ✓' : 'Route starts at the first order ✓')
       + (days > 1 ? ` · ${days} days of ${target}` : '')
-      + (dayFallback ? ' — set an end-near address so each day ends near home' : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked below` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
       + (note ? ` · ${short(note)}` : ''));
-  } catch {
-    toast('Optimize failed — try again');
+  } catch (err) {
+    toast((err && err.message) || 'Optimize failed — try again');
   } finally {
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
@@ -256,7 +303,7 @@ async function upload(){
   setStatus('wait','Uploading…');
   try{
     const r = await apiPost({ action:'saveWorklist', hNumber: h,
-      installer: who ? fullName(who) : '', orders: items.map(wireShape) });
+      installer: who ? fullName(who) : '', orders: items.map(wireShape), plan:planShape() });
     if(!r.ok) throw new Error(r.error || 'upload failed');
     setStatus('ok','Synced');
     toast('Uploaded ✓ — ready for the phone’s ⇩ Download');
@@ -264,6 +311,23 @@ async function upload(){
 }
 
 // ── render (list + map) ─────────────────────────────────────────────────────
+function plannerPlacement(item){
+  const pending = pendingItems();
+  const { day, slot } = currentRoutePlacement(pending, item.id, targetVal());
+  return {
+    date:item.scheduledDate || item.appointmentDate || addWorkdays(planShape().routeStartDate, day - 1),
+    slot
+  };
+}
+async function togglePlannerLock(item){
+  if(item.lockedDate){ item.lockedDate=''; item.lockedSlot=''; toast('Position unlocked'); }
+  else {
+    const p = plannerPlacement(item); item.lockedDate=p.date; item.lockedSlot=p.slot;
+    toast(`Locked to ${p.date} · slot ${p.slot}`);
+  }
+  item.updatedAt=stamp(); await idb.put('worklist', item); render();
+}
+
 function render(){
   const pending = pendingItems(), done = items.filter(x => x.wlStatus === 'done');
   $('plCounts').textContent = items.length
@@ -283,15 +347,16 @@ function render(){
     if(d && d !== curDay){
       curDay = d;
       const count = pending.filter(p => (p.day || null) === d).length;
+      const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
       const hdr = document.createElement('div');
       hdr.className = 'plday';
       hdr.innerHTML = `<span class="plday-dot" style="background:${dayColor(d)}"></span>`
-        + `Day ${d} · ${count} meter${count === 1 ? '' : 's'} — ends near home`
+        + `Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'} — ends near home`
         + `<span class="plday-eta">${esc(dayEta(count))}</span>`;
       card.appendChild(hdr);
     }
     const row = document.createElement('div');
-    row.className = 'plrow' + (item.wlStatus === 'done' ? ' pldone' : '');
+    row.className = 'plrow' + (item.wlStatus === 'done' ? ' pldone' : '') + (item.lockedDate ? ' locked' : '');
     const located = !!coordsOf(item);
     // Flag badges BEFORE the located check — a parked order keeps its last
     // good pin, so coords-present must not hide its warning state.
@@ -303,11 +368,29 @@ function render(){
       <div class="plmain">
         <strong>${item.workOrderId ? 'WO ' + esc(item.workOrderId) : '(no WO#)'}</strong>
         <div class="pladdr">${esc(item.address || '')}${tag}</div>
+        <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${item.scheduledEta ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
+        ${item.wlStatus !== 'done' ? `<div class="plappt">
+          <label>🔔 Date<input data-appt="date" type="date" value="${esc(item.appointmentDate||'')}"></label>
+          <label>Time<input data-appt="time" type="time" value="${esc(item.appointmentTime||'')}"></label>
+          <button class="pllock${item.lockedDate ? ' on' : ''}" type="button" aria-label="${item.lockedDate ? 'Unlock position' : 'Lock current position'}">${item.lockedDate ? '🔒' : '🔓'}</button>
+        </div>` : ''}
         ${(item.geoAmbig && item.geoAmbig.length) ? `<div class="plchips">${
           item.geoAmbig.map((c, ci) => `<button class="chip" data-ci="${ci}" type="button">${esc(c.label)}</button>`).join('')
         }</div>` : ''}
       </div>
       <button class="pldel" type="button" aria-label="Remove">✕</button>`;
+    const lock = row.querySelector('.pllock'); if(lock) lock.onclick = () => togglePlannerLock(item);
+    const dateInput = row.querySelector('[data-appt="date"]');
+    const timeInput = row.querySelector('[data-appt="time"]');
+    const saveAppointment = async () => {
+      const date = dateInput.value, time = timeInput.value;
+      if(Boolean(date) !== Boolean(time)) return;
+      item.appointmentDate=date; item.appointmentTime=time; item.updatedAt=stamp();
+      item.scheduledDate=''; item.scheduledEta=''; item.scheduledSlot=''; item.scheduledWaitMin='';
+      await idb.put('worklist', item); render();
+    };
+    if(dateInput) dateInput.onchange = saveAppointment;
+    if(timeInput) timeInput.onchange = saveAppointment;
     row.querySelectorAll('.chip').forEach(chip => { chip.onclick = async () => {
       const c = item.geoAmbig[Number(chip.dataset.ci)];
       if(!c) return;
@@ -361,7 +444,7 @@ function renderMap(){
       className: 'plpin' + (parked ? ' plpin-parked' : ''),
       html:`<span>${parked ? '!' : i + 1}</span>`,
       iconSize:[26,26], iconAnchor:[13,13] }) })
-      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}`)
+      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}${item.scheduledEta ? ' · ETA ' + item.scheduledEta : ''}${item.appointmentTime ? ' · appointment ' + item.appointmentTime : ''}`)
       .addTo(mapLayer);
     // Tint the routed pin by day (parked keeps the muted grey from CSS).
     if(!parked && day){ const el = marker.getElement(); if(el) el.style.background = color; }
@@ -381,6 +464,7 @@ $('plWho').onchange = async () => {
   let addr = '';
   try{ addr = (JSON.parse(store.get('plannerHome:' + h) || 'null') || {}).addr || ''; } catch {}
   $('plHome').value = addr;
+  loadPlan(null);
   showAvgDay();            // pull their avg/day reference for the target field
   await setItems([]);      // don't mix installers — load or paste fresh
 };
@@ -389,6 +473,11 @@ $('plImportBtn').onclick = () => $('plImport').classList.toggle('hide');
 $('plPasteAdd').onclick = importPaste;
 $('plOptimize').onclick = optimize;
 $('plUpload').onclick = upload;
+$('plPace').onchange = () => {
+  const p = planShape(); $('plPace').value = String(p.paceMin);
+  store.set('plannerPaceSource:' + hNumber(), 'override');
+  $('plPaceHint').textContent = `Plan override: ${p.paceMin} min/stop`;
+};
 
 $('navSel').onchange = e => {
   const v = e.target.value;
@@ -406,5 +495,6 @@ $('plOsrm').value = store.get('plannerOsrm') || OSRM_DEFAULT;
 // Geocoder defaults blank (opt-in) but shows a hint; a saved value wins.
 $('plGeo').value = store.get('plannerGeocode') || '';
 $('plGeo').placeholder = NOMINATIM_DEFAULT;
+loadPlan(null);
 render();
 loadRoster().then(paintWhoSelect);

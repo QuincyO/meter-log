@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, fifteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`. This is the truth.
+One spreadsheet, sixteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -60,6 +60,8 @@ It is not Claude and not the form. Everything reads from or writes to it.
   then ⇪ Upload (`saveWorklist`). Pins + order ride the sheet, so the phone's
   ⇩ Download lands a finished route with zero phone-side spend. The PC's
   IndexedDB `worklist` store is its scratch copy (cleared per installer switch).
+  Timed appointments, fixed queue slots, route settings, and resulting ETAs
+  round-trip with the route so the office and phone see the same plan.
   Linked from the backend pages' nav only, not from the capture page.
 - All seven are static files hosted on GitHub Pages. They never store the data
   themselves — they post it / read it and move on.
@@ -424,6 +426,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   second copy or Save step. Opening the view never geocodes or optimizes.
   Cached pins and reordering work offline; only the OSM tile background needs
   signal. Hardware/browser Back follows route editor → worklist → capture.
+  Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
+  within-day slot. Appointment cards use a bell badge; locking snapshots the
+  current date+slot, removes that card's drag handle, and survives Upload/Download.
+  `WorklistPlans` stores route start date, first-stop time, and editable pace once
+  per H number instead of repeating those settings on every order.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
@@ -496,6 +503,12 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   then straight-line — never the billable Google path), which is how the office
   plans a route at zero matrix cost and uploads it for the phone to Download
   (see the planner page bullet under "The three layers").
+  After the geographic solve, `js/route-constraints.js` maps route days to weekdays
+  and applies appointments/locks. ETAs use `firstStopTime + (slot-1) × pace`, with
+  no break adjustment. Appointments are never planned late; arrival may be up to
+  20 minutes early, and earlier arrival becomes explicit waiting that shifts later
+  ETAs. Invalid weekends, duplicate slots, late locked appointments, and other
+  impossible layouts abort without rewriting the current route.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 
@@ -805,6 +818,7 @@ computes each mode; the metric fields are:
 | `installs` / `utis` / `visited` / `unaccounted` | number | summed daily counts                  |
 | `downtimeMin` | number        | summed `downtimeTotalMin`                                |
 | `avgLogMin`   | number        | mean min/meter over the installer's whole history, breaks removed |
+| `recent30AvgLogMin` | number  | mean min/stop over the latest 30 distinct worked days, breaks removed; appointment-planning pace |
 | `avgPerDay`   | number        | (installs+utis) / daysWorked — the target-field hint    |
 | `avgPerHour`  | number        | (installs+utis) / hoursWorked (1 dp)                     |
 | `updated`     | string        | Toronto-local timestamp of the last refresh             |
@@ -815,9 +829,9 @@ combined column, `boat`-prefixed (e.g. `boatAvgPerDay`), and `land`-prefixed
 `workType` — `workType=boat|land` **projects that mode's prefixed columns down to
 the canonical field names** (a reader always sees `avgPerDay`/`avgLogMin`), while
 `all`/omitted returns the full wide row (its combined columns are already
-canonical). The desktop planner reads it with no `workType` (combined); the phone
-worklist passes its current work mode, so the avg/day beside the meters/day target
-matches boat vs land.
+canonical). Both route-planning surfaces request the land projection and prefer
+`recent30AvgLogMin`, falling back to lifetime `avgLogMin` and then an editable
+30-minute default when history is unavailable.
 
 ### Worklist row  (one per planned order → tab "Worklist")
 A flat copy of one phone's IndexedDB `worklist` record, keyed per installer on
@@ -844,6 +858,20 @@ installer's saved rows.
 | `updatedAt`   | string | Toronto-local `yyyy-MM-dd HH:mm:ss`                          |
 | `lat` / `lng` | number | the order's cached geocode pin — round-tripped so a downloaded list routes without re-geocoding. `''` only when the order was **never** located or its address was hand-edited (which clears the pin on purpose); a failed re-geocode parks the order but never blanks the stored pin |
 | `day`         | number | the route planner's multi-day cluster number (1-based; `''` = unassigned/parked/done) — drives the phone worklist's Day 1 / Day 2 dividers. Set by the optimize `dayOf`, carried through the sync |
+| `appointmentDate` / `appointmentTime` | string | optional Toronto-local timed appointment (`yyyy-MM-dd`, `HH:mm`) |
+| `lockedDate` / `lockedSlot` | string/number | exact weekday and one-based within-day slot held through reorder and optimization |
+| `scheduledDate` / `scheduledEta` | string | optimizer result displayed on both route surfaces |
+| `scheduledSlot` / `scheduledWaitMin` | number | one-based day slot and explicit early-arrival waiting |
+
+### WorklistPlan row  (one per installer → tab "WorklistPlans")
+| field | type | notes |
+|-------|------|-------|
+| `hNumber` | string | installer match key |
+| `routeStartDate` | string | Day 1 weekday (`yyyy-MM-dd`) |
+| `firstStopTime` | string | planned arrival time at slot 1 (`HH:mm`) |
+| `paceMin` | number | editable minutes per stop; recent-30-day metric or 30-minute fallback |
+| `paceSource` | string | `recent30`, `fallback`, or `override` |
+| `updated` | string | Toronto-local update timestamp |
 
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips

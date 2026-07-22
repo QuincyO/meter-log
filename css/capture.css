@@ -45,6 +45,22 @@
 .wl-target label{margin:0;font-weight:700;color:var(--ink-soft);font-size:13px;flex:none}
 .wl-target input{width:80px;flex:none}
 .wl-target .muted{margin:0}
+.wl-schedule-settings{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px;margin-top:10px}
+.wl-schedule-settings label{margin:0;font-size:12px;font-weight:800;color:var(--ink-soft)}
+.wl-schedule-settings input{margin-top:4px;min-width:0;padding:8px;font-size:14px}
+.wl-timed-toggle{display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:800}
+.wl-timed-toggle input{width:20px;height:20px;margin:0}
+.wl-appointment{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;padding:10px;margin-top:8px;
+  border:1px solid var(--amber);border-radius:12px;background:#FEF3E2}
+.wl-appointment .muted{grid-column:1/-1;margin:4px 0 0}
+.wl-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.wl-badge{display:inline-flex;align-items:center;min-height:25px;padding:3px 8px;border-radius:999px;
+  background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);font-size:11px;font-weight:800}
+.wl-badge.appt{border-color:var(--amber);background:#FEF3E2;color:#754900}
+.wl-lock{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;
+  font-size:16px;cursor:pointer;color:var(--ink-soft)}
+.wl-lock.on{border-color:var(--amber);background:#FEF3E2;color:#754900}
+.wl-card.locked{border-color:var(--amber)}
 /* The Optimize button owns a two-second hold gesture. Disable the browser's
    native long-press selection/copy callout so it cannot cancel that gesture. */
 #wlOptimize{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
@@ -109,12 +125,14 @@
   border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
 .wl-route-card.dragging{position:relative;z-index:7;border-color:var(--accent);
   box-shadow:0 10px 26px rgba(19,23,28,.22)}
+.wl-route-card.locked{border-color:var(--amber);background:#FFFBF2}
 .wl-route-handle{flex:none;width:44px;height:46px;border:0;border-radius:10px;background:var(--surface);
   color:var(--ink-soft);font-size:21px;cursor:grab;touch-action:none}
 .wl-route-pos{flex:none;width:25px;height:25px;display:grid;place-items:center;border-radius:50%;
   background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:900}
 .wl-route-main{flex:1;min-width:0;font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
 .wl-route-main strong{color:var(--ink);font-size:14px}
+.wl-route-meta{margin-top:3px;font-size:11px;font-weight:800;color:var(--ink-soft)}
 .wl-route-state{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid var(--line);
   border-radius:999px;background:var(--surface);color:var(--ink-soft);font-size:10px;font-weight:800}
 /* Leaflet divIcon: the route sequence itself is the visual signature. */

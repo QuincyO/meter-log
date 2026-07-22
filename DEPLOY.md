@@ -310,6 +310,13 @@ installer's row from all past `Tracker`/`Days`/`Stops`. From then on each
 end-of-day close refreshes that installer's row automatically (idempotent — a
 re-close never double-counts), so no trigger is needed.
 
+**Timed appointments + locked route slots.** After deploying this change, run
+`setupSheets()` once. It appends the appointment/lock/scheduled fields to
+`Worklist`, appends the recent-30-workday pace fields to `InstallerMetrics`, and
+creates `WorklistPlans`. Existing rows remain intact. Then run
+`backfillInstallerMetrics()` once so every active installer has a saved recent
+pace; future end-of-day closes refresh it automatically.
+
 ## Troubleshooting
 
 - **Workflow fails at "Write clasp auth"** — a secret is missing/empty.

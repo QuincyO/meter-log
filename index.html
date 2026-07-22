@@ -183,6 +183,12 @@
       <input id="wlTarget" type="number" min="1" step="1" inputmode="numeric">
       <span class="muted" id="wlAvgDay"></span>
     </div>
+    <div class="wl-schedule-settings">
+      <label>Route starts<input id="wlRouteDate" type="date"></label>
+      <label>First stop at<input id="wlRouteTime" type="time"></label>
+      <label>Pace (min/stop)<input id="wlPace" type="number" min="1" step="1" inputmode="numeric"></label>
+    </div>
+    <div class="muted" id="wlPaceHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <button class="ghost wl-view-route" id="wlViewRoute" type="button">View route map</button>
@@ -199,6 +205,14 @@
       <div class="wl-chips hide" id="wlAmbig"></div>
       <label for="wlOldJ">Old J# <span style="font-weight:500">(optional)</span></label>
       <input id="wlOldJ" class="mono" autocapitalize="characters">
+      <label class="wl-timed-toggle"><input id="wlTimed" type="checkbox"> 🔔 Timed appointment</label>
+      <div class="wl-appointment hide" id="wlAppointmentFields">
+        <label for="wlAppointmentDate">Appointment date</label>
+        <input id="wlAppointmentDate" type="date">
+        <label for="wlAppointmentTime">Appointment time</label>
+        <input id="wlAppointmentTime" type="time">
+        <p class="muted">Route planning aims to arrive no later than this time, up to 20 minutes early.</p>
+      </div>
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="ghost" id="wlFormCancel" style="flex:1">Done</button>
         <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>

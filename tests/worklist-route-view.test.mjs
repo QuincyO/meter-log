@@ -67,6 +67,19 @@ test('rejects incomplete or foreign reorder ids instead of losing records', () =
   assert.throws(() => reorderRouteGroup(original, 'day:1', ['a', 'c']), /same route group/);
 });
 
+test('keeps a locked order in its within-day slot while free orders move around it', () => {
+  const original = [
+    item('a', 0, 1),
+    { ...item('locked', 10, 1), lockedDate:'2026-07-24', lockedSlot:2 },
+    item('c', 20, 1),
+  ];
+
+  const reordered = reorderRouteGroup(original, 'day:1', ['locked', 'c', 'a']);
+
+  assert.deepEqual(reordered.map(x => x.id), ['c', 'locked', 'a']);
+  assert.equal(reordered[1].lockedSlot, 2);
+});
+
 test('keeps full route positions on pins and excludes parked pins from the line', () => {
   const model = buildRouteMapModel([
     { ...item('located', 0, 1), lat:45.1, lng:-79.1 },

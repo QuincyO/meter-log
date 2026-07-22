@@ -166,7 +166,10 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
   .concat(INSTALLER_METRIC_KEYS)                                            // combined
   .concat(INSTALLER_METRIC_KEYS.map(k => 'boat' + k[0].toUpperCase() + k.slice(1)))
   .concat(INSTALLER_METRIC_KEYS.map(k => 'land' + k[0].toUpperCase() + k.slice(1)))
-  .concat(['updated']);
+  .concat(['updated'])
+  // Appended as a block so an existing wide InstallerMetrics sheet upgrades
+  // without shifting any of its established positional columns.
+  .concat(['recent30AvgLogMin','boatRecent30AvgLogMin','landRecent30AvgLogMin']);
 
 // One row per planned worklist order, keyed per installer on the employee
 // H number (names can collide, H numbers can't; installer is a readable label
@@ -180,7 +183,12 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
 // so the phone worklist shows Day 1 / Day 2 dividers. Adding it means re-running
 // setupSheets() once.
 const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
-  'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng','day'];
+  'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng','day',
+  'appointmentDate','appointmentTime','lockedDate','lockedSlot',
+  'scheduledDate','scheduledEta','scheduledSlot','scheduledWaitMin'];
+// One synchronized route-plan record per installer. Kept separate from the
+// order rows so route settings do not repeat on every Worklist row.
+const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource','updated'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -210,6 +218,7 @@ function setupSheets() {
   ensureTab(ss, 'Metrics', METRICS_HEADERS);
   ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
+  ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).
@@ -222,6 +231,9 @@ function setupSheets() {
   ss.getSheetByName('StopsArchive').getRange('B2:B').setNumberFormat('@'); // timestamp
   ss.getSheetByName('Downtime').getRange('B2:B').setNumberFormat('@');  // timestamp
   ss.getSheetByName('Worklist').getRange('J2:K').setNumberFormat('@');  // createdAt, updatedAt
+  ss.getSheetByName('Worklist').getRange('O2:Q').setNumberFormat('@');  // appointment/lock dates + time
+  ss.getSheetByName('Worklist').getRange('S2:T').setNumberFormat('@');  // scheduled date + ETA
+  ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
 }
 
 function ensureTab(ss, name, headers) {
@@ -336,7 +348,7 @@ function doGet(e) {
   if (p.action === 'worklist') {
     // One installer's saved planned orders, matched on H number (names can
     // collide) — the worklist Download button.
-    return json({ ok: true, orders: worklistFor(p.hNumber) });
+    return json({ ok: true, orders: worklistFor(p.hNumber), plan: worklistPlanFor(p.hNumber) });
   }
   if (p.action === 'lookup')  return json(lookup(p));
   if (p.action === 'geocode') return json(geocode(parseFloat(p.lat), parseFloat(p.lng)));
@@ -1081,8 +1093,8 @@ function wlCmp(a, b) {
 function saveWorklist(b) {
   const h = String(b.hNumber == null ? '' : b.hNumber).trim();
   if (!h) return { ok: false, error: 'hNumber required' };
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
-  if (!sh) return { ok: false, error: 'Worklist tab missing — run setupSheets()' };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   const emp = employeeByH(h);
   const installer = emp ? fullName(emp) : String(b.installer || '').trim();
 
@@ -1112,7 +1124,12 @@ function saveWorklist(b) {
     i * 10,
     o.createdAt || '', o.updatedAt || '',
     o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng),
-    (o.day == null || o.day === '') ? '' : Number(o.day) ]));
+    (o.day == null || o.day === '') ? '' : Number(o.day),
+    o.appointmentDate || '', o.appointmentTime || '', o.lockedDate || '',
+    (o.lockedSlot == null || o.lockedSlot === '') ? '' : Number(o.lockedSlot),
+    o.scheduledDate || '', o.scheduledEta || '',
+    (o.scheduledSlot == null || o.scheduledSlot === '') ? '' : Number(o.scheduledSlot),
+    (o.scheduledWaitMin == null || o.scheduledWaitMin === '') ? '' : Number(o.scheduledWaitMin) ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;
@@ -1125,6 +1142,7 @@ function saveWorklist(b) {
     else sh.getRange(2 + body.length, 1, excess, width).clearContent();
   }
   bustRows('Worklist');
+  if (b.plan) saveWorklistPlan(h, b.plan);
   return { ok: true, count: orders.length };
 }
 
@@ -1137,6 +1155,32 @@ function worklistFor(hNumber) {
   const h = String(hNumber == null ? '' : hNumber).trim();
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist')) return [];
   return rows('Worklist').filter(r => String(r.hNumber).trim() === h).sort(wlCmp);
+}
+
+function ensureWorklistPlansTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
+}
+
+function saveWorklistPlan(hNumber, plan) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  if (!h) return;
+  ensureWorklistPlansTab();
+  const pace = Number(plan.paceMin);
+  upsertByHeader('WorklistPlans', 'hNumber', h, {
+    hNumber: h,
+    routeStartDate: plan.routeStartDate || '',
+    firstStopTime: plan.firstStopTime || '',
+    paceMin: isFinite(pace) && pace > 0 ? Math.round(pace) : '',
+    paceSource: plan.paceSource || '',
+    updated: now()
+  });
+}
+
+function worklistPlanFor(hNumber) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  ensureWorklistPlansTab();
+  return rows('WorklistPlans').find(r => String(r.hNumber).trim() === h) || null;
 }
 
 /** Nightly cleanup: remove every completed worklist row across all installers.
@@ -2090,7 +2134,7 @@ function ensureMetricsTab() {
 // sheet where setupSheets() hasn't been re-run yet.
 function ensureInstallerMetricsTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss.getSheetByName('InstallerMetrics')) ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
+  ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
 }
 
 /** Roll up ONE installer's lifetime metrics and upsert their InstallerMetrics
@@ -2131,6 +2175,9 @@ function refreshInstallerMetrics(hNumber, name) {
     row['boat' + cap] = boat[k];
     row['land' + cap] = land[k];
   });
+  row.recent30AvgLogMin = installerRecentAvgLogMin(nm, 'all', 30);
+  row.boatRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'boat', 30);
+  row.landRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'land', 30);
   upsertByHeader('InstallerMetrics', 'hNumber', h, row);
 }
 
@@ -2227,6 +2274,42 @@ function installerAvgLogMin(name, windowDays, workType) {
   return Math.round(Math.max(0, sum - breakMin) / cnt);
 }
 
+/** Current planning pace from the latest N distinct worked days, rather than a
+ * calendar window. This keeps a seasonal or part-time installer at 30 actual
+ * route days of evidence. The gap/break rules intentionally match
+ * installerAvgLogMin(). */
+function installerRecentAvgLogMin(name, workType, workdays) {
+  const nm = String(name == null ? '' : name).trim();
+  if (!nm) return '';
+  const mode = workType || 'all';
+  const inMode = wt => mode === 'all' || normWorkType(wt) === mode;
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const byDate = {};
+  rows('Stops').forEach(r => {
+    if (!sameName(r.installer, nm) || !inMode(r.workType)) return;
+    if (!printable[String(r.status || '').trim().toUpperCase()]) return;
+    const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
+    if (!d || sec == null) return;
+    (byDate[d] = byDate[d] || []).push(sec);
+  });
+  const selected = Object.keys(byDate).sort().reverse().slice(0, Math.max(1, Number(workdays) || 30));
+  const selectedSet = {}; selected.forEach(d => { selectedSet[d] = 1; });
+  let sum = 0, cnt = 0, breakMin = 0;
+  selected.forEach(d => {
+    const secs = byDate[d].sort((a, b) => a - b);
+    for (let i = 1; i < secs.length; i++) {
+      const gap = (secs[i] - secs[i - 1]) / 60;
+      if (gap > 0) { sum += gap; cnt++; }
+    }
+  });
+  rows('Downtime').forEach(r => {
+    const c = String(r.category || '').trim().toUpperCase();
+    if ((c !== 'LUNCH' && c !== 'BREAK') || !sameName(r.installer, nm) || !inMode(r.workType)) return;
+    if (selectedSet[dateOf(r.timestamp)]) breakMin += Number(r.minutes) || 0;
+  });
+  return cnt ? Math.round(Math.max(0, sum - breakMin) / cnt) : '';
+}
+
 /** InstallerMetrics rows — the installerMetrics GET. Optionally filtered by
  *  H number. workType 'boat'|'land' projects that mode's prefixed columns down
  *  to canonical field names (so a reader always sees `avgPerDay`, `avgLogMin`,
@@ -2243,6 +2326,7 @@ function installerMetricsRead(hNumber, workType) {
       const o = { hNumber: r.hNumber, name: r.name, workType: wt,
                   firstDay: r.firstDay, lastDay: r.lastDay, updated: r.updated };
       INSTALLER_METRIC_KEYS.forEach(k => o[k] = r[wt + k[0].toUpperCase() + k.slice(1)]);
+      o.recent30AvgLogMin = r[wt + 'Recent30AvgLogMin'];
       return o;
     });
   }
