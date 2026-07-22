@@ -1,6 +1,6 @@
 # Tracker
 
-_42 rows · exported 2026-07-21 03:52 America/Toronto_
+_45 rows · exported 2026-07-22 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -44,5 +44,8 @@ _42 rows · exported 2026-07-21 03:52 America/Toronto_
 | 2026-07-14 00:00:00 | Quincy Orta | 6 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · W 27 km/h · 30°C |  | 0 | 0 |  | 223 |  |  |
 | 2026-07-15 00:00:00 | Quincy Orta | 4 | 1 | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | Overcast · W 12 km/h · 25°C |  | 0 | 0 |  | 113 |  |  |
 | 2026-07-15 00:00:00 | Phillip Monteiro | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Overcast · W 12 km/h · 25°C |  | 0 | 0 |  | 124 |  |  |
-| 2026-07-20 00:00:00 | Quincy Orta | 20 | 0 | 80 | 50 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 322 |  |  |
+| 2026-07-20 00:00:00 | Quincy Orta | 20 | 0 | 80 | 50 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 322 |  | land |
 | 2026-07-20 00:00:00 | Phillip Monteiro | 21 | 0 | 20 | 0 | 0 | 0 | 0 | 0 | 0 | 20 | 0 | 0 | 0 | Clear · SW 16 km/h · 24°C |  | 0 | 0 |  | 285 |  | land |
+| 2026-07-21 00:00:00 | Phillip Monteiro | 20 | 0 | 95 | 30 | 10 | 0 | 15 | 15 | 25 | 0 | 0 | 0 | 0 | Mainly clear · SW 18 km/h · 23°C |  | 0 | 0 |  | 228 |  | land |
+| 2026-07-21 00:00:00 | Quincy Orta | 12 | 3 | 232 | 0 | 14 | 0 | 0 | 0 | 128 | 0 | 0 | 90 | 0 | Mainly clear · W 18 km/h · 23°C |  | 1 | 0 |  | 220 |  | land |
+| 2026-07-21 00:00:00 | Josue Vasquez | 17 | 1 | 15 | 0 | 0 | 0 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · SW 20 km/h · 24°C |  | 0 | 0 |  | 276 |  | land |

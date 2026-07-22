@@ -1,6 +1,6 @@
 # Downtime
 
-_91 rows · exported 2026-07-21 03:52 America/Toronto_
+_116 rows · exported 2026-07-22 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -93,5 +93,30 @@ _91 rows · exported 2026-07-21 03:52 America/Toronto_
 | 1784578646937-y8x3x3 | 2026-07-20 12:00:00 | Phillip Monteiro | LUNCH | 30 | 668738 | gap 12:09–14:22 |  |
 | 1784578646938-aiqb07 | 2026-07-20 12:00:00 | Phillip Monteiro | BREAK | 15 | 668738 | gap 12:09–14:22 |  |
 | 1784578646938-7fyenq | 2026-07-20 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 20 | 668738 | gap 12:09–14:22 |  |
-| 1784584180432-tw4ihf | 2026-07-20 12:00:00 | Quincy Orta | NEXT_GEN | 20 | 693932 | gap 12:54–14:43 |  |
-| 1784584180433-shwosj | 2026-07-20 12:00:00 | Quincy Orta | MISC_TRAVEL | 30 | 693932 | gap 12:54–14:43 |  |
+| 1784634562872-kcuw4f | 2026-07-21 7:49:22 | Josue Vasquez | WAREHOUSE | 15 |  |  | land |
+| 1784662299647-sd37r9 | 2026-07-21 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 666005 | gap 09:59–09:59 |  |
+| 1784662299650-pnnp10 | 2026-07-21 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 666005 | gap 09:59–09:59 |  |
+| 1784662299650-x1cxn2 | 2026-07-21 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 666005 | gap 09:59–09:59 |  |
+| 1784662299650-nnydnf | 2026-07-21 12:00:00 | Phillip Monteiro | BREAK | 15 | 668391 | gap 10:39–11:16 |  |
+| 1784662299650-bqyzmm | 2026-07-21 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 668391 | gap 10:39–11:16 |  |
+| 1784662299650-jd32td | 2026-07-21 12:00:00 | Phillip Monteiro | LUNCH | 30 | 665325 | gap 12:57–13:33 |  |
+| 1784662299650-fchk9s | 2026-07-21 12:00:00 | Phillip Monteiro | BREAK | 15 | 693536 | gap 13:33–14:01 |  |
+| 1784662299650-cjdo4j | 2026-07-21 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 668535 | gap 14:36–15:23 |  |
+| 1784663593406-r4z033 | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 693935 | gap 09:16–09:40 |  |
+| 1784663593407-au7q1k | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 693757 | gap 09:40–10:15 |  |
+| 1784663593407-macsck | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 693765 | gap 10:15–10:43 |  |
+| 1784663593407-keqrjm | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 693777 | gap 10:43–11:13 |  |
+| 1784663593407-c2oz78 | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 693825 | gap 11:13–11:28 |  |
+| 1784663593407-iooukx | 2026-07-21 12:00:00 | Quincy Orta | LUNCH | 20 | 693776 | gap 11:28–12:28 |  |
+| 1784663593407-62c77k | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 15 | 693776 | gap 11:28–12:28 |  |
+| 1784663593407-64egp8 | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 10 | 694013 | gap 12:28–12:48 |  |
+| 1784663593407-k0xjxp | 2026-07-21 12:00:00 | Quincy Orta | CELL_SIGNAL | 7 | 693930 | gap 12:48–13:08 |  |
+| 1784663593407-jynt6v | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 7 | 693930 | gap 12:48–13:08 |  |
+| 1784663593407-7jzuma | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 7 | 693867 | gap 13:08–13:35 |  |
+| 1784663593407-f3hfee | 2026-07-21 12:00:00 | Quincy Orta | CELL_SIGNAL | 7 | 693867 | gap 13:08–13:35 |  |
+| 1784663593407-wjogx2 | 2026-07-21 12:00:00 | Quincy Orta | URGENT_EER | 45 | 693830 | gap 13:35–13:55 |  |
+| 1784663593407-ltx3ra | 2026-07-21 12:00:00 | Quincy Orta | URGENT_EER | 45 | 696063 | gap 13:55–14:14 |  |
+| 1784663593407-w6ojtw | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 24 | 696063 | gap 13:55–14:14 |  |
+| 1784663593407-2m8giq | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 15 | 693844 | gap 14:14–15:14 |  |
+| 1784699991242-6q5zwc | 2026-07-20 12:00:00 | Quincy Orta | NEXT_GEN | 20 | 693932 | gap 12:54–14:43 |  |
+| 1784699991242-h2kya3 | 2026-07-20 12:00:00 | Quincy Orta | MISC_TRAVEL | 30 | 693932 | gap 12:54–14:43 |  |

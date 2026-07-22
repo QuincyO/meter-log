@@ -1,6 +1,6 @@
 # Dispatch
 
-_39 rows · exported 2026-07-21 03:52 America/Toronto_
+_42 rows · exported 2026-07-22 03:52 America/Toronto_
 
 | id | requestTime | oldJNumber | installer | completedTime | minutes | matched |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -43,3 +43,6 @@ _39 rows · exported 2026-07-21 03:52 America/Toronto_
 | 1783959689047-kj1aqy | 2026-07-13 12:21:01 | J3069240 | Quincy Orta | 2026-07-13 12:28:20 | 7 | Y |
 | 1783964975551-hnj5zy | 2026-07-13 13:49:33 | J3730575 | Quincy Orta | 2026-07-13 13:57:24 | 8 | Y |
 | 1784132839885-0oe697 | 2026-07-15 12:27:14 | J3082595 | Quincy Orta | 2026-07-15 12:32:32 | 5 | Y |
+| 1784656253009-1ce87i | 2026-07-21 13:50:50 | J4436953 | Quincy Orta | 2026-07-21 14:14:53 | 24 | Y |
+| 1784656294472-oe49jp | 2026-07-21 13:51:32 | J3298653 |  |  |  |  |
+| 1784656349518-or2ivk | 2026-07-21 13:52:28 | J4238307 |  |  |  |  |

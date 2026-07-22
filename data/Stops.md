@@ -1,6 +1,6 @@
 # Stops
 
-_322 rows · exported 2026-07-21 03:52 America/Toronto_
+_376 rows · exported 2026-07-22 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -326,3 +326,57 @@ _322 rows · exported 2026-07-21 03:52 America/Toronto_
 | 1784574072160-ks6ob8 | 2026-07-20 15:01:12 | Phillip Monteiro | 666143 |  | 24 Robert Rd E |  |  | J4610738 | J3673665 | 75291 | INSTALLED |  |  |  |  |  | land |
 | 1784574411774-w62ssz | 2026-07-20 15:06:51 | Phillip Monteiro | 668176 |  | 48 Robert Rd E |  |  | J4610739 | J3467041 | 34371 | INSTALLED |  |  |  |  |  | land |
 | 1784574843154-13obyq | 2026-07-20 15:14:03 | Quincy Orta | 693934 | 20 | 1027 Stroud Beach Rd, Utterson, ON P0B 1M0, Canada | 45.272273 | -79.452239 | J4770141 | J2072828 | 11073 | INSTALLED |  |  |  |  |  | land |
+| 1784638764753-86zzmp | 2026-07-21 8:59:24 | Quincy Orta | 693914 | 27 | 1259 Tribble Rd, Utterson, ON P0B 1M0, Canada | 45.261853 | -79.477966 | J4608706 | J2561464 | 85199 | INSTALLED |  |  |  |  |  | land |
+| 1784639798732-rhpbuv | 2026-07-21 9:16:38 | Quincy Orta | 693828 |  | 478 SKELETON Lk Shr, Muskoka Lakes, ON P0B 1M0, Canada | 45.259711 | -79.481519 | J4608705 | J3239686 | 11156 | INSTALLED |  |  |  |  |  | land |
+| 1784639937563-7nybpr | 2026-07-21 9:18:57 | Josue Vasquez | 671425 |  | Town of, 14 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310964 | -79.208082 | J4608138 | J4000788 | 31021 | INSTALLED |  |  |  |  |  | land |
+| 1784640563966-nga76e | 2026-07-21 9:29:23 | Josue Vasquez | 665376 |  | Town of, 18 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310951 | -79.208642 | J4608139 | J3904910 | 54643 | INSTALLED |  |  |  |  |  | land |
+| 1784641204163-ghenes | 2026-07-21 9:40:04 | Josue Vasquez | 675967 |  | Town of, 15 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310373 | -79.208267 | J4608140 | J3216677 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784641227619-n6edaq | 2026-07-21 9:40:27 | Quincy Orta | 693935 |  | 1103 Stroud Beach Rd, Utterson, ON P0B 1M0, Canada | 45.26825 | -79.462847 | J4608707 | J3168144 | 77446 | INSTALLED |  |  |  |  |  | land |
+| 1784641907722-e9oonh | 2026-07-21 9:51:47 | Josue Vasquez | 665518 |  | Town of, 25 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.31048 | -79.208681 | J4608757 | J3175741 | 4382 | INSTALLED |  |  |  |  |  | land |
+| 1784642392216-z9zgm9 | 2026-07-21 9:59:52 | Phillip Monteiro | 666005 |  | 74 Robert Rd W, Huntsville, ON P1H 2J4, Canada | 45.377058 | -79.206561 | J4610740 | J3978323 | 25177 | INSTALLED |  |  |  |  |  | land |
+| 1784642501900-0b61mf | 2026-07-21 10:01:41 | Josue Vasquez | 680023 |  | Town of, 26 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310936 | -79.208461 | J4608758 | J3270678 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784643117638-kqspey | 2026-07-21 10:11:57 | Phillip Monteiro | 668228 |  | Town of, 61 Robert Rd W, Huntsville, ON P1H 2J4, Canada | 45.37731 | -79.206223 | J4610741 | J3081292 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784643338602-p121uj | 2026-07-21 10:15:38 | Josue Vasquez | 671406 |  | Town of, 34 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310912 | -79.20926 | J4608759 | J3203818 | 47726 | INSTALLED |  |  |  |  |  | land |
+| 1784643346228-s8she9 | 2026-07-21 10:15:46 | Quincy Orta | 693757 |  | 2155 Aspdin Rd | 45.292967 | -79.347203 | J4608708 | J3134636 | 32233 | INSTALLED |  |  |  |  |  | land |
+| 1784643725379-c57gvm | 2026-07-21 10:22:05 | Phillip Monteiro | 667197 |  | Town of, 41 Robert Rd W, Huntsville, ON P1H 2J4, Canada | 45.376791 | -79.205033 | J4610742 | J2091781 | 7542 | INSTALLED |  |  |  |  |  | land |
+| 1784644244093-rfjtpt | 2026-07-21 10:30:44 | Phillip Monteiro | 667342 |  | Town of, 38 Robert Rd W, Huntsville, ON P1H 2J4, Canada | 45.376192 | -79.205787 | J4610743 | J3483588 | 94160 | INSTALLED |  |  |  |  |  | land |
+| 1784644773518-fcwk28 | 2026-07-21 10:39:33 | Phillip Monteiro | 668174 |  | 24 Robert Rd W | 45.375735 | -79.205675 | J4610744 | J3168634 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784644984240-rzdsko | 2026-07-21 10:43:04 | Quincy Orta | 693765 |  | 2830 Etwell Rd, Utterson, ON P0B 1M0, Canada | 45.342643 | -79.421836 | J4642708 | J3214989 | 82966 | INSTALLED |  |  |  |  |  | land |
+| 1784645642648-30qywd | 2026-07-21 10:54:02 | Josue Vasquez | 669218 |  | 40 Maple heights Dr | 45.31206 | -79.208672 |  | J3385548 |  | UTI | Denied Access | Customer doesn't want meter |  |  |  | land |
+| 1784646351361-8rxo07 | 2026-07-21 11:05:51 | Josue Vasquez | 668354 |  | Town of, 37 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310557 | -79.209465 | J4761186 | J3104444 | 93105 | INSTALLED |  |  |  |  |  | land |
+| 1784646785263-4ibqqm | 2026-07-21 11:13:05 | Quincy Orta | 693777 |  | 865 Fourth Ave, McMurrich/Monteith, ON P0B 1M0, Canada | 45.430363 | -79.462755 | J4642707 | J3385527 | 13717 | INSTALLED |  |  |  |  |  | land |
+| 1784647000574-zl349a | 2026-07-21 11:16:40 | Phillip Monteiro | 668391 |  | 121 Lagoon Trailer Park Dr, Huntsville, ON P1H 2J4, Canada | 45.373776 | -79.21417 | J4641684 | J2723025 | 38146 | INSTALLED |  |  |  |  |  | land |
+| 1784647016170-z0x21a | 2026-07-21 11:16:56 | Josue Vasquez | 670861 |  | Town of, 45 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.31058 | -79.209666 | J4761187 | J3186560 | 63401 | INSTALLED |  |  |  |  |  | land |
+| 1784647344590-e6vhm5 | 2026-07-21 11:22:24 | Phillip Monteiro | 680140 |  | 121 Lagoon Trailer Park Dr, Huntsville, ON P1H 2J4, Canada | 45.373706 | -79.214381 | J4641683 | J2723009 | 30816 | INSTALLED |  |  |  |  |  | land |
+| 1784647377093-p1mjbh | 2026-07-21 11:22:57 | Josue Vasquez | 679347 |  | Town of, 46 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310846 | -79.209854 | J4608760 | J2091948 | 89104 | INSTALLED |  |  |  |  |  | land |
+| 1784647687902-kwc32y | 2026-07-21 11:28:07 | Quincy Orta | 693825 |  | 173 Yearley Rd, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.477467 | -79.476811 |  | J3112073 | 40280 | VISITED |  | Broken Jaws, didn't fully remove meter. Darren is issuing a non urgent repair |  |  |  | land |
+| 1784647897777-m79ix7 | 2026-07-21 11:31:37 | Phillip Monteiro | 668112 |  | 140 Lagoon Trailer Park Dr, Huntsville, ON P1H 2J4, Canada | 45.374317 | -79.213086 | J4641681 | J2561948 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784648012527-as9ejr | 2026-07-21 11:33:32 | Josue Vasquez | 672191 |  | Town of, 54 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310979 | -79.21042 | J4761188 | J3105071 | 14753 | INSTALLED |  |  |  |  |  | land |
+| 1784648633392-yn2bde | 2026-07-21 11:43:53 | Phillip Monteiro | 668169 |  | 182 Arrowhead Park Rd, Huntsville, ON P1H 2J4, Canada | 45.375266 | -79.218072 | J4641682 | J3168593 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784648916999-sbq9df | 2026-07-21 11:48:36 | Josue Vasquez | 669053 |  | Town of, 62 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310817 | -79.210811 | J4761189 | J3213508 | 84527 | INSTALLED |  |  |  |  |  | land |
+| 1784649623156-tt9mv5 | 2026-07-21 12:00:23 | Josue Vasquez | 665515 |  | Town of, 63 Maple Heights Dr, Huntsville, ON P1H 1R8, Canada | 45.3104 | -79.210784 | J4608213 | J3101129 | 32720 | INSTALLED |  |  |  |  |  | land |
+| 1784649698037-eid4iq | 2026-07-21 12:01:38 | Phillip Monteiro | 664670 |  | Town of, 137 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.36818 | -79.223338 | J4641686 | J3453779 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784650260884-769gs6 | 2026-07-21 12:11:00 | Josue Vasquez | 676797 |  | 66 Maple Heights Dr, Huntsville, ON P1H 1R8, Canada | 45.310818 | -79.21125 | J4608214 | J3349147 | 21372 | INSTALLED |  |  |  |  |  | land |
+| 1784650487477-x8p7uu | 2026-07-21 12:14:47 | Phillip Monteiro | 664674 |  | Town of, 148 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.367691 | -79.224154 | J4641685 | J3453778 | 21636 | INSTALLED |  |  |  |  |  | land |
+| 1784650859453-kjhtmw | 2026-07-21 12:20:59 | Josue Vasquez | 669210 |  | Town of, 67 Maple Heights Dr, Huntsville, ON P1H 1R8, Canada | 45.310448 | -79.210966 | J4608215 | J3238782 | 50862 | INSTALLED |  |  |  |  |  | land |
+| 1784650994812-chj6g6 | 2026-07-21 12:23:14 | Phillip Monteiro | 669260 |  | Town of, 247 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.371962 | -79.225543 | J4641687 | J3860300 | 24674 | INSTALLED |  |  |  |  |  | land |
+| 1784651333576-t222cb | 2026-07-21 12:28:53 | Quincy Orta | 693776 |  | 75 Bayside Dr | 45.447032 | -79.577576 | J4642705 | J2492798 | 26855 | INSTALLED |  |  |  |  |  | land |
+| 1784651627680-ehqugi | 2026-07-21 12:33:47 | Phillip Monteiro | 664649 |  | Town of, 80 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.368863 | -79.219516 | J4641688 | J3385393 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784652482833-wniaqh | 2026-07-21 12:48:02 | Quincy Orta | 694013 |  | 4714 Hwy 518 | 45.457353 | -79.585813 | J4642706 | J3211035 | 60406 | INSTALLED |  |  |  |  |  | land |
+| 1784653066757-arodnn | 2026-07-21 12:57:46 | Phillip Monteiro | 667081 |  | 158 Old North Rd | 45.367062 | -79.22612 | J4641689 | J3996559 | 923 | INSTALLED |  |  |  |  |  | land |
+| 1784653739277-ncyaio | 2026-07-21 13:08:59 | Quincy Orta | 693930 |  | 765 W Bear Lake Rd, McMurrich/Monteith, ON P2A 0B6, Canada | 45.425447 | -79.593623 | J4608683 | J3768455 | 57742 | INSTALLED |  |  |  |  |  | land |
+| 1784654975768-qoyigy | 2026-07-21 13:29:35 | Josue Vasquez | 680014 |  | Town of, 78 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada | 45.310788 | -79.2113 | J4608216 | J3191197 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784655235733-vsl80k | 2026-07-21 13:33:55 | Phillip Monteiro | 665325 |  | 32 Silver Sands Rd, Huntsville, ON P1H 2J4, Canada | 45.36404 | -79.220837 | J4641691 | J3453762 | 1278 | INSTALLED |  |  |  |  |  | land |
+| 1784655337107-fnue0e | 2026-07-21 13:35:37 | Quincy Orta | 693867 |  | 49 George St, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.488222 | -79.460721 |  | J4044011 |  | UTI | Customer Delay/Change | CX requested July 27 at 11am |  |  |  | land |
+| 1784655635705-oibwll | 2026-07-21 13:40:35 | Josue Vasquez | 671423 |  | Town of, 79 Maple Heights Dr, Huntsville, ON P1H 1R8, Canada | 45.31039 | -79.211059 | J4761198 | J3105148 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784656401449-vzuzl9 | 2026-07-21 13:53:21 | Josue Vasquez | 676016 |  | 84 Maple Heights Dr, Huntsville, ON P1H 1R8, Canada | 45.310855 | -79.21193 | J4761199 | J3186911 | 23403 | INSTALLED |  |  |  |  |  | land |
+| 1784656545150-5toody | 2026-07-21 13:55:45 | Quincy Orta | 693830 | 4 | 16 Selena Dr, McMurrich/Monteith, ON P1H 2J2, Canada | 45.445941 | -79.429978 |  | J3204111 |  | UTI | Emergency Electrical Repair | Broken Jaws | Missing segments |  |  | land |
+| 1784656860172-fwtlc3 | 2026-07-21 14:01:00 | Phillip Monteiro | 693536 |  | 1141 ON-592, Perry, ON P0A 1J0, Canada | 45.503398 | -79.266906 | J4641690 | J3096492 | 13961 | INSTALLED |  |  |  |  |  | land |
+| 1784657693671-z6s96r | 2026-07-21 14:14:53 | Quincy Orta | 696063 | 3 | 16 Selena Dr, McMurrich/Monteith, ON P1H 2J2, Canada | 45.445915 | -79.429924 |  | J4436953 | 8512 | UTI | Emergency Electrical Repair | Broken Jaws |  |  | Y | land |
+| 1784657901621-9ktw3d | 2026-07-21 14:18:21 | Phillip Monteiro | 693548 |  | 31 Wildwood Ln, Perry, ON P0A 1J0, Canada | 45.504989 | -79.253497 | J4641692 | J3096231 | 18805 | INSTALLED |  |  |  |  |  | land |
+| 1784658549822-7ckr3a | 2026-07-21 14:29:09 | Phillip Monteiro | 693554 |  | 222 Churchill Gardens, Perry, ON P0A 1J0, Canada | 45.503747 | -79.250605 | J4641697 | J3810022 | 71803 | INSTALLED |  |  |  |  |  | land |
+| 1784658970358-ew4hzr | 2026-07-21 14:36:10 | Phillip Monteiro | 693546 |  | 220 Churchill Gardens, Perry, ON P0A 1J0, Canada | 45.503956 | -79.251074 | J4641699 | J3096236 | 23302 | INSTALLED |  |  |  |  |  | land |
+| 1784661268122-thu9cy | 2026-07-21 15:14:28 | Quincy Orta | 693844 |  | 4385 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.404177 | -79.398183 | J4608684 | J3606386 | 43099 | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784661787421-ynafdi | 2026-07-21 15:23:07 | Phillip Monteiro | 668535 |  | 46 Jack St, Huntsville, ON P1H 0B1, Canada | 45.339623 | -79.22697 | J4641698 | J4029059 | 21145 | INSTALLED |  |  |  |  |  | land |
+| 1784661841715-3kfgjn | 2026-07-21 15:24:01 | Quincy Orta | 693940 |  | 4205 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.404476 | -79.386464 | J4608681 | J3134593 | 72105 | INSTALLED |  |  |  |  |  | land |
+| 1784662534104-6v4g7l | 2026-07-21 15:35:34 | Quincy Orta | 693770 |  | 180 Rachels Lane | 45.390564 | -79.357993 | J4608682 | J3136082 | 80 | INSTALLED |  |  |  |  |  | land |
