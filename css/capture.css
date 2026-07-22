@@ -29,15 +29,16 @@
 .wl-head h2{margin:0;font-size:20px}
 .wl-back{height:44px;padding:0 14px;border:2px solid var(--line);border-radius:12px;background:var(--panel);
          color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;flex:none}
-.wl-card{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+.wl-card{display:grid;grid-template-columns:38px 1.4em minmax(0,1fr);align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
          border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--shadow)}
-.wl-main{flex:1;min-width:0}
+.wl-main{grid-column:3;grid-row:1;min-width:0}
 .wl-handle{flex:none;width:38px;height:44px;border:0;background:none;color:var(--ink-soft);
-           font-size:20px;cursor:grab;touch-action:none;padding:0}
-.wl-pos{flex:none;min-width:1.4em;margin-left:-6px;text-align:center;font-size:12px;
+           grid-column:1;grid-row:1;font-size:20px;cursor:grab;touch-action:none;padding:0}
+.wl-pos{grid-column:2;grid-row:1;min-width:1.4em;margin-left:-6px;text-align:center;font-size:12px;
         font-weight:700;color:var(--ink-soft)}
 .wl-card.dragging{position:relative;box-shadow:0 8px 24px rgba(19,23,28,.25);border-color:var(--accent)}
 .wl-done-card{opacity:.55}
+.wl-done-card .wl-main{grid-column:1/-1}
 .wl-counts{font-weight:800;font-size:15px;color:var(--ink);margin:14px 2px 0}
 .wl-counts:empty{margin:0}
 /* meters/day target + the installer's avg/day reference */
@@ -82,17 +83,19 @@
 /* card town-chips reuse .wl-chips/.chip, but must show their full label */
 .wl-towns .chip{height:auto;min-height:36px;padding:6px 14px;white-space:normal;overflow:visible;
                 text-overflow:clip;text-align:left}
-.wl-actions{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+.wl-actions{grid-column:1/-1;grid-row:2;display:flex;gap:8px;flex-wrap:nowrap;width:100%}
+.wl-actions>button{min-width:0}
 /* recent-street chips */
 .wl-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .chip{height:36px;padding:0 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--panel);
       color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;max-width:100%;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip:active{border-color:var(--accent);background:var(--accent-soft)}
-.wl-use{background:var(--accent);border:0;border-radius:10px;padding:0 18px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:var(--accent-ink)}
-.wl-edit{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 14px;height:38px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}
-.wl-del{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
-.wl-map{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:16px;cursor:pointer}
+.wl-use{flex:1 1 92px;background:var(--accent);border:0;border-radius:10px;padding:0 12px;height:38px;font-size:14px;font-weight:800;cursor:pointer;color:var(--accent-ink)}
+.wl-edit{flex:1 1 64px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}
+.wl-del{flex:0 0 44px;width:44px;background:none;border:1.5px solid var(--line);border-radius:10px;padding:0;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
+.wl-map{flex:0 0 44px;width:44px;background:none;border:1.5px solid var(--line);border-radius:10px;padding:0;height:38px;font-size:16px;cursor:pointer}
+.wl-lock{flex:0 0 44px;width:44px;padding:0}
 
 /* phone route editor — a map-first sub-screen over the same local worklist */
 .wl-view-route{width:100%;margin-top:10px;border-color:var(--accent);color:var(--accent-press)}
