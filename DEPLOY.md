@@ -298,10 +298,14 @@ When tabs/columns change you still need to run `setupSheets()` once from the
 editor (see CLAUDE.md). The Action only pushes code + redeploys; it does not run
 functions.
 
-**Per-installer metrics (new `InstallerMetrics` tab + `Worklist.day` column).**
-After deploying this change: (1) run `setupSheets()` once — it adds the
-`InstallerMetrics` tab and the `Worklist` `day` column (additive, existing data
-untouched); (2) run `backfillInstallerMetrics()` once to populate every active
+**Per-installer metrics (`InstallerMetrics` tab + `Worklist.day` column).**
+After deploying this change: (1) **if an `InstallerMetrics` tab already exists
+from an earlier build, delete it first** — the tab's columns changed (each metric
+is now stored three ways: combined + `boat*` + `land*`), and `setupSheets()` is
+additive so it won't reshape an existing tab. The `Worklist` `day` column is
+additive and unaffected. (2) run `setupSheets()` once — it (re)creates the
+`InstallerMetrics` tab and ensures the `Worklist` `day` column (existing data
+untouched); (3) run `backfillInstallerMetrics()` once to populate every active
 installer's row from all past `Tracker`/`Days`/`Stops`. From then on each
 end-of-day close refreshes that installer's row automatically (idempotent — a
 re-close never double-counts), so no trigger is needed.

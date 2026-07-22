@@ -148,16 +148,25 @@ const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completed
 // hourly avgDispatchTimeJob trigger (and any editor run). Room for more later.
 const METRICS_HEADERS = ['metric','value','updated'];
 
-// Per-installer lifetime analytics, one row per installer keyed on the employee
-// H number (name is a display label only, mirroring Worklist). Rolled up from
-// the Tracker per-day rows + Days bookends (+ a trailing-window Stops gap scan
-// for avgLogMin) by refreshInstallerMetrics — incrementally at end-of-day and in
-// bulk via backfillInstallerMetrics(). avgPerDay/avgLogMin feed the route
-// planner's target field (see js/route.js multi-day solve). Adding this tab
-// means re-running setupSheets() once.
-const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay',
-  'daysWorked','hoursWorked','totalLogs','installs','utis','visited','unaccounted',
-  'downtimeMin','avgLogMin','avgPerDay','avgPerHour','updated'];
+// Per-installer lifetime analytics, ONE row per installer keyed on the employee
+// H number (name is a display label only, mirroring Worklist). Each metric is
+// stored three ways in its own column group: combined (unprefixed), boat-only
+// (boat* prefix), and land-only (land* prefix). Rolled up from the Tracker
+// per-day rows + Days bookends (+ a lifetime Stops gap scan for avgLogMin) by
+// refreshInstallerMetrics — incrementally at end-of-day and in bulk via
+// backfillInstallerMetrics(). Boat/land attribution comes from the workType
+// column on Tracker/Stops/Downtime; a Days (hours) row is attributed to the
+// workType of that installer's Tracker row for the same date. avgPerDay/avgLogMin
+// feed the route planner's target field (see js/route.js multi-day solve).
+// Reshaping this tab means re-running setupSheets() once (delete an old-schema
+// copy first).
+const INSTALLER_METRIC_KEYS = ['daysWorked','hoursWorked','totalLogs','installs',
+  'utis','visited','unaccounted','downtimeMin','avgLogMin','avgPerDay','avgPerHour'];
+const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
+  .concat(INSTALLER_METRIC_KEYS)                                            // combined
+  .concat(INSTALLER_METRIC_KEYS.map(k => 'boat' + k[0].toUpperCase() + k.slice(1)))
+  .concat(INSTALLER_METRIC_KEYS.map(k => 'land' + k[0].toUpperCase() + k.slice(1)))
+  .concat(['updated']);
 
 // One row per planned worklist order, keyed per installer on the employee
 // H number (names can collide, H numbers can't; installer is a readable label
@@ -341,7 +350,7 @@ function doGet(e) {
   if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
   if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
-  if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber) });
+  if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -2085,21 +2094,55 @@ function ensureInstallerMetricsTab() {
 }
 
 /** Roll up ONE installer's lifetime metrics and upsert their InstallerMetrics
- *  row (keyed on H number). Re-sums the Tracker per-day rows + Days bookends
- *  (name-keyed, sameName — same-name installers merge, the app's standing
- *  limitation) rather than adding a delta, so re-closing or regenerating a day
- *  is naturally idempotent. avgLogMin comes from a bounded trailing-window Stops
- *  gap scan (installerAvgLogMin). Cheap when called inside a request that already
- *  read Stops/Downtime/Tracker (all memoized). Called at end-of-day, on a closed-
- *  day rebuild, and for every installer by backfillInstallerMetrics(). */
+ *  row (keyed on H number). Computes each metric three ways — combined, boat-only,
+ *  land-only (rollupInstallerMode) — into one wide row (boat-/land-prefixed
+ *  column groups). Re-sums the Tracker per-day rows + Days bookends (name-keyed,
+ *  sameName — same-name installers merge, the app's standing limitation) rather
+ *  than adding a delta, so re-closing or regenerating a day is naturally
+ *  idempotent. avgLogMin comes from a lifetime Stops gap scan (installerAvgLogMin).
+ *  Cheap when called inside a request that already read Stops/Downtime/Tracker
+ *  (all memoized). Called at end-of-day, on a closed-day rebuild, and for every
+ *  installer by backfillInstallerMetrics(). */
 function refreshInstallerMetrics(hNumber, name) {
   const h = String(hNumber == null ? '' : hNumber).trim();
   if (!h) return;
   const nm = String(name == null ? '' : name).trim();
   ensureInstallerMetricsTab();
-  const gv = v => Number(v) || 0;
 
-  const trk = rows('Tracker').filter(r => sameName(r.installer, nm));
+  // Attribute each Days (hours) row to the work mode of that installer's Tracker
+  // row for the same date — Days itself carries no workType. Built once, reused
+  // by all three mode roll-ups below.
+  const dayType = {};
+  rows('Tracker').filter(r => sameName(r.installer, nm)).forEach(r => {
+    const d = dateOf(r.date);
+    if (d) dayType[d] = normWorkType(r.workType);
+  });
+
+  const all  = rollupInstallerMode(nm, 'all',  dayType);
+  const boat = rollupInstallerMode(nm, 'boat', dayType);
+  const land = rollupInstallerMode(nm, 'land', dayType);
+
+  const row = {
+    hNumber: h, name: nm, firstDay: all.firstDay, lastDay: all.lastDay, updated: now()
+  };
+  INSTALLER_METRIC_KEYS.forEach(k => {
+    const cap = k[0].toUpperCase() + k.slice(1);
+    row[k]          = all[k];      // combined (unprefixed)
+    row['boat' + cap] = boat[k];
+    row['land' + cap] = land[k];
+  });
+  upsertByHeader('InstallerMetrics', 'hNumber', h, row);
+}
+
+/** Roll up one installer's metrics scoped to a work mode ('all' | 'boat' | 'land').
+ *  Filters Tracker/Stops/Downtime by their workType column; a Days row counts when
+ *  the day's Tracker workType matches (via the prebuilt dayType map). Returns the
+ *  metric fields (no key/identity/updated — the caller adds those). */
+function rollupInstallerMode(nm, mode, dayType) {
+  const gv = v => Number(v) || 0;
+  const inMode = wt => mode === 'all' || normWorkType(wt) === mode;
+
+  const trk = rows('Tracker').filter(r => sameName(r.installer, nm) && inMode(r.workType));
   let installs = 0, utis = 0, visited = 0, unacc = 0, dtMin = 0, firstDay = '', lastDay = '';
   trk.forEach(r => {
     installs += gv(r.installed); utis += gv(r.uti);
@@ -2113,43 +2156,51 @@ function refreshInstallerMetrics(hNumber, name) {
 
   let hoursWorked = 0;
   rows('Days').filter(r => sameName(r.installer, nm)).forEach(r => {
+    if (!(mode === 'all' || dayType[dateOf(r.date)] === mode)) return;
     const dep = clockSec(r.departure), ret = clockSec(r.returned);
     if (dep != null && ret != null && ret > dep) hoursWorked += (ret - dep) / 3600;
   });
   hoursWorked = Math.round(hoursWorked * 10) / 10;
 
-  const avgLogMin = installerAvgLogMin(nm);
+  const avgLogMin = installerAvgLogMin(nm, 0, mode);   // 0 = lifetime
   const meters = installs + utis;   // the "meter" work the target field counts
   const avgPerDay  = daysWorked ? Math.round(meters / daysWorked) : '';
   const avgPerHour = hoursWorked > 0 ? Math.round((meters / hoursWorked) * 10) / 10 : '';
 
-  upsertByHeader('InstallerMetrics', 'hNumber', h, {
-    hNumber: h, name: nm, firstDay: firstDay, lastDay: lastDay,
-    daysWorked: daysWorked, hoursWorked: hoursWorked, totalLogs: totalLogs,
-    installs: installs, utis: utis, visited: visited, unaccounted: unacc,
-    downtimeMin: dtMin, avgLogMin: avgLogMin == null ? '' : avgLogMin,
-    avgPerDay: avgPerDay, avgPerHour: avgPerHour, updated: now()
-  });
+  return {
+    firstDay: firstDay, lastDay: lastDay, daysWorked: daysWorked,
+    hoursWorked: hoursWorked, totalLogs: totalLogs, installs: installs, utis: utis,
+    visited: visited, unaccounted: unacc, downtimeMin: dtMin,
+    avgLogMin: avgLogMin == null ? '' : avgLogMin,
+    avgPerDay: avgPerDay, avgPerHour: avgPerHour
+  };
 }
 
-/** Mean minutes between consecutive logged stops for an installer over a trailing
- *  window (default 30 days) — the "avg log time" the planner sizes days with.
- *  Same-day consecutive printable-stop gaps summed, minus the window's LUNCH/BREAK
- *  minutes (so lunch/break, which the planner adds back explicitly, don't inflate
- *  the per-meter cadence), divided by the gap count. Returns null with no gaps. */
-function installerAvgLogMin(name, windowDays) {
+/** Mean minutes between consecutive logged stops for an installer — the "avg log
+ *  time" the planner sizes days with. Lifetime by default (windowDays <= 0 or
+ *  omitted); pass a positive windowDays for a trailing-window pace. Optional
+ *  workType ('boat' | 'land') scopes it to one mode. Same-day consecutive
+ *  printable-stop gaps summed, minus that scope's LUNCH/BREAK minutes (so lunch/
+ *  break, which the planner adds back explicitly, don't inflate the per-meter
+ *  cadence), divided by the gap count. Returns null with no gaps. */
+function installerAvgLogMin(name, windowDays, workType) {
   const nm = String(name == null ? '' : name).trim();
   if (!nm) return null;
-  const days = windowDays || 30;
-  const to = today();
-  const from = Utilities.formatDate(new Date(Date.now() - days * 86400000), TIMEZONE, 'yyyy-MM-dd');
+  const mode = workType || 'all';                 // 'all' | 'boat' | 'land'
+  const inMode = wt => mode === 'all' || normWorkType(wt) === mode;
+  // windowDays <= 0 (or omitted) => lifetime, no date window.
+  const days = windowDays > 0 ? windowDays : 0;
+  const to = days ? today() : null;
+  const from = days ? Utilities.formatDate(new Date(Date.now() - days * 86400000), TIMEZONE, 'yyyy-MM-dd') : null;
+  const inWindow = d => !days || (d >= from && d <= to);
   const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
   const byDate = {};
   rows('Stops').forEach(r => {
     if (!sameName(r.installer, nm)) return;
+    if (!inMode(r.workType)) return;
     if (!printable[String(r.status || '').trim().toUpperCase()]) return;
     const d = dateOf(r.timestamp);
-    if (!d || d < from || d > to) return;
+    if (!d || !inWindow(d)) return;
     const sec = secOfDay(r.timestamp);
     if (sec == null) return;
     (byDate[d] = byDate[d] || []).push(sec);
@@ -2159,8 +2210,9 @@ function installerAvgLogMin(name, windowDays) {
     const c = String(r.category || '').trim().toUpperCase();
     if (c !== 'LUNCH' && c !== 'BREAK') return;
     if (!sameName(r.installer, nm)) return;
+    if (!inMode(r.workType)) return;
     const d = dateOf(r.timestamp);
-    if (!d || d < from || d > to) return;
+    if (!d || !inWindow(d)) return;
     breakMin += Number(r.minutes) || 0;
   });
   let sum = 0, cnt = 0;
@@ -2175,13 +2227,26 @@ function installerAvgLogMin(name, windowDays) {
   return Math.round(Math.max(0, sum - breakMin) / cnt);
 }
 
-/** One installer's metrics row (H-number filter), or all rows when hNumber is
- *  blank — the installerMetrics GET. Tolerates a not-yet-created tab. */
-function installerMetricsRead(hNumber) {
+/** InstallerMetrics rows — the installerMetrics GET. Optionally filtered by
+ *  H number. workType 'boat'|'land' projects that mode's prefixed columns down
+ *  to canonical field names (so a reader always sees `avgPerDay`, `avgLogMin`,
+ *  …); 'all' or blank returns the full wide row (its combined columns are already
+ *  canonical). Tolerates a not-yet-created tab. */
+function installerMetricsRead(hNumber, workType) {
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('InstallerMetrics')) return [];
   const h = String(hNumber == null ? '' : hNumber).trim();
-  const all = rows('InstallerMetrics');
-  return h ? all.filter(r => String(r.hNumber).trim() === h) : all;
+  const wt = String(workType == null ? '' : workType).trim().toLowerCase();
+  let out = rows('InstallerMetrics');
+  if (h) out = out.filter(r => String(r.hNumber).trim() === h);
+  if (wt === 'boat' || wt === 'land') {
+    out = out.map(r => {
+      const o = { hNumber: r.hNumber, name: r.name, workType: wt,
+                  firstDay: r.firstDay, lastDay: r.lastDay, updated: r.updated };
+      INSTALLER_METRIC_KEYS.forEach(k => o[k] = r[wt + k[0].toUpperCase() + k.slice(1)]);
+      return o;
+    });
+  }
+  return out;
 }
 
 /** Employee H number for a display name (first exact fullName match), or ''.

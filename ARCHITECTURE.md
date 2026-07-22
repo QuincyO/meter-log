@@ -768,31 +768,46 @@ A key/value summary store. Currently one row, `avgDispatchTime`, refreshed by
 Per-installer lifetime analytics, keyed on the employee **H number** (name is a
 display label only — same split as `Worklist`). Rolled up by
 `refreshInstallerMetrics(hNumber, name)` from the installer's `Tracker` per-day
-rows + `Days` bookends (+ a trailing-30-day `Stops` gap scan for `avgLogMin`) —
+rows + `Days` bookends (+ a lifetime `Stops` gap scan for `avgLogMin`) —
 **re-summed, not delta-added**, so a re-close/regenerate is idempotent. Refreshed
 incrementally at end-of-day (and on a closed-day rebuild) and in bulk by
 `backfillInstallerMetrics()` (editor-run once). `avgPerDay`/`avgLogMin` feed the
-route planner's target field (see "Route optimization"). Adding this tab means
-re-running `setupSheets()` once. The `Tracker`/`Days` roll-up is name-keyed
-(`sameName`), so same-name installers merge — the app's standing limitation.
+route planner's target field (see "Route optimization"). Reshaping this tab means
+re-running `setupSheets()` once (delete an old-schema copy first). The
+`Tracker`/`Days` roll-up is name-keyed (`sameName`), so same-name installers
+merge — the app's standing limitation.
+
+**Every metric is stored three ways in its own column group** — combined
+(unprefixed), **boat-only** (`boat*` prefix), and **land-only** (`land*` prefix)
+— so a slow-land / fast-boat installer's target reference reflects the mode
+they're actually working in. Boat/land attribution is the `workType` column on
+`Tracker`/`Stops`/`Downtime`; a `Days` (hours) row is attributed to the
+`workType` of that installer's `Tracker` row for the same date. `rollupInstallerMode`
+computes each mode; the metric fields are:
 | field         | type          | notes                                                   |
 |---------------|---------------|---------------------------------------------------------|
 | `hNumber`     | string        | employee number — the match key                         |
 | `name`        | string        | display label, from the roster                          |
-| `firstDay` / `lastDay` | string | Toronto `yyyy-MM-dd` span of closed days               |
+| `firstDay` / `lastDay` | string | Toronto `yyyy-MM-dd` span of closed days (combined)    |
 | `daysWorked`  | number        | count of Tracker rows                                    |
 | `hoursWorked` | number        | Σ (returned − departure) from `Days`, hours (1 dp)      |
 | `totalLogs`   | number        | installs + utis + visited + unaccounted                 |
 | `installs` / `utis` / `visited` / `unaccounted` | number | summed daily counts                  |
 | `downtimeMin` | number        | summed `downtimeTotalMin`                                |
-| `avgLogMin`   | number        | mean min/meter over a trailing 30 days, breaks removed  |
+| `avgLogMin`   | number        | mean min/meter over the installer's whole history, breaks removed |
 | `avgPerDay`   | number        | (installs+utis) / daysWorked — the target-field hint    |
 | `avgPerHour`  | number        | (installs+utis) / hoursWorked (1 dp)                     |
 | `updated`     | string        | Toronto-local timestamp of the last refresh             |
 
-`?action=installerMetrics` (optional `hNumber`) returns the row(s); the planner
-and phone worklist read it to show the installer's avg/day beside the meters/day
-target field.
+Each of the 11 metric rows (`daysWorked`…`avgPerHour`) appears three times: the
+combined column, `boat`-prefixed (e.g. `boatAvgPerDay`), and `land`-prefixed
+(e.g. `landAvgPerDay`). `?action=installerMetrics` takes optional `hNumber` and
+`workType` — `workType=boat|land` **projects that mode's prefixed columns down to
+the canonical field names** (a reader always sees `avgPerDay`/`avgLogMin`), while
+`all`/omitted returns the full wide row (its combined columns are already
+canonical). The desktop planner reads it with no `workType` (combined); the phone
+worklist passes its current work mode, so the avg/day beside the meters/day target
+matches boat vs land.
 
 ### Worklist row  (one per planned order → tab "Worklist")
 A flat copy of one phone's IndexedDB `worklist` record, keyed per installer on

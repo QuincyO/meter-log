@@ -353,7 +353,10 @@ async function refreshAvgDay(){
   const c = cfg();
   if(!c.hNumber || !navigator.onLine) return;
   try{
-    const r = await apiGet('installerMetrics', { hNumber: c.hNumber });
+    // Scope the avg to the phone's current work mode (boat/land) — the field tool
+    // is always in one mode, so its target reference should match.
+    const wt = store.get('workMode')==='land' ? 'land' : 'boat';
+    const r = await apiGet('installerMetrics', { hNumber: c.hNumber, workType: wt });
     const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
     if(m){
       wlAvgLogMin = (m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin);
