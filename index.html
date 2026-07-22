@@ -15,6 +15,7 @@
 <script>try{document.documentElement.dataset.mode=localStorage.getItem('workMode')||'boat'}catch(e){}</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/vendor/leaflet.css">
 <link rel="stylesheet" href="css/capture.css">
 </head>
 <body>
@@ -184,6 +185,7 @@
     </div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
+    <button class="ghost wl-view-route" id="wlViewRoute" type="button">View route map</button>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
     <div class="hide" id="wlForm">
       <label for="wlWo">Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
@@ -204,6 +206,26 @@
     </div>
     <div class="wl-counts" id="wlCounts"></div>
     <div id="wlList" style="margin-top:8px"></div>
+  </section>
+
+  <!-- Phone route editor — a map-first sub-screen over the same local
+       IndexedDB worklist. Reorders save immediately; there is no second copy. -->
+  <section class="wl-route-screen hide" id="worklistRouteScreen">
+    <div class="wl-route-head">
+      <button class="wl-back" id="wlRouteBack" type="button" aria-label="Back to worklist">‹ Worklist</button>
+      <div>
+        <h2>Your route</h2>
+        <p>Drag the stops below to change their order.</p>
+      </div>
+    </div>
+    <div class="wl-route-days" id="wlRouteDays" aria-label="Planned day"></div>
+    <div class="wl-route-map-wrap">
+      <div id="wlRouteMap" aria-label="Map of selected route"></div>
+      <div class="wl-route-offline hide" id="wlRouteOffline"></div>
+    </div>
+    <div class="wl-route-notice hide" id="wlRouteNotice"></div>
+    <button class="wl-route-fix hide" id="wlRouteFix" type="button">Fix pins or optimize</button>
+    <div id="wlRouteList" class="wl-route-list"></div>
   </section>
 
   <div class="toast" id="toast"></div>
@@ -324,6 +346,7 @@
 
 <!-- jsPDF is injected on demand by js/dailylog.js (ensureJsPDF) — only needed
      at PDF time, so it no longer blocks the page load. -->
+<script defer src="js/vendor/leaflet.js"></script>
 <script type="module" src="js/pages/capture.js"></script>
 </body>
 </html>

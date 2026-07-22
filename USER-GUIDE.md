@@ -138,6 +138,17 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 
+### View and adjust the route
+
+Tap **View route map** to check the selected day's route before or during the shift. The map uses the pins already saved on your worklist, so it opens immediately and does not spend route or geocoding quota.
+
+- Use the **Day** buttons above the map to inspect each remaining planned day. Orders without a day appear under **Other**; a one-day unassigned list is simply **Route**.
+- Numbered pins and the line match the compact order list below the map. Drag the **⠿** handle (or focus it and press the up/down arrow keys) to change the visiting order within that day. The change saves on this phone immediately — use **⇪ Upload list** later if another device needs the new order.
+- **No pin** orders stay in the list but cannot appear on the map. A muted **!** pin is parked and deliberately left out of the route line. Tap **Fix pins or optimize** to return to the worklist, correct the address, or run Optimize.
+- The saved pins, line, and reordering work offline. Without signal the street-map background may be blank, but your route data is still available.
+
+The phone's Back button returns to the worklist; Back again returns to the capture form.
+
 ### Plan mode
 
 Tap **Plan mode: off** to switch it on. The capture form now follows the list: it pre-fills the next pending order, and a banner shows where you are ("Plan: WO 12345 · 2 of 8") with **Skip** (push this order to the back) and **Exit**. Each time you log a stop, the next order loads by itself.

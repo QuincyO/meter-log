@@ -282,8 +282,9 @@ point in `js/pages/`. Shared modules in `js/`:
 - **`queue.js`** (offline queue; UI side-effects via `setQueueHooks`),
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
-- **`worklist.js`** (the worklist screen + plan mode), **`route.js`** (the
-  optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
+- **`worklist.js`** (the worklist screen + plan mode),
+  **`worklist-route-view.js`** (the phone's selected-day Leaflet route editor),
+  **`route.js`** (the optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
   Google Routes road matrix (budget-guarded, straight-line fallback) + pinned
   open-path TSP — see "Work modes" ▸ "Route optimization").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
@@ -413,7 +414,16 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   logged stop advances to the next, Skip sends the current order to the back of
   the queue. If the planned address and the GPS-resolved one materially
   disagree, an inline chooser makes the installer pick before the stop can be
-  logged.
+  logged. **View route map** opens `#worklist-route`, a phone-sized Leaflet
+  editor over that same IndexedDB list: it defaults to the first remaining
+  numbered day (with chips for later days and unassigned orders), draws cached
+  routable pins + a numbered line, and keeps parked pins visible as muted `!`
+  markers outside the line. A compact list below the map can be reordered by
+  touch or keyboard within the selected day; the existing whole-list
+  `0,10,20…` order normalization persists the change immediately, with no
+  second copy or Save step. Opening the view never geocodes or optimizes.
+  Cached pins and reordering work offline; only the OSM tile background needs
+  signal. Hardware/browser Back follows route editor → worklist → capture.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —

@@ -1,0 +1,312 @@
+// Mobile worklist route editor. The worklist module owns IndexedDB and hands
+// this view a sorted snapshot plus one persistence callback; this module owns
+// only the selected-day UI, Leaflet layers, and within-day drag interaction.
+import { $, esc } from './dom.js';
+import { coordsOf, isParked } from './route.js';
+
+function routeKey(item){
+  const day = Number(item && item.day);
+  return Number.isInteger(day) && day > 0 ? `day:${day}` : 'other';
+}
+
+export function groupPendingRoutes(items){
+  const byDay = new Map();
+  const other = [];
+  for(const item of items || []){
+    if(!item || item.wlStatus === 'done') continue;
+    const key = routeKey(item);
+    if(key === 'other') other.push(item);
+    else {
+      const day = Number(key.slice(4));
+      if(!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day).push(item);
+    }
+  }
+  const groups = [...byDay.keys()].sort((a, b) => a - b)
+    .map(day => ({ key:`day:${day}`, label:`Day ${day}`, day, items:byDay.get(day) }));
+  if(other.length) groups.push({ key:'other', label:groups.length ? 'Other' : 'Route', day:null, items:other });
+  return groups;
+}
+
+export function defaultRouteGroup(groups){
+  return groups && groups.length ? groups[0].key : null;
+}
+
+export function reorderRouteGroup(items, key, orderedIds){
+  const source = (items || []).slice();
+  const slots = [];
+  const members = [];
+  source.forEach((item, index) => {
+    if(item && item.wlStatus !== 'done' && routeKey(item) === key){
+      slots.push(index); members.push(item);
+    }
+  });
+  const ids = (orderedIds || []).map(String);
+  const expected = members.map(x => String(x.id));
+  if(ids.length !== expected.length || new Set(ids).size !== ids.length
+    || ids.some(id => !expected.includes(id))){
+    throw new Error('Reorder ids must contain the same route group');
+  }
+  const byId = new Map(members.map(x => [String(x.id), x]));
+  slots.forEach((slot, index) => { source[slot] = byId.get(ids[index]); });
+  return source.map((item, index) => Object.assign({}, item, { order:index * 10 }));
+}
+
+export function buildRouteMapModel(items){
+  const markers = [];
+  const line = [];
+  let missing = 0;
+  let parked = 0;
+  (items || []).forEach((item, index) => {
+    const c = coordsOf(item);
+    if(!c){ missing++; return; }
+    const stopped = isParked(item);
+    if(stopped) parked++;
+    else line.push([c.lat, c.lng]);
+    markers.push({ item, position:index + 1, parked:stopped, point:[c.lat, c.lng] });
+  });
+  return { markers, line, missing, parked };
+}
+
+export function routeCardState(item){
+  if(!coordsOf(item)) return 'no pin';
+  return isParked(item) ? 'parked' : '';
+}
+
+export function needsOrderWrite(before, after){
+  return typeof (before && before.order) !== 'number' || before.order !== after.order;
+}
+
+function dayColor(day){
+  const colors = ['#2563EB', '#D97706', '#7C3AED', '#0F766E', '#BE123C', '#4D7C0F'];
+  return colors[(Math.max(1, Number(day) || 1) - 1) % colors.length];
+}
+
+export function initWorklistRouteView(opts){
+  let map = null;
+  let layer = null;
+  let tileFailed = false;
+  let selected = null;
+  let openState = false;
+  let snapshot = [];
+
+  const screen = $('worklistRouteScreen');
+  const mapEl = $('wlRouteMap');
+  const listEl = $('wlRouteList');
+  const daysEl = $('wlRouteDays');
+  const noticeEl = $('wlRouteNotice');
+  const offlineEl = $('wlRouteOffline');
+  const fixEl = $('wlRouteFix');
+
+  function updateOfflineNote(){
+    const offline = !navigator.onLine;
+    offlineEl.classList.toggle('hide', !offline && !tileFailed);
+    offlineEl.textContent = offline
+      ? 'Map background needs signal. Your saved pins and route still work offline.'
+      : 'Some map tiles did not load. Your saved pins and route are still available.';
+  }
+
+  function ensureMap(){
+    const L = globalThis.L;
+    if(map || !L) return Boolean(map);
+    map = L.map(mapEl, { zoomControl:true, attributionControl:true }).setView([45.0, -79.3], 7);
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19, attribution:'© OpenStreetMap',
+    });
+    tiles.on('tileerror', () => { tileFailed = true; updateOfflineNote(); });
+    tiles.on('tileload', () => { if(tileFailed){ tileFailed = false; updateOfflineNote(); } });
+    tiles.addTo(map);
+    layer = L.layerGroup().addTo(map);
+    return true;
+  }
+
+  function renderDays(groups){
+    daysEl.innerHTML = '';
+    for(const group of groups){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'wl-route-day' + (group.key === selected ? ' on' : '');
+      b.setAttribute('aria-pressed', group.key === selected ? 'true' : 'false');
+      b.textContent = `${group.label} · ${group.items.length}`;
+      b.onclick = async () => { selected = group.key; await render(); };
+      daysEl.appendChild(b);
+    }
+  }
+
+  function markerTooltip(item, position, parked){
+    const prefix = parked ? '⚠ Parked — ' : `${position}. `;
+    const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
+    return `${prefix}${wo}${esc(item.address || 'No address')}`;
+  }
+
+  function renderMap(group){
+    updateOfflineNote();
+    if(!ensureMap()){
+      mapEl.innerHTML = '<div class="wl-route-map-empty">Map unavailable. The route list can still be reordered.</div>';
+      return;
+    }
+    layer.clearLayers();
+    const L = globalThis.L;
+    const model = buildRouteMapModel(group ? group.items : []);
+    const bounds = [];
+    const color = group && group.day ? dayColor(group.day) : '#2563EB';
+    model.markers.forEach(({ item, position, parked, point }) => {
+      bounds.push(point);
+      const marker = L.marker(point, { icon:L.divIcon({
+        className:'wl-route-pin' + (parked ? ' parked' : ''),
+        html:`<span>${parked ? '!' : position}</span>`,
+        iconSize:[30,30], iconAnchor:[15,15],
+      }) }).bindTooltip(markerTooltip(item, position, parked)).addTo(layer);
+      if(!parked){
+        const el = marker.getElement();
+        if(el) el.style.background = color;
+      }
+    });
+    if(model.line.length > 1) L.polyline(model.line, { color, weight:4, opacity:.78 }).addTo(layer);
+    setTimeout(() => {
+      map.invalidateSize();
+      if(bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(.18));
+      else if(bounds.length === 1) map.setView(bounds[0], 15);
+      else map.setView([45.0, -79.3], 7);
+    }, 0);
+  }
+
+  function routeCard(item, index){
+    const card = document.createElement('div');
+    card.className = 'wl-route-card';
+    card.dataset.id = item.id;
+    const cardState = routeCardState(item);
+    const state = cardState ? `<span class="wl-route-state">${cardState}</span>` : '';
+    card.innerHTML = `
+      <button class="wl-route-handle" type="button" aria-label="Drag to reorder">⠿</button>
+      <span class="wl-route-pos">${index + 1}</span>
+      <div class="wl-route-main">
+        <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
+        <div>${esc(item.address || 'No address')}</div>
+      </div>`;
+    wireDrag(card.querySelector('.wl-route-handle'), card);
+    return card;
+  }
+
+  function renumberCards(){
+    [...listEl.querySelectorAll('.wl-route-card')].forEach((card, index) => {
+      card.querySelector('.wl-route-pos').textContent = index + 1;
+    });
+  }
+
+  async function persistCardOrder(focusId){
+    const ids = [...listEl.querySelectorAll('.wl-route-card')].map(x => x.dataset.id);
+    const reordered = reorderRouteGroup(snapshot, selected, ids);
+    await opts.persistOrder(reordered);
+    await refresh();
+    const next = [...listEl.querySelectorAll('.wl-route-card')]
+      .find(x => x.dataset.id === String(focusId));
+    if(next) next.querySelector('.wl-route-handle').focus();
+  }
+
+  function wireDrag(handle, card){
+    handle.addEventListener('keydown', async e => {
+      if(e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const cards = [...listEl.querySelectorAll('.wl-route-card')];
+      const index = cards.indexOf(card);
+      if(e.key === 'ArrowUp' && index > 0) listEl.insertBefore(card, cards[index - 1]);
+      else if(e.key === 'ArrowDown' && index < cards.length - 1) listEl.insertBefore(cards[index + 1], card);
+      else return;
+      renumberCards();
+      await persistCardOrder(card.dataset.id);
+    });
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const pointerId = e.pointerId;
+      try{ handle.setPointerCapture(pointerId); } catch{}
+      card.classList.add('dragging');
+      let startY = e.clientY;
+      let changed = false;
+      let ended = false;
+      const onMove = ev => {
+        if(ended) return;
+        card.style.transform = `translateY(${ev.clientY - startY}px)`;
+        let ref = null;
+        for(const sibling of listEl.querySelectorAll('.wl-route-card')){
+          if(sibling === card) continue;
+          const r = sibling.getBoundingClientRect();
+          if(ev.clientY < r.top + r.height / 2){ ref = sibling; break; }
+        }
+        if(ref !== card && ref !== card.nextElementSibling){
+          const before = card.getBoundingClientRect().top;
+          listEl.insertBefore(card, ref);
+          changed = true;
+          startY += card.getBoundingClientRect().top - before;
+          card.style.transform = `translateY(${ev.clientY - startY}px)`;
+          try{ handle.setPointerCapture(pointerId); } catch{}
+          renumberCards();
+        }
+      };
+      const finish = async () => {
+        if(ended) return;
+        ended = true;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', finish);
+        window.removeEventListener('pointercancel', finish);
+        try{ handle.releasePointerCapture(pointerId); } catch{}
+        card.classList.remove('dragging');
+        card.style.transform = '';
+        if(!changed) return;
+        await persistCardOrder(card.dataset.id);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', finish);
+      window.addEventListener('pointercancel', finish);
+    });
+  }
+
+  async function render(){
+    const groups = groupPendingRoutes(snapshot);
+    if(!groups.some(g => g.key === selected)) selected = defaultRouteGroup(groups);
+    const group = groups.find(g => g.key === selected) || null;
+    renderDays(groups);
+    listEl.innerHTML = '';
+    (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
+    if(!group){
+      listEl.innerHTML = '<p class="muted">No pending orders. Add or download orders from the worklist.</p>';
+    }
+    const mapModel = buildRouteMapModel(group ? group.items : []);
+    const missing = mapModel.missing;
+    const parked = mapModel.parked;
+    const parts = [];
+    if(missing) parts.push(`${missing} without a pin`);
+    if(parked) parts.push(`${parked} parked`);
+    noticeEl.classList.toggle('hide', !parts.length);
+    fixEl.classList.toggle('hide', !parts.length);
+    noticeEl.textContent = parts.length
+      ? `${parts.join(' · ')} — fix addresses or Optimize from the worklist.` : '';
+    renderMap(group);
+  }
+
+  async function refresh(){
+    snapshot = await opts.getItems();
+    await render();
+  }
+
+  async function open(){
+    openState = true;
+    selected = null;
+    screen.classList.remove('hide');
+    await refresh();
+    window.scrollTo(0, 0);
+    $('wlRouteBack').focus();
+  }
+
+  function close(){
+    openState = false;
+    screen.classList.add('hide');
+  }
+
+  $('wlRouteBack').onclick = () => opts.onClose();
+  $('wlRouteFix').onclick = () => opts.onFix();
+  window.addEventListener('online', updateOfflineNote);
+  window.addEventListener('offline', updateOfflineNote);
+
+  return { open, close, refresh, isOpen:() => openState };
+}

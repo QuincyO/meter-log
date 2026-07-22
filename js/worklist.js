@@ -15,10 +15,12 @@ import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne } from './route.js';
+import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let planEstimate = null;        // set by initWorklist (capture.js): async () => string
 let _wlEditId = null;           // null = new order, string = id being edited
+let routeView = null;           // initialized once the capture page DOM is ready
 
 // ── ordering ────────────────────────────────────────────────────────────────
 // Manual order wins; items from before the `order` field sort after any ordered
@@ -291,6 +293,7 @@ export async function openWorklist(){
   $('wlForm').classList.add('hide');
   $('wlAddBtn').textContent = '＋ Add order';
   $('captureMain').classList.add('hide');
+  if(routeView) routeView.close();
   $('worklistScreen').classList.remove('hide');
   if(location.hash !== '#worklist') history.pushState({ wl:1 }, '', '#worklist');
   paintPlanToggle();
@@ -300,13 +303,41 @@ export async function openWorklist(){
 }
 function hideScreen(){
   $('worklistScreen').classList.add('hide');
+  if(routeView) routeView.close();
   $('captureMain').classList.remove('hide');
 }
 function closeWorklist(){
   if(location.hash === '#worklist') history.back();   // popstate hides the screen
   else hideScreen();
 }
-window.addEventListener('popstate', () => { if(location.hash !== '#worklist') hideScreen(); });
+
+async function openWorklistRoute(){
+  $('captureMain').classList.add('hide');
+  $('worklistScreen').classList.add('hide');
+  if(location.hash !== '#worklist-route') history.pushState({ wlRoute:1 }, '', '#worklist-route');
+  await routeView.open();
+}
+
+async function showHashScreen(){
+  if(location.hash === '#worklist-route'){
+    $('captureMain').classList.add('hide');
+    $('worklistScreen').classList.add('hide');
+    await routeView.open();
+  } else if(location.hash === '#worklist'){
+    routeView.close();
+    $('captureMain').classList.add('hide');
+    $('worklistScreen').classList.remove('hide');
+    paintPlanToggle();
+    await renderWorklist();
+    refreshAvgDay();
+    window.scrollTo(0, 0);
+    $('wlViewRoute').focus();
+  } else {
+    hideScreen();
+    $('navBtn').focus();
+  }
+}
+window.addEventListener('popstate', showHashScreen);
 
 // ── list rendering ──────────────────────────────────────────────────────────
 export async function renderWorklist(){
@@ -316,6 +347,7 @@ export async function renderWorklist(){
   const counts = $('wlCounts');
   if(counts) counts.textContent = items.length
     ? `${pending.length} remaining · ${done.length} completed` : '';
+  if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
   // Day dividers (only when the office/optimize assigned days) — a header before
@@ -712,7 +744,24 @@ async function planSkip(){
 export function initWorklist(opts){
   fillCapture = (opts && opts.fillCapture) || fillCapture;
   planEstimate = (opts && opts.planEstimate) || planEstimate;
+  routeView = initWorklistRouteView({
+    getItems: allSorted,
+    persistOrder: async ordered => {
+      const current = (await idb.all('worklist')) || [];
+      const byId = new Map(current.map(x => [String(x.id), x]));
+      const now = stamp();
+      for(const item of ordered){
+        const before = byId.get(String(item.id));
+        if(before && needsOrderWrite(before, item))
+          await idb.put('worklist', Object.assign({}, item, { updatedAt:now }));
+      }
+      await planAdvance();
+    },
+    onClose: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
+    onFix: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
+  });
   $('wlBack').onclick = closeWorklist;
+  $('wlViewRoute').onclick = openWorklistRoute;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   $('wlOptimize').onclick = optimizeTap;
@@ -734,7 +783,18 @@ export function initWorklist(opts){
   $('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
   $('wlFormSave').onclick = wlSave;
   pruneDoneWorklist().then(() => {
-    if(location.hash === '#worklist') openWorklist();
+    if(location.hash === '#worklist-route'){
+      // A direct reload has no #worklist history entry. Seed it so the phone's
+      // hardware Back button still returns through list, then capture.
+      history.replaceState({}, '', location.pathname + location.search);
+      history.pushState({ wl:1 }, '', '#worklist');
+      history.pushState({ wlRoute:1 }, '', '#worklist-route');
+      openWorklistRoute();
+    } else if(location.hash === '#worklist'){
+      history.replaceState({}, '', location.pathname + location.search);
+      history.pushState({ wl:1 }, '', '#worklist');
+      openWorklist();
+    }
     planAdvance();
   });
 }
