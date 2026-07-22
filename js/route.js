@@ -128,7 +128,7 @@ function medianCenter(items){
 // silently pick a town; the card shows the choices instead (worklist.js).
 // The ", ON, Canada" text bias stays: the crew ranges province-wide, and the
 // circle (not the text) is what pins the region.
-async function geocodeAll(items, onProgress, center){
+async function geocodeAll(items, onProgress, center, geoUrl){
   let done = 0;
   for(const item of items){
     const c = coordsOf(item);
@@ -143,7 +143,7 @@ async function geocodeAll(items, onProgress, center){
         geoFail: false, geoAmbig: undefined, updatedAt: stamp() }));
     }
     if(!c || stale){
-      const hit = await geocodeOne(item.address, center);
+      const hit = await geocodeOne(item.address, center, geoUrl);
       if(hit && !hit.ambig){
         item.lat = hit.lat; item.lng = hit.lng; item.geoFail = false; item.geoAmbig = undefined;
       } else if(hit){
@@ -165,9 +165,12 @@ async function geocodeAll(items, onProgress, center){
 // One address → {lat, lng, label} — plus an `ambig` candidate list when it
 // matches several distinct places — or null. Never throws: a network/parse
 // failure is just a miss, and the caller parks the order for manual fixing.
-// TWO providers: Google first, OpenRouteService second (config.js ORS_API_KEY,
-// blank = disabled) — so a rejected/over-quota Google key still resolves via
-// ORS instead of parking every order. With a center the search is biased to a
+// PROVIDERS: an optional self-hosted Nominatim FIRST when `geoUrl` is passed
+// (the desktop planner's local, zero-API path), then Google, then
+// OpenRouteService (config.js ORS_API_KEY, blank = disabled) — so a local miss
+// or a rejected/over-quota Google key still resolves instead of parking every
+// order. Phone-side callers pass no geoUrl, so they stay Google→ORS exactly as
+// before. With a center the search is biased to a
 // GEO_RADIUS_KM box around it, but the provider bounds are a SOFT bias only
 // (never a hard filter), so the local haversine gate in pickBest() is what
 // actually gates: an out-of-circle result can only park an order, never keep a
@@ -180,15 +183,25 @@ async function geocodeAll(items, onProgress, center){
 // suppressed when orsGeoUsed carried the run — without route.js touching UI.
 let geoKeyError = null;
 let orsGeoUsed = false;
+// Whether a local (Nominatim) URL was in play and a lookup still had to fall
+// through to Google/ORS because the local geocoder came up empty — surfaced as
+// a reassuring `note` so a thin local map is visible without alarming.
+let geoFellBack = false;
 
-export async function geocodeOne(address, center){
+export async function geocodeOne(address, center, geoUrl){
   const text = String(address || '').trim();
   if(!text) return null;
+  // Provider 0 (planner only): a self-hosted Nominatim, tried FIRST when its URL
+  // is passed, so a normal planning run makes no external geocoding call.
+  if(geoUrl){
+    const n = await nominatimGeocode(text, center, geoUrl);
+    if(n) return n;
+  }
   const g = await googleGeocode(text, center);
-  if(g) return g;
+  if(g){ if(geoUrl) geoFellBack = true; return g; }
   if(ORS_API_KEY){
     const o = await orsGeocode(text, center);
-    if(o){ orsGeoUsed = true; return o; }
+    if(o){ orsGeoUsed = true; if(geoUrl) geoFellBack = true; return o; }
   }
   return null;
 }
@@ -197,7 +210,7 @@ export async function geocodeOne(address, center){
 // hard-gate to GEO_RADIUS_KM around center, then detect ambiguity (the same
 // address in distinct places — different `place` AND > AMBIG_KM apart, so
 // same-town rivals like an address point vs its street centroid don't count).
-// Surfaced, never auto-picked. Shared by both providers so the gate/ambiguity
+// Surfaced, never auto-picked. Shared by all providers so the gate/ambiguity
 // behavior can't drift between them.
 function pickBest(hits, center){
   const inCircle = (hits || []).filter(h =>
@@ -276,6 +289,39 @@ async function orsGeocode(text, center){
       if(!c || !isFinite(c[0]) || !isFinite(c[1])) return null;
       const place = String(p.locality || p.localadmin || p.county || p.region || '').toLowerCase();
       return { lat: c[1], lng: c[0], label: p.label || text, place };
+    }).filter(Boolean);
+    return pickBest(hits, center);
+  } catch { return null; }
+}
+
+// Provider 0 (planner only) — a self-hosted Nominatim geocoder (OpenStreetMap),
+// same OSM data as the local OSRM. Reached first when the planner passes its URL
+// so a normal run makes NO external geocoding call. `/search` returns a JSON
+// array [{lat, lon, display_name, address:{…}}]; the town for the ambiguity
+// check comes from addressdetails, and pickBest re-gates locally like the other
+// providers. viewbox is a SOFT bias (bounded=0). Null on any failure → Google.
+async function nominatimGeocode(text, center, base){
+  let url = `${String(base).replace(/\/+$/, '')}/search`
+    + `?q=${encodeURIComponent(text + ', ON, Canada')}`
+    + `&format=json&addressdetails=1&countrycodes=ca&limit=5`;
+  if(center){
+    const dLat = GEO_RADIUS_KM / 111.32;
+    const dLng = GEO_RADIUS_KM / (111.32 * Math.cos(center.lat * Math.PI / 180));
+    // viewbox is lon,lat,lon,lat (top-left, bottom-right); bounded=0 = soft bias.
+    url += `&viewbox=${center.lng - dLng},${center.lat + dLat},`
+      + `${center.lng + dLng},${center.lat - dLat}&bounded=0`;
+  }
+  try {
+    const res = await fetch(url);
+    if(!res.ok){ console.warn('Nominatim geocode failed: HTTP', res.status); return null; }
+    const data = await res.json().catch(() => null);
+    const hits = (Array.isArray(data) ? data : []).map(r => {
+      const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+      if(!isFinite(lat) || !isFinite(lng)) return null;
+      const a = r.address || {};
+      const place = String(a.town || a.city || a.village || a.hamlet
+        || a.municipality || a.county || '').toLowerCase();
+      return { lat, lng, label: r.display_name || text, place };
     }).filter(Boolean);
     return pickBest(hits, center);
   } catch { return null; }
@@ -627,7 +673,7 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // "furthest away, working back") or 'first' (no home pin: the list's first
 // order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
-  geoKeyError = null; orsGeoUsed = false;
+  geoKeyError = null; orsGeoUsed = false; geoFellBack = false;
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -639,7 +685,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   let gate = gps || med || home || null;
   if(gps && med && haversine(gps, med) > GEO_RADIUS_KM * 1000) gate = med;
 
-  await geocodeAll(pendingItems, onProgress, gate);
+  await geocodeAll(pendingItems, onProgress, gate, opts.geocodeUrl);
 
   // Post-geocodeAll invariant: every pending item is either located (coords,
   // no flags) or parked with exactly one of geoFail/geoAmbig set (geocodeAll
@@ -653,11 +699,14 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     ? geoKeyError + ' — check the Google API key setup (DEPLOY.md)' : null;
   const notes = [];
   if(orsGeoUsed) notes.push('addresses');
+  // Local geocoder was set but couldn't cover every address (thin OSM map) — a
+  // reassuring note, not an error: Google/ORS quietly caught the rest.
+  const geoNote = geoFellBack ? 'some addresses used a fallback geocoder (local missed)' : null;
 
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2)
     return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
-      fallbackReason:'', mode:'first', geoReason, note: orsNote(notes) };
+      fallbackReason:'', mode:'first', geoReason, note: combineNotes(orsNote(notes), geoNote) };
 
   // Route anchor: with a home pin the solve is pinned AT home and the tour is
   // read backwards — on the symmetrized matrix that IS the pinned-END path, so
@@ -691,11 +740,19 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const orderedIds = homeC
     ? tour.slice().reverse().slice(0, -1).map(i => located[i - 1].id)  // home node (0) dropped off the end
     : tour.map(i => located[i].id);
-  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note: orsNote(notes) };
+  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason,
+    note: combineNotes(orsNote(notes), geoNote) };
 }
 
 // "addresses"/"roads" → the reassuring toast line naming what the ORS backup
 // carried this run (null when it didn't engage).
 function orsNote(parts){
   return parts.length ? parts.join(' + ') + ' via OpenRouteService backup' : null;
+}
+
+// Join the non-null note fragments (ORS backup + local-geocoder fallback) into
+// one toast line, or null when there's nothing to say.
+function combineNotes(...parts){
+  const p = parts.filter(Boolean);
+  return p.length ? p.join(' · ') : null;
 }

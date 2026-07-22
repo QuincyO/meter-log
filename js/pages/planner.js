@@ -25,6 +25,7 @@ let items = [];              // the selected installer's orders, display order
 let map = null, mapLayer = null;   // Leaflet instances (lazy)
 
 const OSRM_DEFAULT = 'http://localhost:5000';
+const NOMINATIM_DEFAULT = 'http://localhost:8080';   // local geocoder (see DEPLOY.md)
 
 function setStatus(kind, text){
   const p = $('status'), t = $('statusText');
@@ -131,7 +132,7 @@ async function importPaste(){
 // The installer's real home pin lives on their phone, so the planner keeps its
 // own per-installer anchor: geocoded once (center-less, like the phone's
 // Settings home) and remembered in localStorage so re-plans don't re-bill.
-async function homePin(){
+async function homePin(geoUrl){
   const addr = String($('plHome').value || '').trim();
   const h = hNumber();
   if(!addr) return null;
@@ -139,7 +140,7 @@ async function homePin(){
     const saved = JSON.parse(store.get('plannerHome:' + h) || 'null');
     if(saved && saved.addr === addr && isFinite(saved.lat)) return { lat:saved.lat, lng:saved.lng };
   } catch {}
-  const hit = await geocodeOne(addr, null);
+  const hit = await geocodeOne(addr, null, geoUrl);
   if(hit && !hit.ambig){
     store.set('plannerHome:' + h, JSON.stringify({ addr, lat:hit.lat, lng:hit.lng }));
     return { lat: hit.lat, lng: hit.lng };
@@ -164,12 +165,16 @@ async function optimize(){
   if(pending.length < 2){ toast('Need at least 2 pending orders'); return; }
   const osrmUrl = String($('plOsrm').value || '').trim() || OSRM_DEFAULT;
   store.set('plannerOsrm', osrmUrl);
+  // Local geocoder URL — blank means fall straight to Google (the field's the
+  // opt-in). A set value makes geocoding local-first, Google/ORS only on a miss.
+  const geocodeUrl = String($('plGeo').value || '').trim();
+  store.set('plannerGeocode', geocodeUrl);
   const btn = $('plOptimize'), prog = $('plProg');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
-    const home = await homePin();
+    const home = await homePin(geocodeUrl);
     const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note } =
-      await optimizeRoute(pending, progress, home, { osrmUrl });
+      await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl });
     const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const seq = [...orderedIds, ...parkedIds, ...doneIds].map(id => byId[id]).filter(Boolean);
@@ -321,5 +326,8 @@ $('navSel').onchange = e => {
 window.addEventListener('pageshow', () => { $('navSel').value = 'planner'; });
 
 $('plOsrm').value = store.get('plannerOsrm') || OSRM_DEFAULT;
+// Geocoder defaults blank (opt-in) but shows a hint; a saved value wins.
+$('plGeo').value = store.get('plannerGeocode') || '';
+$('plGeo').placeholder = NOMINATIM_DEFAULT;
 render();
 loadRoster().then(paintWhoSelect);

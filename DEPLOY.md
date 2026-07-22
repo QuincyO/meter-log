@@ -129,7 +129,8 @@ their orders, optimize, review the numbered route on the map, ⇪ Upload — the
 installer then just taps ⇩ Download on the phone and drives the finished
 route. Its road distances come from **OSRM running on your own PC** — free and
 unmetered — so the only Google spend from planning is one geocode per *new*
-address (pins upload with the list and are never re-billed). If OSRM is down
+address (pins upload with the list and are never re-billed), and even that goes
+away if you run the optional local Nominatim geocoder below. If OSRM is down
 the planner still works, it just solves on straight-line distances and says
 so in the toast — it never silently falls into the billable Google matrix.
 
@@ -147,7 +148,7 @@ Set up OSRM once (Windows, ~20 minutes, mostly download time):
 3. Preprocess it (one-time per download; a few minutes on a fast machine):
 
    ```powershell
-   cd C:\osrm
+   cd D:\osrm
    docker run -t -v ${PWD}:/data osrm/osrm-backend osrm-extract -p /opt/car.lua /data/ontario-latest.osm.pbf
    docker run -t -v ${PWD}:/data osrm/osrm-backend osrm-contract /data/ontario-latest.osrm
    ```
@@ -171,9 +172,53 @@ proxy (e.g. Caddy: `caddy reverse-proxy --from :5001 --to :5000` plus a CORS
 header) — recent osrm-backend builds send `Access-Control-Allow-Origin: *`
 out of the box, so this is unlikely.
 
-The planner's geocoding uses the same `GMAPS_API_KEY` — same key, same
-restrictions (API-restricted, no application restriction — see §"Google Maps
-Platform key"), nothing to change.
+The planner's geocoding is **local-first when you fill the Geocoder field**
+(local Nominatim below) — Google (`GMAPS_API_KEY`) is only the fallback when a
+local lookup misses. Leave the field blank and geocoding stays Google → ORS
+exactly as before, so the field is a pure opt-in.
+
+## Local geocoding — Nominatim (optional, zero-API planning)
+
+With OSRM the road matrix is free, but each *new* address still costs one Google
+geocode. Run **Nominatim** — a self-hosted geocoder over the **same Ontario
+`.pbf`** you already downloaded for OSRM — and a normal planning run makes **no
+external API call at all** (Google/ORS stay wired up as an automatic fallback
+for the rural addresses OSM's map doesn't cover). OSRM can't geocode; Nominatim
+is a separate container.
+
+Set it up once (Docker, ~1–2 h — mostly the one-time import; several GB DB):
+
+1. Import the same `.pbf` (`IMPORT_STYLE=address` keeps it geocoder-only → a
+   smaller DB and a faster import). This runs the import, then serves on 8080:
+
+   ```powershell
+   # -v mounts the SAME folder that holds your OSRM .pbf (D:\osrm here).
+   docker run -it --shm-size=1g `
+     -e PBF_PATH=/nominatim/data/ontario-latest.osm.pbf `
+     -e IMPORT_STYLE=address `
+     -e NOMINATIM_PASSWORD=changeme `
+     -v D:\osrm:/nominatim/data `
+     -p 8080:8080 --name nominatim mediagis/nominatim:4.4
+   ```
+
+   (Re-running `docker start nominatim` after a reboot reuses the imported DB —
+   no re-import. Add `--restart unless-stopped` on first run to auto-start.)
+
+2. Smoke test — should return a JSON array with `lat`/`lon`:
+
+   ```powershell
+   curl "http://localhost:8080/search?q=120+Depot+Rd,+Bracebridge,+ON&format=json"
+   ```
+
+3. In `planner.html`, put `http://localhost:8080` in the **Geocoder server**
+   field (persists per browser). Optimize — lookups now hit localhost, not
+   `maps.googleapis.com`. If a run couldn't resolve some addresses locally the
+   toast notes "some addresses used a fallback geocoder"; a genuinely bad
+   address still parks (📍?) for a manual fix.
+
+The mediagis image sends `Access-Control-Allow-Origin: *`, so the HTTPS→
+localhost call works like OSRM's; if the console ever shows a CORS error, front
+it with the same one-line Caddy proxy noted for OSRM above.
 
 ## OpenRouteService backup (optional)
 
@@ -182,8 +227,9 @@ service — whenever a Google/OSRM primary comes up empty, so a rejected Google
 key or a matrix outage still produces a real route instead of parked orders and
 straight lines. It backs up **both** lookups:
 
-- **Geocoding:** Google → **ORS** → park. A `REQUEST_DENIED`/over-quota Google
-  key (or a plain miss) retries the address on ORS before parking it.
+- **Geocoding:** (local Nominatim, planner only, if configured →) Google →
+  **ORS** → park. A `REQUEST_DENIED`/over-quota Google key (or a plain miss)
+  retries the address on ORS before parking it.
 - **Road matrix:** Google Routes (phone) / local OSRM (planner) → **ORS** →
   straight-line. ORS's hosted matrix is one free call, capped at ~3,500
   location-pairs (≈ **59 stops**) — a bigger list skips ORS and solves
