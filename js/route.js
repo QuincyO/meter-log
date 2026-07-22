@@ -17,9 +17,9 @@
 //      against 10k free/month), so MATRIX_FREE_ELEMENTS below is the
 //      per-device guard that keeps the key from billing past the free tier;
 //   3. solve the open-path TSP locally (nearest-neighbour + 2-opt + Or-opt),
-//      pinned so the day either ends moving toward the installer's home pin or
-//      starts at the list's first order — milliseconds even for ~200 stops; the
-//      network time above dominates.
+//      pinned so the route can start at the phone, end toward home, or retain
+//      the list's first order as its start — milliseconds even for ~200 stops;
+//      the network time above dominates.
 //
 // Google is hit with bare fetch() — NEVER apiGet/apiPost, which inject the Apps
 // Script token + URL. This module deliberately does not import api.js: the
@@ -89,17 +89,16 @@ export function isParked(item){
   return !!(item && (item.geoFail || (item.geoAmbig && item.geoAmbig.length))) || !coordsOf(item);
 }
 
-// One coarse position fix for the geocode gate (NOT the route anchor — that's
-// the home pin / first order). Never rejects: no GPS, a denied prompt, or an
-// unanswered permission dialog all resolve null. The extra hard race matters
-// because geolocation's own timeout doesn't tick while its permission prompt
-// is open — optimize must degrade, not hang.
-function currentPosition(maxMs){
+// One position fix for the geocode gate and, when requested, the route start.
+// An explicit start asks for a fresh high-accuracy fix; the normal geocode-only
+// path accepts a recent coarse fix. Never rejects: denied/unanswered location
+// prompts resolve null so optimization can fall back instead of hanging.
+function currentPosition(maxMs, fresh=false){
   if(!('geolocation' in navigator)) return Promise.resolve(null);
   const fix = new Promise(res => navigator.geolocation.getCurrentPosition(
     p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
     () => res(null),
-    { enableHighAccuracy:false, timeout:maxMs, maximumAge:120000 }));
+    { enableHighAccuracy:fresh, timeout:maxMs, maximumAge:fresh ? 0 : 120000 }));
   const cap = new Promise(res => setTimeout(() => res(null), maxMs + 2000));
   return Promise.race([fix, cap]);
 }
@@ -529,8 +528,8 @@ function haversine(a, b){
 function solve(D, pinned){
   const n = D.length;
   if(n <= 2) return range(0, n);
+  if(pinned) return solveAnchoredPath(D);
   const S = symmetrize(D);
-  if(pinned) return polish(twoOptLoop(nearestNeighbour(S, 0), S, 1), S, true);
   const starts = spreadStarts(n, Math.min(12, n));
   let best = null, bestLen = Infinity;
   for(const s of starts){
@@ -539,6 +538,30 @@ function solve(D, pinned){
     if(len < bestLen){ bestLen = len; best = tour; }
   }
   return polish(best, S);
+}
+
+// Solve an open path with node 0 fixed at the start. When pinEnd is true the
+// final matrix node is also fixed, leaving only the middle nodes movable.
+// Exported so the endpoint contract can be tested without browser/network IO.
+export function solveAnchoredPath(D, { pinEnd=false }={}){
+  const n = D.length;
+  if(n <= 2) return range(0, n);
+  const S = symmetrize(D);
+  const kMax = pinEnd ? n - 2 : n - 1;
+  const tour = nearestNeighbour(S, 0, pinEnd ? n - 1 : -1);
+  return polish(twoOptLoop(tour, S, 1, kMax), S, true, pinEnd);
+}
+
+// Convert a matrix containing optional synthetic start/home anchors back into
+// zero-based indices for the located work orders only.
+export function routeOrderFromMatrix(D, locatedCount, { hasStart=false, hasHome=false }={}){
+  if(hasStart){
+    const tour = solveAnchoredPath(D, { pinEnd:hasHome });
+    return tour.slice(1, hasHome ? -1 : undefined).map(i => i - 1);
+  }
+  if(hasHome)
+    return solveAnchoredPath(D).slice().reverse().slice(0, -1).map(i => i - 1);
+  return solveAnchoredPath(D).slice(0, locatedCount);
 }
 
 function symmetrize(D){
@@ -552,15 +575,16 @@ function symmetrize(D){
   return S;
 }
 
-function nearestNeighbour(D, start){
+function nearestNeighbour(D, start, end=-1){
   const n = D.length;
   const seen = new Uint8Array(n);
   const tour = [start]; seen[start] = 1;
   let cur = start;
   for(let step = 1; step < n; step++){
+    if(end >= 0 && step === n - 1){ tour.push(end); seen[end] = 1; break; }
     let next = -1, dist = Infinity;
     for(let j = 0; j < n; j++)
-      if(!seen[j] && D[cur][j] < dist){ dist = D[cur][j]; next = j; }
+      if(j !== end && !seen[j] && D[cur][j] < dist){ dist = D[cur][j]; next = j; }
     if(next === -1) break;
     seen[next] = 1; tour.push(next); cur = next;
   }
@@ -578,12 +602,12 @@ function nearestNeighbour(D, start){
 // starting i at 1 never touches the anchor — and at i=1 the `a` sentinel is the
 // anchor itself, charging the real anchor edge. The d=-1 sentinel still frees
 // the far end.
-function twoOptPass(tour, D, iMin = 0){
+function twoOptPass(tour, D, iMin = 0, kMax = tour.length - 1){
   const n = tour.length, eps = 1e-6;
   let improved = false;
-  for(let i = iMin; i < n - 1; i++){
+  for(let i = iMin; i < kMax; i++){
     const a = i > 0 ? tour[i - 1] : -1;
-    for(let k = i + 1; k < n; k++){
+    for(let k = i + 1; k <= kMax; k++){
       const b = tour[i], c = tour[k], d = k < n - 1 ? tour[k + 1] : -1;
       const removed = (a >= 0 ? D[a][b] : 0) + (d >= 0 ? D[c][d] : 0);
       const added   = (a >= 0 ? D[a][c] : 0) + (d >= 0 ? D[b][d] : 0);
@@ -592,8 +616,8 @@ function twoOptPass(tour, D, iMin = 0){
   }
   return improved;
 }
-function twoOptLoop(tour, D, iMin = 0){
-  for(let pass = 0; pass < 60 && twoOptPass(tour, D, iMin); pass++);
+function twoOptLoop(tour, D, iMin = 0, kMax = tour.length - 1){
+  for(let pass = 0; pass < 60 && twoOptPass(tour, D, iMin, kMax); pass++);
   return tour;
 }
 
@@ -605,16 +629,18 @@ function twoOptLoop(tour, D, iMin = 0){
 // (i ≥ 1 ⇒ rest[0] === tour[0]) and is never re-inserted ahead of it (j ≥ 1),
 // so every candidate keeps the anchor first in either orientation.
 // Returns whether anything moved.
-function orOptPass(tour, D, iMin = 0, jMin = 0){
+function orOptPass(tour, D, iMin = 0, jMin = 0, pinEnd = false){
   const n = tour.length, eps = 1e-6;
+  const movableEnd = pinEnd ? n - 1 : n;
   let improved = false;
   for(let L = 1; L <= 3; L++){
-    for(let i = iMin; i + L <= n; i++){
+    for(let i = iMin; i + L <= movableEnd; i++){
       const seg  = tour.slice(i, i + L);
       const rest = tour.slice(0, i).concat(tour.slice(i + L));
       const base = pathLength(tour, D);
       let bestLen = base, best = null;
-      for(let j = jMin; j <= rest.length; j++){
+      const jMax = pinEnd ? rest.length - 1 : rest.length;
+      for(let j = jMin; j <= jMax; j++){
         for(const s of [seg, seg.slice().reverse()]){
           const cand = rest.slice(0, j).concat(s, rest.slice(j));
           const len  = pathLength(cand, D);
@@ -627,10 +653,15 @@ function orOptPass(tour, D, iMin = 0, jMin = 0){
   return improved;
 }
 // Alternate 2-opt and Or-opt until neither improves (a local optimum for both).
-function polish(tour, D, pinned = false){
+function polish(tour, D, pinned = false, pinEnd = false){
   const iMin = pinned ? 1 : 0;
+  const kMax = pinEnd ? tour.length - 2 : tour.length - 1;
   let go = true;
-  while(go){ go = false; if(twoOptPass(tour, D, iMin)) go = true; if(orOptPass(tour, D, iMin, iMin)) go = true; }
+  while(go){
+    go = false;
+    if(twoOptPass(tour, D, iMin, kMax)) go = true;
+    if(orOptPass(tour, D, iMin, iMin, pinEnd)) go = true;
+  }
   return tour;
 }
 
@@ -689,6 +720,9 @@ function orderChunkHome(D, locIdxChunk){
 // straight-line (haversine) distances — the phone's default Optimize button, so
 // a normal tap costs nothing beyond geocoding. Not a fallback (usedFallback
 // stays false); the five-tap secret leaves it off to get the real road matrix.
+// opts.startFromCurrent: request a fresh phone fix as a one-run route start.
+// With home it fixes both ends; without home the route end remains open. A
+// missing/denied fix falls back to the legacy anchor and sets startFallback.
 // opts.target: meters/day. When > 0 the route is split into day-clusters of that
 // size, each re-solved home-pinned so the day ENDS near home (the master route is
 // cut into contiguous farthest→nearest chunks; a lone near-home order lands in a
@@ -696,26 +730,26 @@ function orderChunkHome(D, locIdxChunk){
 // pin the split falls back to plain count-chunks (dayFallback:true) since "near
 // home" is undefined.
 // Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
-// geoReason, note } — orderedIds is the optimized sequence of located orders;
+// startFallback, geoReason, note } — orderedIds is the optimized sequence;
 // parkedIds are the ones flagged geoFail (wouldn't geocode) or geoAmbig
 // (matched several towns) — they may still carry their last good pin — or
 // with no coords at all; usedFallback means the solve ran on straight-line
 // distances, and fallbackReason says why ('' otherwise); geoReason is a
 // key-level geocoding failure note (bad/over-quota key with no ORS rescue) or
 // null; note is a short "…via OpenRouteService backup" string when ORS carried
-// geocoding and/or the matrix (else null); mode is 'home' (path ends moving
-// toward home — the start naturally lands at the far side of the day's cluster,
-// "furthest away, working back") or 'first' (no home pin: the list's first
-// order stays the start, end open).
+// geocoding and/or the matrix (else null); mode is 'here-home' (phone start,
+// Home end), 'here' (phone start, open end), 'home' (path ends moving toward
+// Home), or 'first' (the list's first order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   geoKeyError = null; orsGeoUsed = false; geoFellBack = false;
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
   // can't invalidate every good pin and re-match lookalike streets nearby.
-  // Matching gate ≠ route anchor: the route is anchored on home / first order.
+  // The matching gate can differ from the requested phone route anchor.
   onProgress && onProgress({ phase:'locate' });
-  const gps = await currentPosition(LOCATE_MS);
+  const wantsCurrentStart = !!opts.startFromCurrent;
+  const gps = await currentPosition(LOCATE_MS, wantsCurrentStart);
   const med = medianCenter(pendingItems);
   let gate = gps || med || home || null;
   if(gps && med && haversine(gps, med) > GEO_RADIUS_KM * 1000) gate = med;
@@ -737,21 +771,23 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // Local geocoder was set but couldn't cover every address (thin OSM map) — a
   // reassuring note, not an error: Google/ORS quietly caught the rest.
   const geoNote = geoFellBack ? 'some addresses used a fallback geocoder (local missed)' : null;
+  const homeC = coordsOf(home);
+  const startC = wantsCurrentStart ? gps : null;
+  const startFallback = wantsCurrentStart && !startC;
+  const mode = startC ? (homeC ? 'here-home' : 'here') : (homeC ? 'home' : 'first');
 
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2)
     return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
-      fallbackReason:'', mode:'first', geoReason, note: combineNotes(orsNote(notes), geoNote),
+      fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
       dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false };
 
-  // Route anchor: with a home pin the solve is pinned AT home and the tour is
-  // read backwards — on the symmetrized matrix that IS the pinned-END path, so
-  // the day finishes moving toward home. Without one, the first located pending
-  // order (located[0] — pendingItems arrive display-sorted) is pinned as the
-  // start and the end floats free.
-  const homeC = coordsOf(home);
-  const mode = homeC ? 'home' : 'first';
-  const coords = homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
+  // Route anchors: an available requested phone fix pins the start and Home,
+  // when present, pins the end. Otherwise legacy mode ends toward Home or pins
+  // the first display-sorted pending order with an open end.
+  const coords = startC
+    ? [startC, ...located.map(coordsOf), ...(homeC ? [homeC] : [])]
+    : homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
 
   // Matrix source. straightLine (the phone's default Optimize button) solves on
   // straight-line distances up front — no road-matrix/ORS call at all, so no API
@@ -782,12 +818,9 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   }
 
   onProgress && onProgress({ phase:'solve' });
-  const tour = solve(D, true);
-  // Master located-index sequence: home mode reads the tour backwards (far→home,
-  // home node dropped); first mode uses it as-solved.
-  const masterSeq = homeC
-    ? tour.slice().reverse().slice(0, -1).map(i => i - 1)
-    : tour.slice();
+  const masterSeq = routeOrderFromMatrix(D, located.length, {
+    hasStart:!!startC, hasHome:!!homeC
+  });
 
   // Optional day-split. target > 0 cuts the master route into contiguous chunks
   // of `target`; with a home pin each chunk is re-solved to end near home.
@@ -796,7 +829,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const dayOf = {};
   let dayFallback = false;
   if(target > 0){
-    if(homeC){
+    if(homeC && !startC){
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
@@ -812,7 +845,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   }
 
   const orderedIds = orderedSeq.map(k => located[k].id);
-  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason,
+  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
     note: combineNotes(orsNote(notes), geoNote), dayOf, dayFallback };
 }
 

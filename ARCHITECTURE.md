@@ -481,11 +481,17 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `geoReason` flags a key-level geocode rejection (`REQUEST_DENIED` etc.) that
   ORS did **not** rescue; `note` is the reassuring "addresses/roads via
   OpenRouteService backup" line when ORS carried the run — all surfaced in the
-  optimize toast so a broken key no longer looks like "offline". The solve is **pinned**: with a home pin (Settings →
-  `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at save) the
-  path is solved pinned at home and read backwards — ending the day moving
-  toward home, the start landing at the far side of the cluster — otherwise the
-  list's first order is pinned as the start with the end open.
+  optimize toast so a broken key no longer looks like "offline". The solve is **pinned**: normally, a home pin
+  (Settings → `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at
+  save) fixes the route's homeward end and puts the start on the far side of the
+  cluster; without Home, the list's first order is fixed as the start. The phone
+  worklist also has a one-run **Start from here** pill. When armed, Optimize asks
+  for one fresh GPS fix and uses it as the fixed start while retaining Home as
+  the fixed end; without Home, the end floats. The fix is reused as the geocode
+  gate and is never stored or synced. If it is denied or times out, the run
+  visibly falls back to the normal Home/first-order behavior. `Route starts`,
+  `First stop at`, and `Pace` remain scheduling inputs applied after this
+  geographic solve; they do not choose the route's geographic origin.
   **Multi-day split (`opts.target`, meters/day):** when set, the master route is
   cut into `ceil(N/target)` **contiguous** chunks (farthest→nearest home, since a
   home-pinned tour is roughly distance-banded) and **each chunk is re-solved

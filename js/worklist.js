@@ -23,6 +23,9 @@ let planEstimate = null;        // set by initWorklist (capture.js): async () =>
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
 
+function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
+function setStartHere(on){ $('wlStartHere').setAttribute('aria-pressed', on ? 'true' : 'false'); }
+
 function nextWeekday(date){
   const d = new Date(`${date}T12:00:00`);
   while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
@@ -252,15 +255,19 @@ async function optimizeRouteHandler(straightLine){
   const algorithm = straightLine
     ? 'straight-line algorithm'
     : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
-  if(!confirm(`Optimize the route for ${pending.length} pending orders using the ${algorithm}? This looks up each address and may take a minute the first time.`)) return;
+  const startFromCurrent = startHereArmed();
+  const startNote = startFromCurrent ? ' The route will start from your phone location.' : '';
+  if(!confirm(`Optimize the route for ${pending.length} pending orders using the ${algorithm}?${startNote} This looks up each address and may take a minute the first time.`)) return;
 
   const target = targetVal();
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const base = await optimizeRoute(pending, updateRouteProgress, home, { straightLine });
-    const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
+    const base = await optimizeRoute(pending, updateRouteProgress, home, {
+      straightLine, startFromCurrent
+    });
+    const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
     const refreshedById = {}; refreshed.forEach(x => { refreshedById[x.id] = x; });
     const blocked = parkedIds.map(id => refreshedById[id]).filter(x =>
@@ -306,10 +313,15 @@ async function optimizeRouteHandler(straightLine){
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
       + (note ? ` · ${short(note)}` : '');
-    toast((mode === 'home' ? 'Route optimized — ends near home ✓' : 'Route optimized — starts at your first order ✓') + extra);
+    const modeText = mode === 'here-home' ? 'Route optimized — starts here and ends near home ✓'
+      : mode === 'here' ? 'Route optimized — starts here ✓'
+      : mode === 'home' ? 'Route optimized — ends near home ✓'
+      : 'Route optimized — starts at your first order ✓';
+    toast((startFallback ? 'Current location unavailable — used normal routing · ' : '') + modeText + extra);
   } catch (err) {
     toast((err && err.message) || 'Route optimization failed — try again');
   } finally {
+    setStartHere(false);
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
 }
@@ -939,6 +951,7 @@ export function initWorklist(opts){
   bindOptimizeGesture($('wlOptimize'),
     () => optimizeRouteHandler(true),
     () => optimizeRouteHandler(false));
+  $('wlStartHere').onclick = () => setStartHere(!startHereArmed());
   // Meters/day target: restore the saved value (default 24) and persist edits.
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').onchange = () => {

@@ -133,8 +133,15 @@ An order checks itself off automatically when its work order # is actually logge
 
 Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best driving order for you:
 
-- Set **Route starts**, **First stop at**, and **Pace (min/stop)** above Optimize.
-  Pace uses your latest 30 land workdays when available and remains editable.
+- **Route starts** is the first calendar date, **First stop at** is stop 1's ETA,
+  and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
+  its driving order is chosen; they do not tell it where you are. Pace uses your
+  latest 30 land workdays when available and remains editable.
+- If you are already away from the planned route, tap **Start from here**, then
+  Optimize. That one run gets a fresh phone location and routes from there toward
+  your saved Home. With no Home saved, it starts here and leaves the last stop
+  open. The pill resets after the run and your location is not saved or uploaded.
+  If location is unavailable, the message says so and normal routing is used.
 - Appointment stops are placed no later than their entered time, allowing arrival
   up to 20 minutes early. Earlier arrival is shown as waiting time, and that wait
   shifts the ETAs after it. Weekends are not route days.
@@ -143,7 +150,7 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
   message names the affected work order.
 
 - Each address is looked up and matched **near where you are** (within the app's search radius), so "Main St" means *your* Main St, not one in another city.
-- With a **Home address** in Settings, the route ends heading toward home — the first stop is the far end of the day, and you work your way back. With no home set, whatever order is first in your list stays the starting point.
+- With a **Home address** in Settings, normal routing ends heading toward home — the first stop is the far end of the day, and you work your way back. With no Home and without **Start from here**, whatever order is first in your list stays the starting point.
 - Every card shows its state next to the WO#: a **📍 fix address** pill (couldn't be matched), a **⚠ pick a town** pill (matched more than one place), or a small **no pin** pill (not looked up yet). No pill means the order is pinned and routed. Cards show the **full address** — long ones wrap onto extra lines.
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
