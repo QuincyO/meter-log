@@ -651,6 +651,31 @@ function spreadStarts(n, count){
 }
 function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return r; }
 
+// ── multi-day clustering (target/day, each day ends near home) ───────────────
+// The full matrix D is over [home, ...located] (node 0 = home). A day-cluster is
+// a set of located-indices; to order it so it ENDS near home we re-solve it as
+// its own home-pinned open path over the sub-matrix [home, ...chunk] (same trick
+// optimizeRoute uses for the whole route: pin home, read the tour backwards).
+function subMatrix(D, nodes){
+  const m = nodes.length;
+  const S = [];
+  for(let i = 0; i < m; i++){
+    const row = new Float64Array(m);
+    for(let j = 0; j < m; j++) row[j] = D[nodes[i]][nodes[j]];
+    S.push(row);
+  }
+  return S;
+}
+// Order one day-cluster (an array of located-indices) so it ends at its
+// home-ward edge. Returns the cluster's located-indices, re-ordered.
+function orderChunkHome(D, locIdxChunk){
+  if(locIdxChunk.length <= 1) return locIdxChunk.slice();
+  const nodes = [0, ...locIdxChunk.map(k => k + 1)];   // home + each order's D node
+  const t = solve(subMatrix(D, nodes), true);          // pinned AT home
+  // reverse + drop the home node → sub-positions 1..m, mapped back to the chunk.
+  return t.slice().reverse().slice(0, -1).map(p => locIdxChunk[p - 1]);
+}
+
 // ── entry point ──────────────────────────────────────────────────────────────
 // pendingItems: the pending worklist orders in display order (each mutated in
 // place with coords). onProgress({phase, done, total}): optional UI callback.
@@ -660,6 +685,12 @@ function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return
 // omitted = the phone path (budget-guarded Google matrix). Both paths back up
 // through OpenRouteService (config.js ORS_API_KEY) before straight-line, and
 // geocoding backs up Google → ORS → park.
+// opts.target: meters/day. When > 0 the route is split into day-clusters of that
+// size, each re-solved home-pinned so the day ENDS near home (the master route is
+// cut into contiguous farthest→nearest chunks; a lone near-home order lands in a
+// late day, not an early far one). Returns dayOf {id: dayNumber}. With no home
+// pin the split falls back to plain count-chunks (dayFallback:true) since "near
+// home" is undefined.
 // Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
 // geoReason, note } — orderedIds is the optimized sequence of located orders;
 // parkedIds are the ones flagged geoFail (wouldn't geocode) or geoAmbig
@@ -706,7 +737,8 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2)
     return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
-      fallbackReason:'', mode:'first', geoReason, note: combineNotes(orsNote(notes), geoNote) };
+      fallbackReason:'', mode:'first', geoReason, note: combineNotes(orsNote(notes), geoNote),
+      dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false };
 
   // Route anchor: with a home pin the solve is pinned AT home and the tour is
   // read backwards — on the symmetrized matrix that IS the pinned-END path, so
@@ -737,11 +769,37 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
 
   onProgress && onProgress({ phase:'solve' });
   const tour = solve(D, true);
-  const orderedIds = homeC
-    ? tour.slice().reverse().slice(0, -1).map(i => located[i - 1].id)  // home node (0) dropped off the end
-    : tour.map(i => located[i].id);
+  // Master located-index sequence: home mode reads the tour backwards (far→home,
+  // home node dropped); first mode uses it as-solved.
+  const masterSeq = homeC
+    ? tour.slice().reverse().slice(0, -1).map(i => i - 1)
+    : tour.slice();
+
+  // Optional day-split. target > 0 cuts the master route into contiguous chunks
+  // of `target`; with a home pin each chunk is re-solved to end near home.
+  const target = Math.max(0, Math.floor(Number(opts.target) || 0));
+  let orderedSeq = masterSeq;
+  const dayOf = {};
+  let dayFallback = false;
+  if(target > 0){
+    if(homeC){
+      orderedSeq = [];
+      for(let s = 0; s < masterSeq.length; s += target){
+        const day = Math.floor(s / target) + 1;
+        const ordered = orderChunkHome(D, masterSeq.slice(s, s + target));
+        ordered.forEach(k => { dayOf[located[k].id] = day; });
+        orderedSeq.push(...ordered);
+      }
+    } else {
+      // No home pin — keep the master order, just cut it into count-sized days.
+      dayFallback = true;
+      masterSeq.forEach((k, r) => { dayOf[located[k].id] = Math.floor(r / target) + 1; });
+    }
+  }
+
+  const orderedIds = orderedSeq.map(k => located[k].id);
   return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason,
-    note: combineNotes(orsNote(notes), geoNote) };
+    note: combineNotes(orsNote(notes), geoNote), dayOf, dayFallback };
 }
 
 // "addresses"/"roads" → the reassuring toast line naming what the ORS backup

@@ -63,6 +63,19 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
   #plMap{height:380px}
 }
 
+/* target/day row: the number field + the installer's avg/day reference */
+.pltargetrow{display:flex;align-items:center;gap:10px}
+.pltargetrow input{width:90px;flex:none}
+.pltargetrow #plAvgDay{margin:0}
+
+/* day-group header in the order list */
+.plday{display:flex;align-items:center;gap:8px;margin:14px 0 4px;padding-top:10px;
+       border-top:2px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.06em;
+       text-transform:uppercase;color:var(--ink-soft)}
+.plday:first-child{border-top:0;padding-top:2px;margin-top:2px}
+.plday .plday-dot{width:11px;height:11px;border-radius:50%;flex:none}
+.plday .plday-eta{font-weight:600;letter-spacing:0;text-transform:none}
+
 .plbtns{display:flex;flex-wrap:wrap;gap:8px}
 .plprog{color:var(--ink-soft);font-size:13px;font-weight:600;margin-top:10px}
 .plimport{margin-top:10px}

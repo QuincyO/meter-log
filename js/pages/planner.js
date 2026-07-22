@@ -27,6 +27,13 @@ let map = null, mapLayer = null;   // Leaflet instances (lazy)
 const OSRM_DEFAULT = 'http://localhost:5000';
 const NOMINATIM_DEFAULT = 'http://localhost:8080';   // local geocoder (see DEPLOY.md)
 
+// Day-cluster colors (list headers + map pins/lines), cycled by (day-1).
+const DAY_COLORS = ['#2b6cff','#1E8E5A','#C97E00','#8b5cf6','#d64500','#0891b2','#be185d','#4d7c0f'];
+const dayColor = d => DAY_COLORS[((Number(d) || 1) - 1) % DAY_COLORS.length];
+// The picked installer's cadence, from installerMetrics — sizes the day ETA and
+// the avg/day hint. avgLogMin = minutes per meter; avgPerDay = meters/day.
+let avgLogMin = null, avgPerDay = null;
+
 function setStatus(kind, text){
   const p = $('status'), t = $('statusText');
   p.classList.remove('wait','off');
@@ -37,6 +44,37 @@ function setStatus(kind, text){
 const fullName = e => ((e.firstName||'')+' '+(e.lastName||'')).trim();
 const hNumber  = () => $('plWho').value;
 const pendingItems = () => items.filter(x => x.wlStatus !== 'done');
+// Meters/day target — at least 1, default 24.
+const targetVal = () => Math.max(1, Math.floor(Number($('plTarget').value) || 24));
+
+// A day's rough clock length: meters × avg log time + 30 lunch + 30 break.
+// Blank until this installer has a cadence on file (installerMetrics).
+function dayEta(count){
+  if(!avgLogMin || !count) return '';
+  const mins = count * avgLogMin + 60;             // + lunch + break
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  return ` · ~${h}h${m ? ' ' + m + 'm' : ''} incl. lunch + break`;
+}
+
+// The picked installer's cadence: fills the avg/day hint beside the target field.
+async function showAvgDay(){
+  const el = $('plAvgDay');
+  avgLogMin = null; avgPerDay = null;
+  if(el) el.textContent = '';
+  const h = hNumber();
+  if(!h) return;
+  try{
+    const r = await apiGet('installerMetrics', { hNumber: h });
+    const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
+    if(m){
+      avgPerDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
+      avgLogMin = (m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin);
+    }
+    if(el) el.textContent = avgPerDay
+      ? `their avg ${avgPerDay}/day${avgLogMin ? ` · ~${avgLogMin} min/meter` : ''}`
+      : 'no history yet';
+  } catch { if(el) el.textContent = ''; }
+}
 
 // ── roster / installer picker ───────────────────────────────────────────────
 async function loadRoster(){
@@ -84,7 +122,8 @@ function wireShape(x){
     address:x.address||'', oldJNumber:x.oldJNumber||'',
     wlStatus:x.wlStatus||'pending', order:x.order,
     lat:x.lat, lng:x.lng,
-    createdAt:x.createdAt||'', updatedAt:x.updatedAt||'' };
+    createdAt:x.createdAt||'', updatedAt:x.updatedAt||'',
+    day:(x.day == null || x.day === '') ? '' : Number(x.day) };
 }
 
 async function loadList(){
@@ -103,7 +142,8 @@ async function loadList(){
       order: i * 10,
       lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
       lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
-      createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||'') })));
+      createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
+      day: (o.day === '' || o.day == null) ? '' : Number(o.day) })));
     setStatus('ok','Synced');
     toast(`Loaded ${items.length} orders ✓`);
   } catch { setStatus('off','Error'); toast('Load failed — check signal'); }
@@ -169,23 +209,31 @@ async function optimize(){
   // opt-in). A set value makes geocoding local-first, Google/ORS only on a miss.
   const geocodeUrl = String($('plGeo').value || '').trim();
   store.set('plannerGeocode', geocodeUrl);
+  const target = targetVal();
   const btn = $('plOptimize'), prog = $('plProg');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
     const home = await homePin(geocodeUrl);
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note } =
-      await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl });
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note,
+            dayOf, dayFallback } =
+      await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl, target });
     const doneIds = items.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const seq = [...orderedIds, ...parkedIds, ...doneIds].map(id => byId[id]).filter(Boolean);
-    seq.forEach((x, i) => { x.order = i * 10; x.updatedAt = stamp(); });
+    seq.forEach((x, i) => {
+      x.order = i * 10; x.updatedAt = stamp();
+      x.day = (dayOf && dayOf[x.id]) ? dayOf[x.id] : '';   // parked/done stay unassigned
+    });
     items = seq;
     for(const x of items) await idb.put('worklist', x);
     render();
     const short = s => String(s || '').length > 70 ? String(s).slice(0, 70) + '…' : String(s || '');
     const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
+    const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     toast((mode === 'home' ? 'Route ends near the anchor ✓' : 'Route starts at the first order ✓')
+      + (days > 1 ? ` · ${days} days of ${target}` : '')
+      + (dayFallback ? ' — set an end-near address so each day ends near home' : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked below` : '')
@@ -228,7 +276,20 @@ function render(){
   }
   const card = document.createElement('div');
   card.className = 'card';
+  let curDay = null;
   [...pending, ...done].forEach((item, i) => {
+    // Day-group header before the first order of each day (pending only).
+    const d = item.wlStatus === 'done' ? null : (item.day || null);
+    if(d && d !== curDay){
+      curDay = d;
+      const count = pending.filter(p => (p.day || null) === d).length;
+      const hdr = document.createElement('div');
+      hdr.className = 'plday';
+      hdr.innerHTML = `<span class="plday-dot" style="background:${dayColor(d)}"></span>`
+        + `Day ${d} · ${count} meter${count === 1 ? '' : 's'} — ends near home`
+        + `<span class="plday-eta">${esc(dayEta(count))}</span>`;
+      card.appendChild(hdr);
+    }
     const row = document.createElement('div');
     row.className = 'plrow' + (item.wlStatus === 'done' ? ' pldone' : '');
     const located = !!coordsOf(item);
@@ -281,20 +342,35 @@ function renderMap(){
     mapLayer = L.layerGroup().addTo(map);
   }
   mapLayer.clearLayers();
-  const pts = [], all = [];
+  const all = [];
+  // Polyline points grouped by day (each day drawn in its own color so the
+  // office can see every day finish back toward home). Ungrouped when there's
+  // no day split — one neutral line.
+  const segs = {};
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);
     if(!c) return;
     const parked = isParked(item);
-    if(!parked) pts.push([c.lat, c.lng]);       // polyline + numbering: routed only
+    const day = item.day || 0;
+    const color = day ? dayColor(day) : '#2b6cff';
+    if(!parked){                                  // polyline + numbering: routed only
+      (segs[day] = segs[day] || []).push([c.lat, c.lng]);
+    }
     all.push([c.lat, c.lng]);
-    L.marker([c.lat, c.lng], { icon: L.divIcon({
+    const marker = L.marker([c.lat, c.lng], { icon: L.divIcon({
       className: 'plpin' + (parked ? ' plpin-parked' : ''),
-      html:`<span>${parked ? '!' : i + 1}</span>`, iconSize:[26,26], iconAnchor:[13,13] }) })
-      .bindTooltip(`${parked ? '⚠ parked — ' : (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}`)
+      html:`<span>${parked ? '!' : i + 1}</span>`,
+      iconSize:[26,26], iconAnchor:[13,13] }) })
+      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}`)
       .addTo(mapLayer);
+    // Tint the routed pin by day (parked keeps the muted grey from CSS).
+    if(!parked && day){ const el = marker.getElement(); if(el) el.style.background = color; }
   });
-  if(pts.length > 1) L.polyline(pts, { weight: 3, opacity: .7 }).addTo(mapLayer);
+  Object.keys(segs).forEach(day => {
+    const pts = segs[day];
+    if(pts.length > 1) L.polyline(pts, { weight: 3, opacity: .75,
+      color: Number(day) ? dayColor(day) : '#2b6cff' }).addTo(mapLayer);
+  });
   if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.2));
 }
 
@@ -305,6 +381,7 @@ $('plWho').onchange = async () => {
   let addr = '';
   try{ addr = (JSON.parse(store.get('plannerHome:' + h) || 'null') || {}).addr || ''; } catch {}
   $('plHome').value = addr;
+  showAvgDay();            // pull their avg/day reference for the target field
   await setItems([]);      // don't mix installers — load or paste fresh
 };
 $('plLoad').onclick = loadList;

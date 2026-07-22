@@ -148,6 +148,17 @@ const DISPATCH_HEADERS = ['id','requestTime','oldJNumber','installer','completed
 // hourly avgDispatchTimeJob trigger (and any editor run). Room for more later.
 const METRICS_HEADERS = ['metric','value','updated'];
 
+// Per-installer lifetime analytics, one row per installer keyed on the employee
+// H number (name is a display label only, mirroring Worklist). Rolled up from
+// the Tracker per-day rows + Days bookends (+ a trailing-window Stops gap scan
+// for avgLogMin) by refreshInstallerMetrics — incrementally at end-of-day and in
+// bulk via backfillInstallerMetrics(). avgPerDay/avgLogMin feed the route
+// planner's target field (see js/route.js multi-day solve). Adding this tab
+// means re-running setupSheets() once.
+const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay',
+  'daysWorked','hoursWorked','totalLogs','installs','utis','visited','unaccounted',
+  'downtimeMin','avgLogMin','avgPerDay','avgPerHour','updated'];
+
 // One row per planned worklist order, keyed per installer on the employee
 // H number (names can collide, H numbers can't; installer is a readable label
 // filled from the roster at upload time). A flat copy of the phone's IndexedDB
@@ -155,8 +166,12 @@ const METRICS_HEADERS = ['metric','value','updated'];
 // Download — the sheet copy is a transfer/backup medium, the phone's IndexedDB
 // stays the working copy. `order` is the manual sort position, wlStatus
 // 'pending'|'done', timestamps naive Toronto strings.
+// `day` (appended last so older sheets migrate cleanly) is the route planner's
+// multi-day cluster number (1-based; '' = unassigned) — carried through the sync
+// so the phone worklist shows Day 1 / Day 2 dividers. Adding it means re-running
+// setupSheets() once.
 const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
-  'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng'];
+  'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng','day'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -184,6 +199,7 @@ function setupSheets() {
   ensureTab(ss, 'BoatDays', BOATDAYS_HEADERS);
   ensureTab(ss, 'Dispatch', DISPATCH_HEADERS);
   ensureTab(ss, 'Metrics', METRICS_HEADERS);
+  ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
@@ -325,6 +341,7 @@ function doGet(e) {
   if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
   if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
+  if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber) });
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -854,6 +871,11 @@ function endOfDay(b) {
 
   writeTrackerAndTiming(s);
 
+  // Roll this installer's lifetime metrics forward. Re-sums their Tracker/Days
+  // rows (not a delta add), so a re-close never double-counts. Cheap: the tabs
+  // are already memoized from buildDaySummary's reads.
+  if (eodId) refreshInstallerMetrics(eodId, s.installer);
+
   // The PDF is rendered on the phone from this summary (offline-capable) — the
   // spine no longer builds it. Return the summary only.
   return { ok: true, summary: s };
@@ -907,6 +929,10 @@ function regenerateDayRows(date, installer, installerId) {
     weather: prev ? prev.weather : '', notes: prev ? prev.notes : '',
     workType: prev ? prev.workType : ''
   }));
+  // Keep the lifetime metrics in step with the rebuilt day (archive/restore
+  // changed the counts). Resolve H from the passed id, else map the name.
+  const mh = idOk || hOfName(installer);
+  if (mh) refreshInstallerMetrics(mh, installer);
 }
 
 /** Snapshot a boat's crew for one day into BoatDays — one row per (date, boatNumber),
@@ -1076,7 +1102,8 @@ function saveWorklist(b) {
     o.wlStatus === 'done' ? 'done' : 'pending',
     i * 10,
     o.createdAt || '', o.updatedAt || '',
-    o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng) ]));
+    o.lat == null ? '' : Number(o.lat), o.lng == null ? '' : Number(o.lng),
+    (o.day == null || o.day === '') ? '' : Number(o.day) ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;
@@ -2047,6 +2074,131 @@ function readMetric(name) {
 function ensureMetricsTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss.getSheetByName('Metrics')) ensureTab(ss, 'Metrics', METRICS_HEADERS);
+}
+
+// ── Per-installer lifetime metrics (InstallerMetrics tab) ───────────────────
+// Lazy tab creator, mirroring ensureMetricsTab, so a refresh can't throw on a
+// sheet where setupSheets() hasn't been re-run yet.
+function ensureInstallerMetricsTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName('InstallerMetrics')) ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
+}
+
+/** Roll up ONE installer's lifetime metrics and upsert their InstallerMetrics
+ *  row (keyed on H number). Re-sums the Tracker per-day rows + Days bookends
+ *  (name-keyed, sameName — same-name installers merge, the app's standing
+ *  limitation) rather than adding a delta, so re-closing or regenerating a day
+ *  is naturally idempotent. avgLogMin comes from a bounded trailing-window Stops
+ *  gap scan (installerAvgLogMin). Cheap when called inside a request that already
+ *  read Stops/Downtime/Tracker (all memoized). Called at end-of-day, on a closed-
+ *  day rebuild, and for every installer by backfillInstallerMetrics(). */
+function refreshInstallerMetrics(hNumber, name) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  if (!h) return;
+  const nm = String(name == null ? '' : name).trim();
+  ensureInstallerMetricsTab();
+  const gv = v => Number(v) || 0;
+
+  const trk = rows('Tracker').filter(r => sameName(r.installer, nm));
+  let installs = 0, utis = 0, visited = 0, unacc = 0, dtMin = 0, firstDay = '', lastDay = '';
+  trk.forEach(r => {
+    installs += gv(r.installed); utis += gv(r.uti);
+    visited += gv(r.visited); unacc += gv(r.unaccounted);
+    dtMin += gv(r.downtimeTotalMin);
+    const d = dateOf(r.date);
+    if (d) { if (!firstDay || d < firstDay) firstDay = d; if (!lastDay || d > lastDay) lastDay = d; }
+  });
+  const daysWorked = trk.length;
+  const totalLogs = installs + utis + visited + unacc;
+
+  let hoursWorked = 0;
+  rows('Days').filter(r => sameName(r.installer, nm)).forEach(r => {
+    const dep = clockSec(r.departure), ret = clockSec(r.returned);
+    if (dep != null && ret != null && ret > dep) hoursWorked += (ret - dep) / 3600;
+  });
+  hoursWorked = Math.round(hoursWorked * 10) / 10;
+
+  const avgLogMin = installerAvgLogMin(nm);
+  const meters = installs + utis;   // the "meter" work the target field counts
+  const avgPerDay  = daysWorked ? Math.round(meters / daysWorked) : '';
+  const avgPerHour = hoursWorked > 0 ? Math.round((meters / hoursWorked) * 10) / 10 : '';
+
+  upsertByHeader('InstallerMetrics', 'hNumber', h, {
+    hNumber: h, name: nm, firstDay: firstDay, lastDay: lastDay,
+    daysWorked: daysWorked, hoursWorked: hoursWorked, totalLogs: totalLogs,
+    installs: installs, utis: utis, visited: visited, unaccounted: unacc,
+    downtimeMin: dtMin, avgLogMin: avgLogMin == null ? '' : avgLogMin,
+    avgPerDay: avgPerDay, avgPerHour: avgPerHour, updated: now()
+  });
+}
+
+/** Mean minutes between consecutive logged stops for an installer over a trailing
+ *  window (default 30 days) — the "avg log time" the planner sizes days with.
+ *  Same-day consecutive printable-stop gaps summed, minus the window's LUNCH/BREAK
+ *  minutes (so lunch/break, which the planner adds back explicitly, don't inflate
+ *  the per-meter cadence), divided by the gap count. Returns null with no gaps. */
+function installerAvgLogMin(name, windowDays) {
+  const nm = String(name == null ? '' : name).trim();
+  if (!nm) return null;
+  const days = windowDays || 30;
+  const to = today();
+  const from = Utilities.formatDate(new Date(Date.now() - days * 86400000), TIMEZONE, 'yyyy-MM-dd');
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const byDate = {};
+  rows('Stops').forEach(r => {
+    if (!sameName(r.installer, nm)) return;
+    if (!printable[String(r.status || '').trim().toUpperCase()]) return;
+    const d = dateOf(r.timestamp);
+    if (!d || d < from || d > to) return;
+    const sec = secOfDay(r.timestamp);
+    if (sec == null) return;
+    (byDate[d] = byDate[d] || []).push(sec);
+  });
+  let breakMin = 0;
+  rows('Downtime').forEach(r => {
+    const c = String(r.category || '').trim().toUpperCase();
+    if (c !== 'LUNCH' && c !== 'BREAK') return;
+    if (!sameName(r.installer, nm)) return;
+    const d = dateOf(r.timestamp);
+    if (!d || d < from || d > to) return;
+    breakMin += Number(r.minutes) || 0;
+  });
+  let sum = 0, cnt = 0;
+  Object.keys(byDate).forEach(d => {
+    const secs = byDate[d].sort((a, b) => a - b);
+    for (let i = 1; i < secs.length; i++) {
+      const g = (secs[i] - secs[i - 1]) / 60;
+      if (g > 0) { sum += g; cnt++; }
+    }
+  });
+  if (!cnt) return null;
+  return Math.round(Math.max(0, sum - breakMin) / cnt);
+}
+
+/** One installer's metrics row (H-number filter), or all rows when hNumber is
+ *  blank — the installerMetrics GET. Tolerates a not-yet-created tab. */
+function installerMetricsRead(hNumber) {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('InstallerMetrics')) return [];
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  const all = rows('InstallerMetrics');
+  return h ? all.filter(r => String(r.hNumber).trim() === h) : all;
+}
+
+/** Employee H number for a display name (first exact fullName match), or ''.
+ *  Used to attribute a name-keyed rebuild to a metrics row. Same-name employees
+ *  resolve to the first — the app's standing name-collision limitation. */
+function hOfName(name) {
+  const hit = employeesList().find(e => sameName(fullName(e), name));
+  return hit ? hit.hNumber : '';
+}
+
+/** One-time (editor-run) backfill: recompute every active installer's metrics
+ *  from all past Tracker/Days/Stops. Idempotent. Returns the installer count. */
+function backfillInstallerMetrics() {
+  ensureInstallerMetricsTab();
+  const emps = employeesList();
+  emps.forEach(e => refreshInstallerMetrics(e.hNumber, fullName(e)));
+  return emps.length;
 }
 function numOrBlank(v)  { return (v === null || v === undefined || v === '') ? '' : Number(v); }
 // Work type is binary; anything that isn't explicitly 'land' (incl. legacy blank

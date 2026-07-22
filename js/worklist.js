@@ -108,7 +108,8 @@ function wireShape(x){
     address:x.address||'', oldJNumber:x.oldJNumber||'',
     wlStatus:x.wlStatus||'pending', order:x.order,
     lat:x.lat, lng:x.lng,
-    createdAt:x.createdAt||'', updatedAt:x.updatedAt||'' };
+    createdAt:x.createdAt||'', updatedAt:x.updatedAt||'',
+    day:(x.day == null || x.day === '') ? '' : Number(x.day) };
 }
 
 async function wlUpload(){
@@ -169,7 +170,8 @@ async function wlDownload(){
         order: i * 10,
         lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
         lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
-        createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||'') });
+        createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
+        day: (o.day === '' || o.day == null) ? '' : Number(o.day) });
     }
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
     await renderWorklist();
@@ -207,16 +209,19 @@ async function optimizeRouteHandler(){
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
   if(!confirm(`Optimize the route for ${pending.length} pending orders? This looks up each address and may take a minute the first time.`)) return;
 
+  const target = targetVal();
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
-    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note } =
-      await optimizeRoute(pending, updateRouteProgress, home);
+    const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note,
+            dayOf, dayFallback } =
+      await optimizeRoute(pending, updateRouteProgress, home, { target });
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
-    // order (e.g. 0) and collides with the new first pending stop.
+    // order (e.g. 0) and collides with the new first pending stop. `day` rides
+    // along (parked/done unassigned) so the dividers render + sync on upload.
     const all = await allSorted();
     const doneIds = all.filter(x => x.wlStatus === 'done').map(x => x.id);
     const byId = {}; all.forEach(x => { byId[x.id] = x; });
@@ -225,7 +230,9 @@ async function optimizeRouteHandler(){
       const item = byId[id];
       if(!item) continue;
       const order = (i++) * 10;
-      if(item.order !== order) await idb.put('worklist', Object.assign({}, item, { order, updatedAt: stamp() }));
+      const day = (dayOf && dayOf[id]) ? dayOf[id] : '';
+      if(item.order !== order || item.day !== day)
+        await idb.put('worklist', Object.assign({}, item, { order, day, updatedAt: stamp() }));
     }
     await renderWorklist();
     await planAdvance();
@@ -236,7 +243,10 @@ async function optimizeRouteHandler(){
     const short = s => String(s || '').length > 70 ? String(s).slice(0, 70) + '…' : String(s || '');
     const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
-    const extra = (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
+    const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
+    const extra = (days > 1 ? ` · ${days} days of ${target}` : '')
+      + (dayFallback ? ' — set a Home pin in Settings to end each day near home' : '')
+      + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
@@ -283,6 +293,7 @@ export async function openWorklist(){
   if(location.hash !== '#worklist') history.pushState({ wl:1 }, '', '#worklist');
   paintPlanToggle();
   await renderWorklist();
+  refreshAvgDay();   // best-effort avg/day hint beside the target field
   window.scrollTo(0, 0);
 }
 function hideScreen(){
@@ -305,8 +316,51 @@ export async function renderWorklist(){
     ? `${pending.length} remaining · ${done.length} completed` : '';
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
-  [...pending, ...done].forEach(item => list.appendChild(makeWlCard(item)));
+  // Day dividers (only when the office/optimize assigned days) — a header before
+  // the first pending card of each day. Done cards trail, ungrouped.
+  let curDay = null;
+  [...pending, ...done].forEach(item => {
+    const d = item.wlStatus !== 'done' ? (item.day || null) : null;
+    if(d && d !== curDay){
+      curDay = d;
+      const count = pending.filter(p => (p.day || null) === d).length;
+      const div = document.createElement('div');
+      div.className = 'wl-day';
+      div.innerHTML = `<span class="wl-day-dot"></span>Day ${d} · ${count} meter${count === 1 ? '' : 's'}`
+        + `<span class="wl-day-eta">${esc(wlDayEta(count))}</span>`;
+      list.appendChild(div);
+    }
+    list.appendChild(makeWlCard(item));
+  });
   renumberCards(list);
+}
+
+// Meters/day target (persisted per device), at least 1, default 24.
+function targetVal(){ return Math.max(1, Math.floor(Number($('wlTarget').value) || 24)); }
+
+// This installer's cadence for the avg/day hint + day ETA. Set by refreshAvgDay.
+let wlAvgLogMin = null;
+function wlDayEta(count){
+  if(!wlAvgLogMin || !count) return '';
+  const mins = count * wlAvgLogMin + 60;   // + lunch + break
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  return ` · ~${h}h${m ? ' ' + m + 'm' : ''}`;
+}
+// Pull the installer's avg/day + cadence (installerMetrics) into the hint beside
+// the target field. Online best-effort — silent offline; keeps the last value.
+async function refreshAvgDay(){
+  const el = $('wlAvgDay');
+  const c = cfg();
+  if(!c.hNumber || !navigator.onLine) return;
+  try{
+    const r = await apiGet('installerMetrics', { hNumber: c.hNumber });
+    const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
+    if(m){
+      wlAvgLogMin = (m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin);
+      const perDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
+      if(el) el.textContent = perDay ? `your avg ${perDay}/day` : '';
+    }
+  } catch {}
 }
 
 function makeWlCard(item){
@@ -657,6 +711,12 @@ export function initWorklist(opts){
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   $('wlOptimize').onclick = optimizeSecretTap;
+  // Meters/day target: restore the saved value (default 24) and persist edits.
+  $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
+  $('wlTarget').onchange = () => {
+    const v = Math.max(1, Math.floor(Number($('wlTarget').value) || 24));
+    $('wlTarget').value = String(v); store.set('wlTarget', String(v));
+  };
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);

@@ -37,6 +37,11 @@
       <div class="card">
         <label for="plWho">Installer</label>
         <select id="plWho"><option value="">— pick an installer —</option></select>
+        <label for="plTarget">Meters per day (target)</label>
+        <div class="pltargetrow">
+          <input id="plTarget" type="number" min="1" step="1" value="24" inputmode="numeric">
+          <span id="plAvgDay" class="sub"></span>
+        </div>
         <label for="plHome">Route ends near (home / yard address — optional)</label>
         <input id="plHome" type="text" autocomplete="off" placeholder="e.g. 120 Depot Rd, Bracebridge">
         <label for="plOsrm">OSRM server (road distances — see DEPLOY.md)</label>

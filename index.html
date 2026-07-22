@@ -177,6 +177,11 @@
       <button class="ghost" id="wlUpload" type="button" style="flex:1">⇪ Upload list</button>
       <button class="ghost" id="wlDownload" type="button" style="flex:1">⇩ Download list</button>
     </div>
+    <div class="wl-target">
+      <label for="wlTarget">Meters/day</label>
+      <input id="wlTarget" type="number" min="1" step="1" inputmode="numeric">
+      <span class="muted" id="wlAvgDay"></span>
+    </div>
     <button class="ghost wl-soon" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route (coming soon)</button>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
