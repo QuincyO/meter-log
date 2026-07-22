@@ -209,7 +209,10 @@ async function optimizeRouteHandler(straightLine){
   if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
   const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
-  if(!confirm(`Optimize the route for ${pending.length} pending orders? This looks up each address and may take a minute the first time.`)) return;
+  const algorithm = straightLine
+    ? 'straight-line algorithm'
+    : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
+  if(!confirm(`Optimize the route for ${pending.length} pending orders using the ${algorithm}? This looks up each address and may take a minute the first time.`)) return;
 
   const target = targetVal();
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
@@ -261,20 +264,58 @@ async function optimizeRouteHandler(straightLine){
   }
 }
 
-// ── Optimize tap gesture: normal tap vs. the road-matrix secret ──────────────
-// A normal tap optimizes on STRAIGHT-LINE distances — free beyond geocoding, so
-// everyone can use it. Five *quick* taps (≤600 ms apart) run the real Google
-// road-distance matrix for a better route — the premium path for whoever knows
-// the trick, kept undiscoverable. The 600 ms debounce is load-bearing: the
-// normal action can't fire immediately (its blocking confirm() would make the
-// five-tap secret impossible), so it waits out the streak — 5 taps in the window
-// win the road matrix, anything less falls through to straight-line.
-let _optTaps = 0, _optTapTimer = null;
-function optimizeTap(){
-  _optTaps++;
-  clearTimeout(_optTapTimer);
-  if(_optTaps >= 5){ _optTaps = 0; optimizeRouteHandler(false); return; }   // secret → road matrix
-  _optTapTimer = setTimeout(() => { _optTaps = 0; optimizeRouteHandler(true); }, 600); // normal → straight-line
+// ── Optimize press gesture: normal tap vs. the road-matrix secret ────────────
+// A normal tap uses straight-line distances. Holding for two seconds selects
+// the real road-distance matrix. Pointer release generates a click in browsers,
+// so consume that click after either path to avoid opening a second confirm.
+function bindOptimizeGesture(btn, onStraightLine, onRoadMatrix, holdMs=2000){
+  let pointerId = null, holdTimer = null, held = false, suppressPointerClick = false;
+
+  const clearPress = () => {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    pointerId = null;
+  };
+
+  btn.addEventListener('pointerdown', e => {
+    if(e.isPrimary === false || e.button !== 0) return;
+    clearPress();
+    pointerId = e.pointerId;
+    held = false;
+    suppressPointerClick = false;
+    try { btn.setPointerCapture(pointerId); } catch { /* best-effort */ }
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      held = true;
+      suppressPointerClick = true;
+      onRoadMatrix();
+    }, holdMs);
+  });
+
+  btn.addEventListener('pointerup', e => {
+    if(e.pointerId !== pointerId) return;
+    const shortTap = !held;
+    clearPress();
+    held = false;
+    try { btn.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    suppressPointerClick = true;
+    if(shortTap) onStraightLine();
+  });
+
+  btn.addEventListener('pointercancel', e => {
+    if(e.pointerId !== pointerId) return;
+    clearPress();
+    held = false;
+    suppressPointerClick = false;
+  });
+
+  btn.addEventListener('click', e => {
+    if(suppressPointerClick){ e.preventDefault(); suppressPointerClick = false; return; }
+    onStraightLine(); // keyboard, assistive-tech, or click-only activation
+  });
+  btn.addEventListener('contextmenu', e => {
+    if(pointerId !== null || held) e.preventDefault();
+  });
 }
 
 // Live progress line for the long optimize run (locate → geocode → matrix → solve).
@@ -764,7 +805,9 @@ export function initWorklist(opts){
   $('wlViewRoute').onclick = openWorklistRoute;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
-  $('wlOptimize').onclick = optimizeTap;
+  bindOptimizeGesture($('wlOptimize'),
+    () => optimizeRouteHandler(true),
+    () => optimizeRouteHandler(false));
   // Meters/day target: restore the saved value (default 24) and persist edits.
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').onchange = () => {
