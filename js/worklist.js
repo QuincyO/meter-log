@@ -203,7 +203,7 @@ async function homePin(){
   return null;
 }
 
-async function optimizeRouteHandler(){
+async function optimizeRouteHandler(straightLine){
   if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
   const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
@@ -216,7 +216,7 @@ async function optimizeRouteHandler(){
     const home = await homePin();
     const { orderedIds, parkedIds, usedFallback, fallbackReason, mode, geoReason, note,
             dayOf, dayFallback } =
-      await optimizeRoute(pending, updateRouteProgress, home, { target });
+      await optimizeRoute(pending, updateRouteProgress, home, { target, straightLine });
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
     // the optimized pending sequence, then parked ones, then done ones trailing.
     // Done orders must be renumbered too — otherwise a done stop keeps its old
@@ -259,18 +259,20 @@ async function optimizeRouteHandler(){
   }
 }
 
-// ── secret: Optimize is "coming soon" ───────────────────────────────────────
-// A normal tap does nothing (the button reads "(coming soon)" and looks greyed
-// out) — this keeps installers from burning geocoding/road-matrix API budget on
-// needless re-optimizes. Five *quick* taps (≤600 ms apart) still run the real
-// optimizer for whoever knows the trick. Intentionally undiscoverable; the streak
-// resets the moment the taps slow down.
+// ── Optimize tap gesture: normal tap vs. the road-matrix secret ──────────────
+// A normal tap optimizes on STRAIGHT-LINE distances — free beyond geocoding, so
+// everyone can use it. Five *quick* taps (≤600 ms apart) run the real Google
+// road-distance matrix for a better route — the premium path for whoever knows
+// the trick, kept undiscoverable. The 600 ms debounce is load-bearing: the
+// normal action can't fire immediately (its blocking confirm() would make the
+// five-tap secret impossible), so it waits out the streak — 5 taps in the window
+// win the road matrix, anything less falls through to straight-line.
 let _optTaps = 0, _optTapTimer = null;
-function optimizeSecretTap(){
+function optimizeTap(){
   _optTaps++;
   clearTimeout(_optTapTimer);
-  if(_optTaps >= 5){ _optTaps = 0; optimizeRouteHandler(); return; }
-  _optTapTimer = setTimeout(() => { _optTaps = 0; }, 600);
+  if(_optTaps >= 5){ _optTaps = 0; optimizeRouteHandler(false); return; }   // secret → road matrix
+  _optTapTimer = setTimeout(() => { _optTaps = 0; optimizeRouteHandler(true); }, 600); // normal → straight-line
 }
 
 // Live progress line for the long optimize run (locate → geocode → matrix → solve).
@@ -713,7 +715,7 @@ export function initWorklist(opts){
   $('wlBack').onclick = closeWorklist;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
-  $('wlOptimize').onclick = optimizeSecretTap;
+  $('wlOptimize').onclick = optimizeTap;
   // Meters/day target: restore the saved value (default 24) and persist edits.
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').onchange = () => {

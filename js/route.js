@@ -685,6 +685,10 @@ function orderChunkHome(D, locIdxChunk){
 // omitted = the phone path (budget-guarded Google matrix). Both paths back up
 // through OpenRouteService (config.js ORS_API_KEY) before straight-line, and
 // geocoding backs up Google → ORS → park.
+// opts.straightLine: skip the road-distance matrix entirely and solve on
+// straight-line (haversine) distances — the phone's default Optimize button, so
+// a normal tap costs nothing beyond geocoding. Not a fallback (usedFallback
+// stays false); the five-tap secret leaves it off to get the real road matrix.
 // opts.target: meters/day. When > 0 the route is split into day-clusters of that
 // size, each re-solved home-pinned so the day ENDS near home (the master route is
 // cut into contiguous farthest→nearest chunks; a lone near-home order lands in a
@@ -749,22 +753,32 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const mode = homeC ? 'home' : 'first';
   const coords = homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
 
-  onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-  // Matrix: primary (OSRM on the planner, else budget-guarded Google) →
-  // OpenRouteService backup → straight-line. ORS is only reached when the
-  // primary returns nothing; a straight-line solve then means BOTH failed.
-  let res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
-                         : await buildMatrix(coords, onProgress);
-  if(!res.D && ORS_API_KEY){
-    const ors = await orsMatrix(coords);
-    if(ors.D){ notes.push('roads'); res = ors; }
-    else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
-  }
-  let D = res.D, usedFallback = false, fallbackReason = '';
-  if(!D){
+  // Matrix source. straightLine (the phone's default Optimize button) solves on
+  // straight-line distances up front — no road-matrix/ORS call at all, so no API
+  // cost beyond geocoding. Otherwise: primary (OSRM on the planner, else
+  // budget-guarded Google) → OpenRouteService backup → straight-line fallback.
+  // ORS is only reached when the primary returns nothing; a fallback straight-line
+  // solve then means BOTH failed.
+  let D, usedFallback = false, fallbackReason = '';
+  if(opts.straightLine){
+    // Deliberate choice, NOT a degraded fallback: leave usedFallback false so the
+    // toast doesn't warn "straight-line (…)".
     D = haversineMatrix(coords);
-    usedFallback = true;
-    fallbackReason = res.error || 'road data unavailable';
+  } else {
+    onProgress && onProgress({ phase:'matrix', done:0, total:0 });
+    let res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
+                           : await buildMatrix(coords, onProgress);
+    if(!res.D && ORS_API_KEY){
+      const ors = await orsMatrix(coords);
+      if(ors.D){ notes.push('roads'); res = ors; }
+      else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
+    }
+    D = res.D;
+    if(!D){
+      D = haversineMatrix(coords);
+      usedFallback = true;
+      fallbackReason = res.error || 'road data unavailable';
+    }
   }
 
   onProgress && onProgress({ phase:'solve' });
