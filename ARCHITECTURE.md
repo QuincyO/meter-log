@@ -294,6 +294,14 @@ without one. And it rewrites **Cache Storage only** — never `localStorage`
 details, no dropped un-synced writes. The only `localStorage` change is an added
 `shellRefreshed` timestamp behind the version line.
 
+It is also **static files only — the refresh makes no spine calls at all**
+(measured: 0 Apps Script requests across the whole `REFRESH_SHELL` run, against
+60 files re-downloaded). `SHELL` is same-origin relative paths and the `/exec`
+endpoint has never been in it, so there is nothing in the list that could reach
+the Sheet. The reload afterwards is an ordinary app open and does whatever any
+open does — the usual `roster`/`range` read plus a queue flush — which is why
+`tests/cache-refresh.test.mjs` pins `SHELL` to relative paths.
+
 ---
 
 ## Frontend module layout

@@ -1,0 +1,4 @@
+
+DevTools listening on ws://127.0.0.1:9333/devtools/browser/0c7b4bde-ac54-40cc-a916-63b41bed9e3f
+[23028:30152:0723/124119.752:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[23028:30152:0723/124120.015:ERROR:components\device_event_log\device_event_log_impl.cc:246] [12:41:20.008] USB: usb_service_win.cc:108 SetupDiGetDeviceProperty({{A45C254E-DF1C-4EFD-8020-67D146A850E0}, 6}) failed: Element not found. (0x490)

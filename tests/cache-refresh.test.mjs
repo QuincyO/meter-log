@@ -41,6 +41,21 @@ test('the worker still owns the one SHELL list the refresh walks', () => {
   }
 });
 
+test('the force update is static files only — it never calls the spine', () => {
+  // Measured: the refresh makes 0 Apps Script / Sheets calls. It can only stay
+  // that way while SHELL is same-origin relative paths, so an absolute URL
+  // sneaking in (a CDN, or worse the /exec endpoint) has to fail here.
+  const shell = worker.slice(worker.indexOf('const SHELL = ['), worker.indexOf('];'));
+  assert.doesNotMatch(shell, /:\/\//, 'SHELL must hold only same-origin relative paths');
+  assert.doesNotMatch(shell, /script\.google\.com|\/exec/);
+  for (const line of shell.split('\n').filter(l => l.includes("'")))
+    for (const entry of line.match(/'[^']+'/g) || [])
+      assert.match(entry, /^'\.\//, `SHELL entry ${entry} is not a relative path`);
+  // The refresh path itself posts nothing anywhere.
+  const fn = worker.slice(worker.indexOf('async function refreshShell'), worker.indexOf("self.addEventListener('message'"));
+  assert.doesNotMatch(fn, /method:\s*'POST'|apiPost|WEB_APP_URL/);
+});
+
 test('the Settings sheet carries the button and its version line', () => {
   assert.match(indexHtml, /id="refreshApp"/);
   assert.match(indexHtml, /id="appVersionHint"/);
