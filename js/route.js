@@ -94,7 +94,7 @@ export function isParked(item){
 // path accepts a recent coarse fix. Never rejects: denied/unanswered location
 // prompts resolve null so optimization can fall back instead of hanging.
 function currentPosition(maxMs, fresh=false){
-  if(!('geolocation' in navigator)) return Promise.resolve(null);
+  if(typeof navigator === 'undefined' || !('geolocation' in navigator)) return Promise.resolve(null);
   const fix = new Promise(res => navigator.geolocation.getCurrentPosition(
     p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
     () => res(null),
@@ -142,10 +142,12 @@ async function geocodeAll(items, onProgress, center, geoUrl){
         geoFail: false, geoAmbig: undefined, updatedAt: stamp() }));
     }
     if(!c || stale){
-      const hit = await geocodeOne(item.address, center, geoUrl);
+      const hit = await geocodeOne(item.address, center, geoUrl, geoProvenance, onProgress);
       if(hit && !hit.ambig){
-        item.lat = hit.lat; item.lng = hit.lng; item.geoFail = false; item.geoAmbig = undefined;
+        item.lat = hit.lat; item.lng = hit.lng; item.geoSource = hit.source || '';
+        item.geoFail = false; item.geoAmbig = undefined;
       } else if(hit){
+        item.geoSource = hit.source || '';
         item.geoFail = false; item.geoAmbig = hit.ambig;
       } else {
         item.geoFail = true; item.geoAmbig = undefined;
@@ -154,9 +156,10 @@ async function geocodeAll(items, onProgress, center, geoUrl){
       const stored = (await idb.get('worklist', item.id)) || item;
       await idb.put('worklist', Object.assign({}, stored, {
         lat: item.lat, lng: item.lng, geoFail: item.geoFail, geoAmbig: item.geoAmbig,
+        geoSource: item.geoSource,
         updatedAt: stamp() }));
       await sleep(GEOCODE_MS);
-    }
+    } else geoProvenance.cached++;
     onProgress && onProgress({ phase:'geocode', done: ++done, total: items.length });
   }
 }
@@ -187,19 +190,42 @@ let orsGeoUsed = false;
 // a reassuring `note` so a thin local map is visible without alarming.
 let geoFellBack = false;
 
-export async function geocodeOne(address, center, geoUrl){
+function blankGeocodingProvenance(){
+  return { cached:0,
+    nominatim:{ attempted:0, resolved:0 }, google:{ attempted:0, resolved:0 },
+    ors:{ attempted:0, resolved:0 }, parked:0 };
+}
+let geoProvenance = blankGeocodingProvenance();
+
+function providerEvent(onProgress, activity, provider, status){
+  onProgress && onProgress({ phase:'provider', activity, provider, status });
+}
+
+export async function geocodeOne(address, center, geoUrl, stats=null, onProgress=null){
   const text = String(address || '').trim();
   if(!text) return null;
+  const tryProvider = async (provider, lookup) => {
+    if(stats) stats[provider].attempted++;
+    providerEvent(onProgress, 'geocoding', provider, 'attempted');
+    const hit = await lookup();
+    if(hit){
+      if(stats) stats[provider].resolved++;
+      providerEvent(onProgress, 'geocoding', provider, 'resolved');
+      return { ...hit, source:provider };
+    }
+    providerEvent(onProgress, 'geocoding', provider, 'missed');
+    return null;
+  };
   // Provider 0 (planner only): a self-hosted Nominatim, tried FIRST when its URL
   // is passed, so a normal planning run makes no external geocoding call.
   if(geoUrl){
-    const n = await nominatimGeocode(text, center, geoUrl);
+    const n = await tryProvider('nominatim', () => nominatimGeocode(text, center, geoUrl));
     if(n) return n;
   }
-  const g = await googleGeocode(text, center);
+  const g = await tryProvider('google', () => googleGeocode(text, center));
   if(g){ if(geoUrl) geoFellBack = true; return g; }
   if(ORS_API_KEY){
-    const o = await orsGeocode(text, center);
+    const o = await tryProvider('ors', () => orsGeocode(text, center));
     if(o){ orsGeoUsed = true; if(geoUrl) geoFellBack = true; return o; }
   }
   return null;
@@ -742,6 +768,7 @@ function orderChunkHome(D, locIdxChunk){
 // Home), or 'first' (the list's first order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   geoKeyError = null; orsGeoUsed = false; geoFellBack = false;
+  geoProvenance = blankGeocodingProvenance();
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -762,6 +789,8 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // which is what keeps the callers' failed/ambig toast arithmetic exact.
   const located = pendingItems.filter(x => !isParked(x));
   const parkedIds = pendingItems.filter(isParked).map(x => x.id);
+  geoProvenance.parked = parkedIds.length;
+  let routingProvenance = { method:'straight-line', provider:'haversine', fallbackReason:'' };
   // A Google key rejection only alarms the user when ORS didn't rescue the run;
   // if the backup carried it, that's reassuring `note` territory, not geoReason.
   const geoReason = (geoKeyError && !orsGeoUsed)
@@ -780,7 +809,8 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   if(located.length < 2)
     return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
       fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
-      dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false };
+      dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false,
+      provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 
   // Route anchors: an available requested phone fix pins the start and Home,
   // when present, pins the end. Otherwise legacy mode ends toward Home or pins
@@ -800,13 +830,29 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     // Deliberate choice, NOT a degraded fallback: leave usedFallback false so the
     // toast doesn't warn "straight-line (…)".
     D = haversineMatrix(coords);
+    providerEvent(onProgress, 'routing', 'haversine', 'selected');
   } else {
     onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-    let res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
-                           : await buildMatrix(coords, onProgress);
+    let primary = opts.osrmUrl ? 'osrm' : 'google-routes';
+    let res;
+    if(opts.osrmUrl && opts.osrmReady === false){
+      providerEvent(onProgress, 'routing', 'osrm', 'offline');
+      res = { error:'OSRM offline' };
+    } else if(opts.osrmUrl){
+      providerEvent(onProgress, 'routing', 'osrm', 'attempted');
+      res = await osrmMatrix(coords, opts.osrmUrl);
+      providerEvent(onProgress, 'routing', 'osrm', res.D ? 'resolved' : 'failed');
+    } else {
+      providerEvent(onProgress, 'routing', 'google-routes', 'attempted');
+      res = await buildMatrix(coords, onProgress);
+      providerEvent(onProgress, 'routing', 'google-routes', res.D ? 'resolved' : 'failed');
+    }
+    const primaryReason = res.error || '';
     if(!res.D && ORS_API_KEY){
+      providerEvent(onProgress, 'routing', 'ors', 'attempted');
       const ors = await orsMatrix(coords);
-      if(ors.D){ notes.push('roads'); res = ors; }
+      providerEvent(onProgress, 'routing', 'ors', ors.D ? 'resolved' : 'failed');
+      if(ors.D){ notes.push('roads'); res = ors; primary = 'ors'; }
       else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
     }
     D = res.D;
@@ -814,6 +860,11 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
       D = haversineMatrix(coords);
       usedFallback = true;
       fallbackReason = res.error || 'road data unavailable';
+      routingProvenance = { method:'straight-line', provider:'haversine', fallbackReason };
+      providerEvent(onProgress, 'routing', 'haversine', 'selected');
+    } else {
+      routingProvenance = { method:'matrix', provider:primary,
+        fallbackReason:primary === 'ors' ? primaryReason : '' };
     }
   }
 
@@ -846,7 +897,8 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
 
   const orderedIds = orderedSeq.map(k => located[k].id);
   return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
-    note: combineNotes(orsNote(notes), geoNote), dayOf, dayFallback };
+    note: combineNotes(orsNote(notes), geoNote), dayOf, dayFallback,
+    provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 }
 
 // "addresses"/"roads" → the reassuring toast line naming what the ORS backup
