@@ -219,6 +219,18 @@ function setupSheets() {
   ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
+  // These values are minute counts, not Sheets date serials. Find their columns
+  // by header so schema additions/reordering cannot turn a fixed column into one.
+  const installerMetrics = ss.getSheetByName('InstallerMetrics');
+  const metricHeaders = installerMetrics.getRange(1, 1, 1, installerMetrics.getLastColumn())
+    .getValues()[0].map(v => String(v));
+  const metricDataRows = installerMetrics.getMaxRows() - 1;
+  if (metricDataRows > 0) {
+    ['recent30AvgLogMin', 'boatRecent30AvgLogMin', 'landRecent30AvgLogMin'].forEach(header => {
+      const col = metricHeaders.indexOf(header);
+      if (col !== -1) installerMetrics.getRange(2, col + 1, metricDataRows, 1).setNumberFormat('0');
+    });
+  }
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"
   // into a 1899-epoch time value (which then reads back as a Date and prints a
   // date instead of a clock time on the daily log).

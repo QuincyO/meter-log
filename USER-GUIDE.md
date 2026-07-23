@@ -182,6 +182,21 @@ If the GPS address disagrees with the planned one, the form asks "GPS found a di
 
 If the office plans your day on the computer, your Download may already arrive **in optimized driving order** with every address pinned — just start at #1 and work down; no need to tap 🧭 Optimize yourself.
 
+### Desktop planner (office)
+
+On the desktop planner, the OSRM and Nominatim indicators show whether each
+local endpoint answered the browser probe; a running Docker container alone is
+not enough. Click Optimize, review the confirmation, then continue: it tells
+you how many addresses are cached or need lookup and which fallbacks are ready.
+
+- **Matrix** means a road-distance solve; **Straight-line** is the clearly shown
+  final fallback if road matrices are unavailable.
+- **Local** means local Nominatim/OSRM answered. Fresh geocoding falls back to
+  Google then ORS; desktop road routing falls back from local OSRM to ORS, never
+  Google road matrix.
+- The persistent **Last optimization** card shows the actual providers and
+  fallback used for the most recent desktop run in that browser.
+
 ---
 
 ## Checking and fixing your logs

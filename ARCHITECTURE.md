@@ -54,9 +54,15 @@ It is not Claude and not the form. Everything reads from or writes to it.
   `css/planner.css`) — the office-side half of land-route planning, desktop-first
   and installable from Chrome/Edge as an app window. Pick an installer (roster,
   keyed on H number), ⇩ Load their saved `Worklist` rows or paste orders in,
-  optimize with road distances from a **local OSRM server**
-  (`optimizeRoute(..., {osrmUrl})` — free, see DEPLOY.md §"Desktop planner +
-  local OSRM"), review the numbered route + connecting line on a Leaflet map,
+  optimize with road distances from a **local OSRM server** and automatic local
+  Nominatim geocoding (`http://localhost:5000` / `http://localhost:8080`, with
+  saved custom URLs). OSRM/Nominatim readiness badges mean their probe received
+  a usable HTTP response — not merely that a Docker container is running. A
+  pre-optimize confirmation says which cached/new addresses and matrix fallback
+  chain will be used; the completed run records its actual provider/matrix
+  provenance in persistent `localStorage['plannerLastOptimize']`. The desktop
+  planner uses local OSRM → ORS → straight-line for road routing, never Google
+  road matrix. Review the numbered route + connecting line on a Leaflet map,
   then ⇪ Upload (`saveWorklist`). Pins + order ride the sheet, so the phone's
   ⇩ Download lands a finished route with zero phone-side spend. The PC's
   IndexedDB `worklist` store is its scratch copy (cleared per installer switch).
@@ -472,7 +478,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   coords and no flags (never geocoded, or the flags were shed by a ⇩ Download
   — they never ride the sync) shows a muted "no pin" pill, derived from
   `isParked`. The flags are phone-local, never uploaded. `optimizeRoute` returns `{ orderedIds,
-  parkedIds, usedFallback, fallbackReason, mode, geoReason, note, dayOf, dayFallback }`
+  parkedIds, usedFallback, fallbackReason, mode, geoReason, note, dayOf, dayFallback,
+  provenance }`, where `provenance` records per-provider geocoding counts and
+  the actual routing method/provider/fallback reason. Its desktop options include
+  `osrmUrl` and `osrmReady`: a false `osrmReady` skips the local matrix call and
+  falls back to ORS then straight-line; it never selects Google road matrix.
   (`dayOf`/`dayFallback` are the multi-day split — see below;
   `dayOf` is `{}` when `opts.target` is unset):
   `fallbackReason` is the concrete reason the solve fell back to straight-line
