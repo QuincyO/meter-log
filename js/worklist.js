@@ -14,9 +14,13 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
+import {
+  VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
+  liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
+} from './route-variants.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let planEstimate = null;        // set by initWorklist (capture.js): async () => string
@@ -36,8 +40,17 @@ function planShape(){
     routeStartDate:$('wlRouteDate').value || nextWeekday(localDate()),
     firstStopTime:$('wlRouteTime').value || '08:00',
     paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
-    paceSource:store.get('wlPaceSource') || 'fallback'
+    paceSource:store.get('wlPaceSource') || 'fallback',
+    routeVariant:activeVariant(),
+    straightDistanceSource:store.get('wlStraightDistanceSource') || ''
   };
+}
+
+// Which saved route is live. The office picks one and it rides down with the
+// list, but the installer can flip it on the phone — a road route that looks
+// wrong from the truck is worth nothing if only the office can change it.
+function activeVariant(){
+  return store.get('wlRouteVariant') === 'straight' ? 'straight' : 'road';
 }
 function savePlanLocal(){
   const p = planShape();
@@ -51,6 +64,8 @@ function loadPlanFields(plan){
   $('wlRouteTime').value = p.firstStopTime || store.get('wlRouteTime') || '08:00';
   $('wlPace').value = String(Math.max(1, Number(p.paceMin || store.get('wlPaceMin')) || 30));
   store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
+  if(p.routeVariant) store.set('wlRouteVariant', p.routeVariant === 'straight' ? 'straight' : 'road');
+  if(p.straightDistanceSource) store.set('wlStraightDistanceSource', p.straightDistanceSource);
   savePlanLocal();
 }
 
@@ -147,8 +162,15 @@ function wireShape(x){
     appointmentDate:x.appointmentDate||'', appointmentTime:x.appointmentTime||'',
     lockedDate:x.lockedDate||'', lockedSlot:x.lockedSlot||'',
     scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
-    scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'' };
+    scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
+    ignored:isIgnored(x),
+    orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
+    orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
+    legMetersStraight:blank(x.legMetersStraight) };
 }
+// Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
+// form the sheet and the variant helpers both understand.
+function blank(v){ return (v == null || v === '' || isNaN(Number(v))) ? '' : Number(v); }
 
 async function wlUpload(){
   const c = cfg();
@@ -215,7 +237,11 @@ async function wlDownload(){
         lockedSlot:(o.lockedSlot === '' || o.lockedSlot == null) ? '' : Number(o.lockedSlot),
         scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
         scheduledSlot:(o.scheduledSlot === '' || o.scheduledSlot == null) ? '' : Number(o.scheduledSlot),
-        scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin) });
+        scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin),
+        ignored:isIgnored(o),
+        orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
+        orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
+        legMetersStraight:blank(o.legMetersStraight) });
     }
     if(r.plan) loadPlanFields(r.plan);
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
@@ -250,7 +276,7 @@ async function homePin(){
 
 async function optimizeRouteHandler(straightLine){
   if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
-  const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
+  const pending = pendingOf(await allSorted());
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
   const algorithm = straightLine
     ? 'straight-line algorithm'
@@ -264,8 +290,11 @@ async function optimizeRouteHandler(straightLine){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
+    // compareVariants only ever rides the road-matrix press. On a straight-line
+    // tap route.js ignores it outright — there is no road matrix to compare
+    // against, and this must never be the thing that causes one.
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
-      straightLine, startFromCurrent
+      straightLine, startFromCurrent, compareVariants: !straightLine
     });
     const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
@@ -274,29 +303,67 @@ async function optimizeRouteHandler(straightLine){
       x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
-    const routed = base.orderedIds.map(id => refreshedById[id]).filter(Boolean);
-    const scheduled = scheduleRouteConstraints(routed, base.orderedIds, { ...planShape(), target });
-    const orderedIds = scheduled.orderedIds, dayOf = scheduled.dayOf;
+    const planOpts = { ...planShape(), target };
+    // Schedule and price EACH route this run produced. Constraint placement can
+    // move stops, so the legs must be measured after it — and both variants are
+    // measured against the same matrix, which is what makes their totals
+    // comparable rather than road-km-versus-crow-flies.
+    const computed = {};
+    for(const v of VARIANTS){
+      const variant = base.variants[v];
+      if(!variant) continue;
+      const routedItems = variant.orderedIds.map(id => refreshedById[id]).filter(Boolean);
+      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
+      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf) };
+    }
+    const primaryVariant = base.variants.road ? 'road' : 'straight';
+    const prim = computed[primaryVariant];
+    const orderedIds = prim.orderedIds, dayOf = prim.dayOf;
     // Rewrite order = index × 10 across ALL orders (persistOrder's convention):
-    // the optimized pending sequence, then parked ones, then done ones trailing.
-    // Done orders must be renumbered too — otherwise a done stop keeps its old
-    // order (e.g. 0) and collides with the new first pending stop. `day` rides
-    // along (parked/done unassigned) so the dividers render + sync on upload.
+    // the optimized pending sequence, then parked ones, then done, then the
+    // set-aside ones trailing. Done orders must be renumbered too — otherwise a
+    // done stop keeps its old order (e.g. 0) and collides with the new first
+    // pending stop. `day` rides along (parked/done/ignored unassigned) so the
+    // dividers render + sync on upload.
     const all = refreshed;
     const doneIds = all.filter(x => x.wlStatus === 'done').map(x => x.id);
+    const ignoredIds = all.filter(x => x.wlStatus !== 'done' && isIgnored(x)).map(x => x.id);
     const byId = {}; all.forEach(x => { byId[x.id] = x; });
+    // Each computed variant's own positions over the pending set (routed first,
+    // then parked) — saved as its own columns, never renumbered by anything else.
+    const variantPos = {};
+    for(const v of Object.keys(computed)){
+      const c = computed[v], pos = {};
+      [...c.orderedIds, ...parkedIds].forEach((id, n) => {
+        pos[id] = { order:n * 10, day:c.dayOf[id] || '',
+          legMeters:c.legMeters[id] == null ? '' : c.legMeters[id] };
+      });
+      variantPos[v] = pos;
+    }
     let i = 0;
-    for(const id of [...orderedIds, ...parkedIds, ...doneIds]){
+    for(const id of [...orderedIds, ...parkedIds, ...doneIds, ...ignoredIds]){
       const item = byId[id];
       if(!item) continue;
       const order = (i++) * 10;
       const day = (dayOf && dayOf[id]) ? dayOf[id] : '';
-      const s = scheduled.scheduleById[id] || {};
-      await idb.put('worklist', Object.assign({}, item, {
+      const s = prim.scheduleById[id] || {};
+      const patch = {
         order, day, scheduledDate:s.date||'', scheduledEta:s.eta||'',
         scheduledSlot:s.slot||'', scheduledWaitMin:s.waitMin||'', updatedAt:stamp()
-      }));
+      };
+      // Only the variants this run recomputed are touched: a straight-line tap
+      // leaves an earlier road route exactly where it was (it stays offerable
+      // while it still covers the same orders) instead of quietly deleting it.
+      for(const v of Object.keys(variantPos)){
+        const f = VARIANT_FIELDS[v], p = variantPos[v][id];
+        patch[f.order] = p ? p.order : '';
+        patch[f.day] = p ? p.day : '';
+        patch[f.legMeters] = p ? p.legMeters : '';
+      }
+      await idb.put('worklist', Object.assign({}, item, patch));
     }
+    store.set('wlRouteVariant', primaryVariant);
+    if(base.variants.straight) store.set('wlStraightDistanceSource', base.straightDistanceSource);
     await renderWorklist();
     await planAdvance();
     // Parked = wouldn't map (may still carry its last good pin); ambiguous =
@@ -307,7 +374,9 @@ async function optimizeRouteHandler(straightLine){
     const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
-    const extra = (days > 1 ? ` · ${days} days of ${target}` : '')
+    const totalM = Object.values(prim.legMeters).reduce((a, b) => a + b, 0);
+    const extra = ` · ${fmtKm(totalM)}`
+      + (days > 1 ? ` · ${days} days of ${target}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
@@ -450,32 +519,107 @@ window.addEventListener('popstate', showHashScreen);
 // ── list rendering ──────────────────────────────────────────────────────────
 export async function renderWorklist(){
   const items = await allSorted();
-  const pending = items.filter(x => x.wlStatus !== 'done');
+  const pending = pendingOf(items);
   const done    = items.filter(x => x.wlStatus === 'done');
+  const ignored = items.filter(x => x.wlStatus !== 'done' && isIgnored(x));
   const counts = $('wlCounts');
   if(counts) counts.textContent = items.length
-    ? `${pending.length} remaining · ${done.length} completed` : '';
+    ? [`${pending.length} remaining`,
+       ignored.length ? `${ignored.length} set aside` : '',
+       `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
+  paintVariantSwitch(items);
   if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
   // Day dividers (only when the office/optimize assigned days) — a header before
-  // the first pending card of each day. Done cards trail, ungrouped.
+  // the first pending card of each day. Done cards trail, ungrouped, and the
+  // set-aside ones sit under their own header at the very bottom.
+  const variant = activeVariant();
   let curDay = null;
   [...pending, ...done].forEach(item => {
-    const d = item.wlStatus !== 'done' ? (item.day || null) : null;
+    const d = isPending(item) ? (item.day || null) : null;
     if(d && d !== curDay){
       curDay = d;
       const count = pending.filter(p => (p.day || null) === d).length;
       const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
+      const km = liveDayMeters(items, variant, d);
       const div = document.createElement('div');
       div.className = 'wl-day';
+      div.title = 'Distance covers the drive out and between stops, not the drive home.';
       div.innerHTML = `<span class="wl-day-dot"></span>Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
+        + (km == null ? '' : ` · ${esc(fmtKm(km))}`)
         + `<span class="wl-day-eta">${esc(wlDayEta(count))}</span>`;
       list.appendChild(div);
     }
     list.appendChild(makeWlCard(item));
   });
+  if(ignored.length){
+    const div = document.createElement('div');
+    div.className = 'wl-day wl-ignored-head';
+    div.innerHTML = `Set aside · ${ignored.length} order${ignored.length === 1 ? '' : 's'}`
+      + '<span class="wl-day-eta">not routed — still saved</span>';
+    list.appendChild(div);
+    ignored.forEach(item => list.appendChild(makeWlCard(item)));
+  }
   renumberCards(list);
+}
+
+function routeTotalText(items){
+  return routeTotalSummary(items, activeVariant(), store.get('wlStraightDistanceSource') || '');
+}
+
+// The road / straight-line switch. A variant with no saved sequence — or one
+// whose sequence no longer covers the orders on hand — is disabled rather than
+// hidden, so it is obvious that a second route exists to be had.
+function paintVariantSwitch(items){
+  const box = $('wlVariant');
+  if(!box) return;
+  const active = activeVariant();
+  const src = store.get('wlStraightDistanceSource') || '';
+  let any = false;
+  for(const v of VARIANTS){
+    const btn = $(v === 'road' ? 'wlVariantRoad' : 'wlVariantStraight');
+    if(!btn) continue;
+    const s = variantSummary(items, v, { active:v === active, straightDistanceSource:src });
+    const on = s.selectable && v === active;
+    btn.disabled = !s.selectable;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.title = s.stale ? 'Saved, but the orders have changed since — optimize again to use it'
+      : s.selectable ? 'Use this route'
+      : 'Not worked out yet — hold Optimize to get road distances';
+    btn.innerHTML = `<span class="wl-variant-name">${esc(s.label)}</span>`
+      + `<span class="wl-variant-km">${esc(s.text)}</span>`;
+    if(s.selectable) any = true;
+  }
+  box.classList.toggle('hide', !any);
+}
+
+async function switchVariant(v){
+  if(v === activeVariant()) return;
+  const items = await allSorted();
+  if(!variantSelectable(items, v)) return;
+  let next;
+  try { next = applyVariant(items, v, { ...planShape(), target:targetVal() }); }
+  catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
+  const now = stamp();
+  for(const item of next) await idb.put('worklist', Object.assign({}, item, { updatedAt:now }));
+  store.set('wlRouteVariant', v);
+  toast(`${VARIANT_LABELS[v]} route in use ✓`);
+  await renderWorklist();
+  await planAdvance();
+}
+
+// Set an order aside (or bring it back). It leaves the route, the day counts and
+// plan mode, but stays on the list and on the sheet — the nightly sweep only
+// clears completed orders, so nothing is lost by setting one aside.
+async function toggleIgnored(item){
+  const stored = (await idb.get('worklist', item.id)) || item;
+  const next = !isIgnored(stored);
+  await idb.put('worklist', Object.assign({}, stored, { ignored:next, updatedAt:stamp() }));
+  toast(next ? 'Set aside — left out of the route' : 'Back in the route');
+  await renderWorklist();
+  await planAdvance();
 }
 
 // Meters/day target (persisted per device), at least 1, default 24.
@@ -532,7 +676,7 @@ async function toggleOrderLock(item){
     await idb.put('worklist', Object.assign({}, stored, { lockedDate:'', lockedSlot:'', updatedAt:stamp() }));
     toast('Position unlocked');
   } else {
-    const pending = (await allSorted()).filter(x => x.wlStatus !== 'done');
+    const pending = pendingOf(await allSorted());
     const { day, slot } = currentRoutePlacement(pending, stored.id, targetVal());
     const date = stored.scheduledDate || stored.appointmentDate || addWorkdays(planShape().routeStartDate, day - 1);
     await idb.put('worklist', Object.assign({}, stored, { lockedDate:date, lockedSlot:slot, updatedAt:stamp() }));
@@ -542,8 +686,16 @@ async function toggleOrderLock(item){
 }
 
 function makeWlCard(item){
+  const ignored = item.wlStatus !== 'done' && isIgnored(item);
+  // A set-aside order is not part of the route, so it gets no drag handle, no
+  // position number, and no Use → — only the way back into the route.
+  // `wl-routable` is what the numbering and drag-target queries select on: done
+  // and set-aside cards must be neither numbered nor a drop target.
+  const routable = item.wlStatus !== 'done' && !ignored;
   const card = document.createElement('div');
-  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '') + (item.lockedDate ? ' locked' : '');
+  card.className = 'wl-card' + (item.wlStatus==='done' ? ' wl-done-card' : '')
+    + (ignored ? ' wl-ignored-card' : '') + (routable ? ' wl-routable' : '')
+    + (item.lockedDate ? ' locked' : '');
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
   const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
@@ -560,22 +712,24 @@ function makeWlCard(item){
     : isParked(item) ? ' <span class="wl-flag wl-flag-mute" title="Not looked up yet — optimize will pin it">no pin</span>'
     : '';
   const doneTag = item.wlStatus==='done' ? ' <span style="color:var(--install);font-size:13px">✓ done</span>' : '';
+  const asideTag = ignored ? ' <span class="wl-flag wl-flag-mute" title="Left out of the route — still saved">set aside</span>' : '';
   // Cards deliberately show only WO# + address (+ the routing pill/chips) —
   // glanceable while driving a route.
   card.innerHTML = `
-    ${item.wlStatus !== 'done' ? (item.lockedDate
+    ${routable ? (item.lockedDate
       ? '<span class="wl-pos" aria-hidden="true"></span>'
       : '<button class="wl-handle" type="button" aria-label="Drag to reorder">⠿</button><span class="wl-pos" aria-hidden="true"></span>') : ''}
     <div class="wl-main">
-      <strong>${title}</strong>${doneTag}${pill}
+      <strong>${title}</strong>${doneTag}${asideTag}${ignored ? '' : pill}
       ${addr ? `<div class="wl-body">${addr}</div>` : ''}
       <div class="wl-badges">${appointmentBadge(item)}${scheduleBadge(item)}${item.lockedDate ? `<span class="wl-badge">🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
       ${cands ? `<div class="wl-chips wl-towns">${cands.map(c =>
         `<button class="chip" type="button">${esc(c.label)}</button>`).join('')}</div>` : ''}
     </div>
     <div class="wl-actions">
-      ${item.wlStatus !== 'done' ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
-      ${item.wlStatus !== 'done' ? `<button class="wl-lock${item.lockedDate ? ' on' : ''}" data-act="lock" type="button" aria-label="${item.lockedDate ? 'Unlock position' : 'Lock current position'}">${item.lockedDate ? '🔒' : '🔓'}</button>` : ''}
+      ${routable ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
+      ${routable ? `<button class="wl-lock${item.lockedDate ? ' on' : ''}" data-act="lock" type="button" aria-label="${item.lockedDate ? 'Unlock position' : 'Lock current position'}">${item.lockedDate ? '🔒' : '🔓'}</button>` : ''}
+      ${item.wlStatus !== 'done' ? `<button class="wl-aside${ignored ? ' on' : ''}" data-act="aside" type="button" aria-label="${ignored ? 'Put back in the route' : 'Set aside — leave out of the route'}">${ignored ? '↩' : '🚫'}</button>` : ''}
       ${item.address ? '<button class="wl-map" data-act="map" type="button" aria-label="Directions">🧭</button>' : ''}
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
@@ -590,13 +744,15 @@ function makeWlCard(item){
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);
   const lockBtn = card.querySelector('[data-act="lock"]');
   if(lockBtn) lockBtn.onclick = () => toggleOrderLock(item);
+  const asideBtn = card.querySelector('[data-act="aside"]');
+  if(asideBtn) asideBtn.onclick = () => toggleIgnored(item);
   card.querySelector('[data-act="del"]').onclick = async () => {
     await idb.del('worklist', item.id);
     toast('Order removed');
     await renderWorklist();
     await planAdvance();     // the removed order may have been the planned one
   };
-  if(item.wlStatus !== 'done'){
+  if(routable){
     card.querySelector('[data-act="use"]').onclick = () => {
       fillCapture(item);
       closeWorklist();
@@ -636,7 +792,7 @@ function wireDrag(handle, card){
       // Pick the slot: insert before the first pending sibling whose midpoint is
       // below the finger (null → drop at the end).
       let ref = null;
-      for(const sib of list.querySelectorAll('.wl-card:not(.wl-done-card)')){
+      for(const sib of list.querySelectorAll('.wl-card.wl-routable')){
         if(sib === card) continue;
         const r = sib.getBoundingClientRect();
         if(ev.clientY < r.top + r.height / 2){ ref = sib; break; }
@@ -680,7 +836,7 @@ function wireDrag(handle, card){
 // and live on each drag swap). Done cards have no handle and no number.
 function renumberCards(list){
   let n = 1;
-  for(const c of list.querySelectorAll('.wl-card:not(.wl-done-card)')){
+  for(const c of list.querySelectorAll('.wl-card.wl-routable')){
     const pos = c.querySelector('.wl-pos');
     if(pos) pos.textContent = n++;
   }
@@ -692,13 +848,13 @@ async function persistOrder(){
   let ids = [...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id);
   const items = (await idb.all('worklist')) || [];
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
-  const pending = items.filter(x => x.wlStatus !== 'done');
+  const pending = pendingOf(items);
   let schedule = null;
   if(pending.some(x => x.lockedDate)){
     try{
-      const pendingIds = ids.filter(id => byId[id] && byId[id].wlStatus !== 'done');
+      const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
       schedule = scheduleRouteConstraints(pending, pendingIds, { ...planShape(), target:targetVal() });
-      ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && byId[id].wlStatus === 'done'));
+      ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
   }
   let i = 0;
@@ -846,6 +1002,9 @@ async function wlSave(){
 // ── completing a planned order when its WO is actually logged ───────────────
 // Matches the first pending card by WO# (case-insensitive); a blank WO# never
 // matches. Runs entirely against IndexedDB so it works with no signal.
+// A SET-ASIDE order still matches: if the crew actually logged the meter, the
+// order is done — being set aside was a routing decision, not a refusal — so the
+// flag clears with it and the card moves to the completed group.
 export async function markWorklistDone(workOrderId){
   const wo = String(workOrderId || '').trim().toUpperCase();
   if(!wo) return;
@@ -853,7 +1012,7 @@ export async function markWorklistDone(workOrderId){
   const match = items.find(x => x.wlStatus !== 'done'
     && String(x.workOrderId || '').trim().toUpperCase() === wo);
   if(!match) return;
-  await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', updatedAt:stamp() }));
+  await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', ignored:false, updatedAt:stamp() }));
   if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
 }
 
@@ -881,7 +1040,12 @@ async function setPlan(on){
 export async function planAdvance(){
   if(!planActive()){ $('planBanner').classList.add('hide'); return; }
   const items = await allSorted();
-  const pending = items.filter(x => x.wlStatus !== 'done');
+  const pending = pendingOf(items);
+  // Set-aside orders are out of the plan, so they must not inflate the "3 of 12"
+  // count either — the installer is being told how far through the ROUTE they are.
+  const inPlan = items.filter(x => x.wlStatus === 'done' || !isIgnored(x));
+  const aside = items.length - inPlan.length;
+  const asideNote = aside ? ` · ${aside} set aside` : '';
   const banner = $('planBanner'); banner.classList.remove('hide');
   await renderPlanEstimate();
   if(!items.length){
@@ -890,13 +1054,16 @@ export async function planAdvance(){
     return;
   }
   if(!pending.length){
-    $('planBannerText').textContent = `Plan: all ${items.length} orders done ✓`;
+    $('planBannerText').textContent = inPlan.length
+      ? `Plan: all ${inPlan.length} orders done ✓${asideNote}`
+      : `Plan: nothing to do — every order is set aside`;
     fillCapture(null);
     return;
   }
   const item = pending[0];
-  const pos = items.length - pending.length + 1;
-  $('planBannerText').textContent = `Plan: WO ${item.workOrderId || '—'} · ${pos} of ${items.length}`;
+  const pos = inPlan.length - pending.length + 1;
+  $('planBannerText').textContent =
+    `Plan: WO ${item.workOrderId || '—'} · ${pos} of ${inPlan.length}${asideNote}`;
   fillCapture(item);
 }
 
@@ -913,7 +1080,7 @@ async function renderPlanEstimate(){
 // next one (persistent, so the skipped house comes around again at the end).
 async function planSkip(){
   const items = await allSorted();
-  const pending = items.filter(x => x.wlStatus !== 'done');
+  const pending = pendingOf(items);
   if(pending.length < 2){ toast('Nothing to skip to'); return; }
   const head = pending[0];
   const maxOrder = Math.max(...items.map(x => x.order == null ? 0 : Number(x.order)));
@@ -930,6 +1097,7 @@ export function initWorklist(opts){
   planEstimate = (opts && opts.planEstimate) || planEstimate;
   routeView = initWorklistRouteView({
     getItems: allSorted,
+    routeVariant: activeVariant,
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));
@@ -952,6 +1120,8 @@ export function initWorklist(opts){
     () => optimizeRouteHandler(true),
     () => optimizeRouteHandler(false));
   $('wlStartHere').onclick = () => setStartHere(!startHereArmed());
+  $('wlVariantRoad').onclick = () => switchVariant('road');
+  $('wlVariantStraight').onclick = () => switchVariant('straight');
   // Meters/day target: restore the saved value (default 24) and persist edits.
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').onchange = () => {

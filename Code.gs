@@ -182,13 +182,35 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
 // multi-day cluster number (1-based; '' = unassigned) — carried through the sync
 // so the phone worklist shows Day 1 / Day 2 dividers. Adding it means re-running
 // setupSheets() once.
+// `ignored` ('TRUE'/'') is an order the crew set aside — it stays on the list and
+// on this tab (clearDoneWorklistJob only removes wlStatus 'done', so an ignored
+// order is never swept) but drops out of routing, day counts and plan mode.
+// The two `*Road`/`*Straight` column groups are the SAVED ROUTE VARIANTS: one
+// optimize run over a road matrix produces both a road-matrix sequence and a
+// straight-line sequence for the same stops, each priced in driving metres, so
+// the office (and the installer) can switch between them. `order`/`day`/
+// `scheduled*` remain the LIVE sequence — switching variants just copies one of
+// these groups into them. legMeters* is metres driven arriving at that stop from
+// the previous point in that variant (the home anchor for a day's first stop).
 const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
   'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng','day',
   'appointmentDate','appointmentTime','lockedDate','lockedSlot',
-  'scheduledDate','scheduledEta','scheduledSlot','scheduledWaitMin'];
+  'scheduledDate','scheduledEta','scheduledSlot','scheduledWaitMin',
+  'ignored','orderRoad','dayRoad','legMetersRoad',
+  'orderStraight','dayStraight','legMetersStraight'];
 // One synchronized route-plan record per installer. Kept separate from the
 // order rows so route settings do not repeat on every Worklist row.
-const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource','updated'];
+// `routeVariant` ('road'|'straight') is which saved variant is currently live —
+// the office sets it, the phone downloads it, and the installer's own switch
+// rides back up on the next upload. `straightDistanceSource` says what the
+// straight variant's legMeters MEAN: 'road' when it was priced against a road
+// matrix (so its total is comparable with the road route's) or 'straight-line'
+// when it is crow-flies, which the UI must label rather than compare.
+// Appended after 'updated', not inserted: ensureTab() only fills BLANK header
+// cells by position, so slotting a new name into the middle would rename nothing
+// and duplicate the tail on every existing sheet.
+const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource',
+  'updated','routeVariant','straightDistanceSource'];
 
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
@@ -1141,7 +1163,13 @@ function saveWorklist(b) {
     (o.lockedSlot == null || o.lockedSlot === '') ? '' : Number(o.lockedSlot),
     o.scheduledDate || '', o.scheduledEta || '',
     (o.scheduledSlot == null || o.scheduledSlot === '') ? '' : Number(o.scheduledSlot),
-    (o.scheduledWaitMin == null || o.scheduledWaitMin === '') ? '' : Number(o.scheduledWaitMin) ]));
+    (o.scheduledWaitMin == null || o.scheduledWaitMin === '') ? '' : Number(o.scheduledWaitMin),
+    o.ignored ? 'TRUE' : '',
+    // The saved route variants ride through verbatim (only `order` above is
+    // renumbered): these are positions WITHIN their own variant, and rewriting
+    // them here would desync them from the legMeters measured for that sequence.
+    numOrBlank(o.orderRoad), numOrBlank(o.dayRoad), numOrBlank(o.legMetersRoad),
+    numOrBlank(o.orderStraight), numOrBlank(o.dayStraight), numOrBlank(o.legMetersStraight) ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;
@@ -1185,6 +1213,9 @@ function saveWorklistPlan(hNumber, plan) {
     firstStopTime: plan.firstStopTime || '',
     paceMin: isFinite(pace) && pace > 0 ? Math.round(pace) : '',
     paceSource: plan.paceSource || '',
+    routeVariant: plan.routeVariant === 'straight' ? 'straight' : 'road',
+    straightDistanceSource: plan.straightDistanceSource === 'road' ? 'road'
+      : (plan.straightDistanceSource ? 'straight-line' : ''),
     updated: now()
   });
 }

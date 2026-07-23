@@ -3,6 +3,7 @@
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
 import { coordsOf, isParked } from './route.js';
+import { fmtKm, isPending, liveDayMeters } from './route-variants.js';
 
 function routeKey(item){
   const day = Number(item && item.day);
@@ -13,7 +14,9 @@ export function groupPendingRoutes(items){
   const byDay = new Map();
   const other = [];
   for(const item of items || []){
-    if(!item || item.wlStatus === 'done') continue;
+    // Set-aside orders are out of the route, so they are out of the route map
+    // and its day groups too — same rule as the list.
+    if(!isPending(item)) continue;
     const key = routeKey(item);
     if(key === 'other') other.push(item);
     else {
@@ -37,7 +40,7 @@ export function reorderRouteGroup(items, key, orderedIds){
   const slots = [];
   const members = [];
   source.forEach((item, index) => {
-    if(item && item.wlStatus !== 'done' && routeKey(item) === key){
+    if(isPending(item) && routeKey(item) === key){
       slots.push(index); members.push(item);
     }
   });
@@ -133,12 +136,17 @@ export function initWorklistRouteView(opts){
 
   function renderDays(groups){
     daysEl.innerHTML = '';
+    const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
     for(const group of groups){
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'wl-route-day' + (group.key === selected ? ' on' : '');
       b.setAttribute('aria-pressed', group.key === selected ? 'true' : 'false');
-      b.textContent = `${group.label} · ${group.items.length}`;
+      // The day's driving distance, when the route has been optimized — the
+      // number that says whether "24 meters" is a short day or a long one.
+      const km = group.day == null ? null : liveDayMeters(snapshot, variant, group.day);
+      b.textContent = `${group.label} · ${group.items.length}`
+        + (km == null ? '' : ` · ${fmtKm(km)}`);
       b.onclick = async () => { selected = group.key; await render(); };
       daysEl.appendChild(b);
     }

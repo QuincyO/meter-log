@@ -70,6 +70,15 @@
           <button class="btn" id="plUpload" type="button">⇪ Upload to sheet</button>
         </div>
         <div class="plprog hide" id="plProg"></div>
+        <!-- Which saved route the installer gets. Optimize works out both a
+             road-matrix and a straight-line order for the same stops and prices
+             both with real road distances, so the shorter number really is the
+             shorter drive. A route that hasn't been worked out (or no longer
+             matches the orders on hand) shows disabled rather than hidden. -->
+        <div class="plvariant hide" id="plVariant" role="group" aria-label="Which route to use">
+          <button class="plvariant-btn" id="plVariantRoad" type="button" aria-pressed="false" disabled></button>
+          <button class="plvariant-btn" id="plVariantStraight" type="button" aria-pressed="false" disabled></button>
+        </div>
         <div class="plimport hide" id="plImport">
           <label for="plPaste">One order per line — <span class="mono">WO#, address</span> (or just the address)</label>
           <textarea id="plPaste" rows="6" spellcheck="false" placeholder="12345, 18 River Rd&#10;12346, 220 Muskoka Beach Rd&#10;41 Pine St"></textarea>

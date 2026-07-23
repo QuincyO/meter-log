@@ -100,6 +100,40 @@
 .wl-del{flex:0 0 44px;width:44px;background:none;border:1.5px solid var(--line);border-radius:10px;padding:0;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
 .wl-map{flex:0 0 44px;width:44px;background:none;border:1.5px solid var(--line);border-radius:10px;padding:0;height:38px;font-size:16px;cursor:pointer}
 .wl-lock{flex:0 0 44px;width:44px;padding:0}
+.wl-aside{flex:0 0 44px;width:44px;background:none;border:1.5px solid var(--line);border-radius:10px;
+  padding:0;height:38px;font-size:16px;cursor:pointer;color:var(--ink-soft)}
+.wl-aside.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-press)}
+/* Six actions (Use / lock / set aside / directions / Edit / delete) stop fitting
+   one line on the narrowest phones: at 320px they squeeze "Use →" and "Edit"
+   down to clipped stubs. Wrap there instead — the primary action takes its own
+   full-width line and the icon buttons follow at full size. */
+@media (max-width:359px){
+  .wl-actions{flex-wrap:wrap}
+  .wl-use{flex:1 1 100%}
+  /* Edit must not grow into the leftover space, or it pushes ✕ onto a third line. */
+  .wl-edit{flex:0 1 56px}
+}
+
+/* Set-aside orders: out of the route, still on the list. Muted like done cards
+   (same "not part of today's work" reading) but kept legible — the crew has to
+   be able to find one to put it back. */
+.wl-ignored-card{opacity:.6}
+.wl-ignored-card .wl-main{grid-column:1/-1}
+.wl-ignored-head{color:var(--ink-soft)}
+
+/* Road / straight-line route switch. A route that has not been worked out shows
+   disabled rather than hidden, so it stays visible that a second one is on
+   offer — that is the whole point of computing both. */
+.wl-variant{display:flex;gap:8px;margin-top:10px}
+.wl-variant-btn{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+  padding:8px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--panel);
+  color:var(--ink-soft);cursor:pointer;text-align:left}
+.wl-variant-btn .wl-variant-name{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.wl-variant-btn .wl-variant-km{font-size:14px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.wl-variant-btn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-press)}
+.wl-variant-btn.on .wl-variant-km{color:var(--accent-press)}
+.wl-variant-btn:disabled{opacity:.45;cursor:not-allowed}
+.wl-variant-btn:focus-visible{outline:3px solid var(--accent-ring);outline-offset:2px}
 
 /* phone route editor — a map-first sub-screen over the same local worklist */
 .wl-view-route{width:100%;margin-top:10px;border-color:var(--accent);color:var(--accent-press)}

@@ -294,7 +294,10 @@ point in `js/pages/`. Shared modules in `js/`:
   **`worklist-route-view.js`** (the phone's selected-day Leaflet route editor),
   **`route.js`** (the optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
   Google Routes road matrix (budget-guarded, straight-line fallback) + pinned
-  open-path TSP — see "Work modes" ▸ "Route optimization").
+  open-path TSP — see "Work modes" ▸ "Route optimization"),
+  **`route-variants.js`** (the two saved routes and their distances — pure
+  functions shared by the phone worklist and the desktop planner so the two
+  screens can't drift; see "Route variants").
 - **`compute/`** — `gaps.js` (WO→WO gaps, mirrors `computeIdle`), `tally.js`
   (`PRINTABLE`/`countDay`/`tallyText`).
 - **`pages/`** — `capture.js`, `map.js`, `teams.js`, `edit.js`, `reports.js`,
@@ -878,6 +881,32 @@ installer's saved rows.
 | `lockedDate` / `lockedSlot` | string/number | exact weekday and one-based within-day slot held through reorder and optimization |
 | `scheduledDate` / `scheduledEta` | string | optimizer result displayed on both route surfaces |
 | `scheduledSlot` / `scheduledWaitMin` | number | one-based day slot and explicit early-arrival waiting |
+| `ignored`     | string | `'TRUE'` = set aside: out of the route, day counts, meters/day target and plan mode, but still on the list and still synced. Deliberately **not** a third `wlStatus` value — `clearDoneWorklistJob` sweeps `'done'` rows nightly, and a set-aside order must survive |
+| `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous point |
+| `orderStraight` / `dayStraight` / `legMetersStraight` | number | the saved **straight-line route**, same three fields |
+
+### Route variants (the two saved routes)
+
+An optimize run over a road matrix solves the same stops **twice** — once on road
+distances, once on straight-line — and saves both sequences in their own columns.
+`order`/`day`/`scheduled*` stay what they always were: the LIVE sequence every
+consumer already reads. Switching variants (the road / straight-line control on
+both the planner and the phone worklist) copies one saved sequence into those
+live fields and re-runs `scheduleRouteConstraints`, so appointments and locks are
+re-honoured; nothing downstream of `order` changes. `js/route-variants.js` holds
+that logic for both screens.
+
+Both sequences are **priced against the same matrix**, so their kilometre totals
+answer "which order is cheaper to drive" rather than comparing road km with
+crow-flies km. `legMeters*` charges each day's first stop the drive out from the
+home anchor; the drive back at day's end is not counted (each day already ends
+near home). The extra solve is local and costs no lookup — and it happens **only
+on a run that actually pulled a road matrix**. A straight-line run (the phone's
+plain Optimize tap) still does exactly one solve, writes only the straight
+variant, and leaves any earlier road route untouched. Staleness is handled by
+display, never by deletion: a saved sequence that no longer covers the pending
+orders greys its button out and marks the total "out of date", and a manual drag
+marks it "edited".
 
 ### WorklistPlan row  (one per installer → tab "WorklistPlans")
 | field | type | notes |
@@ -888,6 +917,8 @@ installer's saved rows.
 | `paceMin` | number | editable minutes per stop; recent-30-day metric or 30-minute fallback |
 | `paceSource` | string | `recent30`, `fallback`, or `override` |
 | `updated` | string | Toronto-local update timestamp |
+| `routeVariant` | string | `'road'` \| `'straight'` — which saved route is live. The office sets it, the phone downloads it, and the installer's own switch rides back up on the next upload |
+| `straightDistanceSource` | string | `'road'` when the straight variant's `legMetersStraight` were priced on a road matrix (so its total is comparable with the road route's), `'straight-line'` when they are crow-flies and the UI must label them an estimate |
 
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips

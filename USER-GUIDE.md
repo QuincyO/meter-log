@@ -120,7 +120,18 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 1. Tap **＋ Add order** and enter the **Work order #**, the address (house **No.** + **Street / landmark** — recent streets appear as tap-to-fill chips), and the **Old J#** if you know it.
 2. Tap **Save order** and keep adding; **Done** closes the form.
 3. Drag the **⠿** handle to put the orders in driving order.
-4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app, **Edit** changes it.
+4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+
+### Setting an order aside
+
+Can't do a house today — gate locked, dog out, nobody home all week? Tap **🚫** on
+its card. The order drops to a greyed **Set aside** group at the bottom of the
+list and is left out of the route, the day counts, the meters/day target, and
+Plan mode — but it is **not deleted**. It stays on your list, uploads and
+downloads with everything else, and survives the nightly clean-up (only completed
+orders get cleared). Tap **↩** on the card to put it back in the route.
+
+If you end up logging the meter anyway, the order checks itself off as normal.
 
 For a timed visit, turn on **🔔 Timed appointment** while adding or editing the
 order and choose its date and time. Use the **🔓** button on a card to lock its
@@ -158,6 +169,38 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 - The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
+
+### How far is the day?
+
+Once a route has been worked out, the day dividers show the driving distance
+alongside the meter count (**Day 1 · 2026-07-27 · 24 meters · 138 km**), and the
+line under the buttons gives the whole route's total. The distance covers the
+drive out and between stops; it doesn't add the drive home at the end.
+
+If you drag orders around afterwards the total is marked **· edited**, and if you
+add or remove orders it's marked **· out of date** — in both cases the figure was
+worked out for a different run. Optimize again for a fresh number.
+
+### Two routes: road matrix and straight-line
+
+When the office plans your day (or you hold **🧭 Optimize route** for two seconds
+to use road distances), **two** routes get worked out for the same stops: one
+that follows the roads and one that goes in straight-line order. Both are
+measured in real driving kilometres, so the smaller number really is the shorter
+drive — sometimes the simple straight-line order wins.
+
+Two buttons under Optimize show them side by side:
+
+**ROAD MATRIX** 234 km (road)  ·  **STRAIGHT-LINE** 261 km (road)
+
+Tap either one to make it your route — the list, the day dividers, the route map,
+and Plan mode all follow it immediately, and it works with no signal. The office
+picks one for you, but you can always switch from the truck.
+
+A button is greyed out when there's nothing to switch to: either that route was
+never worked out (a normal quick Optimize tap only produces the straight-line
+one), or your orders have changed since, so the saved route no longer matches the
+work in hand. Optimize again and both come back.
 
 ### View and adjust the route
 
