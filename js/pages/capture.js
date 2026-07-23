@@ -16,7 +16,11 @@ import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive, teardownDrive } from '../worklist.js';
+import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
+import {
+  initDriveRecorder, finishAndUpload, isRecording, armedToday,
+  startRecording, stopRecording, subscribe as subscribeDrive,
+} from '../drive-recorder.js';
 import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
@@ -296,6 +300,28 @@ async function planEstimate(){
   return `~${est.projected} by ${est.label} · ${est.avgCadence} min/stop`;
 }
 initWorklist({ fillCapture, planEstimate });
+
+// ── app-wide drive recorder ──────────────────────────────────────────────────
+// The GPS leg recorder runs whenever this PWA is open (see js/drive-recorder.js),
+// not just on the Drive screen. Arming is opt-in per day via the Drive screen's
+// Start button; the top-bar 🛰 chip reflects state and offers a quick pause/resume
+// once armed. Initial arming stays in Drive mode so a capture-only phone can't
+// accidentally start and double-record.
+function paintDriveChip(){
+  const chip = $('driveChip');
+  if(!chip) return;
+  const on = isRecording();
+  chip.textContent = on ? '🛰 Recording' : 'Location off';
+  chip.classList.toggle('off', !on);
+  chip.classList.toggle('armed', armedToday());
+}
+$('driveChip').onclick = async () => {
+  if(isRecording()){ await stopRecording(); }
+  else if(armedToday()){ startRecording(); }
+  else { toast('Start tracking from Drive mode (worklist ▸ Drive)'); }
+};
+subscribeDrive(paintDriveChip);
+initDriveRecorder().then(paintDriveChip);
 
 // Reverse geocode via resolveAddress (geocode.js): a cached coord resolves
 // instantly and OFFLINE; a new coord with signal hits the spine and is cached for
@@ -1011,10 +1037,12 @@ function queueClose(c, weather){
 $('finishDay').onclick = async () => {
   const c = cfg();
   const btn = $('finishDay');
-  // Ending the day turns Drive mode off: stop the GPS watch and finalize/upload
-  // any active driving leg. The explicit "close and end your day → tracking off"
-  // guarantee, covering both the online and offline Finish paths below.
-  await teardownDrive();
+  // Ending the day turns the drive recorder off and ships the day's track: stop
+  // the GPS watch, finalize the active leg, and enqueue every un-queued leg dated
+  // today (uploads are deferred to here — the whole day is held on the phone until
+  // now). Runs before the online/offline branch so both paths upload; enqueue
+  // works offline and flushes when signal returns.
+  await finishAndUpload();
   // Storage-first: never lose the travel/downtime review or the bookend times.
   await persistEodReview();
 

@@ -598,26 +598,42 @@ log). The captured data is identical; what changes is the chrome and the PDF.
 
 ## Drive mode
 
-A low-distraction driving screen reached **only from the worklist** (`#drive`, a
-hash-routed sibling screen inside `index.html`, like `#worklist-route` — module
-`js/drive.js`, styles `css/drive.css`, wired by `initWorklist()`). It does two
-jobs:
+Two pieces: a low-distraction **driving screen** reached **only from the worklist**
+(`#drive`, a hash-routed sibling screen inside `index.html`, like `#worklist-route` —
+module `js/drive.js`, styles `css/drive.css`, wired by `initWorklist()`), and an
+**app-level GPS recorder** (`js/drive-recorder.js`, initialized once by
+`js/pages/capture.js`) that runs **whenever the capture PWA is open** — on any
+screen, not just `#drive`.
 
-- **Driver-facing:** shows **only the current order's card** — WO#, unit+address,
-  Old J#, appointment/notes — with a big **Navigate** button (the shared
+- **Driver-facing (`js/drive.js`):** shows **only the current order's card** — WO#,
+  unit+address, Old J#, appointment/notes — with a big **Navigate** button (the shared
   `openDirections()` Google-Maps hand-off) and **Advance / Back** buttons. Navigate
   **advances the display to the next order before handing off** — so the next card is
   already showing when the driver switches back from Maps — while still routing to the
   order that was pressed. Advance/Back move a **local display pointer** across the
   pending set *only*; none of them change an order's status, touch the Sheet, or affect
-  plan mode (an order still goes
-  `done` only when its meter is logged, exactly as before). Deliberately no map, no
-  speed, no trip numbers on screen.
-- **Office-facing (silent):** while the screen is in front it records the driving
-  leg — GPS points `{lat,lng,t,spd}` (device `coords.speed`, else derived) — and on
-  leaving the screen or ending the day uploads the leg to the `DriveTracks` tab via
-  the offline queue (`saveDriveTrack`). The map viewer replays it (the 🚗 **Drive
-  routes** toggle, off by default).
+  plan mode (an order still goes `done` only when its meter is logged, exactly as
+  before). Deliberately no map, no speed, no trip numbers on screen. The screen also
+  holds the **▶ Start / ■ Stop drive tracking** button (arms/disarms the recorder) and
+  the wake-lock toggle; opening/closing the screen no longer starts/stops GPS.
+- **Office-facing (silent, `js/drive-recorder.js`):** records the driving leg — GPS
+  points `{lat,lng,t,spd}` (device `coords.speed`, else derived) — the whole time the
+  PWA is open and armed, **holding it on the phone** and uploading to the `DriveTracks`
+  tab via the offline queue (`saveDriveTrack`) **only at end of day** (`finishAndUpload`,
+  called from `finishDay`). The map viewer replays it (the 🚗 **Drive routes** toggle,
+  off by default).
+
+**Recording is opt-in per day, per device — the two-phone dedup rule.** Some
+installers run the PWA on two phones: a work phone for capture (which *does* use plan
+mode, since plan mode pastes order data into the capture fields) and a personal phone
+for planning + CarPlay navigation. To keep both from recording the same drive,
+recording is **OFF every morning** until the driver taps **Start drive tracking** on
+the Drive screen — only the phone that taps Start becomes that day's recorder. The
+arm state is `localStorage['driveRecord']` = `{on, date}` (a stale/absent date reads
+as OFF — inverted from the old opt-*out* `driveTrack` default). The top-bar
+**`driveChip`** on the capture page shows live state ("🛰 Recording" / "Location off")
+and, once armed, is tappable to pause/resume; initial arming stays on the Drive-screen
+button so a capture-only phone can't accidentally start.
 
 The pure track model is `js/drive-track.js` (DOM-free, unit-tested): a segment
 state machine (`createSegment`/`addFix`/`markPause`/`markResume`/`finalizeSegment`),
@@ -628,28 +644,30 @@ that is both < 15 m and < 3 s from the last (jitter + battery/storage dial);
 `MAX_POINTS` rolls a very long leg to a fresh row before the 50k-char cell limit.
 
 **The platform limit is load-bearing.** A web app gets **no GPS while
-backgrounded**, so tracking only records while the Drive page is actually in
-front — during a Google-Maps hand-off the leg pauses. `visibilitychange` brackets
-each background stretch as an **anchored gap** (`markPause` on the last point,
-`markResume` on the first fix back), stored in the leg's `gaps` array as
-pause+resume lat/lng/time pairs. The desktop planner can OSRM-route between a pair
-to reconstruct the missing stretch; the map viewer draws a gap as a **dashed**
-connector so it reads as "was navigating", not "GPS failed".
+backgrounded**, so the recorder captures only while the PWA is actually in front —
+during a Google-Maps hand-off the leg pauses. `visibilitychange` (owned by the
+app-level recorder now, so it fires on any screen) brackets each background stretch
+as an **anchored gap** (`markPause` on the last point, `markResume` on the first fix
+back), stored in the leg's `gaps` array as pause+resume lat/lng/time pairs. The
+desktop planner can OSRM-route between a pair to reconstruct the missing stretch; the
+map viewer draws a gap as a **dashed** connector so it reads as "was navigating", not
+"GPS failed".
 
-**Controls & safety.** A per-day **tracking toggle** lets the driver opt out
-entirely (no watch, nothing recorded/uploaded); it is stored stamped with the day,
-so it **re-arms ON every new day**. An optional **Screen Wake Lock** (default off,
-labelled as a battery cost) keeps a dashboard-mounted phone recording. A small
-"🛰 Location on / Location off" chip is the only tracking-related thing the driver
-sees — the awareness disclosure, no numbers. **Ending the day turns Drive off:**
-`finishDay` calls `teardownDrive()` (exported from `worklist.js`) before anything
-else, on both the online and offline paths — it clears the watch, releases the wake
-lock, and finalizes/uploads the active leg. Leaving the screen (`#drive` popstate)
-or `pagehide` runs the same teardown. A leg is checkpointed to the IndexedDB
-`driveTracks` store on each fix (marked `active`); a reload/crash mid-leg is
-recovered and shipped on the next open (`saveDriveTrack` is idempotent on the leg
-id, so a recovered-then-refinalized leg can't double). Legs with < 2 points are
-dropped, never uploaded.
+**Controls & safety.** The per-day **opt-in** (the Start button above) is the
+driver's control: with it off, no watch runs and nothing is recorded or uploaded.
+An optional **Screen Wake Lock** (`localStorage['driveWake']`, default off, labelled
+as a battery cost) keeps a dashboard-mounted phone recording. The `driveChip` /
+Drive-screen indicator is the only tracking-related thing the driver sees — the
+awareness disclosure, no numbers. **Uploads are deferred to end of day:** `finishDay`
+calls `finishAndUpload()` (from `js/drive-recorder.js`) before anything else, on both
+the online and offline paths — it clears the watch, releases the wake lock, finalizes
+the active leg, and enqueues **every un-queued leg dated today**. A leg is
+checkpointed to the IndexedDB `driveTracks` store on each fix (marked `active`,
+`queued:false`); `recoverStale()` on the next open finalizes any leg left `active`,
+**ships legs from a previous un-closed day** (today's stay local until Finish), and
+prunes legs older than ~8 days. `saveDriveTrack` is idempotent on the leg id and each
+shipped leg is marked `queued:true`, so a leg can't double-upload. Legs with < 2
+points are dropped, never uploaded.
 
 ## Data structures
 

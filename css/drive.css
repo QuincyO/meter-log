@@ -56,4 +56,14 @@
 .drive-toggle input{ width:22px; height:22px; accent-color:var(--accent); }
 .drive-toggle .muted{ font-size:13px; }
 
+/* Start/Stop drive tracking — the per-day, per-phone arm control. Green while
+   recording, so the driver can tell at a glance this phone is the recorder. */
+.drive-track-btn{
+  width:100%; min-height:var(--tap); font-size:16px; font-weight:700;
+}
+.drive-track-btn.recording{
+  background:var(--accent); color:#fff; border-color:var(--accent);
+}
+.drive-track-hint{ font-size:13px; margin:0; }
+
 .wl-drive{ width:100%; margin-top:8px; }

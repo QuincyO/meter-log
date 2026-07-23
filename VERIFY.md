@@ -129,16 +129,26 @@ card action row is tight at 320 px.
   sensibly rather than assuming the code is wrong. (`driveTracks` is gentle here: the
   spine's `doGet` fallback returns `{ok:true}` for an unknown action, so `map.js` reads
   it as an empty list and the viewer keeps working before the deploy.)
-- **Driving the Drive screen (`#drive`).** It's reachable only via the worklist's 🚗 Drive
-  button; `document.getElementById('wlDrive').click()` opens it. Headless has **no
-  geolocation**, so the leg records no points and `finalizeAndEnqueue` drops it — nothing
-  is written, which is what you want against prod. Verify the driver-facing behavior: the
-  card shows only the current order, **Advance/Back move the display without changing an
-  order's `wlStatus`** (read the `worklist` IndexedDB store before/after to confirm), and
-  the per-day tracking toggle flips the "🛰 Location on / Location off" chip and writes
-  `localStorage['driveTrack']` = `{on, date}`. To exercise `saveDriveTrack`/`driveTracks`
-  end-to-end, intercept the spine (§4) and either inject fixes via
-  `Emulation.setGeolocationOverride` or seed the `driveTracks` IndexedDB store directly.
+- **GPS recording is app-wide now (`js/drive-recorder.js`), not tied to the Drive screen.**
+  Recording is **opt-in per day per phone**: OFF until the driver taps **▶ Start drive
+  tracking** on the Drive screen (`#drive`, reached via the worklist's 🚗 Drive button —
+  `document.getElementById('wlDrive').click()`; then `driveTrackBtn`). Tapping Start writes
+  `localStorage['driveRecord']` = `{on, date}` (absent/stale date reads as OFF) and lights
+  the top-bar **`driveChip`** on the capture page — it reads "🛰 Recording" and is tappable
+  to pause/resume once armed. A phone that never taps Start records nothing (the
+  two-phone double-record guard). Headless has **no geolocation**, so the leg records no
+  points and is dropped on finalize — nothing is written, which is what you want against
+  prod. Verify the driver-facing behavior: the card shows only the current order and
+  **Advance/Back move the display without changing an order's `wlStatus`** (read the
+  `worklist` IndexedDB store before/after to confirm).
+- **Uploads are deferred to end of day.** Legs sit in the `driveTracks` IndexedDB store
+  with `queued:false` all day; **no `saveDriveTrack` is enqueued mid-day**, only when
+  **Finish day** runs (`finishAndUpload`), which enqueues every un-queued leg dated today.
+  A leftover leg dated a **previous** day ships on the next app open (`recoverStale`). To
+  exercise `saveDriveTrack`/`driveTracks` end-to-end, intercept the spine (§4) and either
+  inject fixes via `Emulation.setGeolocationOverride` or seed the `driveTracks` IndexedDB
+  store directly (a row dated yesterday should ship on reload; one dated today should not
+  until Finish).
 - Find dates that actually have data via `action=pins&from=&to=` before driving date
   pickers.
 - `status:"DONE"` stops never render anywhere — a day holding only DONE markers

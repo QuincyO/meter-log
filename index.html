@@ -23,6 +23,7 @@
 
   <div class="bar">
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
+    <button class="drive-chip off" id="driveChip" type="button" aria-live="polite">Location off</button>
     <div class="mode-seg" role="group" aria-label="Work mode">
       <button id="modeBoat" type="button">Boat</button>
       <button id="modeLand" type="button">Land</button>
@@ -285,12 +286,15 @@
 
   <!-- Drive mode — one big card for the current order, a Navigate hand-off, and
        Advance/Back that move only the display (never an order's status). The GPS
-       leg is recorded silently while this screen is in front; the toggle lets the
-       driver opt out (re-arms each day). No speed/route numbers are shown here. -->
+       app-wide GPS recorder (js/drive-recorder.js) — records on any screen once
+       armed, and keeps the whole day's track on the phone until end of day.
+       Recording is opt-in per day per phone: the Start button below arms THIS
+       phone as the day's recorder so two phones can't double-record. No
+       speed/route numbers are shown here. -->
   <section class="drive-screen hide" id="driveScreen">
     <div class="drive-head">
       <button class="wl-back" id="driveBack" type="button" aria-label="Back to worklist">‹ Worklist</button>
-      <span class="drive-indicator" id="driveIndicator" aria-live="polite">🛰 Location on</span>
+      <span class="drive-indicator off" id="driveIndicator" aria-live="polite">Location off</span>
     </div>
     <div class="drive-card-wrap">
       <div class="drive-card" id="driveCard"></div>
@@ -303,8 +307,9 @@
       <button class="ghost drive-step" id="driveNext" type="button">Next ›</button>
     </div>
     <div class="drive-toggles">
-      <label class="drive-toggle"><input id="driveTrackToggle" type="checkbox"> Record this drive</label>
+      <button class="drive-track-btn" id="driveTrackBtn" type="button">▶ Start drive tracking</button>
       <label class="drive-toggle"><input id="driveWakeToggle" type="checkbox"> Keep screen awake <span class="muted">(uses more battery)</span></label>
+      <p class="muted drive-track-hint">Tracking runs on this phone until you finish the day. It uploads only when you close out. Use one phone per drive.</p>
     </div>
   </section>
 

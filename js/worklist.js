@@ -37,9 +37,6 @@ let routeView = null;           // initialized once the capture page DOM is read
 let addrFill = null;            // the address fill-in walkthrough (same)
 let driveView = null;           // the #drive driving screen (same)
 
-// End-of-day safety net for capture.js: stop Drive tracking and leave the screen.
-export function teardownDrive(){ return driveView ? driveView.teardown() : Promise.resolve(); }
-
 function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
 function setStartHere(on){ $('wlStartHere').setAttribute('aria-pressed', on ? 'true' : 'false'); }
 
@@ -513,7 +510,8 @@ async function openWorklistRoute(){
 }
 
 // The Drive screen — its own history entry, so hardware Back leaves it back to
-// the worklist (which is what finalizes the driving leg via close()).
+// the worklist. Leaving the screen no longer stops GPS: the app-level recorder
+// keeps running until end of day (see js/drive-recorder.js).
 async function openDriveScreen(){
   $('captureMain').classList.add('hide');
   $('worklistScreen').classList.add('hide');
@@ -534,8 +532,8 @@ async function openAddressFill(){
 }
 
 async function showHashScreen(){
-  // Leaving the Drive screen (Back to worklist, or anywhere) finalizes + uploads
-  // the driving leg. Do it before opening whatever screen we're navigating to.
+  // Leaving the Drive screen just hides it — GPS recording is app-level now and
+  // keeps running (js/drive-recorder.js). Close it before opening the next screen.
   if(driveView && driveView.isOpen() && location.hash !== '#drive') await driveView.close();
   if(location.hash === '#drive'){
     $('captureMain').classList.add('hide');

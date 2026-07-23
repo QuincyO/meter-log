@@ -8,6 +8,13 @@
       padding:9px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
 .pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+/* 🛰 drive-recording chip — live state of the app-wide GPS recorder. Green while
+   recording; muted "Location off" otherwise. Tap toggles pause/resume once the
+   phone is armed for the day (arming itself is the Drive-screen Start button). */
+.drive-chip{flex:none;border:0;cursor:pointer;font-size:12px;font-weight:700;
+            padding:8px 11px;border-radius:999px;line-height:1;
+            color:var(--accent);background:var(--accent-soft)}
+.drive-chip.off{color:var(--ink-soft);background:var(--panel);box-shadow:var(--shadow)}
 /* boat/land work-mode switch */
 .mode-seg{display:flex;flex:none;background:var(--panel);border-radius:999px;box-shadow:var(--shadow);padding:3px;gap:2px}
 .mode-seg button{border:0;background:none;border-radius:999px;padding:0 12px;height:34px;
