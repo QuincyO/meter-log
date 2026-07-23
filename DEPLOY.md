@@ -129,10 +129,11 @@ their orders, optimize, review the numbered route on the map, ⇪ Upload — the
 installer then just taps ⇩ Download on the phone and drives the finished
 route. Its road distances come from **OSRM running on your own PC** — free and
 unmetered — so the only Google spend from planning is one geocode per *new*
-address (pins upload with the list and are never re-billed), and even that goes
-away if you run the optional local Nominatim geocoder below. If OSRM is down
-the planner still works, it just solves on straight-line distances and says
-so in the toast — it never silently falls into the billable Google matrix.
+address (pins upload with the list and are never re-billed). The planner
+automatically tries local Nominatim at `http://localhost:8080`; a custom
+Geocoder server URL is saved per browser. If OSRM is down the planner uses the
+ORS matrix backup, then straight-line, and says which source actually ran — it
+never silently falls into the billable Google road matrix.
 
 Install the planner as a Windows app: open `planner.html` on the deployed
 site in Chrome/Edge ▸ ⋮ menu ▸ **Cast, save and share ▸ Install page as
@@ -172,12 +173,21 @@ proxy (e.g. Caddy: `caddy reverse-proxy --from :5001 --to :5000` plus a CORS
 header) — recent osrm-backend builds send `Access-Control-Allow-Origin: *`
 out of the box, so this is unlikely.
 
-The planner's geocoding is **local-first when you fill the Geocoder field**
-(local Nominatim below) — Google (`GMAPS_API_KEY`) is only the fallback when a
-local lookup misses. Leave the field blank and geocoding stays Google → ORS
-exactly as before, so the field is a pure opt-in.
+The planner's Geocoder server defaults automatically to
+`http://localhost:8080`; replace it only to save a custom local Nominatim URL.
+Fresh lookups use Nominatim first, then Google (`GMAPS_API_KEY`), then ORS;
+saved pins are reused without lookup.
 
-## Local geocoding — Nominatim (optional, zero-API planning)
+The **OSRM** and **Nominatim** badges are readiness checks, not Docker-status
+lights. They probe the OSRM `table/v1/driving/...` endpoint and Nominatim
+`/status?format=json` endpoint with a 4-second timeout. A badge is online only
+after a usable HTTP response with the expected JSON; a running container that
+cannot answer the browser probe remains offline. Before Optimize, the
+confirmation describes cached versus new addresses and the available fallback
+chain. Afterward, the Last optimization card persists the actual geocoder
+counts plus Matrix/straight-line provider and fallback reason in that browser.
+
+## Local geocoding — Nominatim (automatic, zero-API planning)
 
 With OSRM the road matrix is free, but each *new* address still costs one Google
 geocode. Run **Nominatim** — a self-hosted geocoder over the **same Ontario
@@ -210,8 +220,9 @@ Set it up once (Docker, ~1–2 h — mostly the one-time import; several GB DB):
    curl "http://localhost:8080/search?q=120+Depot+Rd,+Bracebridge,+ON&format=json"
    ```
 
-3. In `planner.html`, put `http://localhost:8080` in the **Geocoder server**
-   field (persists per browser). Optimize — lookups now hit localhost, not
+3. The planner uses `http://localhost:8080` automatically. Change the
+   **Geocoder server** field only for a custom saved URL. Optimize — lookups now
+   hit localhost, not
    `maps.googleapis.com`. If a run couldn't resolve some addresses locally the
    toast notes "some addresses used a fallback geocoder"; a genuinely bad
    address still parks (📍?) for a manual fix.
@@ -313,9 +324,9 @@ re-close never double-counts), so no trigger is needed.
 **Timed appointments + locked route slots.** After deploying this change, run
 `setupSheets()` once. It appends the appointment/lock/scheduled fields to
 `Worklist`, appends the recent-30-workday pace fields to `InstallerMetrics`, and
-creates `WorklistPlans`. Existing rows remain intact. Then run
-`backfillInstallerMetrics()` once so every active installer has a saved recent
-pace; future end-of-day closes refresh it automatically.
+creates `WorklistPlans`. It also repairs those recent-30 minute columns to the
+integer `0` format, so existing numeric values no longer render as 1900 dates.
+Existing rows remain intact: this repair needs no deletion and no backfill.
 
 ## Troubleshooting
 

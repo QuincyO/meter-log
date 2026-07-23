@@ -16,3 +16,11 @@ test('worklist card reserves a full row for mobile actions', () => {
   assert.match(rule('.wl-actions'), /width\s*:\s*100%/);
   assert.match(rule('.wl-actions'), /flex-wrap\s*:\s*nowrap/);
 });
+
+test('the action row wraps on the narrowest phones instead of clipping labels', () => {
+  // Six actions fit one line from 360px up. At 320px they do not, and shrinking
+  // them clipped "Use →" and "Edit" down to unreadable stubs.
+  const narrow = css.match(/@media \(max-width:359px\)\{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.match(narrow, /\.wl-actions\{[^}]*flex-wrap\s*:\s*wrap/);
+  assert.match(narrow, /\.wl-use\{[^}]*flex\s*:\s*1 1 100%/);
+});

@@ -11,9 +11,15 @@ test('worklist exposes an unarmed one-time Start from here control', () => {
 });
 
 test('Start from here is passed to Optimize and reset after an attempted run', () => {
-  assert.match(js, /optimizeRoute\([^;]+\{\s*straightLine,\s*startFromCurrent\s*\}\)/s);
+  assert.match(js, /optimizeRoute\([^;]+\{[^}]*\bstraightLine\b[^}]*\bstartFromCurrent\b[^}]*\}\)/s);
   assert.match(js, /finally\s*\{[^}]*setStartHere\(false\)/s);
   assert.match(js, /\$\('wlStartHere'\)\.onclick\s*=\s*\(\)\s*=>\s*setStartHere\(!startHereArmed\(\)\)/);
+});
+
+test('the second route is only ever asked for on the road-matrix press', () => {
+  // A plain tap must cost exactly what it always did: one solve, no matrix.
+  assert.match(js, /compareVariants:\s*!straightLine/);
+  assert.doesNotMatch(js, /compareVariants:\s*true/);
 });
 
 test('armed Start from here pill has a distinct selected style', () => {

@@ -192,6 +192,15 @@
     <div class="muted" id="wlPaceHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
+    <!-- Which saved route is live. A road-matrix optimize works out both a road
+         and a straight-line order for the same stops and prices both on real
+         road distances, so the shorter number really is the shorter drive. A
+         route that hasn't been worked out (or no longer matches the orders on
+         hand) shows disabled rather than hidden. -->
+    <div class="wl-variant hide" id="wlVariant" role="group" aria-label="Which route to follow">
+      <button class="wl-variant-btn" id="wlVariantRoad" type="button" aria-pressed="false" disabled></button>
+      <button class="wl-variant-btn" id="wlVariantStraight" type="button" aria-pressed="false" disabled></button>
+    </div>
     <button class="ghost wl-view-route" id="wlViewRoute" type="button">View route map</button>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
     <div class="hide" id="wlForm">

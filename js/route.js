@@ -94,7 +94,7 @@ export function isParked(item){
 // path accepts a recent coarse fix. Never rejects: denied/unanswered location
 // prompts resolve null so optimization can fall back instead of hanging.
 function currentPosition(maxMs, fresh=false){
-  if(!('geolocation' in navigator)) return Promise.resolve(null);
+  if(typeof navigator === 'undefined' || !('geolocation' in navigator)) return Promise.resolve(null);
   const fix = new Promise(res => navigator.geolocation.getCurrentPosition(
     p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
     () => res(null),
@@ -142,10 +142,12 @@ async function geocodeAll(items, onProgress, center, geoUrl){
         geoFail: false, geoAmbig: undefined, updatedAt: stamp() }));
     }
     if(!c || stale){
-      const hit = await geocodeOne(item.address, center, geoUrl);
+      const hit = await geocodeOne(item.address, center, geoUrl, geoProvenance, onProgress);
       if(hit && !hit.ambig){
-        item.lat = hit.lat; item.lng = hit.lng; item.geoFail = false; item.geoAmbig = undefined;
+        item.lat = hit.lat; item.lng = hit.lng; item.geoSource = hit.source || '';
+        item.geoFail = false; item.geoAmbig = undefined;
       } else if(hit){
+        item.geoSource = hit.source || '';
         item.geoFail = false; item.geoAmbig = hit.ambig;
       } else {
         item.geoFail = true; item.geoAmbig = undefined;
@@ -154,9 +156,10 @@ async function geocodeAll(items, onProgress, center, geoUrl){
       const stored = (await idb.get('worklist', item.id)) || item;
       await idb.put('worklist', Object.assign({}, stored, {
         lat: item.lat, lng: item.lng, geoFail: item.geoFail, geoAmbig: item.geoAmbig,
+        geoSource: item.geoSource,
         updatedAt: stamp() }));
       await sleep(GEOCODE_MS);
-    }
+    } else geoProvenance.cached++;
     onProgress && onProgress({ phase:'geocode', done: ++done, total: items.length });
   }
 }
@@ -187,19 +190,42 @@ let orsGeoUsed = false;
 // a reassuring `note` so a thin local map is visible without alarming.
 let geoFellBack = false;
 
-export async function geocodeOne(address, center, geoUrl){
+function blankGeocodingProvenance(){
+  return { cached:0,
+    nominatim:{ attempted:0, resolved:0 }, google:{ attempted:0, resolved:0 },
+    ors:{ attempted:0, resolved:0 }, parked:0 };
+}
+let geoProvenance = blankGeocodingProvenance();
+
+function providerEvent(onProgress, activity, provider, status){
+  onProgress && onProgress({ phase:'provider', activity, provider, status });
+}
+
+export async function geocodeOne(address, center, geoUrl, stats=null, onProgress=null){
   const text = String(address || '').trim();
   if(!text) return null;
+  const tryProvider = async (provider, lookup) => {
+    if(stats) stats[provider].attempted++;
+    providerEvent(onProgress, 'geocoding', provider, 'attempted');
+    const hit = await lookup();
+    if(hit){
+      if(stats) stats[provider].resolved++;
+      providerEvent(onProgress, 'geocoding', provider, 'resolved');
+      return { ...hit, source:provider };
+    }
+    providerEvent(onProgress, 'geocoding', provider, 'missed');
+    return null;
+  };
   // Provider 0 (planner only): a self-hosted Nominatim, tried FIRST when its URL
   // is passed, so a normal planning run makes no external geocoding call.
   if(geoUrl){
-    const n = await nominatimGeocode(text, center, geoUrl);
+    const n = await tryProvider('nominatim', () => nominatimGeocode(text, center, geoUrl));
     if(n) return n;
   }
-  const g = await googleGeocode(text, center);
+  const g = await tryProvider('google', () => googleGeocode(text, center));
   if(g){ if(geoUrl) geoFellBack = true; return g; }
   if(ORS_API_KEY){
-    const o = await orsGeocode(text, center);
+    const o = await tryProvider('ors', () => orsGeocode(text, center));
     if(o){ orsGeoUsed = true; if(geoUrl) geoFellBack = true; return o; }
   }
   return null;
@@ -707,6 +733,68 @@ function orderChunkHome(D, locIdxChunk){
   return t.slice().reverse().slice(0, -1).map(p => locIdxChunk[p - 1]);
 }
 
+// ── one route variant (solve + optional day-split) ──────────────────────────
+// Pulled out of optimizeRoute so the SAME construction can be run twice over
+// the same geocoded stops: once on the road matrix and once on straight-line
+// distances, yielding two candidate sequences to compare. M is the matrix to
+// SOLVE on; measuring is a separate step (legMetersFor) so both variants can be
+// priced with road distances.
+function solveVariant(M, located, { startC, homeC, target }){
+  const masterSeq = routeOrderFromMatrix(M, located.length, {
+    hasStart:!!startC, hasHome:!!homeC
+  });
+  let orderedSeq = masterSeq;
+  const dayOf = {};
+  let dayFallback = false;
+  if(target > 0){
+    if(homeC && !startC){
+      orderedSeq = [];
+      for(let s = 0; s < masterSeq.length; s += target){
+        const day = Math.floor(s / target) + 1;
+        const ordered = orderChunkHome(M, masterSeq.slice(s, s + target));
+        ordered.forEach(k => { dayOf[located[k].id] = day; });
+        orderedSeq.push(...ordered);
+      }
+    } else {
+      // No home pin — keep the master order, just cut it into count-sized days.
+      dayFallback = true;
+      masterSeq.forEach((k, r) => { dayOf[located[k].id] = Math.floor(r / target) + 1; });
+    }
+  }
+  return { orderedIds: orderedSeq.map(k => located[k].id), dayOf, dayFallback };
+}
+
+// Price a finished sequence against the run's distance matrix: metres driven
+// ARRIVING at each stop from the previous point. The previous point is the day
+// anchor (the home pin, or the phone fix on the route's very first stop) for the
+// first stop of each day, so a day's total includes the drive out. The drive
+// BACK home at day's end is deliberately not charged to any stop — each day is
+// already solved to end near home, so the omitted leg is small, and folding it
+// into the last stop would make a per-stop number mean two different things.
+//
+// Called by the pages AFTER scheduleRouteConstraints, because appointment/lock
+// placement can reorder the geographic sequence and that changes which legs are
+// actually driven. `measure` comes back from optimizeRoute and is in-memory
+// only (an N×N matrix) — only the resulting per-stop metres are persisted.
+export function legMetersFor(measure, orderedIds, dayOf){
+  const out = {};
+  if(!measure || !measure.D) return out;
+  const { D, indexById, homeIndex, startIndex } = measure;
+  let prev = null, prevDay = null;
+  (orderedIds || []).forEach((id, i) => {
+    const idx = indexById[id];
+    if(idx == null) return;                    // parked/unknown — no leg
+    const day = (dayOf && dayOf[id]) || null;
+    let from = prev;
+    if(prev == null || (day && day !== prevDay))
+      from = (i === 0 && startIndex != null) ? startIndex : homeIndex;
+    const m = from == null ? 0 : D[from][idx];
+    out[id] = isFinite(m) ? Math.round(m) : 0;
+    prev = idx; prevDay = day;
+  });
+  return out;
+}
+
 // ── entry point ──────────────────────────────────────────────────────────────
 // pendingItems: the pending worklist orders in display order (each mutated in
 // place with coords). onProgress({phase, done, total}): optional UI callback.
@@ -729,19 +817,33 @@ function orderChunkHome(D, locIdxChunk){
 // late day, not an early far one). Returns dayOf {id: dayNumber}. With no home
 // pin the split falls back to plain count-chunks (dayFallback:true) since "near
 // home" is undefined.
+// opts.compareVariants: also solve the SAME stops on straight-line distances and
+// return it as a second candidate route (`variants.straight`). It costs one extra
+// local solve and NO extra network — and it is only ever honoured on a run that
+// actually pulled a road matrix. A straight-line run (opts.straightLine) or one
+// whose matrix fell back still does exactly one solve: there is no road matrix to
+// compare against, and this flag must never cause a matrix call of its own.
 // Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
-// startFallback, geoReason, note } — orderedIds is the optimized sequence;
+// startFallback, geoReason, note, variants, measure, straightDistanceSource }
+// — orderedIds is the optimized sequence;
 // parkedIds are the ones flagged geoFail (wouldn't geocode) or geoAmbig
 // (matched several towns) — they may still carry their last good pin — or
 // with no coords at all; usedFallback means the solve ran on straight-line
 // distances, and fallbackReason says why ('' otherwise); geoReason is a
 // key-level geocoding failure note (bad/over-quota key with no ORS rescue) or
 // null; note is a short "…via OpenRouteService backup" string when ORS carried
-// geocoding and/or the matrix (else null); mode is 'here-home' (phone start,
+// geocoding and/or the matrix (else null); variants is
+// { road:{orderedIds,dayOf,dayFallback}|null, straight:same|null } — the saved
+// candidate routes (the top-level orderedIds/dayOf stay the primary one, so no
+// existing caller changes); measure is the distance lookup for legMetersFor;
+// straightDistanceSource is 'road' when the straight variant was priced on the
+// road matrix (the comparable case) or 'straight-line' when its metres are
+// crow-flies; mode is 'here-home' (phone start,
 // Home end), 'here' (phone start, open end), 'home' (path ends moving toward
 // Home), or 'first' (the list's first order stays the start, end open).
 export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   geoKeyError = null; orsGeoUsed = false; geoFellBack = false;
+  geoProvenance = blankGeocodingProvenance();
   // The gate center for address MATCHING: the phone's own position — unless the
   // crew is optimizing far from the route area (planning from home for a
   // distant list), where the list's median gates instead so a far GPS fix
@@ -762,6 +864,8 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // which is what keeps the callers' failed/ambig toast arithmetic exact.
   const located = pendingItems.filter(x => !isParked(x));
   const parkedIds = pendingItems.filter(isParked).map(x => x.id);
+  geoProvenance.parked = parkedIds.length;
+  let routingProvenance = { method:'straight-line', provider:'haversine', fallbackReason:'' };
   // A Google key rejection only alarms the user when ORS didn't rescue the run;
   // if the backup carried it, that's reassuring `note` territory, not geoReason.
   const geoReason = (geoKeyError && !orsGeoUsed)
@@ -777,10 +881,14 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const mode = startC ? (homeC ? 'here-home' : 'here') : (homeC ? 'home' : 'first');
 
   // Nothing to reorder — keep the located items in their current order.
-  if(located.length < 2)
-    return { orderedIds: located.map(x => x.id), parkedIds, usedFallback:false,
-      fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
+  if(located.length < 2){
+    const only = { orderedIds: located.map(x => x.id),
       dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false };
+    return { ...only, parkedIds, usedFallback:false,
+      fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
+      variants:{ road:null, straight:null }, measure:null, straightDistanceSource:'',
+      provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
+  }
 
   // Route anchors: an available requested phone fix pins the start and Home,
   // when present, pins the end. Otherwise legacy mode ends toward Home or pins
@@ -800,13 +908,29 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     // Deliberate choice, NOT a degraded fallback: leave usedFallback false so the
     // toast doesn't warn "straight-line (…)".
     D = haversineMatrix(coords);
+    providerEvent(onProgress, 'routing', 'haversine', 'selected');
   } else {
     onProgress && onProgress({ phase:'matrix', done:0, total:0 });
-    let res = opts.osrmUrl ? await osrmMatrix(coords, opts.osrmUrl)
-                           : await buildMatrix(coords, onProgress);
+    let primary = opts.osrmUrl ? 'osrm' : 'google-routes';
+    let res;
+    if(opts.osrmUrl && opts.osrmReady === false){
+      providerEvent(onProgress, 'routing', 'osrm', 'offline');
+      res = { error:'OSRM offline' };
+    } else if(opts.osrmUrl){
+      providerEvent(onProgress, 'routing', 'osrm', 'attempted');
+      res = await osrmMatrix(coords, opts.osrmUrl);
+      providerEvent(onProgress, 'routing', 'osrm', res.D ? 'resolved' : 'failed');
+    } else {
+      providerEvent(onProgress, 'routing', 'google-routes', 'attempted');
+      res = await buildMatrix(coords, onProgress);
+      providerEvent(onProgress, 'routing', 'google-routes', res.D ? 'resolved' : 'failed');
+    }
+    const primaryReason = res.error || '';
     if(!res.D && ORS_API_KEY){
+      providerEvent(onProgress, 'routing', 'ors', 'attempted');
       const ors = await orsMatrix(coords);
-      if(ors.D){ notes.push('roads'); res = ors; }
+      providerEvent(onProgress, 'routing', 'ors', ors.D ? 'resolved' : 'failed');
+      if(ors.D){ notes.push('roads'); res = ors; primary = 'ors'; }
       else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
     }
     D = res.D;
@@ -814,39 +938,45 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
       D = haversineMatrix(coords);
       usedFallback = true;
       fallbackReason = res.error || 'road data unavailable';
+      routingProvenance = { method:'straight-line', provider:'haversine', fallbackReason };
+      providerEvent(onProgress, 'routing', 'haversine', 'selected');
+    } else {
+      routingProvenance = { method:'matrix', provider:primary,
+        fallbackReason:primary === 'ors' ? primaryReason : '' };
     }
   }
 
   onProgress && onProgress({ phase:'solve' });
-  const masterSeq = routeOrderFromMatrix(D, located.length, {
-    hasStart:!!startC, hasHome:!!homeC
-  });
-
   // Optional day-split. target > 0 cuts the master route into contiguous chunks
   // of `target`; with a home pin each chunk is re-solved to end near home.
   const target = Math.max(0, Math.floor(Number(opts.target) || 0));
-  let orderedSeq = masterSeq;
-  const dayOf = {};
-  let dayFallback = false;
-  if(target > 0){
-    if(homeC && !startC){
-      orderedSeq = [];
-      for(let s = 0; s < masterSeq.length; s += target){
-        const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkHome(D, masterSeq.slice(s, s + target));
-        ordered.forEach(k => { dayOf[located[k].id] = day; });
-        orderedSeq.push(...ordered);
-      }
-    } else {
-      // No home pin — keep the master order, just cut it into count-sized days.
-      dayFallback = true;
-      masterSeq.forEach((k, r) => { dayOf[located[k].id] = Math.floor(r / target) + 1; });
-    }
-  }
+  const shape = { startC, homeC, target };
+  const primary = solveVariant(D, located, shape);
 
-  const orderedIds = orderedSeq.map(k => located[k].id);
-  return { orderedIds, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
-    note: combineNotes(orsNote(notes), geoNote), dayOf, dayFallback };
+  // Did this run actually get road distances? Only then is there a road route to
+  // save, and only then can a straight-line ORDER be priced in real driving
+  // metres (the whole point of comparing the two).
+  const onRoad = !opts.straightLine && !usedFallback;
+  const variants = { road:null, straight:null };
+  if(onRoad){
+    variants.road = primary;
+    // The extra solve is local and matrix-free — it can never trigger a call.
+    if(opts.compareVariants) variants.straight = solveVariant(haversineMatrix(coords), located, shape);
+  } else variants.straight = primary;
+
+  // Index map from order id → its row/column in D, plus the anchor nodes, so
+  // legMetersFor can price any sequence over these same stops.
+  const offset = (startC || homeC) ? 1 : 0;
+  const indexById = {};
+  located.forEach((x, k) => { indexById[x.id] = k + offset; });
+  const measure = { D, indexById,
+    startIndex: startC ? 0 : null,
+    homeIndex: homeC ? (startC ? coords.length - 1 : 0) : null };
+
+  return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
+    note: combineNotes(orsNote(notes), geoNote),
+    variants, measure, straightDistanceSource: onRoad ? 'road' : 'straight-line',
+    provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 }
 
 // "addresses"/"roads" → the reassuring toast line naming what the ORS backup
