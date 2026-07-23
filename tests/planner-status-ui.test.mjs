@@ -7,6 +7,8 @@ import * as plannerServices from '../js/planner-services.js';
 const buildOptimizeConfirmation = plannerServices.buildOptimizeConfirmation || (() => undefined);
 const createPlannerLastRunRecord = plannerServices.createPlannerLastRunRecord || (() => undefined);
 const parsePlannerLastRunRecord = plannerServices.parsePlannerLastRunRecord || (() => undefined);
+const createLatestProbeRunner = plannerServices.createLatestProbeRunner
+  || (() => () => Promise.resolve(undefined));
 
 const html = readFileSync(new URL('../planner.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../css/planner.css', import.meta.url), 'utf8');
@@ -89,4 +91,37 @@ test('planner imports Task 1 defaults and probes instead of duplicating local UR
   assert.doesNotMatch(js, /const\s+OSRM_DEFAULT/);
   assert.doesNotMatch(js, /const\s+NOMINATIM_DEFAULT/);
   assert.match(js, /\$\('plGeo'\)\.value\s*=\s*store\.get\('plannerGeocode'\)\s*\|\|\s*DEFAULT_NOMINATIM_URL/);
+});
+
+test('provider checks serialize rounds and every waiter receives the latest committed result', async () => {
+  let active = 0, maxActive = 0, calls = 0;
+  const gates = [];
+  const check = createLatestProbeRunner(async () => {
+    calls++; active++; maxActive = Math.max(maxActive, active);
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    gates.push({ resolve });
+    try { return await promise; }
+    finally { active--; }
+  });
+
+  const first = check();
+  await new Promise(setImmediate);
+  const second = check(), third = check();
+  await new Promise(setImmediate);
+  assert.equal(calls, 1);
+
+  gates[0].resolve({ online:false, round:1 });
+  await new Promise(setImmediate);
+  assert.equal(calls, 2);
+  assert.equal(maxActive, 1);
+
+  const latest = { online:true, round:2 };
+  gates[1].resolve(latest);
+  assert.deepEqual(await Promise.all([first, second, third]), [latest, latest, latest]);
+  assert.equal(maxActive, 1);
+});
+
+test('home anchor geocoding forwards provider progress events', () => {
+  assert.match(js, /geocodeOne\(addr,\s*null,\s*geoUrl,\s*null,\s*progress\)/);
 });

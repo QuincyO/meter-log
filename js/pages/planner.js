@@ -22,7 +22,7 @@ import { optimizeRoute, geocodeOne, coordsOf, isParked } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import {
   DEFAULT_NOMINATIM_URL, DEFAULT_OSRM_URL, buildOptimizeConfirmation,
-  createLastRunRecord, formatLastRunSummary, parsePlannerLastRunRecord,
+  createLastRunRecord, createLatestProbeRunner, formatLastRunSummary, parsePlannerLastRunRecord,
   probeNominatim, probeOsrm,
 } from '../planner-services.js';
 
@@ -33,7 +33,6 @@ let serviceState = {
   osrm:{ provider:'osrm', online:false, reason:'not checked' },
   nominatim:{ provider:'nominatim', online:false, reason:'not checked' },
 };
-let serviceCheckInFlight = null, serviceCheckRequest = 0;
 
 // Day-cluster colors (list headers + map pins/lines), cycled by (day-1).
 const DAY_COLORS = ['#2b6cff','#1E8E5A','#C97E00','#8b5cf6','#d64500','#0891b2','#be185d','#4d7c0f'];
@@ -85,12 +84,7 @@ const providerUrls = () => ({
   nominatim:String($('plGeo').value || '').trim() || DEFAULT_NOMINATIM_URL,
 });
 
-// Checks are serialized: a newer focus/change/pre-optimize request supersedes
-// an older result, then runs against the latest field values after it settles.
-async function checkServices(){
-  const request = ++serviceCheckRequest;
-  if(serviceCheckInFlight) await serviceCheckInFlight.catch(() => {});
-
+const runLatestServiceCheck = createLatestProbeRunner(async () => {
   const urls = providerUrls();
   paintProviderStatus('osrm','checking');
   paintProviderStatus('nominatim','checking');
@@ -100,20 +94,19 @@ async function checkServices(){
         { provider:'nominatim', online:false, reason:'browser offline' },
       ])
     : Promise.all([probeOsrm({ url:urls.osrm }), probeNominatim({ url:urls.nominatim })]);
-  serviceCheckInFlight = run;
-  try {
-    const results = await run;
-    const nextState = { ...serviceState };
-    for(const result of results) nextState[result.provider] = result;
-    if(request === serviceCheckRequest){
-      serviceState = nextState;
-      restoreProviderStatus('osrm');
-      restoreProviderStatus('nominatim');
-    }
-    return nextState;
-  } finally {
-    if(serviceCheckInFlight === run) serviceCheckInFlight = null;
-  }
+  const results = await run;
+  const nextState = { ...serviceState };
+  for(const result of results) nextState[result.provider] = result;
+  return nextState;
+});
+
+// A burst of focus/change/timer calls is coalesced behind one active probe
+// round. All callers wait through any superseding round and receive one state.
+async function checkServices(){
+  serviceState = await runLatestServiceCheck();
+  restoreProviderStatus('osrm');
+  restoreProviderStatus('nominatim');
+  return serviceState;
 }
 
 function renderLastOptimization(record){
@@ -306,7 +299,7 @@ async function homePin(geoUrl){
     const saved = JSON.parse(store.get('plannerHome:' + h) || 'null');
     if(saved && saved.addr === addr && isFinite(saved.lat)) return { lat:saved.lat, lng:saved.lng };
   } catch {}
-  const hit = await geocodeOne(addr, null, geoUrl);
+  const hit = await geocodeOne(addr, null, geoUrl, null, progress);
   if(hit && !hit.ambig){
     store.set('plannerHome:' + h, JSON.stringify({ addr, lat:hit.lat, lng:hit.lng }));
     return { lat: hit.lat, lng: hit.lng };

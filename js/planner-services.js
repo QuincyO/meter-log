@@ -128,3 +128,26 @@ export function parsePlannerLastRunRecord(text){
     });
   } catch { return null; }
 }
+
+// Coalesces bursts into sequential rounds. A request arriving during a round
+// supersedes that result and schedules one fresh round; every waiter receives
+// only the latest committed value.
+export function createLatestProbeRunner(run){
+  let requested = 0, committedRound = 0, committedValue, active = null;
+  const drain = async () => {
+    while(committedRound < requested){
+      const round = requested;
+      const value = await run();
+      if(round === requested){
+        committedValue = value;
+        committedRound = round;
+      }
+    }
+    return committedValue;
+  };
+  return () => {
+    requested++;
+    if(!active) active = drain().finally(() => { active = null; });
+    return active.then(() => committedValue);
+  };
+}
