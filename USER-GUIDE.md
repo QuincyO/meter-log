@@ -244,6 +244,17 @@ Tap **Plan mode: off** to switch it on. The capture form now follows the list: i
 
 If the GPS address disagrees with the planned one, the form asks "GPS found a different address — which one is right?" — tap **Keep planned: …** or **Use GPS: …**.
 
+### Drive mode
+
+Tap **🚗 Drive** on the worklist to open a clean, one-card driving screen. It shows just the current order — work order number, address, Old J# — with a big **Navigate** button that hands off to Google Maps, and **‹ Back** / **Next ›** to flip through your orders.
+
+- **Back and Next only change what you're looking at.** They do not mark anything done and do not change your list. An order is still completed the normal way — when you log its meter.
+- **Navigate** opens Google Maps for the current address (and copies the address, like the 🧭 button on the worklist). When you're done, switch back to the app and your card is still there.
+
+While the Drive screen is open, the app records your driving route and speed for the office. A small **🛰 Location on** chip shows when it's recording. You can turn it off with the **Record this drive** switch — it turns back on the next day. **Keep screen awake** stops the phone from locking while you drive (it uses more battery, so it's off unless you turn it on).
+
+Recording only happens while the Drive screen is in front. When you open Google Maps to navigate, recording pauses and picks back up when you return — the office sees those as gaps, not missing data. **Ending your day (Finish/Close) turns Drive mode off automatically.**
+
 ### Moving the list between devices
 
 **⇪ Upload list** saves your list to the sheet; **⇩ Download list** replaces the phone's list with the saved copy (matched on your H number, so set up Settings first). Use it to plan on one device and run the route on another. Both need signal, both replace the whole list, and both confirm before doing it.

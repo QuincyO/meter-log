@@ -5,19 +5,21 @@
 // module (js/vendor/leaflet.js, js/vendor/chart.umd.min.js).
 import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { decodeTrack } from '../drive-track.js';
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
   ['warehouse','Warehouse'],['toolsMaterial','Tools/Material'],['dispatch','Dispatch'],
   ['truckIssues','Truck Issues'],['assist','Assist'],['urgentEer','Urgent/EER'],['other','Other']];
 
-let ALL = [], TRK = [], TIM = [], DISP = [], BOATDAYS = [], INSTALLER_NAMES = [];
+let ALL = [], TRK = [], TIM = [], DISP = [], BOATDAYS = [], DRIVE = [], INSTALLER_NAMES = [];
+let showDrives = false;   // the 🚗 Drive routes toggle (off by default)
 // The viewer opens on the last 60 days (fetched server-side, see load()) —
 // pulling every stop ever logged on each open stops scaling once the crew
 // grows. The "All" preset still loads the full history on demand.
 const DEFAULT_DAYS = 59;
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
-let map, markersLayer, highlightLayer, chDay, chDown, chReason;
+let map, markersLayer, driveLayer, highlightLayer, chDay, chDown, chReason;
 // What load() last fetched: {from,to} when windowed, 'all' after a full pull,
 // null before the first load. Narrowing inside the fetched window is filtered
 // client-side (instant); widening past it refetches.
@@ -61,9 +63,9 @@ async function load(){
   const full = !win.from && !win.to;
   $('pillstat').textContent = full ? 'Loading full history…' : 'Loading…';
   try{
-    const [pd, td, md, dd, bd] = await Promise.all([
+    const [pd, td, md, dd, bd, xd] = await Promise.all([
       apiGet('pins', win), apiGet('tracker', win), apiGet('timing', win),
-      apiGet('dispatch', win), apiGet('boatdays', win)
+      apiGet('dispatch', win), apiGet('boatdays', win), apiGet('driveTracks', win)
     ]);
     ALL = (pd.pins||[]).map(s => ({ ...s,
       lat:(s.lat===''||s.lat==null)?null:Number(s.lat),
@@ -72,6 +74,7 @@ async function load(){
     TIM = md.timing || [];
     DISP = dd.dispatch || [];
     BOATDAYS = bd.boatDays || [];
+    DRIVE = xd.driveTracks || [];
     _boatMemIdx = null;   // BOATDAYS replaced — rebuild the membership index lazily
     FETCHED = full ? 'all' : { from: win.from || '', to: win.to || '' };
     buildInstallerList();
@@ -178,6 +181,7 @@ function initMap(){
   // pan/zoom smooth with thousands of stops plotted.
   map = L.map('map', { zoomControl:true, preferCanvas:true }).setView([44.5,-79.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
+  driveLayer = L.layerGroup().addTo(map);      // under the pins so stops stay clickable
   markersLayer = L.layerGroup().addTo(map);
   bindPopupRemove();
 }
@@ -235,7 +239,57 @@ function drawMarkers(fit){
       .bindPopup(popupHTML(s)).addTo(markersLayer);
     pts.push([s.lat, s.lng]);
   });
+  drawDrives();
   if(fit && pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.25));
+}
+
+// ── Drive-mode route replay ──────────────────────────────────────────────────
+// Each leg's polyline (decoded from the encoded track), broken at the background
+// gaps the phone couldn't record (it loses GPS while the app is backgrounded, e.g.
+// during a Google-Maps hand-off). A gap shows as a DASHED connector between its
+// pause and resume anchors, so it reads as "was navigating", not "GPS failed".
+const DRIVE_COLOR = '#7C3AED';
+const GAP_JUMP_S = 45;   // a time jump this large between fixes marks a gap boundary
+function drivesInScope(){
+  return DRIVE.filter(r => instMatch(r.installer) && inRange(dateKey(r.date)));
+}
+function drivePopup(r){
+  const km   = ((Number(r.distanceM)||0)/1000).toFixed(1);
+  const mins = Math.round(Number(r.driveMin)||0);
+  const kmh  = Math.round((Number(r.avgSpeed)||0)*3.6);
+  const maxk = Math.round((Number(r.maxSpeed)||0)*3.6);
+  const gaps = Array.isArray(r.gaps) ? r.gaps.length : 0;
+  return `<div class="pop-row"><span class="lab">Drive:</span> ${esc(r.installer)||'—'} · ${esc(dateKey(r.date))}</div>`
+       + `<div class="pop-row">${km} km · ${mins} min · avg ${kmh} · max ${maxk} km/h</div>`
+       + (gaps ? `<div class="pop-row"><span class="lab">Gaps:</span> ${gaps} (navigation)</div>` : '');
+}
+function drawDrives(){
+  if(!driveLayer) return;
+  driveLayer.clearLayers();
+  if(!showDrives) return;
+  drivesInScope().forEach(r => {
+    const pts = decodeTrack(r.encoded || '', Number(r.startTime) || 0);
+    let run = [];
+    const flush = () => {
+      if(run.length > 1) L.polyline(run, { color:DRIVE_COLOR, weight:4, opacity:.8 })
+        .bindPopup(drivePopup(r)).addTo(driveLayer);
+      run = [];
+    };
+    pts.forEach((p, i) => {
+      if(i > 0 && (p.t - pts[i-1].t) / 1000 > GAP_JUMP_S) flush();   // break at a gap
+      run.push([p.lat, p.lng]);
+    });
+    flush();
+    (Array.isArray(r.gaps) ? r.gaps : []).forEach(g => {
+      if(g.pauseLat == null || g.resumeLat == null) return;
+      L.polyline([[g.pauseLat, g.pauseLng], [g.resumeLat, g.resumeLng]],
+        { color:DRIVE_COLOR, weight:3, opacity:.55, dashArray:'6 8' }).addTo(driveLayer);
+      L.circleMarker([g.pauseLat, g.pauseLng], { radius:5, color:DRIVE_COLOR, weight:2, fillColor:'#fff', fillOpacity:1 })
+        .bindTooltip('paused (navigation)').addTo(driveLayer);
+      L.circleMarker([g.resumeLat, g.resumeLng], { radius:5, color:DRIVE_COLOR, weight:2, fillColor:DRIVE_COLOR, fillOpacity:1 })
+        .bindTooltip('resumed here').addTo(driveLayer);
+    });
+  });
 }
 
 // ── search ───────────────────────────────────────────────────────────────────
@@ -459,6 +513,11 @@ $('instWrap').onclick = e => { if(e.target===$('instWrap')||e.target===$('instCh
 document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
+$('driveToggle').onclick = () => {
+  showDrives = !showDrives;
+  $('driveToggle').classList.toggle('on', showDrives);
+  drawDrives();
+};
 document.querySelectorAll('.preset').forEach(b => b.onclick = () => {
   if(b.dataset.days==='all'){ state.from=''; state.to=''; }   // "All" = load full history
   else { state.to=torontoToday(); state.from=daysAgo(Number(b.dataset.days)); }

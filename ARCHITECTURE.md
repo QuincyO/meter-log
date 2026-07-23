@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, sixteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`. This is the truth.
+One spreadsheet, seventeen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -160,7 +160,9 @@ written verbatim — so duplicate/blank order values from old clients can't
 round-trip; the nightly `clearDoneWorklistJob` runs the same
 `normalizeWorklistOrders()` repair across every installer's rows),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
-`saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`.
+`saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`,
+`saveDriveTrack` (append one Drive-mode driving leg — client-generated `id`,
+idempotent on retry like `addStop`; see "Drive mode").
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
 `range` (one installer's stops + downtime over a from/to window, grouped by day —
 backs the phone's offline "recent days" cache in a single call),
@@ -189,7 +191,9 @@ downtime"), `archived` (one installer's removed stops for a date — edit.html's
 (one installer's saved `Worklist` planned orders, matched on the employee
 **H number** and returned **sorted** — order asc, blanks last, createdAt tie —
 the planning page's explicit **Download** button, which replaces the phone's
-local list with them, renumbering by array position as it lands).
+local list with them, renumbering by array position as it lands),
+`driveTracks` (Drive-mode driving legs, optionally one installer + a from/to
+window on the leg date — backs the map viewer's route replay; see "Drive mode").
 
 ---
 
@@ -592,6 +596,58 @@ log). The captured data is identical; what changes is the chrome and the PDF.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 
+## Drive mode
+
+A low-distraction driving screen reached **only from the worklist** (`#drive`, a
+hash-routed sibling screen inside `index.html`, like `#worklist-route` — module
+`js/drive.js`, styles `css/drive.css`, wired by `initWorklist()`). It does two
+jobs:
+
+- **Driver-facing:** shows **only the current order's card** — WO#, unit+address,
+  Old J#, appointment/notes — with a big **Navigate** button (the shared
+  `openDirections()` Google-Maps hand-off) and **Advance / Back** buttons. Advance/Back
+  move a **local display pointer** across the pending set *only*; they never change
+  an order's status, touch the Sheet, or affect plan mode (an order still goes
+  `done` only when its meter is logged, exactly as before). Deliberately no map, no
+  speed, no trip numbers on screen.
+- **Office-facing (silent):** while the screen is in front it records the driving
+  leg — GPS points `{lat,lng,t,spd}` (device `coords.speed`, else derived) — and on
+  leaving the screen or ending the day uploads the leg to the `DriveTracks` tab via
+  the offline queue (`saveDriveTrack`). The map viewer replays it (the 🚗 **Drive
+  routes** toggle, off by default).
+
+The pure track model is `js/drive-track.js` (DOM-free, unit-tested): a segment
+state machine (`createSegment`/`addFix`/`markPause`/`markResume`/`finalizeSegment`),
+a compact interleaved-varint polyline (`encodeTrack`/`decodeTrack`, lat/lng ×1e5,
+time **relative** to leg start so the zig-zag never overflows int32, speed 0.1 m/s),
+and `segmentSummary` (distance/avg/max, m/s). A **fix filter** drops a new point
+that is both < 15 m and < 3 s from the last (jitter + battery/storage dial);
+`MAX_POINTS` rolls a very long leg to a fresh row before the 50k-char cell limit.
+
+**The platform limit is load-bearing.** A web app gets **no GPS while
+backgrounded**, so tracking only records while the Drive page is actually in
+front — during a Google-Maps hand-off the leg pauses. `visibilitychange` brackets
+each background stretch as an **anchored gap** (`markPause` on the last point,
+`markResume` on the first fix back), stored in the leg's `gaps` array as
+pause+resume lat/lng/time pairs. The desktop planner can OSRM-route between a pair
+to reconstruct the missing stretch; the map viewer draws a gap as a **dashed**
+connector so it reads as "was navigating", not "GPS failed".
+
+**Controls & safety.** A per-day **tracking toggle** lets the driver opt out
+entirely (no watch, nothing recorded/uploaded); it is stored stamped with the day,
+so it **re-arms ON every new day**. An optional **Screen Wake Lock** (default off,
+labelled as a battery cost) keeps a dashboard-mounted phone recording. A small
+"🛰 Location on / Location off" chip is the only tracking-related thing the driver
+sees — the awareness disclosure, no numbers. **Ending the day turns Drive off:**
+`finishDay` calls `teardownDrive()` (exported from `worklist.js`) before anything
+else, on both the online and offline paths — it clears the watch, releases the wake
+lock, and finalizes/uploads the active leg. Leaving the screen (`#drive` popstate)
+or `pagehide` runs the same teardown. A leg is checkpointed to the IndexedDB
+`driveTracks` store on each fix (marked `active`); a reload/crash mid-leg is
+recovered and shipped on the next open (`saveDriveTrack` is idempotent on the leg
+id, so a recovered-then-refinalized leg can't double). Legs with < 2 points are
+dropped, never uploaded.
+
 ## Data structures
 
 ### Stop  (one row per work order visited → tab "Stops")
@@ -984,6 +1040,29 @@ marks it "edited".
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips
 them on upload and the next optimize re-derives them.
+
+### DriveTrack row  (one per driving leg → tab "DriveTracks")
+One Drive-mode driving leg (see "Drive mode"). `encoded` is the compressed
+polyline of the leg's `{lat,lng,t,spd}` points (`js/drive-track.js`); `gaps` is a
+JSON array of pause/resume anchors bracketing the stretches the phone couldn't
+record. `setupSheets` pins `gaps`/`encoded` (cols L–M) to text so Sheets can't
+read a leading `@`/`[` as a formula. Appended after the existing tabs; a positional
+append guarded by `tests/drivetracks-sheet-schema.test.mjs`.
+| field | type | notes |
+|-------|------|-------|
+| `id` | string | client-generated; `saveDriveTrack` is idempotent on it |
+| `date` | string | Toronto-local `yyyy-MM-dd` — the window key |
+| `installer` | string | display name (read filter is `sameName`) |
+| `workType` | string | `'boat'` \| `'land'` (blank = boat) |
+| `startTime` | number | epoch ms of the first point |
+| `endTime` | number | epoch ms of the last point |
+| `pointCount` | number | recorded points |
+| `distanceM` | number | driven distance, metres (gap jumps excluded) |
+| `driveMin` | number | elapsed minutes across the leg |
+| `avgSpeed` | number | m/s over the leg (stopped time included) |
+| `maxSpeed` | number | m/s, best single fix |
+| `gaps` | string | JSON `[{pauseLat,pauseLng,pauseT,resumeLat,resumeLng,resumeT}]` |
+| `encoded` | string | interleaved-varint polyline of `{lat,lng,t,spd}` |
 
 ---
 

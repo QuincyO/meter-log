@@ -212,6 +212,17 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
 const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource',
   'updated','routeVariant','straightDistanceSource'];
 
+// One row per Drive-mode driving LEG (the phone records a leg while the Drive
+// screen is in front, then uploads it). `encoded` is the compressed polyline of
+// {lat,lng,t,spd} points (js/drive-track.js encodeTrack); `gaps` is a JSON array
+// of pause/resume anchors bracketing the background stretches the phone couldn't
+// track (it loses GPS while the PWA is backgrounded, e.g. during a Google-Maps
+// hand-off) — the desktop planner can OSRM-route between a pair to fill the gap.
+// startTime/endTime are epoch ms; the speed columns are m/s. Appended after the
+// existing tabs; see the append-not-insert rule for ensureTab().
+const DRIVETRACKS_HEADERS = ['id','date','installer','workType','startTime','endTime',
+  'pointCount','distanceM','driveMin','avgSpeed','maxSpeed','gaps','encoded'];
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -241,6 +252,7 @@ function setupSheets() {
   ensureTab(ss, 'InstallerMetrics', INSTALLER_METRICS_HEADERS);
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
+  ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
   // These values are minute counts, not Sheets date serials. Find their columns
   // by header so schema additions/reordering cannot turn a fixed column into one.
   const installerMetrics = ss.getSheetByName('InstallerMetrics');
@@ -268,6 +280,9 @@ function setupSheets() {
   ss.getSheetByName('Worklist').getRange('O2:Q').setNumberFormat('@');  // appointment/lock dates + time
   ss.getSheetByName('Worklist').getRange('S2:T').setNumberFormat('@');  // scheduled date + ETA
   ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
+  // The encoded polyline / gaps JSON are opaque text — keep Sheets from reading a
+  // leading '@' or '[' as anything but a literal string. (gaps = col L, encoded = M.)
+  ss.getSheetByName('DriveTracks').getRange('L2:M').setNumberFormat('@');
 }
 
 function ensureTab(ss, name, headers) {
@@ -324,6 +339,7 @@ function doPost(e) {
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
       case 'saveWorklist':   return json(saveWorklist(body));
+      case 'saveDriveTrack': return json(saveDriveTrack(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
@@ -395,6 +411,7 @@ function doGet(e) {
   if (p.action === 'timing')  return json(timing(p.from, p.to));
   if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
   if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
+  if (p.action === 'driveTracks') return json(driveTracksRead(p.installer, p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
   if (p.action === 'roster')  return json(roster());
@@ -518,6 +535,26 @@ function addStop(b) {
   // One team-scoped read per log — keeps a value in cache as the crew works.
   if (b.installerId) res.boatMeta = boatMetaFor(b.installerId, dateOf(b.timestamp));
   return res;
+}
+
+/** Append one Drive-mode driving leg (see DRIVETRACKS_HEADERS). Client-generated
+ *  `id` makes a timed-out-but-succeeded retry idempotent, exactly like addStop —
+ *  the leg rides the offline queue, so it must ack terminally on a re-send. */
+function saveDriveTrack(b) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('DriveTracks') || ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
+  const id = b.id || newId();
+  if (b.id && idExists(sh, b.id)) return { ok: true, id: b.id, duplicate: true };
+  const row = [
+    id, b.date || '', b.installer || '', normWorkType(b.workType),
+    numOrBlank(b.startTime), numOrBlank(b.endTime),
+    numOrBlank(b.pointCount), numOrBlank(b.distanceM), numOrBlank(b.driveMin),
+    numOrBlank(b.avgSpeed), numOrBlank(b.maxSpeed),
+    JSON.stringify(b.gaps || []), b.encoded || ''
+  ];
+  sh.appendRow(row);
+  bustRows('DriveTracks');
+  return { ok: true, id: id };
 }
 
 /** End-of-day dispatch deduction suggested for a gap's arriving install — the
@@ -1940,6 +1977,28 @@ function dispatchRows(from, to) {
   return { ok: true, dispatch: rows('Dispatch')
     .filter(r => (!from && !to)
       || inWindow(dateOf(r.completedTime || r.requestTime), from, to)) };
+}
+
+/** Drive-mode leg segments, optionally filtered to one installer (display name,
+ *  like the other stop-derived reads) and windowed by [from, to] on the leg's
+ *  date. Backs the map viewer's route replay. `gaps` is parsed back to an array;
+ *  `encoded` is handed through for decodeTrack() on the client. */
+function driveTracksRead(installer, from, to) {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DriveTracks')) {
+    return { ok: true, driveTracks: [] };
+  }
+  const num = v => (v === '' || v == null) ? 0 : Number(v);
+  return { ok: true, driveTracks: rows('DriveTracks')
+    .filter(r => !installer || sameName(r.installer, installer))
+    .filter(r => (!from && !to) || inWindow(dateOf(r.date), from, to))
+    .map(r => {
+      let gaps = [];
+      try { gaps = JSON.parse(r.gaps || '[]'); } catch (e) { gaps = []; }
+      return { id: r.id, date: r.date, installer: r.installer, workType: r.workType,
+        startTime: num(r.startTime), endTime: num(r.endTime),
+        pointCount: num(r.pointCount), distanceM: num(r.distanceM), driveMin: num(r.driveMin),
+        avgSpeed: num(r.avgSpeed), maxSpeed: num(r.maxSpeed), gaps: gaps, encoded: r.encoded };
+    }) };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

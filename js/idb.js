@@ -6,11 +6,14 @@
 //                system of record until each write reaches the Sheet)
 //   'addrCache' (key = rounded "lat,lng", value = {address, ts}) — coord→address
 //                cache so reverse-geocoding works offline (see geocode.js)
+//   'driveTracks' (keyPath 'id') — Drive-mode leg segments (points + gap anchors),
+//                the local copy that survives a reload mid-leg and is uploaded via
+//                the offline queue's saveDriveTrack (see drive.js / drive-track.js)
 //
 // Bumping the schema: raise DB_VERSION and add the new store inside
 // onupgradeneeded (guarded by `contains`, so it's additive and safe on upgrade).
 // This is separate from the sw.js CACHE version.
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export const idb = (() => {
   let _db = null;
@@ -25,6 +28,7 @@ export const idb = (() => {
           if(!d.objectStoreNames.contains('worklist'))  d.createObjectStore('worklist', {keyPath:'id'});
           if(!d.objectStoreNames.contains('queue'))     d.createObjectStore('queue', {keyPath:'_seq', autoIncrement:true});
           if(!d.objectStoreNames.contains('addrCache')) d.createObjectStore('addrCache');
+          if(!d.objectStoreNames.contains('driveTracks')) d.createObjectStore('driveTracks', {keyPath:'id'});
         };
         req.onsuccess = e => { _db = e.target.result; res(_db); };
         req.onerror   = e => rej(e.target.error);

@@ -16,7 +16,7 @@ import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
+import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive, teardownDrive } from '../worklist.js';
 import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
@@ -1011,6 +1011,10 @@ function queueClose(c, weather){
 $('finishDay').onclick = async () => {
   const c = cfg();
   const btn = $('finishDay');
+  // Ending the day turns Drive mode off: stop the GPS watch and finalize/upload
+  // any active driving leg. The explicit "close and end your day → tracking off"
+  // guarantee, covering both the online and offline Finish paths below.
+  await teardownDrive();
   // Storage-first: never lose the travel/downtime review or the bookend times.
   await persistEodReview();
 

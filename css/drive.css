@@ -1,0 +1,59 @@
+/* Drive mode (#drive) — a single big, low-distraction card for the current
+   order plus a Navigate hand-off. Deliberately quiet: no map, no speed, no trip
+   numbers. Uses the shared tokens so it themes with boat/land like every screen. */
+
+.drive-screen{
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  padding-top:8px;
+}
+
+.drive-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin-bottom:10px;
+}
+.drive-indicator{
+  font-size:13px; font-weight:600; color:var(--accent);
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 10px; border-radius:999px;
+  background:var(--accent-soft);
+}
+.drive-indicator.off{ color:var(--ink-soft); background:var(--surface); border:1px solid var(--line); }
+
+/* The card fills the space so the driver reads it at a glance, one order only. */
+.drive-card-wrap{ flex:1; display:flex; align-items:center; }
+.drive-card{
+  width:100%;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow);
+  padding:28px 22px;
+  display:flex; flex-direction:column; gap:14px;
+}
+.drive-wo{ font-size:34px; font-weight:800; letter-spacing:.5px; color:var(--accent); }
+.drive-addr{ font-size:26px; font-weight:600; line-height:1.25; }
+.drive-oldj{ font-size:16px; color:var(--ink-soft); }
+.drive-appt{ font-size:16px; font-weight:600; color:var(--amber-press); }
+.drive-empty{ width:100%; text-align:center; font-size:17px; }
+
+.drive-pos{ text-align:center; font-size:14px; margin:12px 0 4px; }
+
+/* Navigate is the primary target and the biggest; Back/Next flank it, smaller. */
+.drive-actions{
+  display:flex; align-items:stretch; gap:10px; margin-top:4px;
+}
+.drive-step{ flex:1; min-height:var(--tap); font-size:16px; }
+.drive-nav{ flex:2; min-height:64px; font-size:20px; font-weight:700; margin-top:0; }
+.drive-nav:disabled{ opacity:.5; }
+
+.drive-toggles{
+  margin-top:18px; padding-top:14px; border-top:1px solid var(--line);
+  display:flex; flex-direction:column; gap:12px;
+}
+.drive-toggle{
+  display:flex; align-items:center; gap:10px;
+  font-size:15px; color:var(--ink);
+}
+.drive-toggle input{ width:22px; height:22px; accent-color:var(--accent); }
+.drive-toggle .muted{ font-size:13px; }
+
+.wl-drive{ width:100%; margin-top:8px; }

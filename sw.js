@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v27';
+const CACHE = 'meterlog-v28';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -19,7 +19,7 @@ const SHELL = [
   // CSS (capture page shares tokens+base; map/teams/edit/reports are self-contained)
   './css/tokens.css', './css/base.css', './css/capture.css',
   './css/map.css', './css/teams.css', './css/edit.css', './css/reports.css',
-  './css/help.css', './css/planner.css',
+  './css/help.css', './css/planner.css', './css/drive.css',
   // vendored Leaflet CSS + its sprite images (map.html)
   './css/vendor/leaflet.css',
   './css/vendor/images/marker-icon.png', './css/vendor/images/marker-icon-2x.png',
@@ -29,6 +29,7 @@ const SHELL = [
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
   './js/api.js', './js/daycache.js', './js/queue.js', './js/geocode.js',
   './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
+  './js/drive.js', './js/drive-track.js',
   './js/drag-autoscroll.js',
   './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/planner-services.js', './js/utiReasons.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',

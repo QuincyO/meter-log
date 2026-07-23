@@ -21,11 +21,14 @@ test('setup formats recent-30 InstallerMetrics fields by their header names', ()
   assert.match(setup, /if \(col !== -1\) installerMetrics\.getRange\(2, col \+ 1, metricDataRows, 1\)\.setNumberFormat\(['\"]0['\"]\);/);
 });
 
-test('the service-worker cache includes planner services and route variants at v27', () => {
-  assert.match(worker, /const CACHE = 'meterlog-v27';/);
+test('the service-worker cache includes planner services, route variants and drive mode at v28', () => {
+  assert.match(worker, /const CACHE = 'meterlog-v28';/);
   assert.match(worker, /['\"]\.\/js\/planner-services\.js['\"]/);
   // A new shared module only reaches phones if it is in SHELL and CACHE moved.
   assert.match(worker, /['\"]\.\/js\/route-variants\.js['\"]/);
+  assert.match(worker, /['\"]\.\/js\/drive\.js['\"]/);
+  assert.match(worker, /['\"]\.\/js\/drive-track\.js['\"]/);
+  assert.match(worker, /['\"]\.\/css\/drive\.css['\"]/);
 });
 
 test('planner documentation explains live provider provenance and persistent results', () => {

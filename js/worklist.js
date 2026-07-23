@@ -16,6 +16,7 @@ import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
+import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 // The address helpers (split/join/recent streets) live with the fill-in screen —
 // it is the module that exists to put an address on an order.
@@ -34,6 +35,10 @@ let planEstimate = null;        // set by initWorklist (capture.js): async () =>
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
 let addrFill = null;            // the address fill-in walkthrough (same)
+let driveView = null;           // the #drive driving screen (same)
+
+// End-of-day safety net for capture.js: stop Drive tracking and leave the screen.
+export function teardownDrive(){ return driveView ? driveView.teardown() : Promise.resolve(); }
 
 function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
 function setStartHere(on){ $('wlStartHere').setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -507,6 +512,15 @@ async function openWorklistRoute(){
   await routeView.open();
 }
 
+// The Drive screen — its own history entry, so hardware Back leaves it back to
+// the worklist (which is what finalizes the driving leg via close()).
+async function openDriveScreen(){
+  $('captureMain').classList.add('hide');
+  $('worklistScreen').classList.add('hide');
+  if(location.hash !== '#drive') history.pushState({ drive:1 }, '', '#drive');
+  await driveView.open();
+}
+
 // The address walkthrough. Its own history entry, like the route map, so the
 // phone's hardware Back leaves it the same way the ‹ Worklist button does.
 async function openAddressFill(){
@@ -520,7 +534,16 @@ async function openAddressFill(){
 }
 
 async function showHashScreen(){
-  if(location.hash === '#worklist-route'){
+  // Leaving the Drive screen (Back to worklist, or anywhere) finalizes + uploads
+  // the driving leg. Do it before opening whatever screen we're navigating to.
+  if(driveView && driveView.isOpen() && location.hash !== '#drive') await driveView.close();
+  if(location.hash === '#drive'){
+    $('captureMain').classList.add('hide');
+    $('worklistScreen').classList.add('hide');
+    routeView.close();
+    await addrFill.close();
+    await driveView.open();
+  } else if(location.hash === '#worklist-route'){
     $('captureMain').classList.add('hide');
     $('worklistScreen').classList.add('hide');
     await addrFill.close();
@@ -1226,7 +1249,13 @@ export function initWorklist(opts){
     onDone: afterAddressFill,
     onClose: () => location.hash === '#worklist-address' ? history.back() : openWorklist(),
   });
+  driveView = initDrive({
+    getPending: async () => pendingOf(await allSorted()),
+    openDirections,
+    onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
+  });
   $('wlBack').onclick = closeWorklist;
+  $('wlDrive').onclick = openDriveScreen;
   $('wlViewRoute').onclick = openWorklistRoute;
   $('wlFillAddr').onclick = openAddressFill;
   $('wlUpload').onclick = wlUpload;
@@ -1278,6 +1307,12 @@ export function initWorklist(opts){
       history.pushState({ wl:1 }, '', '#worklist');
       history.pushState({ wlAddr:1 }, '', '#worklist-address');
       openAddressFill();
+    } else if(location.hash === '#drive'){
+      // Same history seeding, so Back returns through the worklist, then capture.
+      history.replaceState({}, '', location.pathname + location.search);
+      history.pushState({ wl:1 }, '', '#worklist');
+      history.pushState({ drive:1 }, '', '#drive');
+      openDriveScreen();
     } else if(location.hash === '#worklist'){
       history.replaceState({}, '', location.pathname + location.search);
       history.pushState({ wl:1 }, '', '#worklist');

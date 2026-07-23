@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/vendor/leaflet.css">
 <link rel="stylesheet" href="css/capture.css">
+<link rel="stylesheet" href="css/drive.css">
 </head>
 <body>
 
@@ -202,6 +203,7 @@
       <button class="wl-variant-btn" id="wlVariantStraight" type="button" aria-pressed="false" disabled></button>
     </div>
     <button class="ghost wl-view-route" id="wlViewRoute" type="button">View route map</button>
+    <button class="ghost wl-drive" id="wlDrive" type="button">🚗 Drive</button>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
     <div class="hide" id="wlForm">
       <label for="wlWo">Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
@@ -279,6 +281,31 @@
       <button class="ghost" id="wlAddrSkip" type="button">Skip ›</button>
     </div>
     <button class="primary" id="wlAddrSave" type="button">Save &amp; next</button>
+  </section>
+
+  <!-- Drive mode — one big card for the current order, a Navigate hand-off, and
+       Advance/Back that move only the display (never an order's status). The GPS
+       leg is recorded silently while this screen is in front; the toggle lets the
+       driver opt out (re-arms each day). No speed/route numbers are shown here. -->
+  <section class="drive-screen hide" id="driveScreen">
+    <div class="drive-head">
+      <button class="wl-back" id="driveBack" type="button" aria-label="Back to worklist">‹ Worklist</button>
+      <span class="drive-indicator" id="driveIndicator" aria-live="polite">🛰 Location on</span>
+    </div>
+    <div class="drive-card-wrap">
+      <div class="drive-card" id="driveCard"></div>
+      <p class="muted drive-empty hide" id="driveEmpty">No pending orders. Add or download orders from the worklist.</p>
+    </div>
+    <div class="drive-pos muted" id="drivePos" aria-live="polite"></div>
+    <div class="drive-actions">
+      <button class="ghost drive-step" id="drivePrev" type="button">‹ Back</button>
+      <button class="primary drive-nav" id="driveNav" type="button">Navigate</button>
+      <button class="ghost drive-step" id="driveNext" type="button">Next ›</button>
+    </div>
+    <div class="drive-toggles">
+      <label class="drive-toggle"><input id="driveTrackToggle" type="checkbox"> Record this drive</label>
+      <label class="drive-toggle"><input id="driveWakeToggle" type="checkbox"> Keep screen awake <span class="muted">(uses more battery)</span></label>
+    </div>
   </section>
 
   <div class="toast" id="toast"></div>

@@ -49,11 +49,12 @@ test('AGENTS.md describes the app as it is now, not as it was', () => {
   // The stale fork claimed twelve tabs and four pages, and had never heard of the
   // worklist or the planner. Spot-check the things it was missing.
   for(const term of ['Worklist', 'WorklistPlans', 'planner.html', 'reports.html', 'help.html',
-    'StopsArchive', 'InstallerMetrics', 'archiveStop', 'route-variants.js'])
+    'StopsArchive', 'InstallerMetrics', 'archiveStop', 'route-variants.js',
+    'DriveTracks', 'saveDriveTrack', 'drive-track.js'])
     assert.ok(agents.includes(term), `AGENTS.md never mentions ${term}`);
-  assert.ok(!/twelve tabs|four pages|four static pages/.test(agents),
+  assert.ok(!/twelve tabs|four pages|four static pages|sixteen tabs/.test(agents),
     'AGENTS.md still carries a stale count from the old fork');
-  assert.match(agents, /sixteen tabs/);
+  assert.match(agents, /seventeen tabs/);
 });
 
 test('the docs do not tell an agent to serve the pages with python', () => {

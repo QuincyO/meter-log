@@ -126,7 +126,19 @@ card action row is tight at 320 px.
   `worklist` row survived — preserving those is the point of the in-place design.
 - **Spine changes in `Code.gs` are not live until pushed** (CI deploys from `main`). New
   GET actions error against prod during verification — check the frontend degrades
-  sensibly rather than assuming the code is wrong.
+  sensibly rather than assuming the code is wrong. (`driveTracks` is gentle here: the
+  spine's `doGet` fallback returns `{ok:true}` for an unknown action, so `map.js` reads
+  it as an empty list and the viewer keeps working before the deploy.)
+- **Driving the Drive screen (`#drive`).** It's reachable only via the worklist's 🚗 Drive
+  button; `document.getElementById('wlDrive').click()` opens it. Headless has **no
+  geolocation**, so the leg records no points and `finalizeAndEnqueue` drops it — nothing
+  is written, which is what you want against prod. Verify the driver-facing behavior: the
+  card shows only the current order, **Advance/Back move the display without changing an
+  order's `wlStatus`** (read the `worklist` IndexedDB store before/after to confirm), and
+  the per-day tracking toggle flips the "🛰 Location on / Location off" chip and writes
+  `localStorage['driveTrack']` = `{on, date}`. To exercise `saveDriveTrack`/`driveTracks`
+  end-to-end, intercept the spine (§4) and either inject fixes via
+  `Emulation.setGeolocationOverride` or seed the `driveTracks` IndexedDB store directly.
 - Find dates that actually have data via `action=pins&from=&to=` before driving date
   pickers.
 - `status:"DONE"` stops never render anywhere — a day holding only DONE markers
