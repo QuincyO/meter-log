@@ -1,6 +1,6 @@
 # Employees
 
-_5 rows · exported 2026-07-22 03:52 America/Toronto_
+_6 rows · exported 2026-07-23 03:52 America/Toronto_
 
 | hNumber | firstName | lastName | active | subName |
 | --- | --- | --- | --- | --- |
@@ -9,3 +9,4 @@ _5 rows · exported 2026-07-22 03:52 America/Toronto_
 | E58606 | Brody | D | true |  |
 | E58251 | Bradley | Davis | true |  |
 | E57714 | Josue | Vasquez | true | Darren |
+| E58067 | Owen | McCagherty | true | Jason |

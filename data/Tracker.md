@@ -1,6 +1,6 @@
 # Tracker
 
-_45 rows · exported 2026-07-22 03:52 America/Toronto_
+_47 rows · exported 2026-07-23 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -49,3 +49,5 @@ _45 rows · exported 2026-07-22 03:52 America/Toronto_
 | 2026-07-21 00:00:00 | Phillip Monteiro | 20 | 0 | 95 | 30 | 10 | 0 | 15 | 15 | 25 | 0 | 0 | 0 | 0 | Mainly clear · SW 18 km/h · 23°C |  | 0 | 0 |  | 228 |  | land |
 | 2026-07-21 00:00:00 | Quincy Orta | 12 | 3 | 232 | 0 | 14 | 0 | 0 | 0 | 128 | 0 | 0 | 90 | 0 | Mainly clear · W 18 km/h · 23°C |  | 1 | 0 |  | 220 |  | land |
 | 2026-07-21 00:00:00 | Josue Vasquez | 17 | 1 | 15 | 0 | 0 | 0 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · SW 20 km/h · 24°C |  | 0 | 0 |  | 276 |  | land |
+| 2026-07-22 00:00:00 | Quincy Orta | 17 | 0 | 198 | 0 | 0 | 0 | 15 | 15 | 148 | 0 | 0 | 0 | 20 | Clear · W 16 km/h · 18°C |  | 0 | 0 |  | 151 |  | land |
+| 2026-07-22 00:00:00 | Phillip Monteiro | 14 | 0 | 180 | 30 | 0 | 0 | 15 | 15 | 120 | 0 | 0 | 0 | 0 | Mainly clear · W 16 km/h · 16°C | I was given water access orders in Algonquin. Had to spend a lot of time calling customers and finding which orders were water access and which were road access. No addresses on any Algonquin orders. Took extra time to find the meter locations. | 0 | 0 |  | 235 |  | land |

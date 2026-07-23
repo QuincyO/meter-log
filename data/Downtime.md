@@ -1,6 +1,6 @@
 # Downtime
 
-_116 rows · exported 2026-07-22 03:52 America/Toronto_
+_139 rows · exported 2026-07-23 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -120,3 +120,26 @@ _116 rows · exported 2026-07-22 03:52 America/Toronto_
 | 1784663593407-2m8giq | 2026-07-21 12:00:00 | Quincy Orta | DISPATCH | 15 | 693844 | gap 14:14–15:14 |  |
 | 1784699991242-6q5zwc | 2026-07-20 12:00:00 | Quincy Orta | NEXT_GEN | 20 | 693932 | gap 12:54–14:43 |  |
 | 1784699991242-h2kya3 | 2026-07-20 12:00:00 | Quincy Orta | MISC_TRAVEL | 30 | 693932 | gap 12:54–14:43 |  |
+| 1784749499014-f9ison | 2026-07-22 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693924 | gap 09:35–09:35 |  |
+| 1784749499014-0v5ttq | 2026-07-22 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693924 | gap 09:35–09:35 |  |
+| 1784749499014-ikucyq | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693836 | gap 09:35–09:55 |  |
+| 1784749499014-41rjag | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693779 | gap 09:55–10:06 |  |
+| 1784749499014-2j6zns | 2026-07-22 12:00:00 | Quincy Orta | OTHER | 20 | 687511 | gap 10:06–10:51 |  |
+| 1784749499014-4ouqno | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 20 | 693758 | gap 10:51–11:37 |  |
+| 1784749499014-spnz3t | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 14 | 681957 | gap 11:37–12:02 |  |
+| 1784749499014-h1f5vf | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 14 | 692340 | gap 12:02–12:12 |  |
+| 1784749499014-107rqb | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693868 | gap 12:12–12:28 |  |
+| 1784749499014-jthn3i | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693899 | gap 12:28–12:45 |  |
+| 1784749499014-m6tek7 | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693803 | gap 12:45–13:00 |  |
+| 1784749499014-wp0yqq | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693870 | gap 13:00–13:13 |  |
+| 1784749499014-twzdgb | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693842 | gap 13:13–13:32 |  |
+| 1784749499014-61avtz | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 10 | 693869 | gap 13:32–13:48 |  |
+| 1784749499014-bkgmlq | 2026-07-22 12:00:00 | Quincy Orta | DISPATCH | 20 | 693879 | gap 14:03–14:40 |  |
+| 1784749882994-goj64s | 2026-07-22 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 691547 | gap 10:01–10:01 |  |
+| 1784749882994-zuh64h | 2026-07-22 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 691547 | gap 10:01–10:01 |  |
+| 1784749882994-xvdq1a | 2026-07-22 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 691547 | gap 10:01–10:01 |  |
+| 1784749882994-xu5af7 | 2026-07-22 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 691547 | gap 10:01–10:01 |  |
+| 1784749882994-pn15h6 | 2026-07-22 12:00:00 | Phillip Monteiro | DISPATCH | 30 | 692828 | gap 10:50–12:27 |  |
+| 1784749882994-vmij62 | 2026-07-22 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 692828 | gap 10:50–12:27 |  |
+| 1784749882994-wskzg0 | 2026-07-22 12:00:00 | Phillip Monteiro | BREAK | 15 | 692586 | gap 13:56–14:26 |  |
+| 1784749882994-dkuodf | 2026-07-22 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 669237 | gap 14:34–15:38 |  |

@@ -1,6 +1,6 @@
 # Stops
 
-_376 rows · exported 2026-07-22 03:52 America/Toronto_
+_407 rows · exported 2026-07-23 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -380,3 +380,34 @@ _376 rows · exported 2026-07-22 03:52 America/Toronto_
 | 1784661787421-ynafdi | 2026-07-21 15:23:07 | Phillip Monteiro | 668535 |  | 46 Jack St, Huntsville, ON P1H 0B1, Canada | 45.339623 | -79.22697 | J4641698 | J4029059 | 21145 | INSTALLED |  |  |  |  |  | land |
 | 1784661841715-3kfgjn | 2026-07-21 15:24:01 | Quincy Orta | 693940 |  | 4205 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.404476 | -79.386464 | J4608681 | J3134593 | 72105 | INSTALLED |  |  |  |  |  | land |
 | 1784662534104-6v4g7l | 2026-07-21 15:35:34 | Quincy Orta | 693770 |  | 180 Rachels Lane | 45.390564 | -79.357993 | J4608682 | J3136082 | 80 | INSTALLED |  |  |  |  |  | land |
+| 1784727303729-vop8gq | 2026-07-22 9:35:03 | Quincy Orta | 693924 |  | 362 Spring Hill Rd, Ryerson, ON P0A 1C0, Canada | 45.587049 | -79.480085 | J4642703 | J3569317 | 69259 | INSTALLED |  |  |  |  |  | land |
+| 1784728509359-q2etbb | 2026-07-22 9:55:09 | Quincy Orta | 693836 |  | 565 Hill and Gully Rd, Burk's Falls, ON P0A 1C0, Canada | 45.621464 | -79.471454 | J4642704 | J3299159 | 82034 | INSTALLED |  |  |  |  |  | land |
+| 1784728866687-7koyqj | 2026-07-22 10:01:06 | Phillip Monteiro | 691547 |  | G78H+2M Algonquin Park, ON, Canada | 45.515041 | -78.720816 | J4641700 | J3081420 | 4069 | INSTALLED |  |  |  |  |  | land |
+| 1784729211704-cadppe | 2026-07-22 10:06:51 | Quincy Orta | 693779 |  | 244 E Rd, Burk's Falls, ON P0A 1C0, Canada | 45.621753 | -79.434632 | J4642701 | J4227697 | 11572 | INSTALLED |  |  |  |  |  | land |
+| 1784729756680-5wtx4h | 2026-07-22 10:15:56 | Phillip Monteiro | 689510 |  | G78G+5F Algonquin Park, ON, Canada | 45.515381 | -78.723768 | J4641702 | J2116497 | 9674 | INSTALLED |  |  |  |  |  | land |
+| 1784730247807-lmdp96 | 2026-07-22 10:24:07 | Phillip Monteiro | 690898 |  | G78G+63 Algonquin Park, ON, Canada | 45.515539 | -78.724855 | J4641704 | J3081021 | 39261 | INSTALLED |  |  |  |  |  | land |
+| 1784730698443-ivz06o | 2026-07-22 10:31:38 | Phillip Monteiro | 689549 |  | G79G+96 Algonquin Park, ON, Canada | 45.518393 | -78.724504 | J4641701 | J3081022 | 11723 | INSTALLED |  |  |  |  |  | land |
+| 1784731895210-z5c4qx | 2026-07-22 10:51:35 | Quincy Orta | 687511 |  | 3307 ON-518, McMurrich/Monteith, ON P0A 1C0, Canada | 45.476217 | -79.509564 | J4642702 | J3299637 | 73123 | INSTALLED |  |  |  |  |  | land |
+| 1784734673099-ofa89m | 2026-07-22 11:37:53 | Quincy Orta | 693758 |  | 662 Bartlett Lake Rd | 45.519946 | -79.501506 | J4617318 | J2195200 | 16411 | INSTALLED |  |  |  |  |  | land |
+| 1784736167066-lmpwaa | 2026-07-22 12:02:47 | Quincy Orta | 681957 |  | 660 Bartlett Rd |  |  | J4617317 | J2116452 | 74146 | INSTALLED |  |  |  |  | Y | land |
+| 1784736723364-9zu474 | 2026-07-22 12:12:03 | Quincy Orta | 692340 |  | 658 Bartlett Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.520705 | -79.501843 | J4617319 | J3135874 |  | INSTALLED |  |  | Missing segments |  | Y | land |
+| 1784737710102-34eyqo | 2026-07-22 12:28:30 | Quincy Orta | 693868 |  | 2440 ON-518, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.491173 | -79.459587 | J4617320 | J3950042 | 18832 | INSTALLED |  |  |  |  |  | land |
+| 1784738717088-daqqcg | 2026-07-22 12:45:17 | Quincy Orta | 693899 |  | 463 ON-518, Emsdale, ON P0A 1J0, Canada | 45.535712 | -79.361231 | J4617285 | J4086897 | 82622 | INSTALLED |  |  |  |  |  | land |
+| 1784731836125-aay0vw | 2026-07-22 10:50:36 | Phillip Monteiro | 689511 |  | G79F+XW Algonquin Park, ON, Canada | 45.519893 | -78.725177 | J4641703 | J3081024 | 12956 | INSTALLED |  |  |  |  |  | land |
+| 1784737653849-igx6sx | 2026-07-22 12:27:33 | Phillip Monteiro | 692828 |  | H76X+PH Algonquin Park, ON, Canada | 45.56178 | -78.701071 | J4642057 | J2084759 | 65201 | INSTALLED |  |  |  |  |  | land |
+| 1784739530953-gny8me | 2026-07-22 12:58:50 | Phillip Monteiro | 682730 |  | H7CJ+2R Algonquin Park, ON, Canada | 45.570003 | -78.717981 | J4642060 | J3567258 | 25185 | INSTALLED |  |  |  |  |  | land |
+| 1784739620603-fmjf0s | 2026-07-22 13:00:20 | Quincy Orta | 693803 |  | 915 Fern Glen Rd, Perry, ON P0A 1J0, Canada | 45.497416 | -79.355248 | J4617286 | J3170518 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784740427368-sizlay | 2026-07-22 13:13:47 | Quincy Orta | 693870 |  | 1714 Ontario 518 W, McMurrich/Monteith, ON P0A 1J0, Canada | 45.501933 | -79.416612 | J4617288 | J3996444 | 41796 | INSTALLED |  |  |  |  |  | land |
+| 1784741240280-oa5tbl | 2026-07-22 13:27:20 | Phillip Monteiro | 690899 |  | H79F+9R Algonquin Park, ON, Canada | 45.568439 | -78.725443 | J4642058 | J3096196 | 30683 | INSTALLED |  |  |  |  |  | land |
+| 1784741572216-c250oo | 2026-07-22 13:32:52 | Quincy Orta | 693842 |  | 220 Kings Dr, McMurrich | 45.509292 | -79.444805 | J4617287 | J3840510 | 20753 | INSTALLED |  |  |  |  |  | land |
+| 1784741940331-jkn9gq | 2026-07-22 13:39:00 | Phillip Monteiro | 686729 |  | H78G+G4 Algonquin Park, ON, Canada | 45.566318 | -78.724725 | J4642059 | J3096194 | 57865 | INSTALLED |  |  |  |  |  | land |
+| 1784742505769-tkuogz | 2026-07-22 13:48:25 | Quincy Orta | 693869 |  | 2454 Ontario 518 W, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.490931 | -79.460358 | J4617289 | J3298572 | 14293 | INSTALLED |  |  |  |  |  | land |
+| 1784742521159-ab0oyc | 2026-07-22 13:48:41 | Phillip Monteiro | 686301 |  | H78G+G4 Algonquin Park, ON, Canada | 45.566305 | -78.724749 | J4642053 | J3606411 | 9367 | INSTALLED |  |  |  |  |  | land |
+| 1784742971108-ye0va4 | 2026-07-22 13:56:11 | Quincy Orta | 693864 |  | 7 George St, McMurrich | 45.490011 | -79.461856 | J4617290 | J3298619 | 30606 | INSTALLED |  |  |  |  |  | land |
+| 1784742989451-262p5f | 2026-07-22 13:56:29 | Phillip Monteiro | 686877 |  | H78G+3G Algonquin Park, ON, Canada | 45.565206 | -78.723718 | J4642056 | J3095775 | 52716 | INSTALLED |  |  |  |  |  | land |
+| 1784743381154-xeen4u | 2026-07-22 14:03:01 | Quincy Orta | 693865 |  | 43 Henry St, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.489114 | -79.460176 | J4617291 | J3837253 | 84577 | INSTALLED |  |  |  |  |  | land |
+| 1784744793315-ngnuo4 | 2026-07-22 14:26:33 | Phillip Monteiro | 692586 |  | H75C+9X Algonquin Park, ON, Canada | 45.558447 | -78.727568 | J4642055 | J3095774 | 18590 | INSTALLED |  |  |  |  |  | land |
+| 1784745248182-7uyucp | 2026-07-22 14:34:08 | Phillip Monteiro | 682728 |  | H74F+V6 Algonquin Park, ON, Canada | 45.55714 | -78.726967 | J4642054 | J2631366 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784745653686-ifuai4 | 2026-07-22 14:40:53 | Quincy Orta | 693879 | A | 178 Old Novar Rd, Huntsville, ON P1H 2J2, Canada | 45.417518 | -79.371706 | J4617292 | J3266558 | 59032 | INSTALLED |  |  |  |  |  | land |
+| 1784746138507-vft3jl | 2026-07-22 14:48:58 | Quincy Orta | 693950 |  | 3864 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.411024 | -79.371007 | J4609889 | J3135965 | 44297 | INSTALLED |  |  |  |  |  | land |
+| 1784749123257-m4n560 | 2026-07-22 15:38:43 | Phillip Monteiro | 669237 |  | Town of, 430 By Lock Acres Rd, Huntsville, ON P1H 1S1, Canada | 45.305824 | -79.20265 | J4642049 | J4147100 | 40884 | INSTALLED |  |  |  |  |  | land |
