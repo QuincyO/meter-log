@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v25';
+const CACHE = 'meterlog-v26';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -28,7 +28,9 @@ const SHELL = [
   // shared JS modules
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
   './js/api.js', './js/daycache.js', './js/queue.js', './js/geocode.js',
-  './js/worklist.js', './js/worklist-route-view.js', './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/planner-services.js', './js/utiReasons.js',
+  './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
+  './js/drag-autoscroll.js',
+  './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/planner-services.js', './js/utiReasons.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',
   './js/compute/summary.js', './js/compute/estimate.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)

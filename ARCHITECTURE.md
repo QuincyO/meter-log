@@ -292,6 +292,11 @@ point in `js/pages/`. Shared modules in `js/`:
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`worklist.js`** (the worklist screen + plan mode),
   **`worklist-route-view.js`** (the phone's selected-day Leaflet route editor),
+  **`worklist-address-fill.js`** (the one-at-a-time address walkthrough, plus the
+  address text helpers `splitAddr`/`joinAddr`/`recentStreets` and the
+  queue/sink rules),
+  **`drag-autoscroll.js`** (drag-to-the-edge page scrolling, shared by both
+  touch-drag lists),
   **`route.js`** (the optimize pipeline: Google forward geocoding bounded to ~80 km of the crew +
   Google Routes road matrix (budget-guarded, straight-line fallback) + pinned
   open-path TSP — see "Work modes" ▸ "Route optimization"),
@@ -412,12 +417,21 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (`js/worklist.js`; the old popup is gone) for both modes: orders hold WO# /
   Address / Old J#, drag the ⠿ handle to reorder (persisted as an `order` field
   on the existing IndexedDB `worklist` items), recent-street chips +
-  copy-street-forward cut repeat typing on same-street runs. Each card with an
+  copy-street-forward cut repeat typing on same-street runs. Dragging to within
+  ~96 px of the top or bottom of the screen **scrolls the page under the finger**
+  (`js/drag-autoscroll.js`, shared with the route editor's list), so a card can
+  cross a list longer than the screen in one gesture; each scrolled pixel is
+  folded back into the drag anchor and the slot re-picked, which is what keeps
+  the card glued to the finger. Each card with an
   address gets a 🧭 **Directions** button — it opens the OS maps app in a new
   context (Apple Maps on iOS, the Google Maps universal dir link elsewhere) on
-  the order's **cached coords when it has them** (the exact pin the route was
-  solved on — the maps app can't re-geocode the text to a different spot),
-  falling back to the address text plus an `", ON"` region hint. The explicit
+  the order's **address text** plus an `", ON"` region hint (the typed address is
+  the source of truth: a mis-geocoded pin must not steer the truck), falling back
+  to the cached coords only for an addressless order. It also **copies the
+  address line to the clipboard** on the way out — the crew pastes it into the
+  work app while the route loads; the write is issued synchronously in the tap
+  handler, before the iOS scheme hand-off takes the page away, and a
+  denied/unsupported clipboard never blocks directions. The explicit
   **⇪ Upload / ⇩ Download** buttons move the list between devices via the
   sheet's `Worklist` tab (see "Client-side storage" and the `Worklist` row
   shape). **Plan mode** (`localStorage['planMode']`, toggled on the worklist
@@ -435,6 +449,23 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   second copy or Save step. Opening the view never geocodes or optimizes.
   Cached pins and reordering work offline; only the OSM tile background needs
   signal. Hardware/browser Back follows route editor → worklist → capture.
+  **📝 Fill in missing addresses** opens `#worklist-address`
+  (`js/worklist-address-fill.js`), a one-order-at-a-time pass over everything
+  that can't be routed — blank address, `geoFail`, or `geoAmbig`. The work app
+  the crew plans from labels its GPS pins with nothing but a WO#, so a list is
+  built from numbers first and the addresses looked up after; doing that through
+  the list meant scrolling to an order, opening Edit (which paints at the *top*
+  of the screen), saving, and scrolling back. The screen shows the WO# big enough
+  to read and tap-to-copy, the address fields, the same one-tap town chips an
+  ambiguous card offers, and ‹ Back / Skip › / Save & next. The queue is
+  **snapshotted on open**, so saving advances but Back still steps into orders
+  already filled. Leaving it — by the button, by Finish, or by hardware Back —
+  runs the sink once: orders **still without any address** are renumbered to the
+  bottom of the pending group (above done and set-aside) through the same
+  `persistOrderIds` the drag uses, so locks and appointments are still honoured,
+  and the list heads that group with a "Needs address" divider. An order that has
+  an address the geocoder disliked keeps its place — it is routable text, just
+  unpinned. Entirely local: no network on any path.
   Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
   within-day slot. Appointment cards use a bell badge; locking snapshots the
   current date+slot, removes that card's drag handle, and survives Upload/Download.

@@ -4,6 +4,7 @@
 import { $, esc } from './dom.js';
 import { coordsOf, isParked } from './route.js';
 import { fmtKm, isPending, liveDayMeters } from './route-variants.js';
+import { createDragAutoScroll } from './drag-autoscroll.js';
 
 function routeKey(item){
   const day = Number(item && item.day);
@@ -246,30 +247,45 @@ export function initWorklistRouteView(opts){
       try{ handle.setPointerCapture(pointerId); } catch{}
       card.classList.add('dragging');
       let startY = e.clientY;
+      let lastY = e.clientY;
       let changed = false;
       let ended = false;
-      const onMove = ev => {
+      // Same drag-to-the-edge scrolling as the worklist screen: the page moves
+      // under a held finger, and each scrolled pixel is folded back into startY.
+      const scroller = createDragAutoScroll({ onScroll: delta => {
         if(ended) return;
-        card.style.transform = `translateY(${ev.clientY - startY}px)`;
+        startY -= delta;
+        applyMove(lastY);
+      } });
+      const applyMove = clientY => {
+        if(ended) return;
+        lastY = clientY;
+        card.style.transform = `translateY(${clientY - startY}px)`;
         let ref = null;
         for(const sibling of listEl.querySelectorAll('.wl-route-card')){
           if(sibling === card) continue;
           const r = sibling.getBoundingClientRect();
-          if(ev.clientY < r.top + r.height / 2){ ref = sibling; break; }
+          if(clientY < r.top + r.height / 2){ ref = sibling; break; }
         }
         if(ref !== card && ref !== card.nextElementSibling){
           const before = card.getBoundingClientRect().top;
           listEl.insertBefore(card, ref);
           changed = true;
           startY += card.getBoundingClientRect().top - before;
-          card.style.transform = `translateY(${ev.clientY - startY}px)`;
+          card.style.transform = `translateY(${clientY - startY}px)`;
           try{ handle.setPointerCapture(pointerId); } catch{}
           renumberCards();
         }
       };
+      const onMove = ev => {
+        if(ended) return;
+        applyMove(ev.clientY);
+        scroller.track(ev.clientY);
+      };
       const finish = async () => {
         if(ended) return;
         ended = true;
+        scroller.stop();
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', finish);
         window.removeEventListener('pointercancel', finish);

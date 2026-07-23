@@ -114,6 +114,34 @@
   .wl-edit{flex:0 1 56px}
 }
 
+/* Orders with no address at all: parked at the bottom of the pending group by
+   the fill-in walkthrough, under their own divider — they can't be routed, so
+   they must not sit in the middle of the day's sequence pretending they can. */
+.wl-noaddr-head{color:var(--amber-press)}
+.wl-noaddr-head .wl-day-dot{background:var(--amber)}
+.wl-fill-addr{width:100%;margin-top:12px;border-color:var(--amber);color:var(--amber-press)}
+
+/* Address fill-in walkthrough — one order per screen, so filling in a list's
+   worth of addresses never means scrolling back and forth. */
+.wl-addr-screen{padding-bottom:44px}
+.wl-addr-progress{height:6px;border-radius:999px;background:var(--surface);border:1px solid var(--line);
+  overflow:hidden;margin:10px 0 6px}
+.wl-addr-progress span{display:block;height:100%;width:0;background:var(--accent);transition:width .15s ease}
+.wl-addr-count{margin:0;font-weight:800}
+/* The WO# is what gets looked up in the work app — big enough to read at a
+   glance and a tap target that copies it. */
+.wl-addr-wo{display:block;width:100%;margin-top:6px;padding:14px;border:2px solid var(--line);
+  border-radius:14px;background:var(--panel);color:var(--ink);font-size:26px;font-weight:800;
+  letter-spacing:.02em;cursor:pointer;text-align:center}
+.wl-addr-wo:active{border-color:var(--accent);background:var(--accent-soft)}
+.wl-addr-wo:disabled{opacity:.6;cursor:default}
+.wl-addr-oldj{margin:6px 0 0;text-align:center}
+.wl-addr-oldj:empty{display:none}
+.wl-addr-nav{display:flex;gap:10px;margin-top:16px}
+.wl-addr-nav button{flex:1;height:48px}
+.wl-addr-nav button:disabled{opacity:.45}
+#wlAddrSave{height:56px;font-size:16px}
+
 /* Set-aside orders: out of the route, still on the list. Muted like done cards
    (same "not part of today's work" reading) but kept legible — the crew has to
    be able to find one to put it back. */

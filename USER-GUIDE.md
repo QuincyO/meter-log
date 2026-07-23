@@ -119,8 +119,31 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 
 1. Tap **＋ Add order** and enter the **Work order #**, the address (house **No.** + **Street / landmark** — recent streets appear as tap-to-fill chips), and the **Old J#** if you know it.
 2. Tap **Save order** and keep adding; **Done** closes the form.
-3. Drag the **⠿** handle to put the orders in driving order.
-4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+3. Drag the **⠿** handle to put the orders in driving order. Drag a card to the **top or bottom edge of the screen** and the list scrolls under your finger, so you can move an order all the way up a long list in one go — no more dropping it, scrolling, and picking it up again.
+4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+
+### Filling in missing addresses
+
+When you plan from the work app's map you only get work order numbers, so a list
+often starts with no addresses on it at all. Tap **📝 Fill in missing addresses**
+— the button appears above the list with a count whenever something needs one —
+and go through them one at a time instead of scrolling up and down:
+
+- The **work order # is shown big at the top; tap it to copy**, so you can paste
+  it straight into the work app's search to look the address up.
+- Type the address (**No.** + **Street** — the recent-street chips are here too;
+  pasting a whole address into the Street box works fine) and tap **Save & next**.
+- **‹ Back** and **Skip ›** move without saving. Back still reaches orders you
+  already filled in, so a typo is one tap away. The last order says **Finish ✓**.
+- Orders that wouldn't map (**📍 fix address**) or matched several towns
+  (**⚠ pick a town**) are in the queue too — their address is filled in ready to
+  edit, and the town buttons are right there.
+- **‹ Worklist** at the top leaves whenever you want; nothing you saved is lost.
+
+When you leave, any order **still without an address** drops to the bottom of the
+list under a **Needs address** heading — it can't be routed, so it doesn't sit in
+the middle of your day pretending it can. Fill it in later and it goes back into
+the route on the next optimize.
 
 ### Setting an order aside
 
@@ -166,7 +189,7 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
 - If the road distances couldn't be fetched, the finished message says **why** (for example the map key was rejected) and the route is planned on straight-line distances instead — still usable, just blind to rivers and detours.
-- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default.
+- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default. It also **copies the address to your clipboard** on the way out, ready to paste wherever you need it.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 

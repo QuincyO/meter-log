@@ -228,6 +228,8 @@
         <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>
       </div>
     </div>
+    <!-- Shown only when something on the list still needs an address. -->
+    <button class="ghost wl-fill-addr hide" id="wlFillAddr" type="button">📝 Fill in missing addresses</button>
     <div class="wl-counts" id="wlCounts"></div>
     <div id="wlList" style="margin-top:8px"></div>
   </section>
@@ -250,6 +252,33 @@
     <div class="wl-route-notice hide" id="wlRouteNotice"></div>
     <button class="wl-route-fix hide" id="wlRouteFix" type="button">Fix pins or optimize</button>
     <div id="wlRouteList" class="wl-route-list"></div>
+  </section>
+
+  <!-- Address fill-in walkthrough — one order at a time, so filling in the
+       addresses the work app doesn't give you never means scrolling the list. -->
+  <section class="wl-addr-screen hide" id="wlAddrScreen">
+    <div class="wl-head">
+      <button class="wl-back" id="wlAddrBack" type="button" aria-label="Back to worklist">‹ Worklist</button>
+      <h2>Fill in addresses</h2>
+    </div>
+    <div class="wl-addr-progress"><span id="wlAddrBar"></span></div>
+    <div class="wl-addr-count muted" id="wlAddrCount" aria-live="polite"></div>
+    <button class="wl-addr-wo mono" id="wlAddrWo" type="button" aria-label="Copy work order number"></button>
+    <div class="muted wl-addr-oldj" id="wlAddrOldJ"></div>
+    <p class="muted" id="wlAddrReason"></p>
+    <label for="wlAddrNum">Address</label>
+    <div class="addrrow">
+      <input id="wlAddrNum" class="mono" placeholder="No." aria-label="House number" inputmode="numeric">
+      <input id="wlAddrStreet" placeholder="Street / landmark" aria-label="Street">
+    </div>
+    <div class="wl-chips hide" id="wlAddrChips"></div>
+    <div class="muted hide" id="wlAddrTownHint" style="margin-top:6px">This address matches more than one place — tap the right one:</div>
+    <div class="wl-chips hide" id="wlAddrTowns"></div>
+    <div class="wl-addr-nav">
+      <button class="ghost" id="wlAddrPrev" type="button">‹ Back</button>
+      <button class="ghost" id="wlAddrSkip" type="button">Skip ›</button>
+    </div>
+    <button class="primary" id="wlAddrSave" type="button">Save &amp; next</button>
   </section>
 
   <div class="toast" id="toast"></div>

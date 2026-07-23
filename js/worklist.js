@@ -16,6 +16,13 @@ import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
+import { createDragAutoScroll } from './drag-autoscroll.js';
+// The address helpers (split/join/recent streets) live with the fill-in screen —
+// it is the module that exists to put an address on an order.
+import {
+  addressQueue, hasNoAddress, initWorklistAddressFill, joinAddr, recentStreets,
+  sinkAddressless, splitAddr,
+} from './worklist-address-fill.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -26,6 +33,7 @@ let fillCapture = () => {};     // set by initWorklist (capture.js)
 let planEstimate = null;        // set by initWorklist (capture.js): async () => string
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
+let addrFill = null;            // the address fill-in walkthrough (same)
 
 function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
 function setStartHere(on){ $('wlStartHere').setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -94,17 +102,6 @@ async function pruneDoneWorklist(){
   }
 }
 
-// ── address split (copy-street + chips) ─────────────────────────────────────
-// "6740 Svorn River Shore" → { num:'6740', street:'Svorn River Shore' }.
-// Anything that doesn't start with a number is all street (islands, landmarks).
-function splitAddr(address){
-  const m = String(address || '').trim().match(/^(\d[\w-]*)\s+(.+)$/);
-  return m ? { num: m[1], street: m[2] } : { num: '', street: String(address || '').trim() };
-}
-function joinAddr(num, street){
-  return [String(num||'').trim(), String(street||'').trim()].filter(Boolean).join(' ');
-}
-
 // ── directions (per-card 🧭 button) ─────────────────────────────────────────
 // Google Maps is the crew's preferred app. iOS has no OS setting to pick a
 // default maps app, so we deep-link into the Google Maps app's URL scheme
@@ -123,12 +120,26 @@ function destOf(item){
   const c = coordsOf(item);
   return addr ? enc(addr + ', ON') : (c ? enc(c.lat + ',' + c.lng) : '');
 }
+// The address line exactly as the card shows it — what lands on the clipboard.
+function addressLabel(item){
+  return [item && item.unit, item && item.address].filter(Boolean).join(' ').trim();
+}
 // Launch the maps app in its own context — never navigate the PWA itself away
 // mid-shift. On iOS the custom schemes launch the app without navigating the
 // page, so if Google Maps is absent we can still fall back to Apple Maps.
 function openDirections(item){
   const dest = destOf(item);
   if(!dest) return;
+  // Copy the address on the way out — the crew pastes it into the work app while
+  // the maps route loads. Issued synchronously inside the tap handler (the
+  // Clipboard API needs the user gesture) and BEFORE the iOS scheme hand-off,
+  // which takes the page out from under us. A denied/unsupported clipboard is
+  // swallowed: directions must never depend on the copy succeeding.
+  const label = addressLabel(item);
+  if(label && navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(label).catch(() => {});
+    toast('Address copied ✓ — opening maps');
+  }
   if(IS_IOS){
     let left = false;                 // set once the app grabs us (page hidden)
     const onLeave = () => { left = true; };
@@ -471,6 +482,7 @@ export async function openWorklist(){
   $('wlAddBtn').textContent = '＋ Add order';
   $('captureMain').classList.add('hide');
   if(routeView) routeView.close();
+  if(addrFill) await addrFill.close();
   $('worklistScreen').classList.remove('hide');
   if(location.hash !== '#worklist') history.pushState({ wl:1 }, '', '#worklist');
   paintPlanToggle();
@@ -495,13 +507,32 @@ async function openWorklistRoute(){
   await routeView.open();
 }
 
+// The address walkthrough. Its own history entry, like the route map, so the
+// phone's hardware Back leaves it the same way the ‹ Worklist button does.
+async function openAddressFill(){
+  $('captureMain').classList.add('hide');
+  $('worklistScreen').classList.add('hide');
+  if(!(await addrFill.open())){       // nothing to fix — stay on the list
+    $('worklistScreen').classList.remove('hide');
+    return;
+  }
+  if(location.hash !== '#worklist-address') history.pushState({ wlAddr:1 }, '', '#worklist-address');
+}
+
 async function showHashScreen(){
   if(location.hash === '#worklist-route'){
     $('captureMain').classList.add('hide');
     $('worklistScreen').classList.add('hide');
+    await addrFill.close();
     await routeView.open();
+  } else if(location.hash === '#worklist-address'){
+    $('captureMain').classList.add('hide');
+    $('worklistScreen').classList.add('hide');
+    routeView.close();
+    if(!addrFill.isOpen()) await addrFill.open();
   } else if(location.hash === '#worklist'){
     routeView.close();
+    await addrFill.close();       // fires the sink when Back left the walkthrough
     $('captureMain').classList.add('hide');
     $('worklistScreen').classList.remove('hide');
     paintPlanToggle();
@@ -510,6 +541,7 @@ async function showHashScreen(){
     window.scrollTo(0, 0);
     $('wlViewRoute').focus();
   } else {
+    await addrFill.close();
     hideScreen();
     $('navBtn').focus();
   }
@@ -528,6 +560,7 @@ export async function renderWorklist(){
        ignored.length ? `${ignored.length} set aside` : '',
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
   paintVariantSwitch(items);
+  paintFillAddr(items);
   if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
@@ -536,8 +569,20 @@ export async function renderWorklist(){
   // set-aside ones sit under their own header at the very bottom.
   const variant = activeVariant();
   let curDay = null;
+  let noAddrHead = false;   // the "needs address" divider is emitted at most once
   [...pending, ...done].forEach(item => {
-    const d = isPending(item) ? (item.day || null) : null;
+    if(isPending(item) && hasNoAddress(item) && !noAddrHead){
+      noAddrHead = true;
+      const n = pending.filter(hasNoAddress).length;
+      const div = document.createElement('div');
+      div.className = 'wl-day wl-noaddr-head';
+      div.innerHTML = `<span class="wl-day-dot"></span>Needs address · ${n} order${n === 1 ? '' : 's'}`
+        + '<span class="wl-day-eta">can’t be routed until filled in</span>';
+      list.appendChild(div);
+    }
+    // Everything from the needs-address divider down is unroutable, so no day
+    // header follows it — those orders belong to no day.
+    const d = (isPending(item) && !noAddrHead) ? (item.day || null) : null;
     if(d && d !== curDay){
       curDay = d;
       const count = pending.filter(p => (p.day || null) === d).length;
@@ -566,6 +611,44 @@ export async function renderWorklist(){
 
 function routeTotalText(items){
   return routeTotalSummary(items, activeVariant(), store.get('wlStraightDistanceSource') || '');
+}
+
+// The walkthrough entry point, shown only when there is something to fix. The
+// count is the whole queue (blank addresses AND ones that wouldn't map), which
+// is more than the "needs address" divider covers — the divider is about what
+// can't be routed, this button is about what can be fixed in one pass.
+function paintFillAddr(items){
+  const btn = $('wlFillAddr');
+  if(!btn) return;
+  const n = addressQueue(items).length;
+  btn.classList.toggle('hide', !n);
+  btn.textContent = `📝 Fill in missing addresses (${n})`;
+}
+
+// Persist one address from the walkthrough. Mirrors wlSave's edit branch: a
+// changed address invalidates the cached pin and the parked flags, so the next
+// Optimize looks the new text up instead of trusting the old coords.
+async function saveWorklistAddress(id, address){
+  const existing = await idb.get('worklist', id);
+  if(!existing) return;
+  const patch = { address, updatedAt: stamp() };
+  if(existing.address !== address)
+    Object.assign(patch, { lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined });
+  await idb.put('worklist', Object.assign({}, existing, patch));
+}
+
+// Leaving the walkthrough (finished, exited, or backed out of) parks whatever is
+// still addressless at the bottom of the pending group — the same place Optimize
+// leaves a stop it couldn't route.
+async function afterAddressFill(){
+  const before = await allSorted();
+  const blanks = pendingOf(before).filter(hasNoAddress).length;
+  const wasLast = pendingOf(before).slice(-blanks).every(hasNoAddress);
+  await persistOrderIds(sinkAddressless(before));
+  await renderWorklist();
+  await planAdvance();
+  if(blanks && !wasLast)
+    toast(`${blanks} order${blanks === 1 ? '' : 's'} without an address moved to the bottom`);
 }
 
 // The road / straight-line switch. A variant with no saved sequence — or one
@@ -730,7 +813,7 @@ function makeWlCard(item){
       ${routable ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
       ${routable ? `<button class="wl-lock${item.lockedDate ? ' on' : ''}" data-act="lock" type="button" aria-label="${item.lockedDate ? 'Unlock position' : 'Lock current position'}">${item.lockedDate ? '🔒' : '🔓'}</button>` : ''}
       ${item.wlStatus !== 'done' ? `<button class="wl-aside${ignored ? ' on' : ''}" data-act="aside" type="button" aria-label="${ignored ? 'Put back in the route' : 'Set aside — leave out of the route'}">${ignored ? '↩' : '🚫'}</button>` : ''}
-      ${item.address ? '<button class="wl-map" data-act="map" type="button" aria-label="Directions">🧭</button>' : ''}
+      ${item.address ? '<button class="wl-map" data-act="map" type="button" aria-label="Directions — copies the address">🧭</button>' : ''}
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
     </div>`;
@@ -771,6 +854,8 @@ function makeWlCard(item){
 // swap only flips once the finger crosses a neighbour's centre (natural
 // hysteresis — no thrash). Each DOM move is FLIP-corrected (re-anchor startY by
 // the layout shift) so the card stays glued to the finger while the rest reflow.
+// Holding the finger near the top or bottom edge scrolls the page under it
+// (js/drag-autoscroll.js), so one drag can cross a list longer than the screen.
 // On release the DOM order is persisted as order = index × 10. Done cards sit
 // below and are never drop targets.
 function wireDrag(handle, card){
@@ -781,21 +866,32 @@ function wireDrag(handle, card){
     try { handle.setPointerCapture(pointerId); } catch { /* capture is best-effort */ }
     card.classList.add('dragging');
     let startY = e.clientY;   // pointer Y that maps to the card's current slot
+    let lastY = e.clientY;    // latest pointer Y, replayed while the page autoscrolls
     let moved = false;
     let ended = false;
 
-    const onMove = ev => {
+    // Hold the finger near the top/bottom edge and the page scrolls under it, so
+    // a card can travel the whole list in one drag. The page moving under a
+    // stationary finger is the same thing as the finger moving over a still
+    // page, so each scrolled pixel is folded into startY and the slot re-picked.
+    const scroller = createDragAutoScroll({ onScroll: delta => {
       if(ended) return;
-      moved = true;
+      startY -= delta;
+      applyMove(lastY);
+    } });
+
+    const applyMove = clientY => {
+      if(ended) return;
+      lastY = clientY;
       card.style.zIndex = 5;
-      card.style.transform = `translateY(${ev.clientY - startY}px)`;
+      card.style.transform = `translateY(${clientY - startY}px)`;
       // Pick the slot: insert before the first pending sibling whose midpoint is
       // below the finger (null → drop at the end).
       let ref = null;
       for(const sib of list.querySelectorAll('.wl-card.wl-routable')){
         if(sib === card) continue;
         const r = sib.getBoundingClientRect();
-        if(ev.clientY < r.top + r.height / 2){ ref = sib; break; }
+        if(clientY < r.top + r.height / 2){ ref = sib; break; }
       }
       if(ref !== card && ref !== card.nextElementSibling){
         // FLIP: the same transform is applied for both reads, so the delta is
@@ -804,12 +900,19 @@ function wireDrag(handle, card){
         const before = card.getBoundingClientRect().top;
         list.insertBefore(card, ref);
         startY += card.getBoundingClientRect().top - before;
-        card.style.transform = `translateY(${ev.clientY - startY}px)`;
+        card.style.transform = `translateY(${clientY - startY}px)`;
         // insertBefore re-parents the card, which fires lostpointercapture and
         // drops the capture — re-acquire so touch move events keep reaching us.
         try { handle.setPointerCapture(pointerId); } catch { /* best-effort */ }
         renumberCards(list);
       }
+    };
+
+    const onMove = ev => {
+      if(ended) return;
+      moved = true;
+      applyMove(ev.clientY);
+      scroller.track(ev.clientY);
     };
     // Bound to window, not the handle: the reorder above releases pointer
     // capture, after which up/move no longer reliably target the handle — but
@@ -818,6 +921,7 @@ function wireDrag(handle, card){
     const endDrag = async () => {
       if(ended) return;
       ended = true;
+      scroller.stop();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', endDrag);
       window.removeEventListener('pointercancel', endDrag);
@@ -845,7 +949,15 @@ function renumberCards(list){
 // Persist the on-screen order of the PENDING cards (done cards keep their spot
 // at the bottom of the sort by getting trailing order values).
 async function persistOrder(){
-  let ids = [...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id);
+  await persistOrderIds([...$('wlList').querySelectorAll('.wl-card')].map(c => c.dataset.id));
+}
+
+// Write one whole-list sequence as order = index × 10, honouring locks and
+// appointments on the way (a drag through a locked stop is refused, not
+// half-applied). Shared by the drag handler and the address walkthrough's
+// bottom-parking of addressless orders, so both obey the same rules.
+async function persistOrderIds(ordered){
+  let ids = ordered.slice();
   const items = (await idb.all('worklist')) || [];
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
   const pending = pendingOf(items);
@@ -930,16 +1042,11 @@ function renderAmbig(item){
 // Recent-street chips: the distinct streets already on the list, most recent
 // first — tap to fill the street and jump to the house number.
 async function renderChips(){
-  const items = await allSorted();
-  const seen = {}; const streets = [];
-  items.slice().reverse().forEach(x => {
-    const st = splitAddr(x.address).street;
-    if(st && !seen[st.toLowerCase()]){ seen[st.toLowerCase()] = 1; streets.push(st); }
-  });
+  const streets = recentStreets(await allSorted());
   const box = $('wlChips');
   if(!streets.length){ box.classList.add('hide'); box.innerHTML=''; return; }
   box.classList.remove('hide');
-  box.innerHTML = streets.slice(0, 6).map(st => `<button class="chip" type="button">${esc(st)}</button>`).join('');
+  box.innerHTML = streets.map(st => `<button class="chip" type="button">${esc(st)}</button>`).join('');
   [...box.children].forEach((b, i) => b.onclick = () => {
     $('wlStreet').value = streets[i];
     $('wlNum').focus();
@@ -1112,8 +1219,16 @@ export function initWorklist(opts){
     onClose: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
     onFix: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
   });
+  addrFill = initWorklistAddressFill({
+    getItems: allSorted,
+    saveAddress: saveWorklistAddress,
+    pickTown,
+    onDone: afterAddressFill,
+    onClose: () => location.hash === '#worklist-address' ? history.back() : openWorklist(),
+  });
   $('wlBack').onclick = closeWorklist;
   $('wlViewRoute').onclick = openWorklistRoute;
+  $('wlFillAddr').onclick = openAddressFill;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   bindOptimizeGesture($('wlOptimize'),
@@ -1156,6 +1271,13 @@ export function initWorklist(opts){
       history.pushState({ wl:1 }, '', '#worklist');
       history.pushState({ wlRoute:1 }, '', '#worklist-route');
       openWorklistRoute();
+    } else if(location.hash === '#worklist-address'){
+      // Same seeding as the route map: a direct reload has no #worklist entry
+      // behind it, so Back would leave the app instead of returning to the list.
+      history.replaceState({}, '', location.pathname + location.search);
+      history.pushState({ wl:1 }, '', '#worklist');
+      history.pushState({ wlAddr:1 }, '', '#worklist-address');
+      openAddressFill();
     } else if(location.hash === '#worklist'){
       history.replaceState({}, '', location.pathname + location.search);
       history.pushState({ wl:1 }, '', '#worklist');
