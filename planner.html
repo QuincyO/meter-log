@@ -51,9 +51,15 @@
         <label for="plHome">Route ends near (home / yard address — optional)</label>
         <input id="plHome" type="text" autocomplete="off" placeholder="e.g. 120 Depot Rd, Bracebridge">
         <label for="plOsrm">OSRM server (road distances — see DEPLOY.md)</label>
-        <input id="plOsrm" type="text" autocomplete="off" spellcheck="false" placeholder="http://localhost:5000">
-        <label for="plGeo">Geocoder server (local Nominatim — blank = Google; see DEPLOY.md)</label>
-        <input id="plGeo" type="text" autocomplete="off" spellcheck="false" placeholder="http://localhost:8080">
+        <div class="provider-field">
+          <input id="plOsrm" type="text" autocomplete="off" spellcheck="false" placeholder="http://localhost:5000">
+          <span class="provider-status checking" id="plOsrmStatus" aria-live="polite"><span class="provider-dot"></span><span class="provider-text">Checking</span></span>
+        </div>
+        <label for="plGeo">Geocoder server (local Nominatim — see DEPLOY.md)</label>
+        <div class="provider-field">
+          <input id="plGeo" type="text" autocomplete="off" spellcheck="false" placeholder="http://localhost:8080">
+          <span class="provider-status checking" id="plGeoStatus" aria-live="polite"><span class="provider-dot"></span><span class="provider-text">Checking</span></span>
+        </div>
       </div>
 
       <div class="card">
@@ -71,6 +77,17 @@
         </div>
       </div>
 
+      <div id="plLastOptimize" class="card last-optimize hide">
+        <h2>Last optimization</h2>
+        <dl>
+          <div><dt>Installer</dt><dd id="plLastInstaller"></dd></div>
+          <div><dt>Finished</dt><dd id="plLastAt"></dd></div>
+          <div><dt>Address sources</dt><dd id="plLastGeo"></dd></div>
+          <div><dt>Parked</dt><dd id="plLastParked"></dd></div>
+          <div><dt>Road routing</dt><dd id="plLastRouting"></dd></div>
+        </dl>
+      </div>
+
       <div id="plCounts" class="sub"></div>
       <div id="plList"></div>
     </div>
@@ -81,6 +98,21 @@
         sane before uploading.</p>
     </div>
   </div>
+
+  <dialog id="plOptimizeDialog" aria-labelledby="plOptimizeTitle">
+    <div class="dialog-card">
+      <h2 id="plOptimizeTitle">Optimize this route?</h2>
+      <p><strong id="plConfirmPending">0</strong> pending orders will be reordered.</p>
+      <dl class="confirm-services">
+        <div><dt>Geocoding</dt><dd id="plConfirmGeo"></dd></div>
+        <div><dt>Road routing</dt><dd id="plConfirmRouting"></dd></div>
+      </dl>
+      <div class="dialog-actions">
+        <button class="btn" id="plOptimizeCancel" type="button">Cancel</button>
+        <button class="btn primary" id="plOptimizeConfirm" type="button">Optimize route</button>
+      </div>
+    </div>
+  </dialog>
 
   <div class="toast" id="toast"></div>
 

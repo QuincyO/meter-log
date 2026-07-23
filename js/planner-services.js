@@ -90,3 +90,41 @@ export function formatLastRunSummary(record){
   const name = { nominatim:'Nominatim', google:'Google', ors:'ORS', osrm:'OSRM', 'google-routes':'Google Routes', haversine:'Haversine' };
   return `Geocoding: ${g.cached} cached; Nominatim ${g.nominatim.resolved}/${g.nominatim.attempted}; Google ${g.google.resolved}/${g.google.attempted}; ORS ${g.ors.resolved}/${g.ors.attempted}; ${g.parked} parked. Routing: ${route.method} via ${name[route.provider]}${route.fallbackReason ? ` (${route.fallbackReason})` : ''}.`;
 }
+
+export function buildOptimizeConfirmation({
+  pendingCount=0, lookupCount=0, nominatimOnline=false, osrmOnline=false,
+}={}){
+  const pending = Math.max(0, Number(pendingCount) || 0);
+  const lookups = Math.min(pending, Math.max(0, Number(lookupCount) || 0));
+  const cached = pending - lookups;
+  const geocoding = lookups === 0
+    ? `${cached} cached; no address lookup needed.`
+    : nominatimOnline
+      ? `${cached} cached; ${lookups} need lookup through local Nominatim, then Google API, with ORS API fallback.`
+      : `${cached} cached; ${lookups} need lookup through Google API, with ORS API fallback.`;
+  const routing = osrmOnline
+    ? 'Local OSRM Matrix, with ORS API Matrix fallback, then Straight-line as the final fallback.'
+    : 'ORS API Matrix, then Straight-line as the final fallback.';
+  return { pendingCount:pending, geocoding, routing };
+}
+
+export function createPlannerLastRunRecord({ installer='', hNumber='', pendingCount=0, ...run }={}){
+  return {
+    ...createLastRunRecord(run),
+    installer:String(installer || ''),
+    hNumber:String(hNumber || ''),
+    pendingCount:Math.max(0, Number(pendingCount) || 0),
+  };
+}
+
+export function parsePlannerLastRunRecord(text){
+  try {
+    const record = JSON.parse(String(text || ''));
+    if(!record || !record.at || !record.geocoding || !record.routing
+      || typeof record.installer !== 'string' || typeof record.hNumber !== 'string') return null;
+    return createPlannerLastRunRecord({
+      at:record.at, provenance:{ geocoding:record.geocoding, routing:record.routing },
+      installer:record.installer, hNumber:record.hNumber, pendingCount:record.pendingCount,
+    });
+  } catch { return null; }
+}

@@ -20,13 +20,20 @@ import { store } from '../store.js';
 import { stamp, localDate } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
+import {
+  DEFAULT_NOMINATIM_URL, DEFAULT_OSRM_URL, buildOptimizeConfirmation,
+  createLastRunRecord, formatLastRunSummary, parsePlannerLastRunRecord,
+  probeNominatim, probeOsrm,
+} from '../planner-services.js';
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order
 let map = null, mapLayer = null;   // Leaflet instances (lazy)
-
-const OSRM_DEFAULT = 'http://localhost:5000';
-const NOMINATIM_DEFAULT = 'http://localhost:8080';   // local geocoder (see DEPLOY.md)
+let serviceState = {
+  osrm:{ provider:'osrm', online:false, reason:'not checked' },
+  nominatim:{ provider:'nominatim', online:false, reason:'not checked' },
+};
+let serviceCheckInFlight = null, serviceCheckRequest = 0;
 
 // Day-cluster colors (list headers + map pins/lines), cycled by (day-1).
 const DAY_COLORS = ['#2b6cff','#1E8E5A','#C97E00','#8b5cf6','#d64500','#0891b2','#be185d','#4d7c0f'];
@@ -61,6 +68,85 @@ function setStatus(kind, text){
   p.classList.remove('wait','off');
   if(kind==='off') p.classList.add('off'); else if(kind==='wait') p.classList.add('wait');
   t.textContent = text;
+}
+
+const providerBadge = provider => $(provider === 'osrm' ? 'plOsrmStatus' : 'plGeoStatus');
+function paintProviderStatus(provider, state){
+  const badge = providerBadge(provider);
+  badge.classList.remove('checking','online','using','offline');
+  badge.classList.add(state);
+  badge.querySelector('.provider-text').textContent = state[0].toUpperCase() + state.slice(1);
+}
+function restoreProviderStatus(provider){
+  paintProviderStatus(provider, serviceState[provider].online ? 'online' : 'offline');
+}
+const providerUrls = () => ({
+  osrm:String($('plOsrm').value || '').trim() || DEFAULT_OSRM_URL,
+  nominatim:String($('plGeo').value || '').trim() || DEFAULT_NOMINATIM_URL,
+});
+
+// Checks are serialized: a newer focus/change/pre-optimize request supersedes
+// an older result, then runs against the latest field values after it settles.
+async function checkServices(){
+  const request = ++serviceCheckRequest;
+  if(serviceCheckInFlight) await serviceCheckInFlight.catch(() => {});
+
+  const urls = providerUrls();
+  paintProviderStatus('osrm','checking');
+  paintProviderStatus('nominatim','checking');
+  const run = navigator.onLine === false
+    ? Promise.resolve([
+        { provider:'osrm', online:false, reason:'browser offline' },
+        { provider:'nominatim', online:false, reason:'browser offline' },
+      ])
+    : Promise.all([probeOsrm({ url:urls.osrm }), probeNominatim({ url:urls.nominatim })]);
+  serviceCheckInFlight = run;
+  try {
+    const results = await run;
+    const nextState = { ...serviceState };
+    for(const result of results) nextState[result.provider] = result;
+    if(request === serviceCheckRequest){
+      serviceState = nextState;
+      restoreProviderStatus('osrm');
+      restoreProviderStatus('nominatim');
+    }
+    return nextState;
+  } finally {
+    if(serviceCheckInFlight === run) serviceCheckInFlight = null;
+  }
+}
+
+function renderLastOptimization(record){
+  const card = $('plLastOptimize');
+  if(!record){ card.classList.add('hide'); return; }
+  const g = record.geocoding, route = record.routing;
+  const providers = { osrm:'OSRM', 'google-routes':'Google Routes', ors:'ORS', haversine:'Haversine' };
+  $('plLastInstaller').textContent = `${record.installer || 'Unknown'}${record.hNumber ? ` (${record.hNumber})` : ''} · ${record.pendingCount} pending`;
+  const at = new Date(record.at);
+  $('plLastAt').textContent = isNaN(at.getTime()) ? record.at : at.toLocaleString();
+  $('plLastGeo').textContent = `${g.cached} cached · Nominatim ${g.nominatim.resolved}/${g.nominatim.attempted} · Google ${g.google.resolved}/${g.google.attempted} · ORS ${g.ors.resolved}/${g.ors.attempted}`;
+  $('plLastParked').textContent = String(g.parked);
+  $('plLastRouting').textContent = `${route.method === 'matrix' ? 'Matrix' : 'Straight-line'} via ${providers[route.provider] || route.provider}`;
+  card.setAttribute('aria-label', `Last optimization. ${formatLastRunSummary(record)}`);
+  card.classList.remove('hide');
+}
+
+function confirmOptimize(copy){
+  $('plConfirmPending').textContent = String(copy.pendingCount);
+  $('plConfirmGeo').textContent = copy.geocoding;
+  $('plConfirmRouting').textContent = copy.routing;
+  const dialog = $('plOptimizeDialog'), cancel = $('plOptimizeCancel'), confirm = $('plOptimizeConfirm');
+  return new Promise(resolve => {
+    const done = answer => {
+      cancel.onclick = null; confirm.onclick = null; dialog.oncancel = null;
+      if(dialog.open) dialog.close();
+      resolve(answer);
+    };
+    cancel.onclick = () => done(false);
+    confirm.onclick = () => done(true);
+    dialog.oncancel = event => { event.preventDefault(); done(false); };
+    dialog.showModal();
+  });
 }
 
 const fullName = e => ((e.firstName||'')+' '+(e.lastName||'')).trim();
@@ -232,29 +318,53 @@ async function homePin(geoUrl){
 // ── optimize ────────────────────────────────────────────────────────────────
 function progress(p){
   const el = $('plProg');
-  if(p.phase === 'locate') el.textContent = 'Getting a reference location…';
+  if(p.phase === 'provider' && (p.provider === 'nominatim' || p.provider === 'osrm')){
+    if(p.status === 'attempted') paintProviderStatus(p.provider, 'using');
+    else restoreProviderStatus(p.provider);
+  } else if(p.phase === 'locate') el.textContent = 'Getting a reference location…';
   else if(p.phase === 'geocode') el.textContent = `Looking up addresses ${p.done}/${p.total}…`;
   else if(p.phase === 'matrix') el.textContent = 'Getting road distances from OSRM…';
   else if(p.phase === 'solve') el.textContent = 'Finding the best order…';
 }
 
-async function optimize(){
+async function requestOptimize(){
   const h = hNumber();
   if(!h){ toast('Pick an installer first'); return; }
   const pending = pendingItems();
   if(pending.length < 2){ toast('Need at least 2 pending orders'); return; }
-  const osrmUrl = String($('plOsrm').value || '').trim() || OSRM_DEFAULT;
+  const btn = $('plOptimize'), osrmInput = $('plOsrm'), geoInput = $('plGeo');
+  btn.disabled = true;
+  osrmInput.disabled = true; geoInput.disabled = true;
+  try {
+    const health = await checkServices();
+    const copy = buildOptimizeConfirmation({
+      pendingCount:pending.length,
+      lookupCount:pending.filter(item => !coordsOf(item)).length,
+      nominatimOnline:health.nominatim.online,
+      osrmOnline:health.osrm.online,
+    });
+    if(await confirmOptimize(copy)) await optimize(pending, health);
+  } catch (err) {
+    toast((err && err.message) || 'Couldn’t prepare optimization');
+  } finally {
+    btn.disabled = false; osrmInput.disabled = false; geoInput.disabled = false;
+  }
+}
+
+async function optimize(pending, health){
+  const h = hNumber();
+  const osrmUrl = String($('plOsrm').value || '').trim() || DEFAULT_OSRM_URL;
   store.set('plannerOsrm', osrmUrl);
-  // Local geocoder URL — blank means fall straight to Google (the field's the
-  // opt-in). A set value makes geocoding local-first, Google/ORS only on a miss.
-  const geocodeUrl = String($('plGeo').value || '').trim();
-  store.set('plannerGeocode', geocodeUrl);
+  const nominatimUrl = String($('plGeo').value || '').trim() || DEFAULT_NOMINATIM_URL;
+  store.set('plannerGeocode', nominatimUrl);
+  const geocodeUrl = health.nominatim.online ? nominatimUrl : '';
   const target = targetVal();
-  const btn = $('plOptimize'), prog = $('plProg');
-  btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
+  const prog = $('plProg');
+  prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
     const home = await homePin(geocodeUrl);
-    const base = await optimizeRoute(pending, progress, home, { osrmUrl, geocodeUrl });
+    const base = await optimizeRoute(pending, progress, home,
+      { osrmUrl, geocodeUrl, osrmReady:health.osrm.online });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
@@ -275,6 +385,13 @@ async function optimize(){
     items = seq;
     for(const x of items) await idb.put('worklist', x);
     render();
+    const who = roster.employees.find(e => String(e.hNumber) === h);
+    const runRecord = {
+      ...createLastRunRecord({ at:new Date().toISOString(), provenance:base.provenance }),
+      installer:who ? fullName(who) : '', hNumber:h, pendingCount:pending.length,
+    };
+    store.set('plannerLastOptimize', JSON.stringify(runRecord));
+    renderLastOptimization(runRecord);
     const short = s => String(s || '').length > 70 ? String(s).slice(0, 70) + '…' : String(s || '');
     const ambig = pending.filter(x => x.geoAmbig && x.geoAmbig.length).length;
     const failed = parkedIds.length - ambig;
@@ -289,7 +406,7 @@ async function optimize(){
   } catch (err) {
     toast((err && err.message) || 'Optimize failed — try again');
   } finally {
-    btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
+    prog.classList.add('hide'); prog.textContent = '';
   }
 }
 
@@ -471,7 +588,7 @@ $('plWho').onchange = async () => {
 $('plLoad').onclick = loadList;
 $('plImportBtn').onclick = () => $('plImport').classList.toggle('hide');
 $('plPasteAdd').onclick = importPaste;
-$('plOptimize').onclick = optimize;
+$('plOptimize').onclick = requestOptimize;
 $('plUpload').onclick = upload;
 $('plPace').onchange = () => {
   const p = planShape(); $('plPace').value = String(p.paceMin);
@@ -491,10 +608,29 @@ $('navSel').onchange = e => {
 };
 window.addEventListener('pageshow', () => { $('navSel').value = 'planner'; });
 
-$('plOsrm').value = store.get('plannerOsrm') || OSRM_DEFAULT;
-// Geocoder defaults blank (opt-in) but shows a hint; a saved value wins.
-$('plGeo').value = store.get('plannerGeocode') || '';
-$('plGeo').placeholder = NOMINATIM_DEFAULT;
+$('plOsrm').value = store.get('plannerOsrm') || DEFAULT_OSRM_URL;
+$('plGeo').value = store.get('plannerGeocode') || DEFAULT_NOMINATIM_URL;
+$('plOsrm').onchange = () => {
+  $('plOsrm').value = providerUrls().osrm;
+  store.set('plannerOsrm', $('plOsrm').value);
+  checkServices();
+};
+$('plGeo').onchange = () => {
+  $('plGeo').value = providerUrls().nominatim;
+  store.set('plannerGeocode', $('plGeo').value);
+  checkServices();
+};
+window.addEventListener('focus', checkServices);
+window.addEventListener('online', checkServices);
+window.addEventListener('offline', checkServices);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') checkServices();
+});
+setInterval(() => {
+  if(document.visibilityState === 'visible') checkServices();
+}, 30000);
+renderLastOptimization(parsePlannerLastRunRecord(store.get('plannerLastOptimize')));
 loadPlan(null);
 render();
 loadRoster().then(paintWhoSelect);
+checkServices();
