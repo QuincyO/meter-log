@@ -31,6 +31,8 @@ Do this once per phone, with signal if possible:
 
 That's it. Everything you log from now on is tagged with your name and H number. If you try to log a stop before doing this, the app stops you with an "Add your name first" message and opens Settings for you.
 
+**Keeping the app up to date.** The bottom of Settings shows which version this phone is running and when it last updated. When the office ships a change, the phone usually picks it up on its own within a load or two — but if it doesn't, tap **⟳ Force update from GitHub**. It re-downloads the app (needs signal; takes a few seconds) and reopens. It does **not** touch your details or your work: your name, H number, sub, home address, work mode, your worklist, and anything still waiting to send all stay exactly as they are, so you never have to set yourself up again. If the download fails part-way, the app keeps the version it already had and tells you.
+
 ---
 
 ## Boat and Land mode
@@ -388,3 +390,4 @@ Land installers each run their own route, so they aren't paired as partners and 
 - **The daily log shows zeros or is missing stops** — fix or restore the stops first, then close the day again (from the phone or Edit & Daily Log). Re-closing replaces the old record; it never doubles up.
 - **Upload/Download list says "Offline"** — worklist sync is the one field feature that needs signal; try again when you have bars.
 - **The PDF didn't appear** — check the phone's downloads folder; then tap **Generate daily log (draft)** to build it again.
+- **The app is missing a change the office says went out** — ☰ → ⚙︎ Settings → **⟳ Force update from GitHub**, with signal. It re-downloads the app and reopens; your name, settings, worklist and anything waiting to send are untouched.

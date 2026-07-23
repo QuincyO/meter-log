@@ -112,7 +112,18 @@ card action row is tight at 320 px.
   for(const k of await caches.keys()) await caches.delete(k);
   ```
 
-  Then reload. A fresh `--user-data-dir` works too.
+  Then reload. A fresh `--user-data-dir` works too. (The crew's version of this is
+  Settings ▸ **⟳ Force update from GitHub** — see below.)
+- **Verifying the force update needs a server that sends `Cache-Control`.** The button's
+  whole job is bypassing the *browser HTTP cache* with `cache: 'reload'`, and the bare
+  `serve.mjs` above sends no cache headers — so the bypass is untestable against it and
+  the button looks like it works even if the flag were dropped. Add
+  `'Cache-Control': 'public, max-age=600'` to the response headers (that's roughly what
+  GitHub Pages sends), then: load the page, change a served file, confirm a plain
+  `fetch()` still returns the **old** bytes, press the button, and confirm
+  `caches.open('meterlog-v27').match('./js/dom.js')` now holds the **new** ones. Check at
+  the same time that `localStorage` still has `name`/`hNumber` and the IndexedDB
+  `worklist` row survived — preserving those is the point of the in-place design.
 - **Spine changes in `Code.gs` are not live until pushed** (CI deploys from `main`). New
   GET actions error against prod during verification — check the frontend degrades
   sensibly rather than assuming the code is wrong.

@@ -1342,6 +1342,7 @@ function openSheet(id){
     $('cfgH').value     = store.get('hNumber')||'';
     $('cfgHome').value  = store.get('homeAddress')||'';
     paintHomeHint();
+    paintVersionHint();
     loadSubInfo();
   }
   $(id).classList.remove('hide');
@@ -1356,6 +1357,90 @@ function paintHomeHint(){
     : addr ? 'Home not pinned yet — it’ll be looked up when you’re online'
     : 'With a home set, Optimize route ends your day heading toward home.';
 }
+// ── Force update from GitHub (Settings) ─────────────────────────────────────
+// sw.js serves the app shell stale-while-revalidate, so a phone runs one load
+// behind whatever the office pushed — and its background re-fetch can be
+// answered by the browser's own HTTP cache, which leaves it behind for good.
+// This asks the service worker to re-download every SHELL file with
+// `cache: 'reload'` (the part that actually reaches the origin).
+//
+// It replaces CACHED CODE ONLY. localStorage (name, H number, sub, home, work
+// mode) and IndexedDB (queue, dayCache, worklist, addrCache) are never touched,
+// so nobody re-enters their details — and nothing waiting to send is lost.
+
+// Ask the active worker something over a MessageChannel; `onProgress` sees the
+// interim messages, the promise resolves with the final one.
+function swAsk(reg, message, { onProgress, timeoutMs = 90000 } = {}){
+  return new Promise((resolve, reject) => {
+    const worker = reg && reg.active;
+    if(!worker){ reject(new Error('no active worker')); return; }
+    const ch = new MessageChannel();
+    const timer = setTimeout(() => { ch.port1.close(); reject(new Error('timeout')); }, timeoutMs);
+    ch.port1.onmessage = e => {
+      const msg = e.data || {};
+      if(msg.type === 'progress'){ if(onProgress) onProgress(msg); return; }
+      clearTimeout(timer); ch.port1.close(); resolve(msg);
+    };
+    worker.postMessage(message, [ch.port2]);
+  });
+}
+
+// Give a freshly-installed worker a moment to take over. sw.js calls
+// skipWaiting()/clients.claim(), so this normally settles in well under a second.
+async function swSettled(reg, ms = 5000){
+  const started = Date.now();
+  while((reg.installing || reg.waiting) && Date.now() - started < ms){
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return reg;
+}
+
+function paintVersionHint(){
+  const el = $('appVersionHint'); if(!el) return;
+  const when = Number(store.get('shellRefreshed') || 0);
+  const last = when ? ' · updated ' + new Date(when).toLocaleString([],
+    { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+  if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller){
+    el.textContent = 'Not installed on this device — the page already loads fresh.';
+    return;
+  }
+  el.textContent = 'Checking…';
+  navigator.serviceWorker.ready
+    .then(reg => swAsk(reg, { type:'VERSION' }, { timeoutMs: 5000 }))
+    .then(res => { el.textContent = 'Version ' + (res.version || '?') + last; })
+    .catch(() => { el.textContent = 'Version unknown' + last; });
+}
+
+async function refreshAppShell(){
+  const btn = $('refreshApp'), el = $('appVersionHint');
+  if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller){
+    toast('Update only works in the installed app'); return;
+  }
+  if(!navigator.onLine){ toast('No signal — connect first'); return; }
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    // Pull a fresh sw.js first, so a SHELL that gained files is picked up.
+    await reg.update().catch(()=>{});
+    await swSettled(reg);
+    const res = await swAsk(reg, { type:'REFRESH_SHELL' }, {
+      onProgress: m => { if(el) el.textContent = `Updating… ${m.done}/${m.total}`; }
+    });
+    const failed = (res.failed || []).length;
+    store.set('shellRefreshed', Date.now());
+    toast(failed
+      ? `Updated ${res.refreshed}/${res.total} — kept the old copy for ${failed}`
+      : `Updated ✓ — ${res.refreshed} files`);
+    setTimeout(() => location.reload(), failed ? 1800 : 900);
+  } catch(e) {
+    // Nothing was deleted, so the previous shell is still cached and working.
+    btn.disabled = false; btn.textContent = label;
+    paintVersionHint();
+    toast('Update failed — nothing changed');
+  }
+}
+
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
 
@@ -1366,6 +1451,8 @@ $('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorkl
 $('navRecent').onclick    = () => { $('navMenu').classList.add('hide'); openRecent(); };
 $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
 $('navHelp').onclick      = () => { window.location.href = 'help.html'; };
+
+$('refreshApp').onclick = refreshAppShell;
 
 $('saveSettings').onclick = () => {
   const c = cfg();

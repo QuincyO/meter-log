@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v26';
+const CACHE = 'meterlog-v27';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -58,6 +58,62 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+/* ── Force update (Settings ▸ ⟳ Force update from GitHub) ────────────────────
+ *
+ * Stale-while-revalidate always leaves the phone one load behind, and the
+ * background re-fetch above goes through the browser's HTTP cache — GitHub
+ * Pages serves a max-age, so a "refresh" can quietly re-store the same stale
+ * bytes forever. This re-downloads every SHELL file with `cache: 'reload'`,
+ * which is what actually bypasses that layer and reaches the origin.
+ *
+ * The page never owns SHELL or CACHE — it just posts a message and renders
+ * progress — so there is no second copy of the file list to drift.
+ *
+ * Only Cache Storage is touched. Nothing here clears localStorage (the
+ * installer's name / H number / home / mode) or IndexedDB (queue, dayCache,
+ * worklist, addrCache). A file that fails to download keeps its EXISTING
+ * cached copy — nothing is deleted first — so a refresh attempted on a weak
+ * signal can never strand the phone without an offline shell.
+ */
+const REFRESH_CONCURRENCY = 6;
+
+async function refreshShell(port) {
+  const cache = await caches.open(CACHE);
+  const total = SHELL.length;
+  const failed = [];
+  let refreshed = 0, done = 0, next = 0;
+
+  const worker = async () => {
+    while (next < total) {
+      const url = SHELL[next++];
+      try {
+        const res = await fetch(new Request(url, { cache: 'reload' }));
+        if (res && res.ok) { await cache.put(url, res.clone()); refreshed++; }
+        else failed.push(url);
+      } catch { failed.push(url); }
+      done++;
+      if (port) port.postMessage({ type: 'progress', done, total });
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(REFRESH_CONCURRENCY, total) }, worker)
+  );
+  if (port) port.postMessage({ type: 'done', version: CACHE, total, refreshed, failed });
+}
+
+self.addEventListener('message', e => {
+  const msg = e.data || {};
+  const port = e.ports && e.ports[0];
+  if (msg.type === 'VERSION') {
+    if (port) port.postMessage({ type: 'version', version: CACHE, total: SHELL.length });
+    return;
+  }
+  if (msg.type !== 'REFRESH_SHELL') return;
+  // waitUntil so the browser doesn't kill the worker part-way through.
+  e.waitUntil(refreshShell(port));
 });
 
 self.addEventListener('fetch', e => {

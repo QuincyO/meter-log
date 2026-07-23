@@ -272,6 +272,28 @@ so the IndexedDB `queue` owns retry — don't add the endpoint to the SW cache.
 precached too, so the viewer shell opens offline; only the OSM tiles need a
 connection.)
 
+**Force update from GitHub.** Stale-while-revalidate always leaves a phone one
+load behind a push, and the worker's background re-fetch is itself answerable
+from the browser's HTTP cache — GitHub Pages serves a `max-age`, so a phone can
+sit on old code indefinitely. Settings ▸ **⟳ Force update from GitHub**
+(`#refreshApp`) is the escape hatch: `refreshAppShell()` in
+`js/pages/capture.js` calls `registration.update()` (picking up a `SHELL` that
+gained files), then posts `{type:'REFRESH_SHELL'}` to the active worker over a
+`MessageChannel`. `sw.js`'s `refreshShell()` re-downloads its own `SHELL` — six
+at a time, each as `new Request(url, {cache: 'reload'})`, which is what actually
+bypasses the HTTP cache — reporting `{type:'progress', done, total}` per file
+and finishing with `{refreshed, failed}`; the page then reloads.
+`{type:'VERSION'}` returns `CACHE` for the version line.
+
+The design is deliberately **in-place, not nuke-and-reload**. Each file is
+`cache.put` only on `res.ok` and nothing is deleted first, so a download that
+dies mid-way leaves the previous shell intact rather than stranding the phone
+without one. And it rewrites **Cache Storage only** — never `localStorage`
+(name, H number, sub, home, work mode) and never IndexedDB (`queue`, `dayCache`,
+`worklist`, `addrCache`), so updating costs the installer nothing: no re-entered
+details, no dropped un-synced writes. The only `localStorage` change is an added
+`shellRefreshed` timestamp behind the version line.
+
 ---
 
 ## Frontend module layout
