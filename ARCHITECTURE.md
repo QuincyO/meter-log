@@ -605,9 +605,12 @@ jobs:
 
 - **Driver-facing:** shows **only the current order's card** — WO#, unit+address,
   Old J#, appointment/notes — with a big **Navigate** button (the shared
-  `openDirections()` Google-Maps hand-off) and **Advance / Back** buttons. Advance/Back
-  move a **local display pointer** across the pending set *only*; they never change
-  an order's status, touch the Sheet, or affect plan mode (an order still goes
+  `openDirections()` Google-Maps hand-off) and **Advance / Back** buttons. Navigate
+  **advances the display to the next order before handing off** — so the next card is
+  already showing when the driver switches back from Maps — while still routing to the
+  order that was pressed. Advance/Back move a **local display pointer** across the
+  pending set *only*; none of them change an order's status, touch the Sheet, or affect
+  plan mode (an order still goes
   `done` only when its meter is logged, exactly as before). Deliberately no map, no
   speed, no trip numbers on screen.
 - **Office-facing (silent):** while the screen is in front it records the driving

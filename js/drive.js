@@ -214,7 +214,16 @@ export function initDrive(opts){
   $('driveBack').onclick = () => opts.onClose();
   $('drivePrev').onclick = () => { if(idx > 0){ idx--; renderCard(); } };
   $('driveNext').onclick = () => { if(idx < pending.length - 1){ idx++; renderCard(); } };
-  $('driveNav').onclick = () => { if(pending[idx]) opts.openDirections(pending[idx]); };
+  $('driveNav').onclick = () => {
+    const item = pending[idx];
+    if(!item) return;
+    // Advance the display to the next order BEFORE handing off to Maps, so the
+    // next card is already showing when the driver switches back. Navigation
+    // still goes to the order that was pressed, not the newly shown one. Like
+    // Advance/Back, this only moves the pointer — it changes no order's status.
+    if(idx < pending.length - 1){ idx++; renderCard(); }
+    opts.openDirections(item);
+  };
   $('driveTrackToggle').onchange = async e => {
     setTracking(e.target.checked);
     if(!openState){ paintIndicator(); return; }
