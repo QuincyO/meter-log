@@ -83,7 +83,8 @@ function planShape(){
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
     commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
-    finishBy:store.get('plannerFinishBy:' + hNumber()) || '14:00'
+    finishBy:store.get('plannerFinishBy:' + hNumber()) || '14:00',
+    target:targetVal()
   };
 }
 // Which saved route is live for this installer. Uploaded with the list, so the
@@ -100,6 +101,9 @@ function loadPlan(plan){
   if(p.straightDistanceSource) store.set('plannerStraightSource:' + hNumber(), p.straightDistanceSource);
   if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
   if(p.finishBy) store.set('plannerFinishBy:' + hNumber(), p.finishBy);
+  // The installer owns their target — a Download of their plan drives the planner's
+  // day target so the office plans to the same number the installer set.
+  if(p.target !== '' && p.target != null) $('plTarget').value = String(Math.max(1, Math.floor(Number(p.target) || 24)));
 }
 
 function setStatus(kind, text){
@@ -522,11 +526,13 @@ async function optimize(pending, health){
         x[f.day] = p ? p.day : '';
         x[f.legMeters] = p ? p.legMeters : '';
         x[f.homeLegMeters] = p ? p.homeLegMeters : '';
-        // The sequence just changed, so any saved road geometry is keyed to the
-        // OLD order and would draw wrong legs (fetchVariantGeometry below refills
-        // it only when OSRM is up). Clear it here so an OSRM-offline / ORS-matrix
-        // run falls back to clean straight legs instead of stale ones.
+        // The sequence just changed, so any saved geometry is keyed to the OLD
+        // order and would draw wrong legs. Clear BOTH the between-stops path and the
+        // crew-start drive-out (which stop is a day's first can change on reorder);
+        // fetchVariantGeometry below always refills the drive-out (straight if OSRM
+        // is down) and the road legs when OSRM is up.
         x[f.geometry] = '';
+        x[f.homeLegGeometry] = '';
       }
     });
     items = seq;
@@ -536,7 +542,7 @@ async function optimize(pending, health){
     // Fetch the real road path for every leg of both variants while OSRM is up —
     // usedFallback means the matrix already fell back off OSRM, so /route would
     // fail too; skip it then rather than hammer a down server.
-    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl, start);
+    await fetchVariantGeometry(osrmUrl, start, health.osrm.online && !usedFallback);
     render();
     const who = roster.employees.find(e => String(e.hNumber) === h);
     const runRecord = {
@@ -550,8 +556,8 @@ async function optimize(pending, health){
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     const totalM = Object.values(prim.legMeters).reduce((a, b) => a + b, 0);
-    toast((mode === 'start-home' ? 'Route leaves the crew start and ends near home ✓'
-        : mode === 'start' ? 'Route leaves the crew start ✓'
+    toast((mode === 'start-home' ? 'Route ends near home · ETA timed from the crew start ✓'
+        : mode === 'start' ? 'Route ETA timed from the crew start ✓'
         : mode === 'home' ? 'Route ends near the anchor ✓'
         : 'Route starts at the first order ✓')
       + ` · ${fmtKm(totalM)}`
@@ -569,13 +575,14 @@ async function optimize(pending, health){
 }
 
 // ── directions geometry ──────────────────────────────────────────────────────
-// Walk each variant's saved sequence and ask OSRM /route for the actual road path
-// of every leg BETWEEN stops, storing the encoded polyline on the ARRIVING order
-// (matching how legMetersFor charges each leg). A day's FIRST stop has no incoming
-// leg drawn — the drive out to it (from the crew start) is deliberately not routed
-// or drawn, only measured (homeLegMetersFor) — so it stores empty geometry. One
-// local OSRM GET per between-stops leg — free and fast.
-async function fetchVariantGeometry(osrmUrl, start){
+// Walk each variant's saved sequence and store each leg's drawn path on the
+// ARRIVING order (matching how legMetersFor charges each leg). Between-stops legs
+// get the real OSRM /route road path when the server is up (`osrmOnline`), else
+// blank (the map draws a clean straight leg). A day's FIRST stop stores the
+// crew-start drive-out instead: the OSRM road path when up, else a straight
+// two-point line — drawn even with OSRM offline so the faint drive-out line + the
+// start pin always show when a crew start exists. One local OSRM GET per road leg.
+async function fetchVariantGeometry(osrmUrl, start, osrmOnline){
   const prog = $('plProg');
   let fetched = 0, missed = 0, total = 0;
   for(const v of VARIANTS){
@@ -586,19 +593,23 @@ async function fetchVariantGeometry(osrmUrl, start){
     const prevByDay = {};
     for(const x of routed){
       const day = x[f.day] || 0;
-      const prev = prevByDay[day] ? coordsOf(prevByDay[day]) : null;  // no home leg — first stop draws nothing
+      const prev = prevByDay[day] ? coordsOf(prevByDay[day]) : null;  // no prev → first stop of the day (drive-out)
       if(prev){
-        total++;
-        if(prog) prog.textContent = `Fetching directions… ${total}`;
-        const g = await osrmLegGeometry(prev, coordsOf(x), osrmUrl);
-        if(g){ x[f.geometry] = g; fetched++; } else { x[f.geometry] = ''; missed++; }
+        if(osrmOnline){
+          total++;
+          if(prog) prog.textContent = `Fetching directions… ${total}`;
+          const g = await osrmLegGeometry(prev, coordsOf(x), osrmUrl);
+          if(g){ x[f.geometry] = g; fetched++; } else { x[f.geometry] = ''; missed++; }
+        } else {
+          x[f.geometry] = '';   // OSRM down → straight leg
+        }
       } else {
         x[f.geometry] = '';   // a day's first stop has no incoming between-stops leg
-        // Draw the drive out from the crew start: OSRM road path when the server
-        // has one, else a straight two-point line, else nothing (no crew start).
+        // Draw the drive out from the crew start: OSRM road path when up, else a
+        // straight two-point line, else nothing (no crew start).
         const sc = coordsOf(start), fc = coordsOf(x);
         if(sc && fc){
-          const road = await osrmLegGeometry(start, x, osrmUrl);
+          const road = osrmOnline ? await osrmLegGeometry(start, x, osrmUrl) : '';
           x[f.homeLegGeometry] = road || encodePolyline([[sc.lat, sc.lng], [fc.lat, fc.lng]]);
         } else {
           x[f.homeLegGeometry] = '';
@@ -625,7 +636,7 @@ async function requestDirections(){
     if(!health.osrm.online){ toast('OSRM offline — start the local server (DEPLOY.md)'); return; }
     const urls = providerUrls();
     const { start } = await planAnchors(urls.geocode);
-    const { fetched, missed } = await fetchVariantGeometry(urls.osrm, start);
+    const { fetched, missed } = await fetchVariantGeometry(urls.osrm, start, true);
     render();
     toast(fetched
       ? `Directions saved ✓ · ${fetched} legs${missed ? ` · ${missed} missed` : ''} — ⇪ Upload to send`

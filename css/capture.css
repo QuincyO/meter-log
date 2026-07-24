@@ -177,6 +177,8 @@
   min-height:58px;padding:6px 0;background:var(--surface)}
 .wl-route-head h2{margin:0;font-size:20px;line-height:1.1}
 .wl-route-head p{margin:3px 0 0;color:var(--ink-soft);font-size:12px}
+.wl-route-weights{margin:0 0 2px;color:var(--ink-soft);font-size:12px;font-weight:700}
+.wl-route-weights.hide{display:none}
 .wl-route-days{display:flex;gap:8px;overflow-x:auto;padding:5px 1px 10px;scrollbar-width:none}
 .wl-route-days::-webkit-scrollbar{display:none}
 .wl-route-day{flex:none;min-height:42px;padding:0 15px;border:1.5px solid var(--line);border-radius:999px;

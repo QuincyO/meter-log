@@ -231,7 +231,7 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
 // cells by position, so slotting a new name into the middle would rename nothing
 // and duplicate the tail on every existing sheet.
 const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource',
-  'updated','routeVariant','straightDistanceSource','commutePull','finishBy'];
+  'updated','routeVariant','straightDistanceSource','commutePull','finishBy','target'];
 
 // One row per Drive-mode driving LEG (the phone records a leg while the Drive
 // screen is in front, then uploads it). `encoded` is the compressed polyline of
@@ -363,6 +363,7 @@ function doPost(e) {
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
       case 'saveWorklist':   return json(saveWorklist(body));
+      case 'savePlan':       return json(savePlan(body));
       case 'saveDriveTrack': return json(saveDriveTrack(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
@@ -1288,8 +1289,22 @@ function saveWorklistPlan(hNumber, plan) {
       return isFinite(n) ? Math.max(0, Math.min(100, n)) : '';
     })(),
     finishBy: /^\d{1,2}:\d{2}$/.test(String(plan.finishBy || '')) ? String(plan.finishBy) : '',
+    target: (() => {
+      const n = Math.round(Number(plan.target));
+      return isFinite(n) && n > 0 ? n : '';
+    })(),
     updated: now()
   });
+}
+
+/** Plan-only write: persist one installer's route-plan settings (tuning + target)
+ *  to WorklistPlans WITHOUT touching their order rows. The phone calls this on
+ *  Download so the installer's latest tuning/target reaches the office without the
+ *  whole-list replace that saveWorklist would do (which would clobber the ordering
+ *  the phone is about to pull). The installer is the source of truth for tuning. */
+function savePlan(body) {
+  saveWorklistPlan(body.hNumber, body.plan || {});
+  return { ok: true };
 }
 
 function worklistPlanFor(hNumber) {

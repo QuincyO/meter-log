@@ -137,6 +137,21 @@ export function initWorklistRouteView(opts){
   const noticeEl = $('wlRouteNotice');
   const offlineEl = $('wlRouteOffline');
   const fixEl = $('wlRouteFix');
+  const weightsEl = $('wlRouteWeights');
+
+  // Show the installer's current tuning weights on the route so they can see what
+  // produced it. The phone owns these; they ride up on the next sync and drive the
+  // next route built for them (phone or planner).
+  function renderWeights(){
+    if(!weightsEl) return;
+    const w = (opts.weights && opts.weights()) || null;
+    if(!w){ weightsEl.classList.add('hide'); weightsEl.textContent = ''; return; }
+    const pull = Number(w.commutePull);
+    weightsEl.classList.remove('hide');
+    weightsEl.textContent = `Tuning · commute pull ${isFinite(pull) ? pull : 70}%`
+      + ` · finish by ${w.finishBy || '14:00'}`
+      + ` · target ${Math.max(1, Math.floor(Number(w.target) || 24))}/day`;
+  }
 
   function updateOfflineNote(){
     const offline = !navigator.onLine;
@@ -362,6 +377,7 @@ export function initWorklistRouteView(opts){
     const groups = groupPendingRoutes(snapshot);
     if(!groups.some(g => g.key === selected)) selected = defaultRouteGroup(groups);
     const group = groups.find(g => g.key === selected) || null;
+    renderWeights();
     renderDays(groups);
     listEl.innerHTML = '';
     (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));

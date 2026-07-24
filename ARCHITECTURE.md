@@ -159,6 +159,10 @@ never duplicates and an empty upload clears the saved copy; `order` is
 written verbatim — so duplicate/blank order values from old clients can't
 round-trip; the nightly `clearDoneWorklistJob` runs the same
 `normalizeWorklistOrders()` repair across every installer's rows),
+`savePlan` (plan-only upsert of one installer's `WorklistPlans` row — route tuning +
+`target` — **without** touching order rows; the phone posts it on Download so its
+installer-owned tuning/target reaches the office without the whole-list replace
+`saveWorklist` would do; see "WorklistPlan row"),
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`,
 `saveDriveTrack` (append one Drive-mode driving leg — client-generated `id`,
@@ -503,8 +507,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
   within-day slot. Appointment cards use a bell badge; locking snapshots the
   current date+slot, removes that card's drag handle, and survives Upload/Download.
-  `WorklistPlans` stores route start date, first-stop time, and editable pace once
-  per H number instead of repeating those settings on every order.
+  `WorklistPlans` stores route start date, first-stop time, editable pace, and the
+  installer-owned tuning (`commutePull`/`finishBy`) + `target` once per H number
+  instead of repeating those settings on every order.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen; online-only). The whole pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
@@ -576,9 +581,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   home-pinned** over its own sub-matrix so the day **ends near home** — the last
   day ending at the globally closest-to-home meter, and a lone near-home order
   falling into a late day, not an early far one. With **both** a team start and a
-  home (the planner's case), each chunk is instead re-solved as an open path pinned
-  at **both** ends (`orderChunkStartHome`: team start → … → home) so every day is a
-  tidy commute — short drive out of the muster point, short drive home. Zig-zag *within* a day is fine;
+  home (the planner's case), the team start is **ETA-only**: it stays in the matrix
+  for the drive-out timing/pricing but is dropped from the ordering, so each chunk is
+  still re-solved home-pinned (farthest→home). Only a phone GPS **Start from here**
+  re-solves each chunk pinned at **both** ends (`orderChunkStartHome`: start → … →
+  home). Zig-zag *within* a day is fine;
   only the day endpoints are constrained. It returns `dayOf` (`{id: dayNumber}`);
   with no home pin it degrades to plain count-chunks (`dayFallback:true`). The
   `target` is a soft anchor from a manual meters/day field on both the planner and
@@ -595,16 +602,20 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   be up to 20 minutes early, and earlier arrival becomes explicit waiting that
   shifts later ETAs. Invalid weekends, duplicate slots, late locked appointments,
   and other impossible layouts abort without rewriting the current route.
-- **Two-anchor, time-aware routing (desktop planner).** The planner sources two
-  sheet-backed anchors per installer instead of the phone's single localStorage home
-  pin: the crew's shared **start location** (Teams `startAddress` — the morning
-  muster point, departed **08:00**, no later than **08:30**) and the installer's own
-  **home** (Employees `homeAddress` — the end-of-day bias). `optimizeRoute` takes
-  the start as `opts.start` (a *persistent* start anchor, distinct from the one-run
-  GPS **Start from here**) and the home as `home`. The drive-out to each day's first
-  stop is measured **from the team start** every day (`homeLegMetersFor`, still kept
-  out of the between-stop total); `measure.startIsCommute` marks that anchor as a
-  commute so a real GPS start is still charged as a driven leg.
+- **Two-reference, time-aware routing (desktop planner + phone).** The planner
+  sources two sheet-backed references per installer instead of the phone's single
+  localStorage home pin: the crew's shared **start location** (Teams `startAddress` —
+  the morning muster point, departed **08:00**, no later than **08:30**) and the
+  installer's own **home** (Employees `homeAddress` — the end-of-day bias). The phone
+  reads both too (home from Settings; the crew start is cached read-only from Teams
+  and geocoded on the phone). `optimizeRoute` takes the start as `opts.start` and the
+  home as `home`. The team start is **ETA-only — never an ordering anchor**: the
+  route still runs furthest-first toward home; the start only times, prices
+  (`homeLegMetersFor`, still kept out of the between-stop total), and draws the drive
+  OUT to each day's first (furthest) stop. `measure.startIsCommute` marks it a
+  commute so `solveVariant` drops it from the ordering matrix — distinct from the
+  one-run GPS **Start from here**, which stays a real ordering anchor (its first leg
+  is a charged driven leg).
   When the matrix source is OSRM (`?annotations=distance,duration`), `measure.T`
   carries a **durations** matrix and `travelLookup(measure)` exposes it as
   `fromStart(id)` (morning drive out) and `between(fromId,toId)` (drive between two
@@ -927,7 +938,7 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 | `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
 | `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
 | `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank. `teamsList()` projects it (normalized via `normWorkType`) so the `roster` read carries it — teams.html's boat/land mode filter depends on that |
-| `startAddress`  | string      | the crew's shared **morning meet-up point** — the route planner's start anchor (routes depart it at 08:00, no later than 08:30, and the drive-out to each day's first stop is measured from it). Entered on the boat/crew card; geocoded lazily by the planner. Rides `saveTeam` **only when the payload carries it**; `ensureTeamsColumns()` appends the three columns on any save |
+| `startAddress`  | string      | the crew's shared **morning meet-up point** — the route's **ETA-only** drive-out reference (departs at 08:00, no later than 08:30; the drive-out to each day's first stop is measured/drawn from it, but it never anchors the ordering — the route runs furthest-first toward home). Entered on the boat/crew card; geocoded lazily by the planner (and on the phone). Rides `saveTeam` **only when the payload carries it**; `ensureTeamsColumns()` appends the three columns on any save |
 | `startLat` / `startLng` | number | cached geocode of `startAddress` (may be blank — re-geocoded from the address when absent) |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their
@@ -1145,6 +1156,16 @@ the office saved one, straight otherwise; nothing when the crew has no start).
 | `updated` | string | Toronto-local update timestamp |
 | `routeVariant` | string | `'road'` \| `'straight'` — which saved route is live. The office sets it, the phone downloads it, and the installer's own switch rides back up on the next upload |
 | `straightDistanceSource` | string | `'road'` when the straight variant's `legMetersStraight` were priced on a road matrix (so its total is comparable with the road route's), `'straight-line'` when they are crow-flies and the UI must label them an estimate |
+| `commutePull` | number | tuning: 0–100 home-bias dial (`homeWeight = commutePull/100`) — how hard each day's end hugs home. **Installer-owned** |
+| `finishBy` | string | tuning: `HH:mm` day-finish target that `timeCapacity` sizes each day to hit. **Installer-owned** |
+| `target` | number | meters/day soft target. **Installer-owned** |
+
+**Tuning + target are installer-owned** (`commutePull`/`finishBy`/`target`): the
+phone is the source of truth. On Download the phone pushes its local copies up via
+the plan-only `savePlan` action (`saveWorklistPlan`, no order rows touched) and does
+**not** overwrite them with the sheet's copy, so the next route built for that
+installer — on the phone or the planner — uses their latest weights. The planner
+reads them (`loadPlan`) and routes with them but never clobbers them.
 
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips

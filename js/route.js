@@ -849,30 +849,44 @@ function orderChunkStartHome(D, locIdxChunk, homeWeight=1){
 // distances, yielding two candidate sequences to compare. M is the matrix to
 // SOLVE on; measuring is a separate step (legMetersFor) so both variants can be
 // priced with road distances.
-export function solveVariant(M, located, { startC, homeC, target, commutePull }){
+export function solveVariant(M, located, { startC, homeC, target, commutePull, startIsCommute }){
   const homeWeight = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
-  const masterSeq = routeOrderFromMatrix(M, located.length, {
-    hasStart:!!startC, hasHome:!!homeC
-  });
+  // A team muster start is ETA-only: it stays in the measure matrix (so the drive
+  // OUT to the first stop can be timed/priced and drawn) but must NOT anchor the
+  // ordering — the route still runs furthest-meter-first, working inward toward
+  // home. Only a phone GPS "start from here" anchors (the route literally begins
+  // where you are). So drop the ETA-only start node from the ORDERING matrix and
+  // fall back to the home-only (or no-anchor) path on the remaining nodes.
+  const startAnchors = !!startC && !startIsCommute;
+  const N = located.length;
+  let Mo = M, oStart = startAnchors, oHome = !!homeC;
+  if(startC && !startAnchors){
+    // located sit at nodes 1..N in M ([start, …located, home?]); home (if any) is
+    // the last node. Re-slice with home first so the home-only path applies as-is.
+    const locNodes = Array.from({ length: N }, (_, k) => k + 1);
+    Mo = homeC ? subMatrix(M, [M.length - 1, ...locNodes]) : subMatrix(M, locNodes);
+    oStart = false;
+  }
+  const masterSeq = routeOrderFromMatrix(Mo, N, { hasStart:oStart, hasHome:oHome });
   let orderedSeq = masterSeq;
   const dayOf = {};
   let dayFallback = false;
   if(target > 0){
-    if(startC && homeC){
-      // Crew leaves the muster point each morning and heads home each night:
-      // every day is pinned start → … → home.
+    if(oStart && oHome){
+      // GPS start anchor: crew leaves the fix each morning and heads home each
+      // night — every day is pinned start → … → home.
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkStartHome(M, masterSeq.slice(s, s + target), homeWeight);
+        const ordered = orderChunkStartHome(Mo, masterSeq.slice(s, s + target), homeWeight);
         ordered.forEach(k => { dayOf[located[k].id] = day; });
         orderedSeq.push(...ordered);
       }
-    } else if(homeC && !startC){
+    } else if(oHome){
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkHome(M, masterSeq.slice(s, s + target), homeWeight);
+        const ordered = orderChunkHome(Mo, masterSeq.slice(s, s + target), homeWeight);
         ordered.forEach(k => { dayOf[located[k].id] = day; });
         orderedSeq.push(...ordered);
       }
@@ -1012,9 +1026,11 @@ function timeCapacity(T, offset, locatedCount, startNode, opts){
 // place with coords). onProgress({phase, done, total}): optional UI callback.
 // home: {lat,lng} of the installer's home (the end-of-day bias anchor), or null.
 // opts.start: {lat,lng} of the crew's shared morning muster point (Teams tab), or
-// null. A persistent start anchor — the route departs it every day and the
-// drive-out to each day's first stop is measured from it. Distinct from
-// startFromCurrent (a one-run live GPS fix); GPS wins when both are present.
+// null. ETA-only, NOT an ordering anchor — the route still runs furthest-first
+// toward home; the start only times/prices/draws the drive OUT to each day's first
+// stop (solveVariant drops it from the ordering matrix, `startIsCommute`). Distinct
+// from startFromCurrent (a one-run live GPS fix that DOES anchor the route's first
+// stop); GPS wins when both are present.
 // opts.dayFinishBy / opts.departMin / opts.breakMin / opts.paceMin: minutes-of-day
 // clock inputs for time-based day sizing. With real durations (OSRM T) and a
 // dayFinishBy, the per-day count shrinks so the work lands by that clock (default
@@ -1097,9 +1113,9 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // reassuring note, not an error: Google/ORS quietly caught the rest.
   const geoNote = geoFellBack ? 'some addresses used a fallback geocoder (local missed)' : null;
   const homeC = coordsOf(home);
-  // Two independent start anchors: a live "start from here" GPS fix (one run), and
-  // a persistent team muster point (opts.start) the crew leaves from every morning.
-  // GPS wins when armed and available; otherwise the team start anchors the route.
+  // Two independent starts: a live "start from here" GPS fix (one run, an ordering
+  // anchor) and the persistent team muster point (opts.start, ETA-only — measured
+  // and drawn but never an ordering anchor). GPS wins when armed and available.
   const teamStartC = coordsOf(opts.start) || null;
   const startC = (wantsCurrentStart ? gps : null) || teamStartC;
   const usingTeamStart = startC != null && startC === teamStartC && !(wantsCurrentStart && gps);
@@ -1189,7 +1205,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const target = (T && userTarget && opts.dayFinishBy)
     ? Math.max(1, Math.min(userTarget, timeCapacity(T, anchorOffset, located.length, startC ? 0 : null, opts)))
     : userTarget;
-  const shape = { startC, homeC, target, commutePull: opts.commutePull };
+  const shape = { startC, homeC, target, commutePull: opts.commutePull, startIsCommute: usingTeamStart };
   const primary = solveVariant(D, located, shape);
 
   // Did this run actually get road distances? Only then is there a road route to

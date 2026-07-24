@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
@@ -64,7 +64,8 @@ function planShape(){
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('wlStraightDistanceSource') || '',
     commutePull:pullVal(store.get('wlCommutePull')),
-    finishBy:store.get('wlFinishBy') || '14:00'
+    finishBy:store.get('wlFinishBy') || '14:00',
+    target:targetVal()
   };
 }
 
@@ -79,14 +80,16 @@ function savePlanLocal(){
   store.set('wlPaceMin', String(p.paceMin));
   return p;
 }
+// Apply a downloaded plan's PLANNER-owned scheduling fields only (pace, variant).
+// The installer's phone is the source of truth for tuning + target (commutePull /
+// finishBy / target), so a Download never overwrites those — wlDownload pushes the
+// local ones UP instead (savePlan) so the office sees the installer's latest.
 function loadPlanFields(plan){
   const p = plan || {};
   $('wlPace').value = String(Math.max(1, Number(p.paceMin || store.get('wlPaceMin')) || 30));
   store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
   if(p.routeVariant) store.set('wlRouteVariant', p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('wlStraightDistanceSource', p.straightDistanceSource);
-  if(p.commutePull !== '' && p.commutePull != null) store.set('wlCommutePull', String(p.commutePull));
-  if(p.finishBy) store.set('wlFinishBy', p.finishBy);
   savePlanLocal();
 }
 
@@ -238,6 +241,10 @@ async function wlDownload(){
   const local = await allSorted();
   if(local.length && !confirm(`Replace the ${local.length} orders on this phone with your saved copy from the sheet?`)) return;
   try {
+    // The phone owns tuning + target. Push the local plan UP first (plan-only, so it
+    // never touches the ordering we're about to pull) so the office/planner sees the
+    // installer's latest weights the next time a route is built for them.
+    try { await apiPost({ action:'savePlan', hNumber: c.hNumber, plan: savePlanLocal() }); } catch { /* best effort */ }
     const r = await withActivity('Downloading worklist…', () => apiGet('worklist', { hNumber: c.hNumber }));
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
@@ -306,6 +313,27 @@ async function homePin(){
   return null;
 }
 
+// The crew's shared morning muster point (Settings, read-only — the office sets it
+// on the crew in Teams; loadSubInfo caches it as crewStartAddress). Geocoded lazily
+// here, like the home pin, so the phone can time and draw the drive-out to the day's
+// first stop. This is an ETA-only anchor: route.js treats a team start as a commute
+// (never an ordering anchor), so the route still runs furthest-meter-first toward
+// home. Re-geocodes when the office changes the address (crewStartFor guard).
+async function crewStartPin(){
+  const addr = (store.get('crewStartAddress') || '').trim();
+  if(!addr){ store.set('crewStartFor', ''); return null; }
+  const lat = Number(store.get('crewStartLat')), lng = Number(store.get('crewStartLng'));
+  if(isFinite(lat) && isFinite(lng) && (lat || lng) && store.get('crewStartFor') === addr)
+    return { lat, lng };
+  const hit = await geocodeOne(addr, null);   // crew start is never radius-gated
+  if(hit && !hit.ambig){
+    store.set('crewStartLat', String(hit.lat)); store.set('crewStartLng', String(hit.lng));
+    store.set('crewStartFor', addr);
+    return { lat: hit.lat, lng: hit.lng };
+  }
+  return null;
+}
+
 async function optimizeRouteHandler(straightLine){
   if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
   const pending = pendingOf(await allSorted());
@@ -322,11 +350,12 @@ async function optimizeRouteHandler(straightLine){
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     const home = await homePin();
+    const crewStart = await crewStartPin();   // ETA-only anchor + drive-out to draw
     // compareVariants only ever rides the road-matrix press. On a straight-line
     // tap route.js ignores it outright — there is no road matrix to compare
     // against, and this must never be the thing that causes one.
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
-      straightLine, startFromCurrent, compareVariants: !straightLine,
+      straightLine, startFromCurrent, start: crewStart, compareVariants: !straightLine,
       target, dayFinishBy: hhmmMin(planShape().finishBy), departMin: hhmmMin(ROUTE_DEPART_TIME),
       paceMin: planShape().paceMin, commutePull: planShape().commutePull
     });
@@ -370,9 +399,16 @@ async function optimizeRouteHandler(straightLine){
     for(const v of Object.keys(computed)){
       const c = computed[v], pos = {};
       [...c.orderedIds, ...parkedIds].forEach((id, n) => {
+        // A day's first stop (the ones homeLegMetersFor priced) carries the
+        // crew-start drive-out — a straight two-point line, since the phone can't
+        // fetch OSRM road paths. Every other stop stores none.
+        const it = byId[id], fc = it && coordsOf(it);
+        const driveOut = (crewStart && fc && c.homeLegMeters[id] != null)
+          ? encodePolyline([[crewStart.lat, crewStart.lng], [fc.lat, fc.lng]]) : '';
         pos[id] = { order:n * 10, day:c.dayOf[id] || '',
           legMeters:c.legMeters[id] == null ? '' : c.legMeters[id],
-          homeLegMeters:c.homeLegMeters[id] == null ? '' : c.homeLegMeters[id] };
+          homeLegMeters:c.homeLegMeters[id] == null ? '' : c.homeLegMeters[id],
+          homeLegGeometry: driveOut };
       });
       variantPos[v] = pos;
     }
@@ -396,11 +432,12 @@ async function optimizeRouteHandler(straightLine){
         patch[f.day] = p ? p.day : '';
         patch[f.legMeters] = p ? p.legMeters : '';
         patch[f.homeLegMeters] = p ? p.homeLegMeters : '';
-        // Sequence changed → saved road geometry is keyed to the old order. The
-        // phone never re-fetches geometry (only the desktop does), so clear it and
-        // let the route map fall back to straight legs until a desktop re-optimize.
+        // Sequence changed → saved BETWEEN-stops road geometry is keyed to the old
+        // order, and the phone can't re-fetch it (only the desktop hits OSRM), so
+        // clear it and let the route map draw straight legs. The crew-start drive-out
+        // IS redrawn here as a straight line so the pin + faint line always show.
         patch[f.geometry] = '';
-        patch[f.homeLegGeometry] = '';
+        patch[f.homeLegGeometry] = p ? p.homeLegGeometry : '';
       }
       await idb.put('worklist', Object.assign({}, item, patch));
     }
@@ -426,6 +463,8 @@ async function optimizeRouteHandler(straightLine){
       + (note ? ` · ${short(note)}` : '');
     const modeText = mode === 'here-home' ? 'Route optimized — starts here and ends near home ✓'
       : mode === 'here' ? 'Route optimized — starts here ✓'
+      : mode === 'start-home' ? 'Route optimized — ends near home · ETA from crew start ✓'
+      : mode === 'start' ? 'Route optimized — ETA from crew start ✓'
       : mode === 'home' ? 'Route optimized — ends near home ✓'
       : 'Route optimized — starts at your first order ✓';
     toast((startFallback ? 'Current location unavailable — used normal routing · ' : '') + modeText + extra);
@@ -1306,6 +1345,10 @@ export function initWorklist(opts){
   routeView = initWorklistRouteView({
     getItems: allSorted,
     routeVariant: activeVariant,
+    // The installer's current tuning weights, shown on the route so they can see
+    // what produced it (the phone owns these; they ride up on the next sync).
+    weights: () => ({ commutePull:pullVal(store.get('wlCommutePull')),
+      finishBy:store.get('wlFinishBy') || '14:00', target:targetVal() }),
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

@@ -165,6 +165,31 @@ test('within a day, between-stop legs are still charged with a team start', () =
   assert.equal(legs.b, 4);   // a → b, same day
 });
 
+// A team muster start is ETA-only: it stays in the matrix so the drive-out can be
+// measured, but it must NOT anchor the ORDERING — the route still runs
+// furthest-from-home first, then works inward. A phone GPS "start from here" does
+// still anchor. Nodes: [start, a, b, c, home] on a line home=0, c=30, b=60, a=100,
+// start=25 (nearest c). Furthest from home = a; nearest the start = c.
+const ETA_SOLVE = matrix([
+  [0,   75,  35,  5,   25],   // team start (pos 25)
+  [75,  0,   40,  70,  100],  // a (pos 100 — furthest from home)
+  [35,  40,  0,   30,  60],   // b (pos 60)
+  [5,   70,  30,  0,   30],   // c (pos 30 — nearest the start)
+  [25,  100, 60,  30,  0],    // home (pos 0)
+]);
+const ETA_LOCATED = [{ id:'a' }, { id:'b' }, { id:'c' }];
+const etaShape = extra => ({ startC:{ lat:0, lng:0 }, homeC:{ lat:0, lng:0 }, target:3, commutePull:100, ...extra });
+
+test('a team muster start is ETA-only — ordering runs furthest-from-home first', () => {
+  const team = solveVariant(ETA_SOLVE, ETA_LOCATED, etaShape({ startIsCommute:true }));
+  assert.deepEqual(team.orderedIds, ['a', 'b', 'c']);   // furthest meter first, working home
+});
+
+test('a phone GPS start still anchors the route at the nearest stop', () => {
+  const gps = solveVariant(ETA_SOLVE, ETA_LOCATED, etaShape({ startIsCommute:false }));
+  assert.equal(gps.orderedIds[0], 'c');   // begins at the meter nearest the phone fix
+});
+
 const T_MEASURE = {
   T: matrix([
     [0, 15, 30, 99],

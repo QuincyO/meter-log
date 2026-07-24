@@ -45,10 +45,12 @@ test('the route-variant and set-aside columns are appended, never inserted', () 
   assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 14, 'the pre-existing tail must not move');
 
   const wp = headers('WORKLIST_PLANS_HEADERS');
-  assert.deepEqual(wp.slice(-2), ['commutePull', 'finishBy'], 'the dial columns are the new tail');
-  assert.deepEqual(wp.slice(-4, -2), ['routeVariant', 'straightDistanceSource'],
+  assert.equal(wp[wp.length - 1], 'target', 'the target column is the new tail');
+  assert.deepEqual(wp.slice(-3, -1), ['commutePull', 'finishBy'],
+    'the dial columns keep their positions ahead of target');
+  assert.deepEqual(wp.slice(-5, -3), ['routeVariant', 'straightDistanceSource'],
     'the variant columns keep their positions ahead of the dials');
-  assert.equal(wp[wp.length - 5], 'updated', 'updated keeps its original position');
+  assert.equal(wp[wp.length - 6], 'updated', 'updated keeps its original position');
 });
 
 test('every Worklist header is unique', () => {
