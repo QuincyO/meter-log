@@ -21,6 +21,13 @@ export const MIN_GAP_S = 3;
 // stopped at a light, parked, crawling. Used by segmentSummary()'s idle tally.
 export const IDLE_SPEED_MS = 0.5;
 
+// Anything above this (45 m/s ≈ 162 km/h) is a GPS glitch, not a work truck:
+// either a bogus device `coords.speed` or a position that "teleported" (multipath,
+// a tower hop). Such a fix is dropped at ingestion so it can't add phantom distance
+// or blow up maxSpeed — the field once saw a 1207 km/h reading. Comfortably above
+// any real highway speed, well below a glitch.
+export const MAX_SPEED_MS = 45;
+
 // Safety cap on points per leg so a single row never approaches the Sheet's
 // 50k-char/cell limit (~12 chars/point encoded ⇒ ~42k chars). Island legs are
 // short, so this is a guard, not a norm; the runtime finalizes + starts a fresh
@@ -112,10 +119,17 @@ export function addFix(seg, fix){
     const d = haversineM(prev, fix);
     const dt = (fix.t - prev.t) / 1000;
     if(d < MIN_MOVE_M && dt < MIN_GAP_S) return false;
-    if(spd == null) spd = dt > 0 ? d / dt : 0;
+    const moveSpd = dt > 0 ? d / dt : Infinity;
+    // Teleport guard: a position that jumped faster than any truck can drive is a
+    // GPS glitch — drop the whole fix so it adds neither phantom distance nor speed.
+    if(moveSpd > MAX_SPEED_MS) return false;
+    if(spd == null) spd = moveSpd;
   } else if(spd == null){
     spd = 0;
   }
+  // A device-reported speed can spike on an otherwise-fine position; that's a glitch
+  // too — drop it rather than let one bad reading define the leg's max speed.
+  if(spd > MAX_SPEED_MS) return false;
   pts.push({ lat: fix.lat, lng: fix.lng, t: fix.t, spd: Math.max(0, spd) });
   return true;
 }
@@ -134,8 +148,9 @@ export function markResume(seg, fix){
   seg.gaps.push({ ...seg.pendingPause, resumeLat: fix.lat, resumeLng: fix.lng, resumeT: fix.t });
   seg.pendingPause = null;
   if(seg.points.length >= MAX_POINTS) return false;
-  seg.points.push({ lat: fix.lat, lng: fix.lng, t: fix.t,
-    spd: (typeof fix.spd === 'number' && fix.spd >= 0) ? fix.spd : 0, gap: true });
+  let spd = (typeof fix.spd === 'number' && fix.spd >= 0) ? fix.spd : 0;
+  if(spd > MAX_SPEED_MS) spd = 0;   // ignore a glitchy device speed on the resume fix
+  seg.points.push({ lat: fix.lat, lng: fix.lng, t: fix.t, spd, gap: true });
   return true;
 }
 
@@ -150,7 +165,9 @@ export function segmentSummary(points){
     // from the move). At/below the idle threshold the truck was effectively stopped.
     if((pts[i].spd || 0) <= IDLE_SPEED_MS) idleMs += pts[i].t - pts[i - 1].t;
   }
-  for(const p of pts) if((p.spd || 0) > maxSpeed) maxSpeed = p.spd;
+  // Ingestion already drops glitch fixes; this is the belt to that suspenders, so a
+  // legacy/decoded leg carrying an outlier can't report an impossible max speed.
+  for(const p of pts) if((p.spd || 0) > maxSpeed && (p.spd || 0) <= MAX_SPEED_MS) maxSpeed = p.spd;
   const driveMs = pts.length > 1 ? pts[pts.length - 1].t - pts[0].t : 0;
   const avgSpeed = driveMs > 0 ? distanceM / (driveMs / 1000) : 0;
   return {

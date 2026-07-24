@@ -8,6 +8,7 @@ import { idb } from './idb.js';
 import { cfg } from './store.js';
 import { $, activeActivity, onActivityChange } from './dom.js';
 import { applyOptimisticCache, reconcileCache } from './daycache.js';
+import { classifyFlush } from './queue-policy.js';
 
 const queueAll = async () => (await idb.all('queue')) || [];
 
@@ -56,9 +57,11 @@ export async function flush(){
   try{
     while(true){
       const q = await queueAll();   // re-read each pass so a mid-flush enqueue is picked up
-      if(!q.length) break;
-      const item = q[0];            // lowest _seq = head of the queue
-      const {_seq, ...body} = item; // _seq is an internal key — don't send it
+      // Skip parked (poison) items: they've been definitively rejected too many
+      // times and are set aside so they can't wedge the writes queued behind them.
+      const item = q.find(it => !it._parked);
+      if(!item) break;
+      const {_seq, _tries, _parked, ...body} = item; // internal keys — don't send them
       let resp;
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
@@ -66,37 +69,75 @@ export async function flush(){
       } catch { lastFlushFailed = true; break; }   // genuine network failure — keep the whole queue for next trigger
       let respBody = null;
       try { respBody = await resp.json(); } catch {}
-      // Only a real 2xx with a recognized result counts as delivered. An HTTP error
-      // (500 / quota / timeout page) or a transient {ok:false} is KEPT and retried —
-      // a busy-window failure must never silently drop a logged stop. The client id
-      // makes the eventual retry idempotent, so a timed-out-but-succeeded write
+      // classifyFlush distinguishes delivered / poison / transient. The client id
+      // makes any eventual retry idempotent, so a timed-out-but-succeeded write
       // (where we never saw the response) won't duplicate.
-      const delivered = resp.ok && respBody && (respBody.ok || respBody.duplicate || respBody.flagged);
-      if(!delivered) break;
-      lastFlushFailed = false;        // a real send got through — we're reaching the server
-      await idb.del('queue', _seq);   // remove the head only on a genuine success
-      reconcileCache(respBody, body);          // swap temp ids, mirror dispatch side-effect
-      if(_hooks.onResult) _hooks.onResult(respBody, body);
+      const verdict = classifyFlush(resp.ok, respBody, _tries || 0);
+      if(verdict === 'delivered'){
+        lastFlushFailed = false;        // a real send got through — we're reaching the server
+        await idb.del('queue', _seq);   // remove only on a genuine accept
+        reconcileCache(respBody, body);          // swap temp ids, mirror dispatch side-effect
+        if(_hooks.onResult) _hooks.onResult(respBody, body);
+        continue;
+      }
+      if(verdict === 'park'){
+        // The spine keeps rejecting this item — a poison payload. Set it aside so it
+        // stops blocking everything behind it, but never drop it: it stays in the
+        // durable queue, flagged, and is surfaced (pill + notice) for review/retry.
+        lastFlushFailed = false;        // we reached the server — this isn't an offline state
+        await idb.put('queue', { ...item, _tries: (_tries || 0) + 1, _parked: true });
+        if(_hooks.onResult) _hooks.onResult({ parked: true, error: respBody && respBody.error }, body);
+        continue;                       // keep draining the rest of the queue
+      }
+      if(verdict === 'retry-count'){
+        lastFlushFailed = false;        // the spine answered — just not success yet
+        await idb.put('queue', { ...item, _tries: (_tries || 0) + 1 });
+        break;                          // a few more tries on later triggers before parking
+      }
+      // 'retry' — transient. JSON body ⇒ we reached the spine (lock 'busy'), keep the
+      // pill calm; a non-JSON/HTTP-error page ⇒ transport problem, drive the pill.
+      lastFlushFailed = !(resp.ok && respBody);
+      break;
     }
   } finally { flushing = false; }
   paint();
 }
 
+// Un-park every set-aside item and try again — the manual "retry stuck uploads"
+// path (tapping the status pill). Resets the strike count so they get a full run.
+export async function retryParked(){
+  const items = await queueAll();
+  for(const it of items) if(it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0 });
+  return flush();
+}
+
 export async function paint(){
   const p = $('status'), t = $('statusText');
   if(!p || !t) return;                         // a page without the status pill — no-op
-  const n = (await queueAll()).length;
+  const items = await queueAll();
+  const parked  = items.filter(i => i._parked).length;   // poison items set aside
+  const pending = items.length - parked;                 // still trying
   const act = activeActivity();                // read after the await so it reflects live state
   p.classList.remove('wait','off','busy');
   // A running background job takes precedence over the queue state (it's short-
   // lived and reverts on its own) and shows online OR offline — local work like
   // PDF generation is worth surfacing even with no signal.
   if(act){ p.classList.add('busy'); t.textContent = act; return; }
-  // Drive the pill off the real last-flush outcome, not navigator.onLine (which
-  // some phones leave stuck false while actually connected). Only claim offline
-  // when there's pending work AND the last send attempt genuinely failed.
-  if(n && lastFlushFailed){ p.classList.add('off'); t.textContent = n+' waiting — offline'; }
-  else if(n){ p.classList.add('wait'); t.textContent = n+' sending…'; }
+  if(pending && lastFlushFailed){
+    // A transport failure (fetch threw or an HTTP/offline page came back), NOT a
+    // server rejection — those clear lastFlushFailed. Distinguish a truly-offline
+    // phone from a spine that isn't answering: navigator.onLine is reliable when
+    // TRUE, so a false reading only keeps the old "offline" wording, never a wrong
+    // "online" one.
+    p.classList.add('off');
+    t.textContent = pending + (navigator.onLine ? ' waiting — server not responding'
+                                                : ' waiting — offline');
+  }
+  else if(pending){
+    p.classList.add('wait');
+    t.textContent = pending + ' sending…' + (parked ? ` · ${parked} stuck` : '');
+  }
+  else if(parked){ p.classList.add('off'); t.textContent = parked + ' stuck — tap to retry'; }
   else t.textContent = 'All synced';
 }
 

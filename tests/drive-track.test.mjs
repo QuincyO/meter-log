@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   encodeTrack, decodeTrack, haversineM, segmentSummary, finalizeSegment,
   createSegment, addFix, markPause, markResume, isWorthUploading,
-  MIN_MOVE_M, MIN_GAP_S,
+  MIN_MOVE_M, MIN_GAP_S, MAX_SPEED_MS,
 } from '../js/drive-track.js';
 
 const T0 = 1_700_000_000_000; // fixed epoch ms so tests are deterministic
@@ -61,6 +61,56 @@ test('addFix filters a near-duplicate fix (little move AND little time)', () => 
   assert.equal(seg.points.length, 1);
   // A large-enough time gap keeps it even without moving.
   assert.equal(addFix(seg, { lat: 45.00005, lng: -79.0, t: T0 + 5000, spd: 0 }), true);
+});
+
+test('addFix drops a GPS teleport (implausible derived speed)', () => {
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0, lng: -79.0, t: T0 });
+  // ~1.5 km jump in 3 s ⇒ ~500 m/s — physically impossible, a multipath/tower-hop
+  // glitch. Dropping it removes the phantom distance AND the phantom max-speed.
+  const kept = addFix(seg, { lat: 45.0135, lng: -79.0, t: T0 + 3000 });
+  assert.equal(kept, false);
+  assert.equal(seg.points.length, 1);
+});
+
+test('addFix drops a fix with an implausible device speed', () => {
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0, lng: -79.0, t: T0, spd: 5 });
+  // A believable ~20 m/s move but a garbage device speed (335 m/s ≈ 1207 km/h) —
+  // exactly the 1207 outlier seen in the field. The glitchy fix is dropped.
+  const kept = addFix(seg, { lat: 45.0009, lng: -79.0, t: T0 + 5000, spd: 335 });
+  assert.equal(kept, false);
+});
+
+test('addFix keeps a fast-but-plausible highway fix', () => {
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0, lng: -79.0, t: T0, spd: 0 });
+  // ~30 m/s (108 km/h) — legitimate highway speed, must survive the outlier filter.
+  const kept = addFix(seg, { lat: 45.0027, lng: -79.0, t: T0 + 10000, spd: 30 });
+  assert.equal(kept, true);
+});
+
+test('a GPS glitch never inflates segmentSummary maxSpeed', () => {
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0,     lng: -79.0, t: T0,         spd: 10 });
+  addFix(seg, { lat: 45.0009,  lng: -79.0, t: T0 + 5000,  spd: 335 }); // dropped
+  addFix(seg, { lat: 45.0018,  lng: -79.0, t: T0 + 10000, spd: 18 });
+  const s = segmentSummary(seg.points);
+  assert.ok(s.maxSpeed <= MAX_SPEED_MS, `maxSpeed ${s.maxSpeed}`);
+});
+
+test('markResume ignores a glitchy device speed on the resume fix', () => {
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0, lng: -79.0, t: T0, spd: 10 });
+  addFix(seg, { lat: 45.002, lng: -79.0, t: T0 + 8000, spd: 12 });
+  markPause(seg);
+  markResume(seg, { lat: 45.02, lng: -79.03, t: T0 + 600000, spd: 900 }); // bogus
+  const last = seg.points[seg.points.length - 1];
+  assert.ok(last.spd <= MAX_SPEED_MS, `resume spd ${last.spd}`);
+});
+
+test('MAX_SPEED_MS is the documented outlier cap', () => {
+  assert.equal(MAX_SPEED_MS, 45);
 });
 
 test('markPause/markResume record a gap anchor and a flagged resume point', () => {

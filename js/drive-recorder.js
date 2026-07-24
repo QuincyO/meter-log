@@ -123,12 +123,26 @@ function startSegment(){
   });
 }
 
+// Rebuild the live segment from a persisted `raw` state so recording continues the
+// SAME leg after a PWA cold-start (iOS kills the app during Google-Maps hand-offs),
+// instead of fragmenting the day into one short leg per drive. `raw` keeps the gap
+// flags the encoded polyline can't, so distance/idle stay correct across the rejoin.
+function resumeSegment(row){
+  const r = row.raw || {};
+  seg = { id: row.id, installer: row.installer || '', date: row.date || '',
+          workType: row.workType || '', points: r.points || [], gaps: r.gaps || [],
+          pendingPause: r.pendingPause || null };
+  if(seg.pendingPause) resumePending = true;   // died mid-hand-off → close the gap next fix
+}
+
 function checkpoint(){
-  // Persist progress so a reload/crash mid-leg isn't lost — recoverStale()
-  // finalizes any leg left `active` on the next open, then either ships it (a
-  // previous day) or holds it for finishAndUpload() (today).
+  // Persist progress so a reload/crash mid-leg isn't lost. `raw` carries the live
+  // segment (points WITH gap flags, gaps, pendingPause) that the encoded polyline
+  // drops, so a cold-start can rejoin the SAME leg losslessly (resumeSegment).
+  // finalizeLocal / the upload paths strip `raw` — it never leaves the phone.
   if(!seg) return;
-  idb.put('driveTracks', { ...finalizeSegment(seg), active: true, queued: false });
+  idb.put('driveTracks', { ...finalizeSegment(seg), active: true, queued: false,
+    raw: { points: seg.points, gaps: seg.gaps, pendingPause: seg.pendingPause } });
 }
 
 // Finalize a leg to the local store WITHOUT enqueueing — uploads are deferred
@@ -158,8 +172,8 @@ function onFix(p){
 function onErr(){ /* a denied/timed-out fix just means no point this tick */ }
 
 function startWatch(){
-  if(seg) return;
-  startSegment();
+  if(watchId != null) return;   // already watching — don't double-arm the GPS watch
+  if(!seg) startSegment();      // fresh leg only when we're not resuming one
   if(navigator.geolocation){
     watchId = navigator.geolocation.watchPosition(onFix, onErr,
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
@@ -190,13 +204,17 @@ async function recoverStale(){
   const today = localDate();
   const cutoff = localDateOffset(-8);
   for(const r of all){
+    // Today's legs are left for initDriveRecorder to decide: if recording, it
+    // REJOINS the still-open one (keeping the day a single continuous leg). Touching
+    // them here would strand that rejoin. Older legs ship / prune as before.
+    if(r.date === today) continue;
     let row = r;
     if(r.active){ row = { ...r, active: false }; await idb.put('driveTracks', row); }
     if(row.date && row.date < today && !row.queued && (row.pointCount || 0) >= 2){
       const c = cfg();
-      const { active, queued, ...leg } = row;
+      const { active, queued, raw, ...leg } = row;   // raw is phone-only, never ships
       await enqueue({ token: c.token, action: 'saveDriveTrack', ...leg });
-      await idb.put('driveTracks', { ...row, active: false, queued: true });
+      await idb.put('driveTracks', { ...row, active: false, queued: true, raw: undefined });
     } else if(row.date && row.date < cutoff){
       await idb.del('driveTracks', row.id);
     }
@@ -212,13 +230,28 @@ export async function initDriveRecorder(){
   // already checkpointed the leg, so recoverStale() picks it up next open.
   window.addEventListener('pagehide', () => { checkpoint(); });
   await recoverStale();
-  // Seed the day totals from today's already-finalized legs (recoverStale has
-  // just flipped any crash-leftover active leg to inactive). The leg we're about
-  // to start (if armed) stays live and uncounted here — liveMetrics() adds it.
-  dayBase = emptyDay();
+
   const today = localDate();
-  for(const r of (await idb.all('driveTracks')) || []) if(r.date === today) foldIntoDay(r);
-  if(recordState().on) startWatch();
+  const all = (await idb.all('driveTracks')) || [];
+  const todayActive = all.filter(r => r.date === today && r.active);
+  let resumedId = null;
+  if(recordState().on){
+    // Rejoin the still-open leg (the last session was recording when the PWA was
+    // killed) so the day stays ONE leg across cold-starts. Pick the fullest if a
+    // legacy build left more than one; finalize the rest so none is orphaned.
+    const open = todayActive.filter(r => r.raw && (r.raw.points || []).length)
+                            .sort((a, b) => b.raw.points.length - a.raw.points.length)[0];
+    if(open){ resumeSegment(open); resumedId = open.id; }
+    for(const r of todayActive) if(r.id !== resumedId) await idb.put('driveTracks', { ...r, active: false, raw: undefined });
+    startWatch();   // resumes `seg` if set above, else starts a fresh leg
+  } else {
+    // Not recording: finalize any leftover active leg so it uploads at day's end.
+    for(const r of todayActive) await idb.put('driveTracks', { ...r, active: false, raw: undefined });
+  }
+  // Seed the day totals from today's finalized legs — but NOT the resumed leg, which
+  // liveMetrics() adds live (folding it here would double-count it).
+  dayBase = emptyDay();
+  for(const r of all) if(r.date === today && r.id !== resumedId) foldIntoDay(r);
   notify();
 }
 
@@ -245,9 +278,9 @@ export async function finishAndUpload(){
   const c = cfg();
   for(const r of all){
     if(r.date === today && !r.queued && (r.pointCount || 0) >= 2){
-      const { active, queued, ...leg } = r;
+      const { active, queued, raw, ...leg } = r;   // raw is phone-only, never ships
       await enqueue({ token: c.token, action: 'saveDriveTrack', ...leg });
-      await idb.put('driveTracks', { ...r, active: false, queued: true });
+      await idb.put('driveTracks', { ...r, active: false, queued: true, raw: undefined });
     }
   }
   notify();

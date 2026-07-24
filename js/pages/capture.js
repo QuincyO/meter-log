@@ -8,7 +8,7 @@ import { $, enc, esc, attr, toast, withActivity } from '../dom.js';
 import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
-import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks } from '../queue.js';
+import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks, retryParked } from '../queue.js';
 import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
@@ -27,6 +27,12 @@ import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 // The queue calls this hook once the server acks a write, so a duplicate /
 // conflict surfaces even for a stop that synced long after it was logged.
 setQueueHooks({ onResult: (body, item) => {
+  if (body.parked) {
+    showNotice('flag',
+      `An upload couldn't be accepted and was set aside so the rest could sync${body.error ? ` (${body.error})` : ''}. Tap the sync pill to retry.`,
+      []);
+    return;
+  }
   if (!body.duplicate && !body.flagged) return;
   const wo = item.workOrderId || '?';
   const newJ = item.newJNumber || '';
@@ -53,6 +59,8 @@ function showNotice(type, msg, history) {
   noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);
 }
 $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
+// Tapping the sync pill forces a flush and un-parks any set-aside (stuck) uploads.
+const _statusPill = $('status'); if (_statusPill) _statusPill.onclick = () => retryParked();
 
 // ── work mode (boat | land) ─────────────────────────────────────────────
 // Persisted per device; flips the accent theme via <html data-mode> (the CSS
@@ -877,8 +885,11 @@ function prefetchEodSummary(){
       await flush();
       await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
                       allocations: collectGapAllocations(eodGaps) });
+      // Pass the typed bookends: saveDay hasn't run yet, so without them the spine
+      // would read a still-empty Days row and the PDF would print blank Start/End.
       const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
-                                includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
+                                includeDelays:$('eodIncludeDelays').checked, workType:workMode(),
+                                departure:$('eodDeparture').value, returned:$('eodReturned').value });
       // Only adopt the result if a newer edit hasn't superseded this build, so a
       // slow stale job can't clobber a fresher summary.
       if(d && d.summary && eodSummaryJob === job) eodServerSummary = { key, summary:d.summary };
@@ -1178,7 +1189,8 @@ $('genLog').onclick = async () => {
         await flush();
         try{
           const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
-                                    includeDelays:$('eodIncludeDelays').checked, workType:workMode() });
+                                    includeDelays:$('eodIncludeDelays').checked, workType:workMode(),
+                                    departure:$('eodDeparture').value, returned:$('eodReturned').value });
           summary = d.summary || null;
         } catch {}
       }
