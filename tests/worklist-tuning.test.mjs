@@ -18,6 +18,15 @@ test('null when the finish time is unusable or pace is missing', () => {
   assert.equal(expectedDailyStops({ departMin:495, finishMin:520, pace:24 }), null); // break eats the day
 });
 
+test('a heavier real between-stop travel fits fewer stops than the nominal', () => {
+  const nominal = expectedDailyStops({ departMin:495, finishMin:840, pace:24 });          // 10 min default
+  const heavy   = expectedDailyStops({ departMin:495, finishMin:840, pace:24, travelPerStopMin:20 });
+  assert.equal(nominal, 11);
+  // onSite(24)=14, +20 travel = 34/stop; (285-20)/34 = 7.79 → 7.
+  assert.equal(heavy, 7);
+  assert.ok(heavy < nominal);
+});
+
 test('the service worker ships the tuning module', () => {
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'\.\/js\/worklist-tuning\.js'/);

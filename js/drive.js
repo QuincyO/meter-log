@@ -91,6 +91,40 @@ export function initDrive(opts){
     $('dmMax').textContent = Math.round(m.maxSpeed * KMH_PER_MS);
   }
 
+  // ── on-pace line (two paces: the installer's target finish + working hours) ──
+  // Real-data landing projection sourced by worklist.js (opts.getPace) — see
+  // js/compute/estimate.js projectDayReal. Recomputed on open/refresh and, while
+  // the recorder ticks, at most every few seconds (it changes slowly and reads
+  // the dayCache). Visible whenever there's a route to project, tracking or not.
+  let paceAt = 0, paceBusy = false;
+  function fillPaceRow(id, pace, prefix){
+    const row = $(id);
+    if(!row) return;
+    if(!pace){ row.classList.add('hide'); return; }
+    row.classList.remove('hide');
+    $(id + 'Lab').textContent = `${prefix} ${pace.label}`;
+    $(id + 'Val').textContent = `~${pace.projected}`;
+    $(id + 'Note').textContent = pace.onPace ? 'on pace ✓' : `${pace.delta} behind`;
+    row.classList.toggle('on', pace.onPace);
+    row.classList.toggle('behind', !pace.onPace);
+  }
+  async function paintPace(force){
+    const el = $('drivePace');
+    if(!el || !opts.getPace) return;
+    const now = Date.now();
+    if(!force && (paceBusy || now - paceAt < 4000)) return;
+    paceBusy = true;
+    try{
+      const est = await opts.getPace();
+      paceAt = Date.now();
+      if(!openState) return;
+      if(!est){ el.classList.add('hide'); return; }
+      fillPaceRow('dpTarget', est.paces.target, 'Target');
+      fillPaceRow('dpWork', est.paces.work, 'Day');
+      el.classList.remove('hide');
+    } finally { paceBusy = false; }
+  }
+
   // ── locked "Driving to" card (top of screen) ──
   // Shows the destination the driver last pressed Navigate on, so they always
   // know where they're headed even after the stepper has advanced or they've
@@ -105,8 +139,9 @@ export function initDrive(opts){
     el.classList.remove('hide');
   }
 
-  // One repaint entry point for the recorder's subscribe() — indicator + HUD + dest.
-  function paintAll(){ paintIndicator(); paintMetrics(); renderDest(); }
+  // One repaint entry point for the recorder's subscribe() — indicator + HUD +
+  // dest + on-pace line (the pace is throttled inside paintPace).
+  function paintAll(){ paintIndicator(); paintMetrics(); renderDest(); paintPace(); }
 
   function renderCard(){
     const card = $('driveCard');
@@ -144,6 +179,7 @@ export function initDrive(opts){
     if(d && !pending.some(p => destKey(p) === destKey(d))) clearDest();
     renderCard();
     renderDest();
+    paintPace(true);   // the pending route changed — reproject now
   }
 
   // ── open / close / teardown ──

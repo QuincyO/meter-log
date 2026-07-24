@@ -306,6 +306,22 @@
       <span class="drive-dest-wo mono" id="driveDestWo"></span>
       <span class="drive-dest-addr" id="driveDestAddr"></span>
     </button>
+    <!-- On-pace: how many of today's remaining route stops land by each horizon,
+         from real working data (today's cadence + the route priced at the truck's
+         actual speed). Two paces — the installer's own target finish, and regular
+         working hours (3:45, 4:45 OT past 4). Hidden until there's a route to project. -->
+    <div class="drive-pace hide" id="drivePace" aria-live="polite">
+      <div class="dp-row hide" id="dpTarget">
+        <span class="dp-lab" id="dpTargetLab"></span>
+        <span class="dp-val" id="dpTargetVal"></span>
+        <span class="dp-note" id="dpTargetNote"></span>
+      </div>
+      <div class="dp-row hide" id="dpWork">
+        <span class="dp-lab" id="dpWorkLab"></span>
+        <span class="dp-val" id="dpWorkVal"></span>
+        <span class="dp-note" id="dpWorkNote"></span>
+      </div>
+    </div>
     <div class="drive-card-wrap">
       <div class="drive-card" id="driveCard"></div>
       <p class="muted drive-empty hide" id="driveEmpty">No pending orders. Add or download orders from the worklist.</p>

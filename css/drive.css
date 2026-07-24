@@ -38,6 +38,25 @@
 .drive-dest-wo{ font-size:19px; font-weight:800; letter-spacing:.5px; color:var(--accent); }
 .drive-dest-addr{ font-size:15px; font-weight:600; line-height:1.25; }
 
+/* On-pace line — two slim rows (target finish + working hours) pinned under the
+   "Driving to" card. Each row: a horizon label, the projected landing count, and
+   an on-pace/behind note. Green (accent) when it lands the route by that horizon,
+   amber when it falls short. Deliberately compact next to the big stepper card. */
+.drive-pace{
+  display:flex; flex-direction:column; gap:6px;
+  margin-bottom:10px;
+}
+.dp-row{
+  display:flex; align-items:baseline; gap:10px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:8px 14px;
+}
+.dp-lab{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); }
+.dp-val{ font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; margin-left:auto; }
+.dp-note{ font-size:13px; font-weight:700; }
+.dp-row.on  .dp-val, .dp-row.on  .dp-note{ color:var(--accent); }
+.dp-row.behind .dp-val, .dp-row.behind .dp-note{ color:var(--amber-press); }
+
 /* The card fills the space so the driver reads it at a glance, one order only. */
 .drive-card-wrap{ flex:1; display:flex; align-items:center; }
 .drive-card{

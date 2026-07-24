@@ -673,6 +673,31 @@ screen, not just `#drive`.
   (true gap-filled totals are office-side, not yet built). The screen also
   holds the **▶ Start / ■ Stop drive tracking** button (arms/disarms the recorder) and
   the wake-lock toggle; opening/closing the screen no longer starts/stops GPS.
+- **On-pace line (`js/drive.js` `paintPace`, under the "Driving to" card).** A live
+  landing projection built from **real working data**, not a single blended average:
+  it reprojects **today's remaining route** and separates travel from on-site time.
+  On-site minutes/stop come from today's observed WO→WO cadence with the nominal
+  drive stripped (`onSiteMinutes`, the same decomposition the route planner uses);
+  remaining travel is the pending route's `legMetres` priced at the truck's **real
+  measured moving speed** (`liveMetrics().avgMovingSpeed`, or 50 km/h before any
+  drive is logged); the count is **capped at the stops left in the route**. It shows
+  **two paces** (`js/compute/estimate.js` `projectDayReal`): the installer's **target
+  finish** (`WorklistPlans.finishBy`) and **regular working hours** — 3:45 PM,
+  escalating to **4:45 PM OT** once past 4:00 PM **while the day is still open**
+  (`workHorizon`). Each row reads `~N` with an *on pace ✓* / *N behind* note (green
+  when the whole route lands by that horizon, amber when short). Sourced by
+  worklist.js `paceContext`/`drivePace` (owns the route + dayCache) and passed into
+  `initDrive` like `getPending`; recomputed on open/refresh and throttled to a few
+  seconds while the recorder ticks. Visible whenever there's a route to project,
+  **tracking or not** (drive tracking only sharpens the travel pricing). The **same
+  `projectDayReal` model is the single source** for the landing estimate everywhere:
+  the **plan-mode banner** (`renderPlanEstimate`, compacted to one line) and a
+  **what-if on the `#tuning` screen** (`worklist-tuning.js`) both use it — the
+  expected-stops readout uses the route's real average leg travel, and a *"Projected
+  to land ~N today"* line reprojects against the dragged finish time. (The old
+  blended-average `projectDay` is gone.) **Closing out
+  the day** (`finishDay`) stamps `localStorage['dayClosedDate']` — which drops the
+  4:45 OT escalation — and **exits plan mode** (`exitPlan`), since the plan is spent.
 - **Office-facing (silent, `js/drive-recorder.js`):** records the driving leg — GPS
   points `{lat,lng,t,spd}` (device `coords.speed`, else derived) — the whole time the
   PWA is open and armed, **holding it on the phone** and uploading to the `DriveTracks`

@@ -1,7 +1,16 @@
 # Deferred: live expected-meters preview for the commute-pull dial
 
-Status: **deferred** (backlog). Split off from the 2026-07-24 installer route tuning
-work — see `docs/superpowers/specs/2026-07-24-installer-route-tuning-design.md`.
+Status: **deferred** (backlog) — narrowed to the **commute-pull** dial only. Split off
+from the 2026-07-24 installer route tuning work — see
+`docs/superpowers/specs/2026-07-24-installer-route-tuning-design.md`.
+
+> **Update (2026-07-24):** the **finish-time** side of this preview shipped with the
+> drive-mode on-pace work. The `#tuning` readout now prices its per-stop travel from the
+> current route's **real average leg travel** (`worklist.js paceContext.avgLegTravelMin`
+> → `expectedDailyStops({ travelPerStopMin })`), and a live *"Projected to land ~N today"*
+> line reprojects the remaining route against the dragged finish time
+> (`projectDayReal`). What remains deferred is only the **commute-pull** dial's effect,
+> which still needs the road matrix described below.
 
 ## What was asked
 

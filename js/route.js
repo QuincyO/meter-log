@@ -637,7 +637,7 @@ function haversine(a, b){
 // model — labeled "(est.)" in the UI, never presented as exact. `crowFlies` applies
 // a road-detour factor because haversine underestimates real road length; a road
 // distance matrix (Google/ORS) passes crowFlies:false. Both constants are tunable.
-const ESTIMATE_SPEED_KMH = 50;
+export const ESTIMATE_SPEED_KMH = 50;
 const ROAD_DETOUR_FACTOR = 1.3;
 export function estimateDurations(D, { crowFlies = true } = {}){
   const perMetreMin = (crowFlies ? ROAD_DETOUR_FACTOR : 1) / 1000 / ESTIMATE_SPEED_KMH * 60;

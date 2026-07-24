@@ -13,10 +13,9 @@ import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
-import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, openTuning, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
+import { initWorklist, openWorklist, openTuning, markWorklistDone, planAdvance, syncWorklist, planActive, exitPlan } from '../worklist.js';
 import {
   initDriveRecorder, finishAndUpload, isRecording, armedToday,
   startRecording, stopRecording, subscribe as subscribeDrive,
@@ -288,18 +287,10 @@ function fillCapture(item){
   lastPlanFill = item;
   hideAddrConflict();
 }
-// Quiet plan-mode estimate: how many stops today's pace projects to by end of
-// day. Reads only the local dayCache (works offline), returns '' when there's
-// no pace yet. worklist.js renders it into the plan banner.
-async function planEstimate(){
-  const c = cfg(); if(!c.name) return '';
-  const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
-  if(!cached) return '';
-  const est = projectDay(cached.stops || []);
-  if(!est.ready) return '';
-  return `~${est.projected} by ${est.label} · ${est.avgCadence} min/stop`;
-}
-initWorklist({ fillCapture, planEstimate });
+// The plan-mode banner's landing estimate now comes from the shared real-data
+// model inside worklist.js (renderPlanEstimate → drivePace), the same one the
+// Drive-screen on-pace line uses, so the two never disagree.
+initWorklist({ fillCapture });
 
 // ── app-wide drive recorder ──────────────────────────────────────────────────
 // The GPS leg recorder runs whenever this PWA is open (see js/drive-recorder.js),
@@ -1043,6 +1034,11 @@ $('finishDay').onclick = async () => {
   // now). Runs before the online/offline branch so both paths upload; enqueue
   // works offline and flushes when signal returns.
   await finishAndUpload();
+  // The day is closed out: stamp it (drops the on-pace 4:45 OT escalation — there's
+  // nothing left to project into overtime) and leave plan mode so the capture form
+  // stops following a list that's now spent.
+  store.set('dayClosedDate', localDate());
+  await exitPlan();
   // Storage-first: never lose the travel/downtime review or the bookend times.
   await persistEodReview();
 

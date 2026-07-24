@@ -14,7 +14,11 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH } from './route.js';
+import { liveMetrics } from './drive-recorder.js';
+import { PRINTABLE } from './compute/tally.js';
+import { computeGapsLocal } from './compute/gaps.js';
+import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
@@ -27,14 +31,13 @@ import {
 } from './worklist-address-fill.js';
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DEPART_TIME } from './config.js';
-import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
+import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
-let planEstimate = null;        // set by initWorklist (capture.js): async () => string
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
 let addrFill = null;            // the address fill-in walkthrough (same)
@@ -1288,8 +1291,85 @@ export async function markWorklistDone(workOrderId){
   if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
 }
 
+// ── on-pace projection (drive mode + tuning what-if) ────────────────────────
+// Real-data inputs for projectDayReal (js/compute/estimate.js), all offline:
+//   done + on-site pace    ← today's logged stops (dayCache), via the shared gap
+//                            model with the nominal drive stripped (onSiteMinutes)
+//   remaining route travel ← today's pending legMetres priced at the truck's REAL
+//                            moving speed (drive recorder), or 50 km/h before any
+//                            drive is recorded
+// This is the travel/on-site split the installer asked for: travel comes from the
+// route + measured speed, on-site from the observed between-stop cadence — the
+// same decomposition the route planner uses, so the screens agree.
+const FALLBACK_SPEED_MPS = ESTIMATE_SPEED_KMH / 3.6;
+
+// Today's pending stops = the first day-group of the live route; a multi-day route
+// only counts day 1 toward today's landing. Blank day sorts as day 1.
+function todayPending(pending){
+  if(!pending.length) return pending;
+  const dayOf = p => Number(p.day) || 1;
+  const minDay = Math.min(...pending.map(dayOf));
+  return pending.filter(p => dayOf(p) === minDay);
+}
+
+// Real remaining route travel (minutes) + its per-stop average, priced at the
+// truck's measured moving speed once a drive has been recorded, else 50 km/h.
+function routeTravel(pending){
+  const f = VARIANT_FIELDS[activeVariant()];
+  const metres = pending.reduce((a, p) => a + (Number(p[f.legMeters]) || 0), 0);
+  const speed = liveMetrics().avgMovingSpeed;
+  const spd = speed > 1 ? speed : FALLBACK_SPEED_MPS;   // >1 m/s ⇒ a real drive is logged
+  const totalMin = metres > 0 ? (metres / spd) / 60 : pending.length * NOMINAL_TRAVEL_MIN;
+  return { totalMin, perStopMin: pending.length ? totalMin / pending.length : NOMINAL_TRAVEL_MIN };
+}
+
+// Real on-site minutes/stop: today's observed WO→WO gap average with the nominal
+// between-stop drive stripped, falling back to the saved pace before there are two
+// stops to measure.
+function onsitePerStopReal(stops){
+  const printable = (stops || []).filter(s => PRINTABLE[s.status]);
+  const gaps = computeGapsLocal(printable, [], null, false);
+  const observed = gaps.length
+    ? gaps.reduce((a, g) => a + g.idleMin, 0) / gaps.length
+    : planShape().paceMin;
+  return onSiteMinutes(observed);
+}
+
+// Assemble the real inputs. Async — reads the dayCache + worklist. `finishByMin`
+// can be overridden by callers (the tuning what-if reprojects against a dragged
+// finish time); everything else reflects the live state.
+export async function paceContext(){
+  const c = cfg();
+  const cached = c.name ? await idb.get('dayCache', `${c.name}|${localDate()}`) : null;
+  const stops = (cached && cached.stops) || [];
+  const pending = todayPending(pendingOf(await allSorted()));
+  const travel = routeTravel(pending);
+  return {
+    stops,
+    pendingCount: pending.length,
+    remainingTravelMin: travel.totalMin,
+    avgLegTravelMin: travel.perStopMin,
+    onsitePerStop: onsitePerStopReal(stops),
+    finishByMin: hhmmMin(planShape().finishBy),
+    dayClosed: store.get('dayClosedDate') === localDate(),
+  };
+}
+
+// Drive-mode provider: the live two-pace projection, or null when there's no route
+// left to project (nothing pending today). drive.js formats it.
+async function drivePace(){
+  const ctx = await paceContext();
+  if(!ctx.pendingCount) return null;
+  const est = projectDayReal(ctx);
+  return est.ready ? est : null;
+}
+
 // ── plan mode ───────────────────────────────────────────────────────────────
 export function planActive(){ return store.get('planMode') === '1'; }
+
+// Turn plan mode off from outside this module (capture.js calls it when the day
+// is closed out — the plan is spent, so the form should stop following the list).
+export async function exitPlan(){ if(planActive()) await setPlan(false); }
 
 function paintPlanToggle(){
   const on = planActive();
@@ -1339,12 +1419,16 @@ export async function planAdvance(){
   fillCapture(item);
 }
 
-// Quiet pace estimate beside the plan banner. capture.js supplies the string
-// (it owns the dayCache); we just paint it and hide the span when empty.
+// Quiet landing estimate beside the plan banner — the same real-data two-pace
+// model the Drive-screen on-pace line uses (drivePace), compacted to one line:
+// projected count for the installer's target finish and for working hours. Hidden
+// when there's no route to project.
 async function renderPlanEstimate(){
   const el = $('planEstimate'); if(!el) return;
-  const txt = planEstimate ? (await planEstimate()) : '';
-  el.textContent = txt || '';
+  const est = await drivePace();
+  const paces = est ? [est.paces.target, est.paces.work].filter(Boolean) : [];
+  const txt = paces.map(p => `~${p.projected} by ${p.label}`).join(' · ');
+  el.textContent = txt;
   el.classList.toggle('hide', !txt);
 }
 
@@ -1366,7 +1450,6 @@ async function planSkip(){
 // the page was reloaded on #worklist, and re-arms the plan banner.
 export function initWorklist(opts){
   fillCapture = (opts && opts.fillCapture) || fillCapture;
-  planEstimate = (opts && opts.planEstimate) || planEstimate;
   routeView = initWorklistRouteView({
     getItems: allSorted,
     routeVariant: activeVariant,
@@ -1398,10 +1481,11 @@ export function initWorklist(opts){
   });
   driveView = initDrive({
     getPending: async () => pendingOf(await allSorted()),
+    getPace: drivePace,
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });
-  tuning = initWorklistTuning();
+  tuning = initWorklistTuning({ getPaceContext: paceContext });
   $('wlBack').onclick = closeWorklist;
   $('wlDrive').onclick = openDriveScreen;
   $('wlViewRoute').onclick = openWorklistRoute;
