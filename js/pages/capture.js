@@ -1364,7 +1364,10 @@ async function loadSubInfo(){
       if (emp && emp.subName != null && emp.subName !== '') store.set('subName', emp.subName);
     }
     store.set('subsList', JSON.stringify(d.subs||[]));
+    // Cache the crew's shared starting location for the read-only Settings field.
+    store.set('crewStartAddress', (team && team.startAddress) || '');
     paintSubField();
+    paintStartField();
   } catch(e){ /* offline blip — cached paint stands */ }
 }
 function openSheet(id){
@@ -1374,6 +1377,7 @@ function openSheet(id){
     $('cfgH').value     = store.get('hNumber')||'';
     $('cfgHome').value  = store.get('homeAddress')||'';
     paintHomeHint();
+    paintStartField();
     paintVersionHint();
     loadSubInfo();
   }
@@ -1388,6 +1392,18 @@ function paintHomeHint(){
   el.textContent = addr && lbl ? 'Home pin set ✓ — ' + lbl
     : addr ? 'Home not pinned yet — it’ll be looked up when you’re online'
     : 'With a home set, Optimize route ends your day heading toward home.';
+}
+// The crew's shared starting location — read-only, pulled from the sheet by
+// loadSubInfo() and cached so it also shows offline. The office owns it (set on
+// the crew in Teams); the installer only sees where their route starts.
+function paintStartField(){
+  const el = $('cfgStart'); if(!el) return;
+  const start = store.get('crewStartAddress') || '';
+  el.value = start;
+  const hint = $('cfgStartHint');
+  if(hint) hint.textContent = start
+    ? 'Set by the office for your crew — your route starts here.'
+    : 'No crew start set yet — the office sets this on your crew in Teams.';
 }
 // ── Force update from GitHub (Settings) ─────────────────────────────────────
 // sw.js serves the app shell stale-while-revalidate, so a phone runs one load

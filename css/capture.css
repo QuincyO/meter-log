@@ -296,3 +296,6 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 
 /* Route drive-out start pin */
 .wl-route-pin.wl-route-start { background: #475569; color: #fff; }
+
+/* Read-only settings field (e.g. crew starting location) */
+input.readonly-field { background: rgba(127,127,127,.10); color: inherit; opacity: .85; cursor: default; }
