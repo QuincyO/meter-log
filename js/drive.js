@@ -19,9 +19,17 @@ import {
 // and m/s→km/h.
 const KM_PER_M = 1 / 1000;
 const KMH_PER_MS = 3.6;
+// Idle time with unit labels — "34m 12s", or "1h 05m 30s" once it passes an hour.
 const fmtIdle = min => {
-  const s = Math.max(0, Math.round(min * 60));
-  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  const total = Math.max(0, Math.round(min * 60)); // seconds
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const parts = [];
+  if(h) parts.push(h + 'h');
+  parts.push((h ? String(m).padStart(2, '0') : m) + 'm');
+  parts.push(String(s).padStart(2, '0') + 's');
+  return parts.join(' ');
 };
 
 export function initDrive(opts){
