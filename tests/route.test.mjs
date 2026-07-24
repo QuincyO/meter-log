@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, decodePolyline, osrmLegGeometry } from '../js/route.js';
+import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, encodePolyline, decodePolyline, osrmLegGeometry } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -49,6 +49,22 @@ test('legacy home mode still orders meters from the far side toward home', () =>
   ]);
 
   assert.deepEqual(routeOrderFromMatrix(D, 2, { hasHome:true }), [1, 0]);
+});
+
+// ── polyline encode/decode ──────────────────────────────────────────────────
+test('encodePolyline matches the canonical polyline5 vector', () => {
+  const pts = [[38.5, -120.2], [40.7, -120.95], [43.252, -126.453]];
+  assert.equal(encodePolyline(pts), '_p~iF~ps|U_ulLnnqC_mqNvxq`@');
+});
+
+test('encode/decode round-trips a straight two-point drive-out', () => {
+  const pts = [[45.4215, -75.6972], [45.4001, -75.6500]];
+  const back = decodePolyline(encodePolyline(pts));
+  assert.equal(back.length, 2);
+  for(let i = 0; i < 2; i++){
+    assert.ok(Math.abs(back[i][0] - pts[i][0]) < 1e-5);
+    assert.ok(Math.abs(back[i][1] - pts[i][1]) < 1e-5);
+  }
 });
 
 // ── weighted home bias (commutePull) ────────────────────────────────────────

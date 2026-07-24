@@ -503,6 +503,27 @@ export function decodePolyline(str, precision = 5){
   return out;
 }
 
+// Encode [[lat,lng], …] to an OSRM/Google polyline5 string — the inverse of
+// decodePolyline. Used to store a straight-line drive-out (crew start → first
+// stop) as geometry when OSRM has no road path, so both maps draw it the same
+// way they draw a real road leg.
+export function encodePolyline(points, precision = 5){
+  const factor = Math.pow(10, precision);
+  const chunk = num => {
+    let v = num < 0 ? ~(num << 1) : (num << 1);
+    let s = '';
+    while(v >= 0x20){ s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; }
+    return s + String.fromCharCode(v + 63);
+  };
+  let out = '', prevLat = 0, prevLng = 0;
+  for(const [lat, lng] of (points || [])){
+    const la = Math.round(lat * factor), ln = Math.round(lng * factor);
+    out += chunk(la - prevLat) + chunk(ln - prevLng);
+    prevLat = la; prevLng = ln;
+  }
+  return out;
+}
+
 // ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
 // One POST to ORS's hosted matrix (config.js ORS_API_KEY): free, no tiling, but
 // capped at ORS_MATRIX_MAX location-PAIRS — a list over the cap skips ORS so the
