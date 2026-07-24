@@ -400,6 +400,7 @@ async function optimizeRouteHandler(straightLine){
         // phone never re-fetches geometry (only the desktop does), so clear it and
         // let the route map fall back to straight legs until a desktop re-optimize.
         patch[f.geometry] = '';
+        patch[f.homeLegGeometry] = '';
       }
       await idb.put('worklist', Object.assign({}, item, patch));
     }

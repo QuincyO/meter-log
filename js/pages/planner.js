@@ -18,7 +18,7 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, decodePolyline } from '../route.js';
+import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -536,7 +536,7 @@ async function optimize(pending, health){
     // Fetch the real road path for every leg of both variants while OSRM is up —
     // usedFallback means the matrix already fell back off OSRM, so /route would
     // fail too; skip it then rather than hammer a down server.
-    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl);
+    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl, start);
     render();
     const who = roster.employees.find(e => String(e.hNumber) === h);
     const runRecord = {
@@ -575,7 +575,7 @@ async function optimize(pending, health){
 // leg drawn — the drive out to it (from the crew start) is deliberately not routed
 // or drawn, only measured (homeLegMetersFor) — so it stores empty geometry. One
 // local OSRM GET per between-stops leg — free and fast.
-async function fetchVariantGeometry(osrmUrl){
+async function fetchVariantGeometry(osrmUrl, start){
   const prog = $('plProg');
   let fetched = 0, missed = 0, total = 0;
   for(const v of VARIANTS){
@@ -593,7 +593,16 @@ async function fetchVariantGeometry(osrmUrl){
         const g = await osrmLegGeometry(prev, coordsOf(x), osrmUrl);
         if(g){ x[f.geometry] = g; fetched++; } else { x[f.geometry] = ''; missed++; }
       } else {
-        x[f.geometry] = '';   // a day's first stop → no incoming leg (home drive-out not drawn)
+        x[f.geometry] = '';   // a day's first stop has no incoming between-stops leg
+        // Draw the drive out from the crew start: OSRM road path when the server
+        // has one, else a straight two-point line, else nothing (no crew start).
+        const sc = coordsOf(start), fc = coordsOf(x);
+        if(sc && fc){
+          const road = await osrmLegGeometry(start, x, osrmUrl);
+          x[f.homeLegGeometry] = road || encodePolyline([[sc.lat, sc.lng], [fc.lat, fc.lng]]);
+        } else {
+          x[f.homeLegGeometry] = '';
+        }
       }
       prevByDay[day] = x;
       await idb.put('worklist', x);
@@ -614,7 +623,9 @@ async function requestDirections(){
   try{
     const health = await checkServices();
     if(!health.osrm.online){ toast('OSRM offline — start the local server (DEPLOY.md)'); return; }
-    const { fetched, missed } = await fetchVariantGeometry(providerUrls().osrm);
+    const urls = providerUrls();
+    const { start } = await planAnchors(urls.geocode);
+    const { fetched, missed } = await fetchVariantGeometry(urls.osrm, start);
     render();
     toast(fetched
       ? `Directions saved ✓ · ${fetched} legs${missed ? ` · ${missed} missed` : ''} — ⇪ Upload to send`
@@ -849,6 +860,7 @@ function render(){
           item.lat = undefined; item.lng = undefined;
           item.geoFail = false; item.geoAmbig = undefined;
           item.legGeometryRoad = ''; item.legGeometryStraight = '';
+          item.homeLegGeometryRoad = ''; item.homeLegGeometryStraight = '';
         }
         await idb.put('worklist', item);
         toast(addrChanged ? 'Saved ✓ — Optimize to re-locate the new address' : 'Saved ✓');
