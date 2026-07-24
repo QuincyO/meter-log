@@ -227,7 +227,7 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
 // cells by position, so slotting a new name into the middle would rename nothing
 // and duplicate the tail on every existing sheet.
 const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource',
-  'updated','routeVariant','straightDistanceSource'];
+  'updated','routeVariant','straightDistanceSource','commutePull','finishBy'];
 
 // One row per Drive-mode driving LEG (the phone records a leg while the Drive
 // screen is in front, then uploads it). `encoded` is the compressed polyline of
@@ -298,6 +298,7 @@ function setupSheets() {
   ss.getSheetByName('Worklist').getRange('S2:T').setNumberFormat('@');  // scheduled date + ETA
   ss.getSheetByName('Worklist').getRange('AD2:AE').setNumberFormat('@'); // legGeometry road/straight (encoded polyline)
   ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
+  ss.getSheetByName('WorklistPlans').getRange('J2:J').setNumberFormat('@'); // finishBy 'HH:MM' — keep as literal text
   // The encoded polyline / gaps JSON are opaque text — keep Sheets from reading a
   // leading '@' or '[' as anything but a literal string. (gaps = col L, encoded = M.)
   ss.getSheetByName('DriveTracks').getRange('L2:M').setNumberFormat('@');
@@ -1275,6 +1276,11 @@ function saveWorklistPlan(hNumber, plan) {
     routeVariant: plan.routeVariant === 'straight' ? 'straight' : 'road',
     straightDistanceSource: plan.straightDistanceSource === 'road' ? 'road'
       : (plan.straightDistanceSource ? 'straight-line' : ''),
+    commutePull: (() => {
+      const n = Math.round(Number(plan.commutePull));
+      return isFinite(n) ? Math.max(0, Math.min(100, n)) : '';
+    })(),
+    finishBy: /^\d{1,2}:\d{2}$/.test(String(plan.finishBy || '')) ? String(plan.finishBy) : '',
     updated: now()
   });
 }

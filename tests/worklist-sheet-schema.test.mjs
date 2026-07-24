@@ -44,8 +44,10 @@ test('the route-variant and set-aside columns are appended, never inserted', () 
   assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 12, 'the pre-existing tail must not move');
 
   const wp = headers('WORKLIST_PLANS_HEADERS');
-  assert.deepEqual(wp.slice(-2), ['routeVariant', 'straightDistanceSource']);
-  assert.equal(wp[wp.length - 3], 'updated', 'updated keeps its original position');
+  assert.deepEqual(wp.slice(-2), ['commutePull', 'finishBy'], 'the dial columns are the new tail');
+  assert.deepEqual(wp.slice(-4, -2), ['routeVariant', 'straightDistanceSource'],
+    'the variant columns keep their positions ahead of the dials');
+  assert.equal(wp[wp.length - 5], 'updated', 'updated keeps its original position');
 });
 
 test('every Worklist header is unique', () => {
