@@ -74,10 +74,11 @@ export function reorderRouteGroup(items, key, orderedIds){
 // first routed stop starts `path` at its own pin — the phone has no home anchor,
 // so there is no incoming home leg to draw. `line` is the straight pin-to-pin
 // route kept as-is (used when no geometry field is passed).
-export function buildRouteMapModel(items, geomField){
+export function buildRouteMapModel(items, geomField, homeGeomField){
   const markers = [];
   const line = [];
   const path = [];
+  let driveOut = [];    // crew-start → first-stop path, drawn faintly & separately
   let missing = 0;
   let parked = 0;
   let prev = null;
@@ -90,6 +91,10 @@ export function buildRouteMapModel(items, geomField){
       line.push([c.lat, c.lng]);
       if(prev == null){
         path.push([c.lat, c.lng]);
+        // The day's first stop may carry a saved drive-out from the crew start —
+        // decode it as its own faint segment (its first point is the start pin).
+        const home = homeGeomField ? decodePolyline(item[homeGeomField]) : [];
+        if(home.length) driveOut = home;
       } else {
         const leg = geomField ? decodePolyline(item[geomField]) : [];
         if(leg.length) path.push(...leg);
@@ -99,7 +104,8 @@ export function buildRouteMapModel(items, geomField){
     }
     markers.push({ item, position:index + 1, parked:stopped, point:[c.lat, c.lng] });
   });
-  return { markers, line, path, missing, parked };
+  const start = driveOut.length ? driveOut[0] : null;
+  return { markers, line, path, missing, parked, driveOut, start };
 }
 
 export function routeCardState(item){
@@ -205,7 +211,9 @@ export function initWorklistRouteView(opts){
     // clean straight legs instead of the previous route's roads.
     const geomField = variantMatchesLive(snapshot, variant)
       ? (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).geometry : null;
-    const model = buildRouteMapModel(group ? group.items : [], geomField);
+    const homeGeomField = variantMatchesLive(snapshot, variant)
+      ? (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).homeLegGeometry : null;
+    const model = buildRouteMapModel(group ? group.items : [], geomField, homeGeomField);
     const bounds = [];
     const color = group && group.day ? dayColor(group.day) : '#2563EB';
     model.markers.forEach(({ item, position, parked, point }) => {
@@ -224,6 +232,16 @@ export function initWorklistRouteView(opts){
     // leg) when there is one; otherwise the straight pin-to-pin route.
     const route = model.path.length > 1 ? model.path : model.line;
     if(route.length > 1) L.polyline(route, { color, weight:4, opacity:.78 }).addTo(layer);
+    // The drive out from the crew start to the day's first stop — a faint dashed
+    // line (road path when saved, straight otherwise), with a distinct start pin.
+    if(model.driveOut.length > 1)
+      L.polyline(model.driveOut, { color, weight:3, opacity:.35, dashArray:'6 6' }).addTo(layer);
+    if(model.start){
+      bounds.push(model.start);
+      L.marker(model.start, { icon:L.divIcon({ className:'wl-route-pin wl-route-start',
+        html:'<span>▶</span>', iconSize:[26,26], iconAnchor:[13,13] }) })
+        .bindTooltip('Start — drive out to the first stop').addTo(layer);
+    }
     setTimeout(() => {
       map.invalidateSize();
       if(bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(.18));

@@ -189,3 +189,5 @@ dialog::backdrop{background:rgba(19,23,28,.55)}
   *{transition:none !important}
   .provider-status.using .provider-dot{animation:none}
 }
+
+.plpin.plpin-start { background: #475569; }

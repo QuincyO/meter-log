@@ -9,10 +9,29 @@ import {
   routeCardState,
   needsOrderWrite,
 } from '../js/worklist-route-view.js';
-import { decodePolyline } from '../js/route.js';
+import { decodePolyline, encodePolyline } from '../js/route.js';
+import { VARIANT_FIELDS } from '../js/route-variants.js';
 
 const item = (id, order, day = '', wlStatus = 'pending') => ({
   id, order, day, wlStatus, address: `Stop ${id}`,
+});
+
+test('a first stop with drive-out geometry yields a separate faint segment + start', () => {
+  const homeField = VARIANT_FIELDS.road.homeLegGeometry;   // 'homeLegGeometryRoad'
+  const first = { id:'a', lat:45.40, lng:-75.65,
+    [homeField]: encodePolyline([[45.42, -75.70], [45.40, -75.65]]) };
+  const second = { id:'b', lat:45.39, lng:-75.60 };
+  const model = buildRouteMapModel([first, second], null, homeField);
+  assert.equal(model.driveOut.length, 2);
+  assert.deepEqual(model.start.map(n => Math.round(n * 100) / 100), [45.42, -75.70]);
+  // path still begins at the first stop, not the crew start.
+  assert.deepEqual(model.path[0].map(n => Math.round(n * 100) / 100), [45.40, -75.65]);
+});
+
+test('no drive-out geometry means no start and an empty driveOut', () => {
+  const model = buildRouteMapModel([{ id:'a', lat:45.4, lng:-75.6 }], null, 'homeLegGeometryRoad');
+  assert.equal(model.start, null);
+  assert.deepEqual(model.driveOut, []);
 });
 
 test('groups pending records by numbered day and leaves unassigned records in Other', () => {

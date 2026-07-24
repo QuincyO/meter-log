@@ -293,3 +293,6 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 .tune-hint { margin: 6px 0 0; }
 .tune-readout { margin: 18px 2px 4px; padding: 12px 14px; border-radius: 10px;
   background: var(--card, rgba(127,127,127,.08)); line-height: 1.6; }
+
+/* Route drive-out start pin */
+.wl-route-pin.wl-route-start { background: #475569; color: #fff; }

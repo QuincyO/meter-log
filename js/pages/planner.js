@@ -907,7 +907,10 @@ function renderMap(){
   // to straight legs rather than draw the previous route's roads.
   const geomField = variantMatchesLive(items, activeVariant())
     ? VARIANT_FIELDS[activeVariant()].geometry : null;
+  const homeGeomField = variantMatchesLive(items, activeVariant())
+    ? VARIANT_FIELDS[activeVariant()].homeLegGeometry : null;
   const prevByDay = {};      // last routed coord seen per day (nothing before the first)
+  const driveOuts = [];      // faint crew-start → first-stop segments + start point
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);
     if(!c) return;
@@ -915,7 +918,11 @@ function renderMap(){
     const day = item.day || 0;
     const color = day ? dayColor(day) : '#2b6cff';
     if(!parked){                                  // polyline + numbering: routed only
-      const prev = prevByDay[day];                // no home leg — first stop starts the line
+      const prev = prevByDay[day];
+      if(!prev && homeGeomField){                 // day's first stop → faint drive-out
+        const home = decodePolyline(item[homeGeomField]);
+        if(home.length) driveOuts.push(home);
+      }
       const leg = decodePolyline(item[geomField]);
       const pts = leg.length ? leg
         : (prev ? [[prev.lat, prev.lng], [c.lat, c.lng]] : [[c.lat, c.lng]]);
@@ -937,6 +944,16 @@ function renderMap(){
     if(pts.length > 1) L.polyline(pts, { weight: 3, opacity: .75,
       color: Number(day) ? dayColor(day) : '#2b6cff' }).addTo(mapLayer);
   });
+  // Faint dashed drive-out(s) from the crew start + one start pin.
+  driveOuts.forEach(seg => {
+    if(seg.length > 1) L.polyline(seg, { weight:3, opacity:.35, dashArray:'6 6', color:'#64748b' }).addTo(mapLayer);
+  });
+  if(driveOuts.length){
+    const s = driveOuts[0][0];
+    L.marker(s, { icon: L.divIcon({ className:'plpin plpin-start', html:'<span>▶</span>',
+      iconSize:[24,24], iconAnchor:[12,12] }) }).bindTooltip('Crew start').addTo(mapLayer);
+    all.push(s);
+  }
   if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.2));
 }
 
