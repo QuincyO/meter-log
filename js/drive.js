@@ -68,8 +68,9 @@ export function initDrive(opts){
     el.classList.toggle('hide', !show);
     if(!show) return;
     const m = liveMetrics();
+    $('dmNow').textContent = Math.round(m.currentSpeed * KMH_PER_MS);
     $('dmDistance').textContent = (m.distanceM * KM_PER_M).toFixed(1);
-    $('dmAvg').textContent = Math.round(m.avgSpeed * KMH_PER_MS);
+    $('dmAvg').textContent = Math.round(m.avgMovingSpeed * KMH_PER_MS);
     $('dmIdle').textContent = fmtIdle(m.idleMin);
     $('dmMax').textContent = Math.round(m.maxSpeed * KMH_PER_MS);
   }

@@ -73,19 +73,23 @@ function foldIntoDay(sum){
 }
 
 // Day totals so far = finalized legs (dayBase) + the leg in progress. Distances
-// in metres, speeds in m/s, idle in minutes; avg speed spans stopped time.
+// in metres, speeds in m/s, idle in minutes. `avgMovingSpeed` divides distance by
+// MOVING time (idle excluded); `currentSpeed` is the newest fix on the live leg.
 export function liveMetrics(){
   const live = seg ? segmentSummary(seg.points) : null;
   const distanceM = dayBase.distanceM + (live ? live.distanceM : 0);
   const idleMs    = dayBase.idleMs    + (live ? live.idleMin * 60000 : 0);
   const elapsedMs = dayBase.elapsedMs + (live ? live.driveMin * 60000 : 0);
   const maxSpeed  = Math.max(dayBase.maxSpeed, live ? live.maxSpeed : 0);
-  const avgSpeed  = elapsedMs > 0 ? distanceM / (elapsedMs / 1000) : 0;
+  const movingMs  = Math.max(0, elapsedMs - idleMs);
+  const avgMovingSpeed = movingMs > 0 ? distanceM / (movingMs / 1000) : 0;
+  const lastPt = seg && seg.points.length ? seg.points[seg.points.length - 1] : null;
   return {
     distanceM,
     idleMin: +(idleMs / 60000).toFixed(2),
-    avgSpeed: +avgSpeed.toFixed(2),
+    avgMovingSpeed: +avgMovingSpeed.toFixed(2),
     maxSpeed: +maxSpeed.toFixed(2),
+    currentSpeed: lastPt ? +(lastPt.spd || 0).toFixed(2) : 0,
   };
 }
 

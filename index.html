@@ -306,13 +306,17 @@
     <!-- Optional driving stats (off by default; toggled on the #tuning screen and
          stored per-phone). Numbers are foreground-tracked only — see the note. -->
     <div class="drive-metrics hide" id="driveMetrics" aria-live="polite">
+      <div class="dm-now">
+        <span class="dm-now-val" id="dmNow">—</span>
+        <span class="dm-now-lab">km/h now</span>
+      </div>
       <div class="drive-metrics-grid">
         <div class="dm-cell"><span class="dm-val" id="dmDistance">—</span><span class="dm-lab">km</span></div>
         <div class="dm-cell"><span class="dm-val" id="dmAvg">—</span><span class="dm-lab">avg km/h</span></div>
         <div class="dm-cell"><span class="dm-val" id="dmIdle">—</span><span class="dm-lab">idle</span></div>
         <div class="dm-cell"><span class="dm-val" id="dmMax">—</span><span class="dm-lab">max km/h</span></div>
       </div>
-      <p class="muted dm-note">Tracked on this phone · Maps gaps not counted</p>
+      <p class="muted dm-note">Avg is moving speed (idle excluded) · Maps gaps not counted</p>
     </div>
     <div class="drive-actions">
       <button class="ghost drive-step" id="drivePrev" type="button">‹ Back</button>

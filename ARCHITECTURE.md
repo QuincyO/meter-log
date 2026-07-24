@@ -662,8 +662,9 @@ screen, not just `#drive`.
   pending set *only*; none of them change an order's status, touch the Sheet, or affect
   plan mode (an order still goes `done` only when its meter is logged, exactly as
   before). **By default** no map, no speed, no trip numbers on screen — but an
-  **optional driving-stats HUD** (total distance / avg km/h / idle / max km/h, in
-  **metric** to match the office map) can be switched on
+  **optional driving-stats HUD** (a big **current speed** readout plus total
+  distance / avg km/h / idle / max km/h — avg is **moving** speed, idle excluded —
+  in **metric** to match the office map) can be switched on
   **per phone** via the `#tuning` screen's *Show driving stats* toggle
   (`localStorage['driveShowMetrics']`, default OFF, **never uploaded**). It shows only
   while this phone is actively recording, updates each GPS fix from `liveMetrics()`

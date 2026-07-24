@@ -41,6 +41,13 @@
    matching the office map. Numbers are foreground-tracked only, so the note
    flags the Google-Maps gaps as excluded. */
 .drive-metrics{ margin:6px 0 2px; }
+/* Current speed — the one live number a driver glances at, so it leads and reads big. */
+.dm-now{
+  display:flex; flex-direction:column; align-items:center; gap:0;
+  margin-bottom:10px;
+}
+.dm-now-val{ font-size:44px; font-weight:800; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums; }
+.dm-now-lab{ font-size:12px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
 .drive-metrics-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
 .dm-cell{
   display:flex; flex-direction:column; align-items:center; gap:2px;
