@@ -7,3 +7,7 @@ node_modules/
 
 # Obsidian knowledge vault — local-only, never pushed to the public repo
 vault/
+
+# The vault's portable bootstrap spec — a local input to vault/, already applied.
+# Ignored so it stops reading as a pending instruction to the next agent.
+VAULT_BOOTSTRAP.md
