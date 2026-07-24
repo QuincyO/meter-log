@@ -17,7 +17,7 @@ import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
-import { stamp, localDate } from '../time.js';
+import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
@@ -62,6 +62,13 @@ function departMinutes(hhmm){
   return Math.min(DEPART_LATEST_MIN, Math.max(DEPART_MIN, v));
 }
 
+// Commute-pull dial value (synced from the installer's phone), clamped to 0–100;
+// blank/garbage ⇒ the 70 default. The office never edits this — it only reads it.
+function pullVal(v){
+  const n = Math.round(Number(v));
+  return isFinite(n) ? Math.max(0, Math.min(100, n)) : 70;
+}
+
 function nextWeekday(date){
   const d = new Date(`${date}T12:00:00`);
   while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
@@ -74,7 +81,9 @@ function planShape(){
     paceMin:Math.max(1, Math.round(Number($('plPace').value) || 30)),
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
     routeVariant:activeVariant(),
-    straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || ''
+    straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
+    commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
+    finishBy:store.get('plannerFinishBy:' + hNumber()) || '14:00'
   };
 }
 // Which saved route is live for this installer. Uploaded with the list, so the
@@ -89,6 +98,8 @@ function loadPlan(plan){
   store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
   if(p.routeVariant) store.set('plannerVariant:' + hNumber(), p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('plannerStraightSource:' + hNumber(), p.straightDistanceSource);
+  if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
+  if(p.finishBy) store.set('plannerFinishBy:' + hNumber(), p.finishBy);
 }
 
 function setStatus(kind, text){
@@ -454,8 +465,9 @@ async function optimize(pending, health){
     // finish-by clock + pace let route.js size each day to land by 14:00.
     const base = await optimizeRoute(pending, progress, home,
       { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true,
-        start, target, dayFinishBy:DAY_FINISH_MIN, breakMin:DAY_BREAK_MIN,
-        departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin });
+        start, target, dayFinishBy:hhmmMin(planShape().finishBy) || DAY_FINISH_MIN, breakMin:DAY_BREAK_MIN,
+        departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
+        commutePull:planShape().commutePull });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));

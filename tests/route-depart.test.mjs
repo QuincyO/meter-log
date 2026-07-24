@@ -40,3 +40,12 @@ test('the planner drops its first-stop input and uses the departure constant', (
   assert.match(plannerJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
   assert.doesNotMatch(plannerJs, /\$\('plRouteTime'\)/);
 });
+
+test('the planner silently consumes the synced dials without adding UI', () => {
+  assert.match(plannerJs, /commutePull:\s*pullVal\(store\.get\('plannerCommutePull:'\s*\+\s*hNumber\(\)\)\)/);
+  assert.match(plannerJs, /dayFinishBy:\s*hhmmMin\(planShape\(\)\.finishBy\)\s*\|\|\s*DAY_FINISH_MIN/);
+  assert.match(plannerJs, /optimizeRoute\([^;]*\bcommutePull:\s*planShape\(\)\.commutePull/s);
+  // no dial inputs leak into the office UI
+  assert.doesNotMatch(plannerHtml, /id="plCommutePull"/);
+  assert.doesNotMatch(plannerHtml, /id="plFinishBy"/);
+});
