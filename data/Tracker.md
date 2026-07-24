@@ -1,6 +1,6 @@
 # Tracker
 
-_47 rows · exported 2026-07-23 03:52 America/Toronto_
+_49 rows · exported 2026-07-24 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -51,3 +51,5 @@ _47 rows · exported 2026-07-23 03:52 America/Toronto_
 | 2026-07-21 00:00:00 | Josue Vasquez | 17 | 1 | 15 | 0 | 0 | 0 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · SW 20 km/h · 24°C |  | 0 | 0 |  | 276 |  | land |
 | 2026-07-22 00:00:00 | Quincy Orta | 17 | 0 | 198 | 0 | 0 | 0 | 15 | 15 | 148 | 0 | 0 | 0 | 20 | Clear · W 16 km/h · 18°C |  | 0 | 0 |  | 151 |  | land |
 | 2026-07-22 00:00:00 | Phillip Monteiro | 14 | 0 | 180 | 30 | 0 | 0 | 15 | 15 | 120 | 0 | 0 | 0 | 0 | Mainly clear · W 16 km/h · 16°C | I was given water access orders in Algonquin. Had to spend a lot of time calling customers and finding which orders were water access and which were road access. No addresses on any Algonquin orders. Took extra time to find the meter locations. | 0 | 0 |  | 235 |  | land |
+| 2026-07-23 00:00:00 | Quincy Orta | 20 | 0 | 100 | 30 | 0 | 0 | 35 | 15 | 0 | 0 | 0 | 0 | 20 |  |  | 0 | 0 |  | 324 |  | land |
+| 2026-07-23 00:00:00 | Phillip Monteiro | 11 | 0 | 165 | 30 | 0 | 0 | 15 | 15 | 90 | 15 | 0 | 0 | 0 | Clear · SW 16 km/h · 20°C | Algonquin cottages lots of walking trails lots of travel time between cottages and looking for hard to find meters | 0 | 0 |  | 111 |  | land |

@@ -1,6 +1,6 @@
 # Downtime
 
-_139 rows · exported 2026-07-23 03:52 America/Toronto_
+_157 rows · exported 2026-07-24 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -143,3 +143,21 @@ _139 rows · exported 2026-07-23 03:52 America/Toronto_
 | 1784749882994-vmij62 | 2026-07-22 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 692828 | gap 10:50–12:27 |  |
 | 1784749882994-wskzg0 | 2026-07-22 12:00:00 | Phillip Monteiro | BREAK | 15 | 692586 | gap 13:56–14:26 |  |
 | 1784749882994-dkuodf | 2026-07-22 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 669237 | gap 14:34–15:38 |  |
+| 1784835528917-halixf | 2026-07-23 15:38:48 | Quincy Orta | OTHER | 20 |  | Irate Customer Interaction | land |
+| 1784835600485-f0672x | 2026-07-23 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693974 | gap 09:48–09:48 |  |
+| 1784835600486-1aw6yc | 2026-07-23 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693974 | gap 09:48–09:48 |  |
+| 1784835600486-2gt7li | 2026-07-23 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 693974 | gap 09:48–09:48 |  |
+| 1784835600486-vqmuxt | 2026-07-23 12:00:00 | Quincy Orta | WAREHOUSE | 20 | 693817 | gap 10:57–11:43 |  |
+| 1784835672859-x0xach | 2026-07-23 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 690067 | gap 10:39–10:39 |  |
+| 1784835672859-6qcuth | 2026-07-23 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 690067 | gap 10:39–10:39 |  |
+| 1784835672859-l38lec | 2026-07-23 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 690067 | gap 10:39–10:39 |  |
+| 1784835672859-oncfyv | 2026-07-23 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 690067 | gap 10:39–10:39 |  |
+| 1784835672859-zgvx0z | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 685797 | gap 10:39–10:57 |  |
+| 1784835672860-rxli4c | 2026-07-23 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 691543 | gap 10:57–11:16 |  |
+| 1784835672860-311y2e | 2026-07-23 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 693070 | gap 11:31–12:05 |  |
+| 1784835672860-8isofz | 2026-07-23 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 685772 | gap 12:05–12:26 |  |
+| 1784835672860-crlcf7 | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 10 | 683000 | gap 12:26–12:43 |  |
+| 1784835672860-2ihitb | 2026-07-23 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 683088 | gap 12:43–13:31 |  |
+| 1784835672860-up60xu | 2026-07-23 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 15 | 683088 | gap 12:43–13:31 |  |
+| 1784835672860-jim2x0 | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 685888 | gap 13:31–14:00 |  |
+| 1784835672860-4vsns5 | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 687378 | gap 14:00–14:19 |  |

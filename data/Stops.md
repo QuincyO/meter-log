@@ -1,6 +1,6 @@
 # Stops
 
-_407 rows · exported 2026-07-23 03:52 America/Toronto_
+_438 rows · exported 2026-07-24 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -411,3 +411,34 @@ _407 rows · exported 2026-07-23 03:52 America/Toronto_
 | 1784745653686-ifuai4 | 2026-07-22 14:40:53 | Quincy Orta | 693879 | A | 178 Old Novar Rd, Huntsville, ON P1H 2J2, Canada | 45.417518 | -79.371706 | J4617292 | J3266558 | 59032 | INSTALLED |  |  |  |  |  | land |
 | 1784746138507-vft3jl | 2026-07-22 14:48:58 | Quincy Orta | 693950 |  | 3864 Ravenscliffe Rd, Huntsville, ON P1H 2J2, Canada | 45.411024 | -79.371007 | J4609889 | J3135965 | 44297 | INSTALLED |  |  |  |  |  | land |
 | 1784749123257-m4n560 | 2026-07-22 15:38:43 | Phillip Monteiro | 669237 |  | Town of, 430 By Lock Acres Rd, Huntsville, ON P1H 1S1, Canada | 45.305824 | -79.20265 | J4642049 | J4147100 | 40884 | INSTALLED |  |  |  |  |  | land |
+| 1784814506254-gzdtlh | 2026-07-23 9:48:26 | Quincy Orta | 693974 |  | Town of, 105 Plowright Ln, Huntsville, ON P1H 2J4, Canada | 45.409925 | -79.285554 | J4609890 | J3168070 | 16341 | INSTALLED |  |  |  |  |  | land |
+| 1784817467999-wdwxzf | 2026-07-23 10:37:47 | Quincy Orta | 693983 |  | Town of, 1065 N Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.413944 | -79.284382 | J4609892 | J3080922 | 39075 | INSTALLED |  |  |  |  |  | land |
+| 1784817574021-i81008 | 2026-07-23 10:39:34 | Phillip Monteiro | 690067 |  | 87Q3F6PV+3C | 45.485154 | -78.756493 | J4642050 | J3231089 | 55616 | INSTALLED |  |  |  |  |  | land |
+| 1784818625714-5fgrry | 2026-07-23 10:57:05 | Quincy Orta | 693762 |  | 429 Ripple Lane | 45.415292 | -79.302959 | J4609891 | J3081131 | 60615 | INSTALLED |  |  |  |  |  | land |
+| 1784818649378-jte76a | 2026-07-23 10:57:29 | Phillip Monteiro | 685797 |  | 87Q3F7W3+P6 | 45.496837 | -78.746976 | J4642052 | J2880572 | 13153 | INSTALLED |  |  |  |  |  | land |
+| 1784819815999-l99xy7 | 2026-07-23 11:16:55 | Phillip Monteiro | 691543 |  | 87Q3G738+HH | 45.503954 | -78.733582 | J4643758 | J3095739 | 14228 | INSTALLED |  |  |  |  |  | land |
+| 1784820708037-40i1sd | 2026-07-23 11:31:48 | Phillip Monteiro | 682144 |  | 87Q3G737+46 | 45.502795 | -78.736975 | J4642051 | J3095740 | 19304 | INSTALLED |  |  |  |  |  | land |
+| 1784821420663-90jj80 | 2026-07-23 11:43:40 | Quincy Orta | 693817 |  | 154 Ripple Ln, Huntsville, ON P1H 2J4, Canada | 45.419973 | -79.288787 | J4646726 | J3453817 | 27035 | INSTALLED |  |  |  |  |  | land |
+| 1784822124640-fbqjn3 | 2026-07-23 11:55:24 | Quincy Orta | 693977 |  | 814 North Waseosa Lake Rd, Chaffey | 45.418146 | -79.276689 | J4646728 | J3080932 | 29709 | INSTALLED |  |  |  |  |  | land |
+| 1784822752630-6mm471 | 2026-07-23 12:05:52 | Phillip Monteiro | 693070 |  | G77J+94 Algonquin Park, ON, Canada | 45.513495 | -78.719695 | J4643760 | J3231124 | 48745 | INSTALLED |  |  |  |  |  | land |
+| 1784822837958-6mberm | 2026-07-23 12:07:17 | Quincy Orta | 693894 |  | 125 Ripple and Pallette Lake Rd, Chaffey | 45.421591 | -79.272652 | J4646725 | J3453785 | 67508 | INSTALLED |  |  |  |  |  | land |
+| 1784823380682-ijgr1w | 2026-07-23 12:16:20 | Quincy Orta | 693872 |  | Town of, 95 Ripple & Palette Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.420048 | -79.272206 | J4646727 | J3080647 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784824013956-8fhuz5 | 2026-07-23 12:26:53 | Phillip Monteiro | 685772 |  | G7GV+4C Algonquin Park, ON, Canada | 45.525334 | -78.706409 | J4642063 | J3250185 | 19332 | INSTALLED |  |  |  |  |  | land |
+| 1784824312174-e3qegj | 2026-07-23 12:31:52 | Quincy Orta | 693890 |  | Town of, 47 Ripple & Palette Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.417804 | -79.271473 | J4646702 | J3453673 | 76442 | INSTALLED |  |  |  |  |  | land |
+| 1784825039914-scexv7 | 2026-07-23 12:43:59 | Phillip Monteiro | 683000 |  | G7HW+XM Algonquin Park, ON, Canada | 45.529967 | -78.7033 | J4642062 | J3178173 | 36333 | INSTALLED |  |  |  |  |  | land |
+| 1784825432766-vla3nn | 2026-07-23 12:50:32 | Quincy Orta | 693975 |  | 668 North Waseosa Lake Rd, Chaffey | 45.41607 | -79.275628 | J4646701 | J3081095 | 20738 | INSTALLED |  |  |  |  |  | land |
+| 1784826141156-we9sz3 | 2026-07-23 13:02:21 | Quincy Orta | 693874 |  | 622 North Waseosa Lake Rd, Chaffey | 45.411571 | -79.272987 | J4646703 | J3219772 | 66949 | INSTALLED |  |  |  |  |  | land |
+| 1784826969945-mqsvay | 2026-07-23 13:16:09 | Quincy Orta | 693973 |  | 4 Hunts Rd, Huntsville, ON P1H 2J4, Canada | 45.415815 | -79.265928 | J4646704 | J2071195 | 92849 | INSTALLED |  |  |  |  |  | land |
+| 1784827860753-9es7ga | 2026-07-23 13:31:00 | Phillip Monteiro | 683088 |  | G8Q2+H7 Algonquin Park, ON, Canada | 45.538973 | -78.699322 | J4643757 | J3266202 | 32991 | INSTALLED |  |  |  |  |  | land |
+| 1784828749758-obsv88 | 2026-07-23 13:45:49 | Quincy Orta | 693886 |  | Town of, 267 N Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.418882 | -79.254435 | J4646707 | J3453680 | 52620 | INSTALLED |  |  |  |  |  | land |
+| 1784829461111-8hvdpj | 2026-07-23 13:57:41 | Quincy Orta | 693889 |  | Town of, 105 N Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.415365 | -79.24581 | J4646705 | J3453711 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784829628785-zhp1ua | 2026-07-23 14:00:28 | Phillip Monteiro | 685888 |  | H93W+4H Algonquin Park, ON, Canada | 45.55287 | -78.603624 | J4643759 | J3177252 | 77465 | INSTALLED |  |  |  |  |  | land |
+| 1784830095150-u62i0j | 2026-07-23 14:08:15 | Quincy Orta | 693837 |  | Town of, 93 N Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.414604 | -79.245655 | J4646708 | J3453625 | 11023 | INSTALLED |  |  |  |  |  | land |
+| 1784830491849-n1lu4i | 2026-07-23 14:14:51 | Quincy Orta | 693885 |  | Town of, 68 N Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.413677 | -79.246048 | J4646706 | J3453627 | 36479 | INSTALLED |  |  |  |  |  | land |
+| 1784830793964-iesllh | 2026-07-23 14:19:53 | Phillip Monteiro | 687378 |  | HC23+J8 Algonquin Park, ON, Canada | 45.551559 | -78.596659 | J4642064 | J4027939 | 3229 | INSTALLED |  |  |  |  |  | land |
+| 1784831196695-ig5fh1 | 2026-07-23 14:26:36 | Phillip Monteiro | 688570 |  | HC23+GP Algonquin Park, ON, Canada | 45.551297 | -78.595664 | J4642061 | J3110702 | 62401 | INSTALLED |  |  |  |  |  | land |
+| 1784831435046-p76es7 | 2026-07-23 14:30:35 | Quincy Orta | 693882 |  | Town of, 218 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.410227 | -79.251447 | J4646698 | J3200173 | 15098 | INSTALLED |  |  |  |  |  | land |
+| 1784832421932-vsjvxt | 2026-07-23 14:47:01 | Quincy Orta | 693880 |  | 438 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.408668 | -79.263478 | J4646697 | J3453689 | 59208 | INSTALLED |  |  |  |  |  | land |
+| 1784833050142-zfeodw | 2026-07-23 14:57:30 | Quincy Orta | 693981 |  | 832 East Waseosa Lake Rd, Chaffey | 45.397235 | -79.264462 | J4646700 | J3453647 | 8309 | INSTALLED |  |  |  |  |  | land |
+| 1784834013997-hwt3e2 | 2026-07-23 15:13:33 | Quincy Orta | 693979 |  | Town of, 770 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.399255 | -79.267966 | J4646699 | J3080987 | 10141 | INSTALLED |  |  |  |  |  | land |
+| 1784835035361-smd2vv | 2026-07-23 15:30:35 | Quincy Orta | 693819 | 79 | Ceramic Mine Rd N, Huntsville, ON P1H 2J4, Canada | 45.413483 | -79.237034 | J4646724 | J3385466 | 42493 | INSTALLED |  |  |  |  |  | land |
