@@ -150,7 +150,8 @@ export function initWorklistRouteView(opts){
     weightsEl.classList.remove('hide');
     weightsEl.textContent = `Tuning · commute pull ${isFinite(pull) ? pull : 70}%`
       + ` · finish by ${w.finishBy || '14:00'}`
-      + ` · target ${Math.max(1, Math.floor(Number(w.target) || 24))}/day`;
+      + ` · target ${Math.max(1, Math.floor(Number(w.target) || 24))}/day`
+      + (timesEstimated() ? ' · ~ETAs estimated (road Optimize for exact)' : '');
   }
 
   function updateOfflineNote(){
@@ -190,7 +191,9 @@ export function initWorklistRouteView(opts){
       // driving total (empty when the crew has no start location on file).
       const km = group.day == null ? null : liveDayMeters(snapshot, variant, group.day);
       const startKm = group.day == null ? null : dayHomeMeters(snapshot, variant, group.day);
+      const win = showTimes() ? dayWindow(group.items) : '';
       b.textContent = `${group.label} · ${group.items.length}`
+        + (win ? ` · ${win}` : '')
         + (km == null ? '' : ` · ${fmtKm(km)}`)
         + (startKm == null ? '' : ` · start ${fmtKm(startKm)}`);
       b.onclick = async () => { selected = group.key; await render(); };
@@ -198,15 +201,25 @@ export function initWorklistRouteView(opts){
     }
   }
 
-  // ETAs come from real road durations, saved at plan time on the road variant. A
-  // straight-line route carries no durations, so times are hidden on it — the phone
-  // shows only what the office actually estimated from road data.
-  function showTimes(){ return ((opts.routeVariant && opts.routeVariant()) || 'road') === 'road'; }
+  // The day's arrival window (first–last ETA), so an over-long day is visible at a
+  // glance — the aggregate the phone view was missing.
+  function dayWindow(items){
+    const etas = (items || []).filter(x => x.scheduledEta).map(x => x.scheduledEta).sort();
+    if(!etas.length) return '';
+    return etas.length === 1 ? etas[0] : `${etas[0]}–${etas[etas.length - 1]}`;
+  }
+
+  // ETAs now exist on every optimized route: real road durations (OSRM/Google/ORS)
+  // or the distance estimate route.js derives when no road matrix is pulled (labeled
+  // "~/est." via timesEstimated). Shown whenever an order carries one.
+  function showTimes(){ return true; }
+  function timesEstimated(){ return Boolean(opts.timesEstimated && opts.timesEstimated()); }
+  function etaText(item){ return `ETA ${timesEstimated() ? '~' : ''}${esc(item.scheduledEta)}`; }
 
   function markerTooltip(item, position, parked){
     const prefix = parked ? '⚠ Parked — ' : `${position}. `;
     const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
-    const eta = (showTimes() && item.scheduledEta) ? ` · ETA ${esc(item.scheduledEta)}` : '';
+    const eta = (showTimes() && item.scheduledEta) ? ` · ${etaText(item)}` : '';
     const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
     return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}`;
   }
@@ -277,7 +290,7 @@ export function initWorklistRouteView(opts){
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
-        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? `ETA ${esc(item.scheduledEta)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
+        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
     const handle = card.querySelector('.wl-route-handle');
     if(handle) wireDrag(handle, card);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, encodePolyline, decodePolyline, osrmLegGeometry } from '../js/route.js';
+import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, encodePolyline, decodePolyline, osrmLegGeometry, estimateDurations, estimateTravelFromCoords, parseGoogleDuration } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -328,6 +328,64 @@ test('a straight-line run does one solve and saves no road route', async () => {
     assert.deepEqual(r.variants.straight.orderedIds, ['a', 'b', 'c', 'd']);
     assert.equal(r.straightDistanceSource, 'straight-line');
     assert.equal(r.usedFallback, false);
+  } finally { globalThis.fetch = before; }
+});
+
+// ── estimated durations (phone has no OSRM) ──────────────────────────────────
+test('estimateDurations turns metres into minutes with a road-detour factor', () => {
+  const est = estimateDurations(matrix([[0, 50000], [50000, 0]]), { crowFlies:true });
+  assert.equal(Math.round(est[0][1]), 78);   // 50 km × 1.3 ÷ 50 km/h = 78 min
+  const road = estimateDurations(matrix([[0, 50000], [50000, 0]]), { crowFlies:false });
+  assert.equal(Math.round(road[0][1]), 60);  // 50 km ÷ 50 km/h = 60 min, no detour
+  assert.equal(est[0][0], 0);
+});
+
+test('estimateDurations preserves Infinity for an unreachable pair', () => {
+  const est = estimateDurations(matrix([[0, Infinity], [Infinity, 0]]));
+  assert.equal(est[0][1], Infinity);
+});
+
+test('parseGoogleDuration reads Google\'s "123s" seconds string into minutes', () => {
+  assert.equal(parseGoogleDuration('120s'), 2);
+  assert.equal(parseGoogleDuration('90s'), 1.5);
+  assert.equal(parseGoogleDuration(null), Infinity);
+});
+
+test('estimateTravelFromCoords builds a usable lookup from saved pins', () => {
+  const items = [{ id:'a', lat:45.0, lng:-79.0 }, { id:'b', lat:45.0, lng:-79.1 }];
+  const t = estimateTravelFromCoords(items, { lat:45.0, lng:-78.9 }, { lat:45.0, lng:-79.2 });
+  assert.ok(t, 'a lookup is returned when there are located stops');
+  assert.ok(t.fromStart('a') > 0, 'the crew-start drive to a stop is a positive estimate');
+  assert.ok(t.between('a', 'b') > 0, 'the between-stop drive is a positive estimate');
+  assert.equal(estimateTravelFromCoords([], null, null), null);
+});
+
+test('a straight-line run estimates durations so ETAs + day sizing engage', async () => {
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('no network call expected'); };
+  try {
+    const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 }, {
+      straightLine:true, start:{ lat:45.0, lng:-78.9 },
+      target:4, dayFinishBy:14 * 60, departMin:8 * 60 + 15, breakMin:60, paceMin:30 });
+    assert.equal(r.estimatedTimes, true, 'the run is flagged as estimated');
+    assert.ok(r.measure.T, 'measure.T is populated from the estimate');
+    const t = travelLookup(r.measure);
+    assert.ok(t, 'travelLookup works on the estimated measure');
+    assert.ok(t.fromStart(r.orderedIds[0]) > 0, 'first-stop ETA now includes the crew-start drive');
+    assert.ok(r.dayTarget >= 1 && r.dayTarget <= 4, 'the day is sized to the workday, capped by target');
+  } finally { globalThis.fetch = before; }
+});
+
+test('a real duration run is not flagged estimated', async () => {
+  const dist6 = Array.from({ length:6 }, (_, i) => Array.from({ length:6 }, (_, j) => i === j ? 0 : 1000 * Math.abs(i - j)));
+  const dur6 = dist6.map(row => row.map(v => v / 1000 * 120));
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok:true, json: async () => ({ code:'Ok', distances:dist6, durations:dur6 }) });
+  try {
+    const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 },
+      { osrmUrl:'http://localhost:5000', osrmReady:true, start:{ lat:45.0, lng:-78.95 },
+        target:3, dayFinishBy:14 * 60, departMin:8 * 60, breakMin:60, paceMin:30 });
+    assert.equal(r.estimatedTimes, false, 'real OSRM durations are not an estimate');
   } finally { globalThis.fetch = before; }
 });
 

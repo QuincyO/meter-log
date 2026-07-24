@@ -388,11 +388,23 @@ function matrixBudgetSpend(elements){
   store.set('matrixUsed', String((Number(store.get('matrixUsed')) || 0) + elements));
 }
 
+// Google's duration is a string like "123s" (seconds). → minutes to match the
+// osrmMatrix / T convention every downstream consumer expects; blank ⇒ Infinity.
+export function parseGoogleDuration(s){
+  if(s == null) return Infinity;
+  const sec = Number(String(s).replace(/s$/, ''));
+  return isFinite(sec) ? sec / 60 : Infinity;
+}
+
 async function buildMatrix(coords, onProgress){
   const n = coords.length;
   if(n * n > matrixBudgetLeft())                   // budget spent → straight-line
     return { error: 'monthly road-data budget spent' };
   const D = Array.from({ length: n }, () => new Float64Array(n));
+  // Durations (minutes) ride alongside distances at no extra element cost — a
+  // per-element `duration` in the FieldMask (matrixCall) is billed the same. They
+  // drive the real per-stop ETAs; unknown/no-route cells stay Infinity.
+  const T = Array.from({ length: n }, () => new Float64Array(n).fill(Infinity));
   const blocks = [];
   for(let s = 0; s < n; s += BLOCK) blocks.push([s, Math.min(s + BLOCK, n)]);
   const totalCalls = blocks.length * blocks.length;
@@ -404,15 +416,16 @@ async function buildMatrix(coords, onProgress){
       matrixBudgetSpend((se - si) * (de - di));
       for(const el of r.els){
         if(el == null || el.originIndex == null || el.destinationIndex == null) continue;
-        D[si + el.originIndex][di + el.destinationIndex] =
-          el.condition === 'ROUTE_EXISTS' ? Number(el.distanceMeters || 0) : Infinity;
+        const exists = el.condition === 'ROUTE_EXISTS';
+        D[si + el.originIndex][di + el.destinationIndex] = exists ? Number(el.distanceMeters || 0) : Infinity;
+        T[si + el.originIndex][di + el.destinationIndex] = exists ? parseGoogleDuration(el.duration) : Infinity;
       }
       onProgress && onProgress({ phase:'matrix', done: ++done, total: totalCalls });
       await sleep(MATRIX_MS);
     }
   }
-  for(let i = 0; i < n; i++) D[i][i] = 0;
-  return { D };
+  for(let i = 0; i < n; i++){ D[i][i] = 0; T[i][i] = 0; }
+  return { D, T };
 }
 
 // ── road-distance matrix (self-hosted OSRM — the desktop planner's source) ───
@@ -527,15 +540,15 @@ export function encodePolyline(points, precision = 5){
 // ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
 // One POST to ORS's hosted matrix (config.js ORS_API_KEY): free, no tiling, but
 // capped at ORS_MATRIX_MAX location-PAIRS — a list over the cap skips ORS so the
-// run solves straight-line rather than erroring. Returns { D } (N×N metres) or
-// { error } (caller then falls to straight-line). Reached only when the primary
+// run solves straight-line rather than erroring. Returns { D, T } (metres +
+// durations in minutes) or { error } (caller falls to straight-line). Reached only when the primary
 // (Google Routes / OSRM) failed. GOTCHA: ORS speaks GeoJSON order — lng,lat —
 // the reverse of the {lat,lng} we store; the map below is the one conversion.
 async function orsMatrix(coords){
   const n = coords.length;
   if(n * n > ORS_MATRIX_MAX) return { error: `ORS matrix too big (${n} stops)` };
   const body = JSON.stringify({
-    locations: coords.map(c => [c.lng, c.lat]), metrics: ['distance'], units: 'm' });
+    locations: coords.map(c => [c.lng, c.lat]), metrics: ['distance', 'duration'], units: 'm' });
   let reason = 'no response';
   for(let attempt = 0; attempt < 2; attempt++){
     try {
@@ -545,7 +558,10 @@ async function orsMatrix(coords){
         body });
       const data = await res.json().catch(() => null);
       if(res.ok && data && Array.isArray(data.distances))
-        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))) };
+        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))),
+          T: Array.isArray(data.durations)   // seconds → minutes, like osrmMatrix
+            ? data.durations.map(row => row.map(v => v == null ? Infinity : Number(v) / 60))
+            : null };
       const err = data && data.error;
       reason = (err && (err.message || err)) || `HTTP ${res.status}`;
       console.warn('ORS matrix failed:', res.status, data);
@@ -559,7 +575,7 @@ async function orsMatrix(coords){
 }
 
 // One matrix chunk, with a single retry. Returns { els } (each element
-// {originIndex, destinationIndex, distanceMeters, condition}) or { error } —
+// {originIndex, destinationIndex, distanceMeters, duration, condition}) or { error } —
 // the reason built from Google's error body ({error:{code,message,status}},
 // or [{error:{…}}] on the streamed array form) so a rejected key reads as
 // REQUEST_DENIED/PERMISSION_DENIED in the toast, not as generic "unavailable".
@@ -577,7 +593,7 @@ async function matrixCall(origins, destinations){
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': GMAPS_API_KEY,
-          'X-Goog-FieldMask': 'originIndex,destinationIndex,distanceMeters,condition' },
+          'X-Goog-FieldMask': 'originIndex,destinationIndex,distanceMeters,duration,condition' },
         body });
       const data = await res.json().catch(() => null);
       if(res.ok && Array.isArray(data)) return { els: data };
@@ -612,6 +628,46 @@ function haversine(a, b){
   const s = Math.sin(dLat/2)**2
     + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+// ── estimated durations (when no road-time matrix is available) ──────────────
+// The phone's free straight-line Optimize (and any fallback run) has distances but
+// no road durations, so the ETAs would otherwise be flat-pace fiction. Convert a
+// distance matrix to an estimated DURATION matrix (minutes) with a simple speed
+// model — labeled "(est.)" in the UI, never presented as exact. `crowFlies` applies
+// a road-detour factor because haversine underestimates real road length; a road
+// distance matrix (Google/ORS) passes crowFlies:false. Both constants are tunable.
+const ESTIMATE_SPEED_KMH = 50;
+const ROAD_DETOUR_FACTOR = 1.3;
+export function estimateDurations(D, { crowFlies = true } = {}){
+  const perMetreMin = (crowFlies ? ROAD_DETOUR_FACTOR : 1) / 1000 / ESTIMATE_SPEED_KMH * 60;
+  return (D || []).map(row =>
+    Float64Array.from(row, v => isFinite(v) ? v * perMetreMin : Infinity));
+}
+
+// Build a `travelLookup`-shaped estimate from saved order coords + the crew start /
+// home, for the matrix-less paths (variant flip, incremental reschedule) that
+// reorder stops without fetching a fresh matrix. Reordering needs full pairwise
+// times, and coords are persisted per order, so this stays on-device and offline.
+// Returns null when there aren't enough located stops to schedule.
+export function estimateTravelFromCoords(items, startCoord, homeCoord){
+  const located = (items || []).filter(x => coordsOf(x));
+  if(!located.length) return null;
+  const startC = coordsOf(startCoord) || null;
+  const homeC = coordsOf(homeCoord) || null;
+  const coords = [
+    ...(startC ? [startC] : []),
+    ...located.map(coordsOf),
+    ...(homeC ? [homeC] : []),
+  ];
+  const T = estimateDurations(haversineMatrix(coords), { crowFlies: true });
+  const offset = startC ? 1 : 0;
+  const indexById = {};
+  located.forEach((x, k) => { indexById[x.id] = k + offset; });
+  // travelLookup's startNode falls back to homeIndex when startIndex is null.
+  return travelLookup({ T, indexById,
+    startIndex: startC ? 0 : null,
+    homeIndex: homeC ? coords.length - 1 : null });
 }
 
 // ── open-path TSP solve (pinned start, or free-endpoint multi-start) ─────────
@@ -1193,14 +1249,27 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     }
   }
 
+  // No road durations (the phone's free straight-line default, or a fallback run) →
+  // ESTIMATE them from the distances so ETAs still include the crew-start drive and
+  // the day still sizes to the workday, instead of collapsing to flat pace. Labeled
+  // "(est.)" in the UI. D is crow-flies on those paths (haversine), so apply the
+  // road-detour factor; a real road matrix that somehow lacked T would not.
+  let estimatedTimes = false;
+  if(!T){
+    T = estimateDurations(D, { crowFlies: opts.straightLine || usedFallback });
+    estimatedTimes = true;
+  }
+
   onProgress && onProgress({ phase:'solve' });
   // Optional day-split. target > 0 cuts the master route into contiguous chunks
   // of `target`; with a home pin each chunk is re-solved to end near home.
   const userTarget = Math.max(0, Math.floor(Number(opts.target) || 0));
-  // With real durations (T) and a finish-by clock, shrink the per-day count so the
-  // day's work still lands by opts.dayFinishBy (default 14:00 — two hours before the
-  // 16:00 shift end). Travel-heavy routes hold fewer stops per day (the home-bias vs
-  // production balance); easy routes keep the full target. No T ⇒ fixed count as before.
+  // With durations (T — real, or the estimate above) and a finish-by clock, shrink
+  // the per-day count so the day's work still lands by opts.dayFinishBy (default
+  // 14:00 — two hours before the 16:00 shift end). Travel-heavy routes hold fewer
+  // stops per day (the home-bias vs production balance); easy routes keep the full
+  // target. This is what activated ETAs + workday sizing on the phone (which never
+  // had a T before). No dayFinishBy ⇒ fixed count as before.
   const anchorOffset = (startC || homeC) ? 1 : 0;
   const target = (T && userTarget && opts.dayFinishBy)
     ? Math.max(1, Math.min(userTarget, timeCapacity(T, anchorOffset, located.length, startC ? 0 : null, opts)))
@@ -1234,7 +1303,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
     note: combineNotes(orsNote(notes), geoNote),
     variants, measure, straightDistanceSource: onRoad ? 'road' : 'straight-line',
-    dayTarget: target,
+    dayTarget: target, estimatedTimes,
     provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 }
 

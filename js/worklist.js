@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
@@ -283,6 +283,9 @@ async function wlDownload(){
         homeLegGeometryRoad:String(o.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(o.homeLegGeometryStraight || '') });
     }
     if(r.plan) loadPlanFields(r.plan);
+    // A downloaded route was planned on the desktop (real OSRM durations), so its
+    // ETAs are exact — clear the phone's local "(est.)" marker.
+    store.set('wlTimesEstimated', '');
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
@@ -319,6 +322,19 @@ async function homePin(){
 // first stop. This is an ETA-only anchor: route.js treats a team start as a commute
 // (never an ordering anchor), so the route still runs furthest-meter-first toward
 // home. Re-geocodes when the office changes the address (crewStartFor guard).
+// A cached {lat,lng} from two store keys, or null. Used to build the on-device
+// estimate travel for matrix-less reschedules (drag with a lock, variant flip).
+function cachedCoord(latKey, lngKey){
+  const lat = Number(store.get(latKey)), lng = Number(store.get(lngKey));
+  return (isFinite(lat) && isFinite(lng) && (lat || lng)) ? { lat, lng } : null;
+}
+// The on-device estimate travel lookup for a set of orders (no matrix fetched):
+// haversine over the saved pins + cached crew start/home → estimated drive times.
+function estimateTravel(items){
+  return estimateTravelFromCoords(items,
+    cachedCoord('crewStartLat', 'crewStartLng'), cachedCoord('homeLat', 'homeLng'));
+}
+
 async function crewStartPin(){
   const addr = (store.get('crewStartAddress') || '').trim();
   if(!addr){ store.set('crewStartFor', ''); return null; }
@@ -366,7 +382,11 @@ async function optimizeRouteHandler(straightLine){
       x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
-    const planOpts = { ...planShape(), target: base.dayTarget || target };
+    // Drive-time lookup for the ETAs: real durations from the road matrix (Google/
+    // ORS/OSRM), or the estimate route.js derived from distances — either way the
+    // first stop's ETA now includes the crew-start drive and the day fits the clock.
+    const travel = travelLookup(base.measure);
+    const planOpts = { ...planShape(), target: base.dayTarget || target, travel };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals
@@ -443,6 +463,10 @@ async function optimizeRouteHandler(straightLine){
     }
     store.set('wlRouteVariant', primaryVariant);
     if(base.variants.straight) store.set('wlStraightDistanceSource', base.straightDistanceSource);
+    // Display hint only: were these ETAs from real road durations or the distance
+    // estimate? Drives the "(est.)" label on the route view. Local, never synced —
+    // a downloaded planner route is always real OSRM.
+    store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
     await renderWorklist();
     await planAdvance();
     // Parked = wouldn't map (may still carry its last good pin); ambiguous =
@@ -813,7 +837,7 @@ async function switchVariant(v){
   const items = await allSorted();
   if(!variantSelectable(items, v)) return;
   let next;
-  try { next = applyVariant(items, v, { ...planShape(), target:targetVal() }); }
+  try { next = applyVariant(items, v, { ...planShape(), target:targetVal(), travel: estimateTravel(pendingOf(items)) }); }
   catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
   const now = stamp();
   for(const item of next) await idb.put('worklist', Object.assign({}, item, { updatedAt:now }));
@@ -1097,7 +1121,8 @@ async function persistOrderIds(ordered){
   if(pending.some(x => x.lockedDate)){
     try{
       const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
-      schedule = scheduleRouteConstraints(pending, pendingIds, { ...planShape(), target:targetVal() });
+      schedule = scheduleRouteConstraints(pending, pendingIds,
+        { ...planShape(), target:targetVal(), travel: estimateTravel(pending) });
       ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
   }
@@ -1349,6 +1374,7 @@ export function initWorklist(opts){
     // what produced it (the phone owns these; they ride up on the next sync).
     weights: () => ({ commutePull:pullVal(store.get('wlCommutePull')),
       finishBy:store.get('wlFinishBy') || '14:00', target:targetVal() }),
+    timesEstimated: () => store.get('wlTimesEstimated') === '1',
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

@@ -616,27 +616,31 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   commute so `solveVariant` drops it from the ordering matrix — distinct from the
   one-run GPS **Start from here**, which stays a real ordering anchor (its first leg
   is a charged driven leg).
-  When the matrix source is OSRM (`?annotations=distance,duration`), `measure.T`
-  carries a **durations** matrix and `travelLookup(measure)` exposes it as
-  `fromStart(id)` (morning drive out) and `between(fromId,toId)` (drive between two
-  stops). The scheduler's `simulateDay` then builds each ETA from the previous
-  departure + real travel + **on-site time** (`onSiteMinutes(pace)` = the 30-day
-  `recent30AvgLogMin` minus a nominal baseline drive, floored — so real per-leg
-  travel is added on top without double-counting). No durations (straight-line, or a
-  non-OSRM matrix) ⇒ the legacy flat `firstStopTime + (slot-1) × pace` cadence, and
-  the UI **hides the times entirely** (per-stop ETA, the day clock window, and map
-  tooltips show only on the road variant). **Day sizing to ~14:00:** with durations,
-  `timeCapacity` shrinks the per-day count (`dayTarget`, returned to keep the
-  scheduler's day boundaries aligned) so the daily target lands by 14:00 — two hours
-  before the 16:00 shift end — which makes travel-heavy days hold fewer stops (the
-  "home bias as important as production" balance falls out of charging real travel
-  time, not a tunable weight).
-- **Known limits of the time model.** ETAs are authoritative right after a road
-  Optimize (the road variant is the active one and its `scheduledEta` is saved and
-  synced). A later manual **variant re-switch** or a phone-side edit re-runs the
-  scheduler with no in-memory `measure`, so it falls back to flat pace — same
-  staleness contract as the "edited" distance marker. Road durations are OSRM-only
-  for now; the phone's Google/ORS matrix path carries no `T`.
+  ETAs are built from a **duration matrix `T`** — `measure.T`, exposed by
+  `travelLookup(measure)` as `fromStart(id)` (morning drive out of the crew start)
+  and `between(fromId,toId)` (drive between two stops). `simulateDay` builds each ETA
+  from the previous departure + real travel + **on-site time** (`onSiteMinutes(pace)`
+  = the 30-day `recent30AvgLogMin` minus a nominal baseline drive, floored — real
+  per-leg travel added on top without double-counting). **Every matrix source now
+  carries `T`:** OSRM (`?annotations=distance,duration`), **Google Routes** (`duration`
+  in the FieldMask → `parseGoogleDuration`), and **ORS** (`metrics:['distance','duration']`),
+  all in minutes. When **no** road matrix is pulled — the phone's free straight-line
+  default, or a fallback run — `optimizeRoute` **estimates `T` from the distances**
+  (`estimateDurations` = crow-flies × `ROAD_DETOUR_FACTOR` ÷ `ESTIMATE_SPEED_KMH`) and
+  sets `estimatedTimes`, so ETAs + day sizing still work offline; the route view
+  labels them "(est.)"/"~". **Day sizing to ~14:00:** `timeCapacity` shrinks the
+  per-day count (`dayTarget`, returned to keep the scheduler's day boundaries aligned)
+  so the daily target lands by 14:00 — two hours before the 16:00 shift end — which
+  makes travel-heavy days hold fewer stops (the "home bias as important as production"
+  balance falls out of charging real travel time). This whole path was dead on the
+  phone until durations were populated — with `T` always present it now engages.
+- **Callers must pass `travel`.** `scheduleRouteConstraints` computes ETAs only when
+  handed `opts.travel`; without it (the bug that showed "8:15, no drive-out") it
+  silently uses the flat `firstStopTime + (slot-1) × pace` cadence. The main Optimize
+  passes `travelLookup(base.measure)`; the matrix-less **variant flip** and **drag
+  reschedule** pass `estimateTravelFromCoords(items, crewStart, home)` — a haversine
+  estimate over the saved pins, so those paths keep realistic ETAs on-device without
+  a fetch. A downloaded planner route is always real OSRM (no "(est.)").
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 
