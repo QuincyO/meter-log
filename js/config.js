@@ -27,3 +27,9 @@ export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';
 // DEPLOY.md §"OpenRouteService backup"); leave '' to disable the fallback
 // entirely. Same public-client-key tradeoff as GMAPS_API_KEY above.
 export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYxNDdkYzE3ZmFjYzQ5Yzk5ZGVhNjI1OTA4ZjUzZTc3IiwiaCI6Im11cm11cjY0In0=';
+
+// When the crew leaves the start location each morning ('HH:MM', 24h). Global,
+// not per-installer: the ETA model anchors the first stop to this clock plus the
+// real drive out to it. Change it with a commit — GitHub Pages ships it. The
+// desktop planner still clamps it into its [08:00, 08:30] muster window.
+export const ROUTE_DEPART_TIME = '08:15';
