@@ -194,7 +194,8 @@ function wireShape(x){
     legMetersStraight:blank(x.legMetersStraight), homeLegMetersStraight:blank(x.homeLegMetersStraight),
     // The phone never generates road geometry — carry the office's verbatim so an
     // upload from here can't blank it (same reason legMeters* round-trips).
-    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
+    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || ''),
+    homeLegGeometryRoad:String(x.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(x.homeLegGeometryStraight || '') };
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
 // form the sheet and the variant helpers both understand.
@@ -271,7 +272,8 @@ async function wlDownload(){
         homeLegMetersRoad:blank(o.homeLegMetersRoad),
         orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
         legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
-        legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') });
+        legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || ''),
+        homeLegGeometryRoad:String(o.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(o.homeLegGeometryStraight || '') });
     }
     if(r.plan) loadPlanFields(r.plan);
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);

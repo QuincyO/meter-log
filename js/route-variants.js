@@ -16,8 +16,8 @@ import { scheduleRouteConstraints } from './route-constraints.js';
 export const VARIANTS = ['road', 'straight'];
 
 export const VARIANT_FIELDS = {
-  road:     { order:'orderRoad',     day:'dayRoad',     legMeters:'legMetersRoad',     homeLegMeters:'homeLegMetersRoad',     geometry:'legGeometryRoad' },
-  straight: { order:'orderStraight', day:'dayStraight', legMeters:'legMetersStraight', homeLegMeters:'homeLegMetersStraight', geometry:'legGeometryStraight' },
+  road:     { order:'orderRoad',     day:'dayRoad',     legMeters:'legMetersRoad',     homeLegMeters:'homeLegMetersRoad',     geometry:'legGeometryRoad',     homeLegGeometry:'homeLegGeometryRoad' },
+  straight: { order:'orderStraight', day:'dayStraight', legMeters:'legMetersStraight', homeLegMeters:'homeLegMetersStraight', geometry:'legGeometryStraight', homeLegGeometry:'homeLegGeometryStraight' },
 };
 
 export const VARIANT_LABELS = { road:'Road matrix', straight:'Straight-line' };

@@ -294,7 +294,8 @@ function wireShape(x){
     homeLegMetersRoad:blank(x.homeLegMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
     legMetersStraight:blank(x.legMetersStraight), homeLegMetersStraight:blank(x.homeLegMetersStraight),
-    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
+    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || ''),
+    homeLegGeometryRoad:String(x.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(x.homeLegGeometryStraight || '') };
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
 // form the sheet and the variant helpers both understand.
@@ -333,7 +334,8 @@ async function loadList(){
       homeLegMetersRoad:blank(o.homeLegMetersRoad),
       orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
       legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
-      legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') })));
+      legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || ''),
+      homeLegGeometryRoad:String(o.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(o.homeLegGeometryStraight || '') })));
     setStatus('ok','Synced');
     toast(`Loaded ${items.length} orders ✓`);
   } catch { setStatus('off','Error'); toast('Load failed — check signal'); }

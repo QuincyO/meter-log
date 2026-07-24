@@ -214,7 +214,11 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
   // measured on Optimize but deliberately NOT in legMeters* / the day total;
   // saved for reference (see route.js homeLegMetersFor). Appended AFTER the
   // geometry columns so the AD2:AE '@' pin above still lands on legGeometry*.
-  'homeLegMetersRoad','homeLegMetersStraight'];
+  'homeLegMetersRoad','homeLegMetersStraight',
+  // The crew-start → first-stop drive-out path per variant (OSRM road polyline,
+  // or a straight two-point line when OSRM has none). Drawn faintly on both maps;
+  // never in any distance total. Opaque text → setupSheets pins these to '@'.
+  'homeLegGeometryRoad','homeLegGeometryStraight'];
 // One synchronized route-plan record per installer. Kept separate from the
 // order rows so route settings do not repeat on every Worklist row.
 // `routeVariant` ('road'|'straight') is which saved variant is currently live —
@@ -297,6 +301,7 @@ function setupSheets() {
   ss.getSheetByName('Worklist').getRange('O2:Q').setNumberFormat('@');  // appointment/lock dates + time
   ss.getSheetByName('Worklist').getRange('S2:T').setNumberFormat('@');  // scheduled date + ETA
   ss.getSheetByName('Worklist').getRange('AD2:AE').setNumberFormat('@'); // legGeometry road/straight (encoded polyline)
+  ss.getSheetByName('Worklist').getRange('AH2:AI').setNumberFormat('@'); // homeLegGeometry road/straight (encoded polyline)
   ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
   ss.getSheetByName('WorklistPlans').getRange('J2:J').setNumberFormat('@'); // finishBy 'HH:MM' — keep as literal text
   // The encoded polyline / gaps JSON are opaque text — keep Sheets from reading a
@@ -1229,7 +1234,9 @@ function saveWorklist(b) {
     // Encoded road polylines — opaque text, ride through verbatim like the metres.
     String(o.legGeometryRoad || ''), String(o.legGeometryStraight || ''),
     // Per-day home→first-stop distance, kept out of the day total, saved for reference.
-    numOrBlank(o.homeLegMetersRoad), numOrBlank(o.homeLegMetersStraight) ]));
+    numOrBlank(o.homeLegMetersRoad), numOrBlank(o.homeLegMetersStraight),
+    // Encoded drive-out polylines (road or straight) — opaque text, ride through verbatim.
+    String(o.homeLegGeometryRoad || ''), String(o.homeLegGeometryStraight || '') ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;
