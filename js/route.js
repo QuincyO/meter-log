@@ -848,8 +848,8 @@ function solveVariant(M, located, { startC, homeC, target }){
 
 // Price a finished sequence against the run's distance matrix: metres driven
 // ARRIVING at each stop from the previous point. The previous point is the day
-// anchor (the home pin, or the phone fix on the route's very first stop) for the
-// first stop of each day, so a day's total includes the drive out. The drive
+// anchor (the crew's team start, or the phone fix on the route's very first stop)
+// for the first stop of each day, so a day's total includes the drive out. The drive
 // BACK home at day's end is deliberately not charged to any stop — each day is
 // already solved to end near home, so the omitted leg is small, and folding it
 // into the last stop would make a per-stop number mean two different things.
@@ -861,11 +861,13 @@ function solveVariant(M, located, { startC, homeC, target }){
 export function legMetersFor(measure, orderedIds, dayOf){
   const out = {};
   if(!measure || !measure.D) return out;
-  const { D, indexById, homeIndex, startIndex, startIsCommute } = measure;
-  // Where the morning drive-out starts: the team muster point when one is set (a
-  // commute driven every day), else the home pin. Either way that leg is measured
-  // separately (homeLegMetersFor) and kept OUT of the between-stop total below.
-  const commuteAnchor = startIsCommute ? startIndex : homeIndex;
+  const { D, indexById, startIndex, startIsCommute } = measure;
+  // Where the morning drive-out starts: the crew's team muster point, when one is
+  // set (a commute driven every day). Home is the end-of-day bias ONLY — it never
+  // anchors the drive-out — so with no team start there is no drive-out leg. That
+  // leg is measured separately (homeLegMetersFor) and kept OUT of the between-stop
+  // total below.
+  const commuteAnchor = startIsCommute ? startIndex : null;
   let prev = null, prevDay = null;
   (orderedIds || []).forEach((id, i) => {
     const idx = indexById[id];
@@ -887,18 +889,20 @@ export function legMetersFor(measure, orderedIds, dayOf){
 }
 
 // Metres driven OUT to each day's FIRST stop — the drive-out leg legMetersFor
-// deliberately leaves out of the day total. The drive-out comes from the team
-// muster point when one is set (measured every day the crew leaves it), else from
-// the home pin. Returns { id: metres } keyed on the day's first stop, one entry per
-// day, so the planner/phone can show a per-day "distance out" readout without
-// folding it into the driving total. Mirrors legMetersFor's day-start detection.
-// The phone "start from here" first leg is a real driven leg, not a drive-out, so
-// it is not recorded. Empty when the run had no drive-out anchor.
+// deliberately leaves out of the day total. The drive-out is measured from the
+// crew's team muster point ONLY (every day the crew leaves it). Home is the
+// end-of-day bias and is never a drive-out anchor, so a run with no team start
+// records no drive-out (home is not shown as a "distance out"). Returns
+// { id: metres } keyed on the day's first stop, one entry per day, so the
+// planner/phone can show a per-day "distance out" readout without folding it into
+// the driving total. Mirrors legMetersFor's day-start detection. The phone "start
+// from here" first leg is a real driven leg, not a drive-out, so it is not
+// recorded. Empty when the run had no team start.
 export function homeLegMetersFor(measure, orderedIds, dayOf){
   const out = {};
   if(!measure || !measure.D) return out;
-  const { D, indexById, homeIndex, startIndex, startIsCommute } = measure;
-  const commuteAnchor = startIsCommute ? startIndex : homeIndex;
+  const { D, indexById, startIndex, startIsCommute } = measure;
+  const commuteAnchor = startIsCommute ? startIndex : null;
   if(commuteAnchor == null) return out;
   let prev = null, prevDay = null;
   (orderedIds || []).forEach((id, i) => {

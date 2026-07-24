@@ -64,21 +64,23 @@ const HOME_MEASURE = {
   indexById: { a:1, b:2, c:3 }, homeIndex: 0, startIndex: null
 };
 
-test('the drive out from home is NOT charged to the day total', () => {
-  // The home → first-stop leg is measured separately (homeLegMetersFor) and kept
-  // out of the driving total, so each day's first stop costs 0 here.
+test('a day first stop is NOT charged to the day total', () => {
+  // Each day's first stop is a drive-out, kept out of the driving total, so it
+  // costs 0 here regardless of the anchor.
   const legs = legMetersFor(HOME_MEASURE, ['a', 'b', 'c'], { a:1, b:1, c:2 });
-  assert.equal(legs.a, 0);    // home → a excluded (day 1 first stop)
+  assert.equal(legs.a, 0);    // day 1 first stop excluded
   assert.equal(legs.b, 4);    // a → b, same day — still charged
-  assert.equal(legs.c, 0);    // home → c excluded (day 2 first stop)
+  assert.equal(legs.c, 0);    // day 2 first stop excluded
 });
 
-test('homeLegMetersFor saves each day first stop drive out from home', () => {
+test('home is the end-of-day bias only — never recorded as a drive-out', () => {
+  // Home biases where the route ENDS; it is not a starting location, so no per-day
+  // "distance out" is recorded from it. Only a crew start anchors the drive-out.
   const home = homeLegMetersFor(HOME_MEASURE, ['a', 'b', 'c'], { a:1, b:1, c:2 });
-  assert.deepEqual(home, { a:10, c:30 });   // per-day home legs, keyed on the day's first stop
+  assert.deepEqual(home, {});
 });
 
-test('homeLegMetersFor is empty with no home anchor', () => {
+test('homeLegMetersFor is empty with no anchor', () => {
   const measure = {
     D: matrix([[0, 7], [7, 0]]),
     indexById: { a:0, b:1 }, homeIndex: null, startIndex: null
@@ -138,10 +140,11 @@ test('travelLookup is null without a duration matrix', () => {
   assert.equal(travelLookup({ D: matrix([[0, 1], [1, 0]]), indexById:{ a:0, b:1 } }), null);
 });
 
-test('a phone start-from-here first leg is charged, not saved as a home leg', () => {
-  // node 0 = home (end anchor), node 3 = the phone fix (start). The very first
-  // stop is driven from the fix — a real leg in the total — so it is NOT recorded
-  // as a home leg. Later days still start from home and are excluded + saved.
+test('a phone start-from-here first leg is charged, and no drive-out is saved', () => {
+  // node 0 = home (end anchor), node 3 = the phone fix (start). The very first stop
+  // is driven from the fix — a real leg in the total. Home is the end-of-day bias
+  // only, so later days' first stops are still excluded from the total but NOT
+  // recorded as a drive-out (only a crew start would record one).
   const measure = {
     D: matrix([
       [0, 10, 20, 5],     // home
@@ -153,9 +156,9 @@ test('a phone start-from-here first leg is charged, not saved as a home leg', ()
   };
   const legs = legMetersFor(measure, ['a', 'b'], { a:1, b:2 });
   assert.equal(legs.a, 8);    // fix → a, charged (start-from-here is a real leg)
-  assert.equal(legs.b, 0);    // home → b excluded (day 2 first stop)
+  assert.equal(legs.b, 0);    // day 2 first stop excluded from the total
   const home = homeLegMetersFor(measure, ['a', 'b'], { a:1, b:2 });
-  assert.deepEqual(home, { b:20 });   // only day 2's home leg saved; day 1 started at the fix
+  assert.deepEqual(home, {});   // home is end-bias only — no drive-out recorded from it
 });
 
 test('with no home anchor the first stop costs nothing and the rest chain', () => {

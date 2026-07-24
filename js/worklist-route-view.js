@@ -3,7 +3,7 @@
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
 import { coordsOf, decodePolyline, isParked } from './route.js';
-import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters } from './route-variants.js';
+import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 
 function routeKey(item){
@@ -164,13 +164,14 @@ export function initWorklistRouteView(opts){
       b.setAttribute('aria-pressed', group.key === selected ? 'true' : 'false');
       // The day's driving distance (between stops), when the route has been
       // optimized — the number that says whether "24 meters" is a short day or a
-      // long one. ⌂ is the saved drive out from home to the first stop, measured
-      // for reference and deliberately kept out of that driving total.
+      // long one. "start" is the saved drive out from the crew's starting location
+      // to the first stop, measured for reference and deliberately kept out of that
+      // driving total (empty when the crew has no start location on file).
       const km = group.day == null ? null : liveDayMeters(snapshot, variant, group.day);
-      const homeKm = group.day == null ? null : dayHomeMeters(snapshot, variant, group.day);
+      const startKm = group.day == null ? null : dayHomeMeters(snapshot, variant, group.day);
       b.textContent = `${group.label} · ${group.items.length}`
         + (km == null ? '' : ` · ${fmtKm(km)}`)
-        + (homeKm == null ? '' : ` · ⌂ ${fmtKm(homeKm)}`);
+        + (startKm == null ? '' : ` · start ${fmtKm(startKm)}`);
       b.onclick = async () => { selected = group.key; await render(); };
       daysEl.appendChild(b);
     }
@@ -198,7 +199,12 @@ export function initWorklistRouteView(opts){
     layer.clearLayers();
     const L = globalThis.L;
     const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
-    const geomField = (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).geometry;
+    // Only trust the saved road geometry while the live order still matches the
+    // order it was fetched against. After a manual drag (live order changes, the
+    // variant's saved order doesn't) the geometry is stale, so drop it and draw
+    // clean straight legs instead of the previous route's roads.
+    const geomField = variantMatchesLive(snapshot, variant)
+      ? (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).geometry : null;
     const model = buildRouteMapModel(group ? group.items : [], geomField);
     const bounds = [];
     const color = group && group.day ? dayColor(group.day) : '#2563EB';

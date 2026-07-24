@@ -22,7 +22,7 @@ import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMet
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
-  liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
+  liveDayMeters, pendingOf, routeTotalSummary, variantMatchesLive, variantSelectable, variantSummary,
 } from '../route-variants.js';
 import {
   DEFAULT_NOMINATIM_URL, DEFAULT_OSRM_URL, buildOptimizeConfirmation,
@@ -508,6 +508,11 @@ async function optimize(pending, health){
         x[f.day] = p ? p.day : '';
         x[f.legMeters] = p ? p.legMeters : '';
         x[f.homeLegMeters] = p ? p.homeLegMeters : '';
+        // The sequence just changed, so any saved road geometry is keyed to the
+        // OLD order and would draw wrong legs (fetchVariantGeometry below refills
+        // it only when OSRM is up). Clear it here so an OSRM-offline / ORS-matrix
+        // run falls back to clean straight legs instead of stale ones.
+        x[f.geometry] = '';
       }
     });
     items = seq;
@@ -553,9 +558,9 @@ async function optimize(pending, health){
 // Walk each variant's saved sequence and ask OSRM /route for the actual road path
 // of every leg BETWEEN stops, storing the encoded polyline on the ARRIVING order
 // (matching how legMetersFor charges each leg). A day's FIRST stop has no incoming
-// leg drawn — the drive out from home is deliberately not routed or drawn, only
-// measured (homeLegMetersFor) — so it stores empty geometry. One local OSRM GET
-// per between-stops leg — free and fast.
+// leg drawn — the drive out to it (from the crew start) is deliberately not routed
+// or drawn, only measured (homeLegMetersFor) — so it stores empty geometry. One
+// local OSRM GET per between-stops leg — free and fast.
 async function fetchVariantGeometry(osrmUrl){
   const prog = $('plProg');
   let fetched = 0, missed = 0, total = 0;
@@ -737,15 +742,15 @@ function render(){
       const count = pending.filter(p => (p.day || null) === d).length;
       const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
       const km = liveDayMeters(items, variant, d);
-      const homeKm = dayHomeMeters(items, variant, d);
+      const startKm = dayHomeMeters(items, variant, d);
       const hdr = document.createElement('div');
       hdr.className = 'plday';
-      hdr.title = 'Distance is the drive between stops. ⌂ is the saved drive out from '
-        + 'home to the first stop — measured for reference, not in the total.';
+      hdr.title = 'Distance is the drive between stops. "start" is the saved drive out '
+        + 'from the crew start location to the first stop — measured for reference, not in the total.';
       hdr.innerHTML = `<span class="plday-dot" style="background:${dayColor(d)}"></span>`
         + `Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
         + (km == null ? '' : ` · ${esc(fmtKm(km))}`)
-        + (homeKm == null ? '' : ` · ⌂ ${esc(fmtKm(homeKm))}`)
+        + (startKm == null ? '' : ` · start ${esc(fmtKm(startKm))}`)
         + ` — ends near home<span class="plday-eta">${esc(showTimes
             ? (dayWindow(pending, d) || dayEta(count)) : dayEta(count))}</span>`;
       card.appendChild(hdr);
@@ -867,11 +872,15 @@ function renderMap(){
   // when there's no day split — one neutral line. When the active variant carries
   // saved OSRM road geometry, each leg is drawn along its real path; a leg with no
   // geometry falls back to a straight segment between the two pins. A day's FIRST
-  // stop has no incoming leg — the drive out from home is not drawn (only measured,
-  // see homeLegMetersFor), so the route starts at the first pin.
+  // stop has no incoming leg — the drive out to it (from the crew start) is not
+  // drawn (only measured, see homeLegMetersFor), so the route starts at the first pin.
   const segs = {};
   const showTimes = activeVariant() === 'road';   // ETAs only on the road variant
-  const geomField = VARIANT_FIELDS[activeVariant()].geometry;
+  // Only draw saved road geometry while the live order still matches the order it
+  // was fetched against — after a manual edit the geometry is stale, so fall back
+  // to straight legs rather than draw the previous route's roads.
+  const geomField = variantMatchesLive(items, activeVariant())
+    ? VARIANT_FIELDS[activeVariant()].geometry : null;
   const prevByDay = {};      // last routed coord seen per day (nothing before the first)
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);

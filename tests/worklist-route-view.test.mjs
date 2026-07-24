@@ -119,6 +119,21 @@ test('path follows saved road geometry per leg and falls back to a straight leg'
   ]);
 });
 
+test('drops saved geometry when the caller withholds the field (stale after a drag)', () => {
+  // After a manual reorder the live order no longer matches the order the geometry
+  // was fetched against, so renderMap passes no geomField — the leg must draw
+  // straight pin-to-pin, never the previous route's roads (the "line to home" bug).
+  const geom = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+  const model = buildRouteMapModel([
+    { ...item('a', 0, 1), lat:38.5, lng:-120.2 },
+    { ...item('b', 10, 1), lat:40.7, lng:-120.95, legGeometryRoad:geom },
+  ], null);
+  assert.deepEqual(model.path, [
+    [38.5, -120.2],                        // first routed stop starts the line
+    [38.5, -120.2], [40.7, -120.95],       // a → b straight (saved geometry ignored)
+  ]);
+});
+
 test('labels missing coordinates as no pin before applying the broader parked state', () => {
   assert.equal(routeCardState(item('missing', 0, 1)), 'no pin');
   assert.equal(routeCardState({ ...item('parked', 0, 1), lat:45, lng:-79, geoFail:true }), 'parked');

@@ -382,6 +382,10 @@ async function optimizeRouteHandler(straightLine){
         patch[f.day] = p ? p.day : '';
         patch[f.legMeters] = p ? p.legMeters : '';
         patch[f.homeLegMeters] = p ? p.homeLegMeters : '';
+        // Sequence changed → saved road geometry is keyed to the old order. The
+        // phone never re-fetches geometry (only the desktop does), so clear it and
+        // let the route map fall back to straight legs until a desktop re-optimize.
+        patch[f.geometry] = '';
       }
       await idb.put('worklist', Object.assign({}, item, patch));
     }
