@@ -22,3 +22,19 @@ test('the service worker ships the tuning module', () => {
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'\.\/js\/worklist-tuning\.js'/);
 });
+
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+test('the capture nav offers a route-tuning entry', () => {
+  assert.match(html, /<button id="navTuning">[^<]*Route tuning<\/button>/);
+});
+
+test('the tuning screen has both dials, a readout and a save', () => {
+  assert.match(html, /id="tuningScreen"/);
+  assert.match(html, /id="tuneCommutePull"[^>]*type="range"[^>]*min="0"[^>]*max="100"/);
+  assert.match(html, /id="tuneFinishBy"[^>]*type="time"/);
+  assert.match(html, /id="tuneReadout"/);
+  assert.match(html, /id="tuneSave"/);
+  // the org-wide leave time is shown as read-only context, not an input
+  assert.match(html, /08:15/);
+});

@@ -282,3 +282,14 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 /* Settings ▸ ⟳ Force update from GitHub — .ghost is normally sized by the
    .row2 grid it sits in, so give this standalone one a full-width box. */
 #refreshApp{width:100%;margin-top:4px}
+
+/* Route tuning screen */
+.tune-row { margin: 16px 2px; }
+.tune-row > label { display: flex; justify-content: space-between; align-items: baseline;
+  font-weight: 600; margin-bottom: 8px; }
+.tune-row > input[type="range"] { width: 100%; }
+.tune-row > input[type="time"] { font-size: 18px; padding: 8px; }
+.tune-val { font-variant-numeric: tabular-nums; color: var(--accent); }
+.tune-hint { margin: 6px 0 0; }
+.tune-readout { margin: 18px 2px 4px; padding: 12px 14px; border-radius: 10px;
+  background: var(--card, rgba(127,127,127,.08)); line-height: 1.6; }

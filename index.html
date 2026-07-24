@@ -33,6 +33,7 @@
       <div class="nav-menu hide" id="navMenu">
         <button id="navWorklist">📋 Worklist</button>
         <button id="navRecent">🗓 Recent days</button>
+        <button id="navTuning">🎛 Route tuning</button>
         <button id="navSettings">⚙︎ Settings</button>
         <button id="navHelp">❓ Help</button>
       </div>
@@ -311,6 +312,32 @@
       <label class="drive-toggle"><input id="driveWakeToggle" type="checkbox"> Keep screen awake <span class="muted">(uses more battery)</span></label>
       <p class="muted drive-track-hint">Tracking runs on this phone until you finish the day. It uploads only when you close out. Use one phone per drive.</p>
     </div>
+  </section>
+
+  <!-- Route tuning (installer-only dials; opened from the capture ☰ nav) -->
+  <section class="wlscreen hide" id="tuningScreen">
+    <div class="wl-head">
+      <button class="wl-back" id="tuneBack" type="button" aria-label="Back to capture">‹ Back</button>
+      <h2>Route tuning</h2>
+    </div>
+    <p class="muted" style="margin:2px 2px 14px">These tune your own route. Upload your list to send them to the office.</p>
+
+    <div class="tune-row">
+      <label for="tuneCommutePull">Commute pull <span id="tuneCommutePullVal" class="tune-val">70%</span></label>
+      <input id="tuneCommutePull" type="range" min="0" max="100" step="5" value="70">
+      <p class="muted tune-hint">Low = most meters · High = shortest drive home</p>
+    </div>
+
+    <div class="tune-row">
+      <label for="tuneFinishBy">Target finish time</label>
+      <input id="tuneFinishBy" type="time" value="14:00">
+      <p class="muted tune-hint">Earlier = fewer stops, home sooner</p>
+    </div>
+
+    <div class="tune-readout" id="tuneReadout"></div>
+    <p class="muted tune-hint">Leave-start time is set for everyone: 08:15</p>
+
+    <button class="primary" id="tuneSave" type="button" style="width:100%;margin-top:14px">Save</button>
   </section>
 
   <div class="toast" id="toast"></div>
