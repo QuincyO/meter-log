@@ -783,12 +783,28 @@ function subMatrix(D, nodes){
   }
   return S;
 }
+// Scale one node's edges (both directions) by w in [0,1] — used to weight the
+// home node in a day-cluster re-solve. w=1 leaves the matrix untouched (the full
+// home pin); w=0 makes home equidistant from everything, so the solver stops
+// bending the day's endpoint toward it and orders purely for production. The
+// single home edge an open path actually uses is what w trades against internal
+// driving, so intermediate w blends smoothly.
+function withHomeWeight(S, homeNode, w){
+  if(!(w < 1)) return S;
+  const M = S.map(r => Float64Array.from(r));
+  for(let i = 0; i < M.length; i++){
+    if(i === homeNode) continue;
+    M[homeNode][i] *= w; M[i][homeNode] *= w;
+  }
+  return M;
+}
 // Order one day-cluster (an array of located-indices) so it ends at its
-// home-ward edge. Returns the cluster's located-indices, re-ordered.
-function orderChunkHome(D, locIdxChunk){
+// home-ward edge. `homeWeight` (0–1) tunes how hard the endpoint hugs home.
+// Returns the cluster's located-indices, re-ordered.
+function orderChunkHome(D, locIdxChunk, homeWeight=1){
   if(locIdxChunk.length <= 1) return locIdxChunk.slice();
   const nodes = [0, ...locIdxChunk.map(k => k + 1)];   // home + each order's D node
-  const t = solve(subMatrix(D, nodes), true);          // pinned AT home
+  const t = solve(withHomeWeight(subMatrix(D, nodes), 0, homeWeight), true); // pinned AT home
   // reverse + drop the home node → sub-positions 1..m, mapped back to the chunk.
   return t.slice().reverse().slice(0, -1).map(p => locIdxChunk[p - 1]);
 }
@@ -796,11 +812,12 @@ function orderChunkHome(D, locIdxChunk){
 // = the crew's morning muster point, last node = the installer's home). Order the
 // chunk as an open path pinned at BOTH ends — start near the muster point, end
 // near home — so each day is a tidy commute: short drive out, short drive home.
-function orderChunkStartHome(D, locIdxChunk){
+// `homeWeight` (0–1) tunes how hard the end hugs home.
+function orderChunkStartHome(D, locIdxChunk, homeWeight=1){
   if(locIdxChunk.length <= 1) return locIdxChunk.slice();
   const home = D.length - 1;
   const nodes = [0, ...locIdxChunk.map(k => k + 1), home];  // start + chunk + home
-  const t = solveAnchoredPath(subMatrix(D, nodes), { pinEnd:true });
+  const t = solveAnchoredPath(withHomeWeight(subMatrix(D, nodes), nodes.length - 1, homeWeight), { pinEnd:true });
   // drop start (first) and home (last); middle positions map back to the chunk.
   return t.slice(1, -1).map(p => locIdxChunk[p - 1]);
 }
@@ -811,7 +828,8 @@ function orderChunkStartHome(D, locIdxChunk){
 // distances, yielding two candidate sequences to compare. M is the matrix to
 // SOLVE on; measuring is a separate step (legMetersFor) so both variants can be
 // priced with road distances.
-function solveVariant(M, located, { startC, homeC, target }){
+export function solveVariant(M, located, { startC, homeC, target, commutePull }){
+  const homeWeight = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
   const masterSeq = routeOrderFromMatrix(M, located.length, {
     hasStart:!!startC, hasHome:!!homeC
   });
@@ -825,7 +843,7 @@ function solveVariant(M, located, { startC, homeC, target }){
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkStartHome(M, masterSeq.slice(s, s + target));
+        const ordered = orderChunkStartHome(M, masterSeq.slice(s, s + target), homeWeight);
         ordered.forEach(k => { dayOf[located[k].id] = day; });
         orderedSeq.push(...ordered);
       }
@@ -833,7 +851,7 @@ function solveVariant(M, located, { startC, homeC, target }){
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkHome(M, masterSeq.slice(s, s + target));
+        const ordered = orderChunkHome(M, masterSeq.slice(s, s + target), homeWeight);
         ordered.forEach(k => { dayOf[located[k].id] = day; });
         orderedSeq.push(...ordered);
       }
@@ -1150,7 +1168,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const target = (T && userTarget && opts.dayFinishBy)
     ? Math.max(1, Math.min(userTarget, timeCapacity(T, anchorOffset, located.length, startC ? 0 : null, opts)))
     : userTarget;
-  const shape = { startC, homeC, target };
+  const shape = { startC, homeC, target, commutePull: opts.commutePull };
   const primary = solveVariant(D, located, shape);
 
   // Did this run actually get road distances? Only then is there a road route to

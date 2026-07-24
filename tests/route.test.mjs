@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, decodePolyline, osrmLegGeometry } from '../js/route.js';
+import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, decodePolyline, osrmLegGeometry } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -49,6 +49,36 @@ test('legacy home mode still orders meters from the far side toward home', () =>
   ]);
 
   assert.deepEqual(routeOrderFromMatrix(D, 2, { hasHome:true }), [1, 0]);
+});
+
+// ── weighted home bias (commutePull) ────────────────────────────────────────
+// A one-day chunk of four stops on a line (s1..s4) with home far beyond s4.
+// Node 0 = home; nodes 1..4 = the stops. Ending "near home" means ending at s4.
+const HOME_CHUNK = matrix([
+  [0, 8, 7, 6, 5],
+  [8, 0, 1, 2, 3],
+  [7, 1, 0, 1, 2],
+  [6, 2, 1, 0, 1],
+  [5, 3, 2, 1, 0]
+]);
+const HOME_LOCATED = [{ id:'s1' }, { id:'s2' }, { id:'s3' }, { id:'s4' }];
+const homeShape = extra => ({ startC:null, homeC:{ lat:0, lng:0 }, target:4, ...extra });
+
+test('full commute pull ends the day at the stop nearest home', () => {
+  const r = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:100 }));
+  assert.equal(r.orderedIds[r.orderedIds.length - 1], 's4');
+});
+
+test('zero commute pull drops the homeward endpoint constraint', () => {
+  const pull0 = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:0 }));
+  const pull100 = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:100 }));
+  assert.notDeepEqual(pull0.orderedIds, pull100.orderedIds);
+});
+
+test('an absent commute pull reproduces the full-home-pin behavior', () => {
+  const def = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape());
+  const pull100 = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:100 }));
+  assert.deepEqual(def.orderedIds, pull100.orderedIds);
 });
 
 // ── per-stop distance ───────────────────────────────────────────────────────
