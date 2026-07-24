@@ -396,6 +396,18 @@ their next pull). Three surfaces trigger it, all posting the same `archiveStop`:
   removes cleanly too — FIFO flushes its `addStop` first, then the archive.
 - **map.html** — a button in the pin popup (online-only; the viewer has no queue).
 
+**Reset a work order (index.html, Today's orders).** Beside "Remove from log…" the
+Today stop card carries **↺ Reset order…** (`opts.resettable`, wired in
+`js/pages/capture.js makeStopCard`) for "I logged the wrong thing — start this house
+over." It fires the same `archiveStop` to pull the logged meter back out of the day,
+then calls `resetWorklistOrder(workOrderId)` (`js/worklist.js`) — the inverse of
+`markWorklistDone`: it flips the matching worklist order back to `pending` (preferring
+a `done` match), **keeping** the typed WO#/address/unit/old J#/pin while clearing the
+done-only derived state (`ignored`, lock, `scheduled*`), then re-applies the today
+anchor so an order that belonged to today returns to Day 1. No new spine action — it
+composes `archiveStop` (the meter) with a local worklist edit (the order), and the
+whole-list `syncWorklist` pushes the revived order up.
+
 Spine guarantees (`archiveStop`):
 - **Archive-before-delete**: the copy is appended to `StopsArchive` (with
   `removedAt`/`removedBy`/`reason`) before `deleteRow` — a crash duplicates
@@ -592,6 +604,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   the phone worklist — the installer's `avgPerDay` (InstallerMetrics) shows beside
   it, and the day cluster syncs via the `Worklist.day` column to the phone's Day 1
   / Day 2 dividers.
+- **The today anchor — freezing Day 1 so completions don't pull tomorrow up.** The
+  chunking above runs over the **pending** list, so as orders are logged (dropped
+  from `pending`) a re-optimize/Download refills Day 1 to a full `target` from the
+  front of what's left — pulling the next day's orders up into today. `js/route-today.js`
+  (pure, unit-tested) fixes that with a phone-owned **anchor**: `{date, ids}` in
+  `localStorage['wlTodayAnchor']` — the set of order IDs that made up Day 1 the first
+  time the day's route was established. `worklist.js applyTodayAnchor()` is the single
+  choke point (run after optimize, Download, a completion, a reset, and first view):
+  it (re)commits the anchor when the date rolls or today's set is exhausted
+  (`needsCommit`), then reorders pending so today's committed orders lead
+  (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with the new
+  **`opts.day1Count`** — which sizes Day 1 to *exactly* the committed count (shrinking
+  as orders finish) while days 2+ still fill by `target`. Day 1 therefore only ever
+  shrinks and rolls to the next chunk when empty; it never grows from later work. The
+  commit snapshots the route's **current** Day-1 group (honouring any `timeCapacity`
+  shrink or the office's chunking), falling back to the first `target` orders only for
+  a never-routed list. The anchor is never synced (no sheet/schema change); `day1Count`
+  unset ⇒ the scheduler behaves exactly as before. A brand-new order added mid-day is
+  not in the frozen set, so it lands on Day 2 until the anchor rolls (or the installer
+  drags it up). See `js/route-today.js`, `tests/route-today.test.mjs`, and the
+  `day1Count` cases in `tests/route-constraints.test.mjs`.
   `optimizeRoute` also takes `opts.osrmUrl` — the **desktop planner's** matrix
   source: one free `table` call against a self-hosted OSRM (then the ORS backup,
   then straight-line — never the billable Google path), which is how the office

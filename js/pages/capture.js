@@ -15,7 +15,7 @@ import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, openTuning, markWorklistDone, planAdvance, syncWorklist, planActive, exitPlan } from '../worklist.js';
+import { initWorklist, openWorklist, openTuning, markWorklistDone, resetWorklistOrder, planAdvance, syncWorklist, planActive, exitPlan } from '../worklist.js';
 import {
   initDriveRecorder, finishAndUpload, isRecording, armedToday,
   startRecording, stopRecording, subscribe as subscribeDrive,
@@ -565,6 +565,7 @@ function makeStopCard(s, onSaved, opts){
       <textarea data-f="utiOther" class="${reasonIsOther?'':'hide'}">${esc(otherText)}</textarea>
       <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
       <button class="primary sc-save" data-act="save">Save changes</button>
+      ${opts && opts.resettable ? '<button class="ghost sc-reset" data-act="reset">↺ Reset order…</button>' : ''}
       ${opts && opts.removable ? '<button class="danger sc-remove" data-act="remove">Remove from log…</button>' : ''}
     </div>`;
 
@@ -640,6 +641,25 @@ function makeStopCard(s, onSaved, opts){
     await enqueue({ token:c.token, action:'archiveStop', id:s.id,
                     installerId:c.hNumber, removedBy:c.name, reason:reason.trim() });
     toast(navigator.onLine ? 'Removing…' : 'Removed — will sync when online');
+    if(opts && typeof opts.onRemoved === 'function') opts.onRemoved();
+  };
+
+  // Reset = start this work order over: pull the logged meter back out of the log
+  // (same archive path as Remove) AND flip the matching worklist order back to a
+  // fresh pending state (keeping the WO#/address/old J#), so it's on the list to
+  // redo. Reachable only from the Today's-orders sheet (opts.resettable).
+  const resetBtn = card.querySelector('[data-act="reset"]');
+  if(resetBtn) resetBtn.onclick = async () => {
+    const c = cfg();
+    if(!c.url || !c.token){ toast('Add your URL first'); return; }
+    const label = `WO ${s.workOrderId || '—'} (${clockOf(s.timestamp) || '--:--'})`;
+    if(!confirm(`Start this order over?\n\n${label}\n\nThe logged meter is removed (archived — the office can restore it) and the order goes back on your list to redo.`)) return;
+    // Awaited so the dayCache drop + tombstone are in place before onRemoved re-renders.
+    await enqueue({ token:c.token, action:'archiveStop', id:s.id,
+                    installerId:c.hNumber, removedBy:c.name, reason:'reset order' });
+    await resetWorklistOrder(s.workOrderId);   // keeps the typed details; re-adds to today
+    syncWorklist();
+    toast(navigator.onLine ? 'Order reset — back on your list' : 'Reset — will sync when online');
     if(opts && typeof opts.onRemoved === 'function') opts.onRemoved();
   };
   return card;
@@ -1254,6 +1274,7 @@ function renderToday(stops, downtime){
       const box = $('todayEdit'); box.innerHTML='';
       box.appendChild(makeStopCard(s, () => renderToday(stops, downtime), {
         removable:true,
+        resettable:true,
         // Re-render from the (already updated) dayCache so the row vanishes
         // immediately, online or offline.
         onRemoved: () => { box.innerHTML=''; loadDay('today'); }

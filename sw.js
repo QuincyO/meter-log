@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v31';
+const CACHE = 'meterlog-v32';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -32,7 +32,7 @@ const SHELL = [
   './js/worklist-dedup.js', './js/worklist-tuning.js',
   './js/drive.js', './js/drive-track.js', './js/drive-recorder.js',
   './js/drag-autoscroll.js',
-  './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/planner-services.js', './js/utiReasons.js',
+  './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/route-today.js', './js/planner-services.js', './js/utiReasons.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',
   './js/compute/summary.js', './js/compute/estimate.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)

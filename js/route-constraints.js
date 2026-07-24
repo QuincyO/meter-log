@@ -170,6 +170,12 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');
   const target = Math.max(1, Math.floor(Number(opts.target) || 1));
+  // The today anchor (js/route-today.js): when set, Day 1 holds EXACTLY this many
+  // stops instead of a full `target` — the frozen "today's orders" set that shrinks
+  // as they're finished. Days 2+ still fill by `target`. Unset (0) ⇒ unchanged
+  // behaviour: every day sizes to `target`. Never larger than the pending count.
+  const day1Count = Math.max(0, Math.floor(Number(opts.day1Count) || 0));
+  const capFor = i => (i === 0 && day1Count) ? day1Count : target;
   // Real road-travel lookup (js/route.js travelLookup), or null on a straight-line
   // run — passed straight through to the day simulation so ETAs reflect actual drive
   // times when we have them and fall back to flat pace when we don't.
@@ -204,7 +210,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   if(used > route.length) throw new Error('Locked queue slots require more work orders than are available');
   let remaining = route.length - used;
   for(let i = 0; i < counts.length && remaining; i++){
-    const add = Math.min(remaining, Math.max(0, target - counts[i]));
+    const add = Math.min(remaining, Math.max(0, capFor(i) - counts[i]));
     counts[i] += add; remaining -= add;
   }
   while(remaining){ const add = Math.min(remaining, target); counts.push(add); remaining -= add; }

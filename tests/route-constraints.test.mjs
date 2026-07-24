@@ -117,6 +117,32 @@ test('an unknown between-leg falls back to a nominal drive instead of stalling',
   assert.equal(result.scheduleById.b.eta, '08:30');   // (480 + 20) + 10 = 510
 });
 
+test('day1Count sizes Day 1 to the frozen today set; days 2+ fill by target', () => {
+  const items = ['a','b','c','d','e'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b','c','d','e'],
+    opts({ target:4, day1Count:2 }));
+  // Day 1 holds exactly the 2 committed orders; the remaining 3 spill to Day 2
+  // (not a full 4), so tomorrow's work is never pulled up into today.
+  assert.deepEqual([result.dayOf.a, result.dayOf.b], [1, 1]);
+  assert.deepEqual([result.dayOf.c, result.dayOf.d, result.dayOf.e], [2, 2, 2]);
+});
+
+test('without day1Count, Day 1 still fills to the full target (unchanged)', () => {
+  const items = ['a','b','c','d','e'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b','c','d','e'], opts({ target:4 }));
+  assert.deepEqual([result.dayOf.a, result.dayOf.d], [1, 1]);   // first 4 on Day 1
+  assert.equal(result.dayOf.e, 2);                              // the 5th rolls to Day 2
+});
+
+test('day1Count restarts the ETA clock on Day 2 morning', () => {
+  const items = ['a','b','c'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b','c'],
+    opts({ target:4, day1Count:2, firstStopTime:'08:00' }));
+  // c is the first stop of Day 2, so its ETA is the morning start, not an
+  // afternoon slot carried over from a target-sized Day 1.
+  assert.equal(result.scheduleById.c.eta, '08:00');
+});
+
 test('locking after a manual reorder uses the current slot, not an old ETA slot', () => {
   const items = [
     item('a', { day:1, scheduledSlot:1 }),

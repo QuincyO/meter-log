@@ -206,6 +206,18 @@ If you drag orders around afterwards the total is marked **· edited**, and if y
 add or remove orders it's marked **· out of date** — in both cases the figure was
 worked out for a different run. Optimize again for a fresh number.
 
+### Today stays today
+
+The first time you look at your route each day, the app **locks in today's list** —
+the orders under the **Day 1** header at that moment. From then on Day 1 only ever
+**shrinks** as you finish them: optimizing again, or downloading a fresh plan, can
+reshuffle the driving order but **won't pull tomorrow's orders up into today**. Only
+once you've cleared today's list does Day 1 roll forward to the next batch. So if you
+set out to do 24 and get 10 done, your Day 1 still shows the **14 you have left** —
+not 4 of tomorrow's houses tacked on the end. (A brand-new order you add partway
+through the day lands on **Day 2**; finish today's list and it comes around, or drag
+it up yourself.)
+
 ### Two routes: road matrix and straight-line
 
 When the office plans your day (or you hold **🧭 Optimize route** for two seconds
@@ -290,7 +302,7 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
 
 ## Checking and fixing your logs
 
-- **Today's orders** — the day's tally and every stop so far. Tap a row → **Edit** to fix a field → **Save changes**. A stop that shouldn't be there at all: **Remove from log…** (it's archived, never deleted — the office can restore it).
+- **Today's orders** — the day's tally and every stop so far. Tap a row → **Edit** to fix a field → **Save changes**. A stop that shouldn't be there at all: **Remove from log…** (it's archived, never deleted — the office can restore it). Logged the wrong thing and want a clean slate for that house? **↺ Reset order…** does both at once — it removes the logged meter (archived, restorable) **and** puts the work order back on your list to redo, keeping its WO#, address and old J#.
 - **Look up · WO# / J#** — type a work order # or J# and **Search** to find any past stop and **Edit** it.
 - **☰ → 🗓 Recent days** — your last week of orders, stored on the phone. Works with no signal, so you can review or fix yesterday from the middle of the lake.
 

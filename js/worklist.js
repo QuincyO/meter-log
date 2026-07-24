@@ -36,6 +36,7 @@ import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
+import { anchorDay1Ids, needsCommit, freshAnchorIds, orderAnchorFirst } from './route-today.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -290,6 +291,10 @@ async function wlDownload(){
     // ETAs are exact — clear the phone's local "(est.)" marker.
     store.set('wlTimesEstimated', '');
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
+    // Re-freeze today: a route the office optimized was day-chunked by target with
+    // no memory of what's already done, so honour this phone's today anchor over
+    // whatever `day` came down — Download can no longer roll tomorrow's into today.
+    await applyTodayAnchor();
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
   } catch { toast('Download failed — check signal'); }
@@ -470,6 +475,10 @@ async function optimizeRouteHandler(straightLine){
     // estimate? Drives the "(est.)" label on the route view. Local, never synced —
     // a downloaded planner route is always real OSRM.
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
+    // Freeze today's set: override the plain target-chunk days so re-optimizing
+    // after finishing some orders can't pull tomorrow's up. Real matrix travel keeps
+    // the ETAs exact.
+    await applyTodayAnchor({ travel });
     await renderWorklist();
     await planAdvance();
     // Parked = wouldn't map (may still carry its last good pin); ambiguous =
@@ -583,6 +592,7 @@ export async function openWorklist(){
   $('worklistScreen').classList.remove('hide');
   if(location.hash !== '#worklist') history.pushState({ wl:1 }, '', '#worklist');
   paintPlanToggle();
+  await applyTodayAnchor();   // commit today's set on first view; keep it frozen thereafter
   await renderWorklist();
   refreshAvgDay();   // best-effort avg/day hint beside the target field
   window.scrollTo(0, 0);
@@ -1288,7 +1298,93 @@ export async function markWorklistDone(workOrderId){
     && String(x.workOrderId || '').trim().toUpperCase() === wo);
   if(!match) return;
   await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', ignored:false, updatedAt:stamp() }));
+  // Finishing the last of today's committed set rolls the anchor to the next chunk.
+  await applyTodayAnchor();
   if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
+}
+
+// Start a work order over from the Today's-orders sheet: the inverse of
+// markWorklistDone. Flip the matching order back to pending — KEEPING its typed
+// WO#/address/unit/old J#/pin — and clear the done-only derived state (set-aside,
+// lock, scheduled slot). The bad meter itself is removed separately by the caller
+// (capture.js archives the stop). Prefers a done match, so a reset while a second
+// copy is still pending revives the one that was actually logged. Re-applies the
+// today anchor so an order that belonged to today returns to Day 1.
+export async function resetWorklistOrder(workOrderId){
+  const wo = String(workOrderId || '').trim().toUpperCase();
+  if(!wo) return;
+  const items = await allSorted();
+  const matches = items.filter(x => String(x.workOrderId || '').trim().toUpperCase() === wo);
+  const match = matches.find(x => x.wlStatus === 'done') || matches[0];
+  if(!match) return;
+  await idb.put('worklist', Object.assign({}, match, {
+    wlStatus:'pending', ignored:false,
+    lockedDate:'', lockedSlot:'',
+    scheduledDate:'', scheduledEta:'', scheduledSlot:'', scheduledWaitMin:'',
+    updatedAt:stamp(),
+  }));
+  await applyTodayAnchor();
+  if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
+  await planAdvance();   // the revived order may now be the plan's next stop
+}
+
+// ── today anchor (the frozen "today's orders" set) ──────────────────────────
+// Persisted locally (like the meters/day target); never synced. See route-today.js.
+function loadAnchor(){
+  try { const a = JSON.parse(store.get('wlTodayAnchor') || 'null'); return (a && a.date) ? a : null; }
+  catch { return null; }
+}
+function saveAnchor(a){ store.set('wlTodayAnchor', a ? JSON.stringify(a) : ''); }
+
+// The single choke point that keeps "today" frozen. Commits today's set on the
+// first route of the day (and re-commits when it's exhausted), then reassigns the
+// live order/day so today's committed orders lead and later work fills days 2+ by
+// target — overriding the plain target-chunking that optimize/download stamp.
+// Writes only when a pending order's order/day actually changes (keyed off those,
+// not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
+// opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
+// exact); otherwise an on-device estimate is used and the "(est.)" marker is set.
+async function applyTodayAnchor(opts){
+  const items = await allSorted();
+  const pending = pendingOf(items);
+  if(!pending.length) return;
+  const today = localDate();
+  const target = targetVal();
+  const pendingSeq = pending.map(p => String(p.id));
+
+  let anchor = loadAnchor();
+  if(needsCommit(anchor, today, pending)){
+    anchor = { date: today, ids: freshAnchorIds(pending, target) };
+    saveAnchor(anchor);
+  }
+  const day1 = anchorDay1Ids(anchor, pending);
+  const seq = orderAnchorFirst(pendingSeq, day1);
+
+  const travel = (opts && opts.travel) || estimateTravel(pending);
+  let schedule;
+  try {
+    schedule = scheduleRouteConstraints(pending, seq,
+      { ...planShape(), target, day1Count: day1.length, travel });
+  } catch { return; }   // locks/appointments make it impossible — leave days as they are
+
+  const byId = {}; items.forEach(x => { byId[x.id] = x; });
+  let i = 0, wrote = false;
+  for(const id of schedule.orderedIds){
+    const item = byId[id]; if(!item) continue;
+    const order = (i++) * 10;
+    const day = schedule.dayOf[id] || '';
+    if(item.order === order && item.day === day) continue;   // unchanged → keep exact ETA
+    const s = schedule.scheduleById[id] || {};
+    await idb.put('worklist', Object.assign({}, item, {
+      order, day,
+      scheduledDate:s.date || '', scheduledEta:s.eta || '',
+      scheduledSlot:s.slot || '', scheduledWaitMin:s.waitMin || '',
+      updatedAt:stamp(),
+    }));
+    wrote = true;
+  }
+  // A recompute with the on-device estimate makes the ETAs estimates — say so.
+  if(wrote && !(opts && opts.travel)) store.set('wlTimesEstimated', '1');
 }
 
 // ── on-pace projection (drive mode + tuning what-if) ────────────────────────
@@ -1523,7 +1619,7 @@ export function initWorklist(opts){
   };
   $('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
   $('wlFormSave').onclick = wlSave;
-  pruneDoneWorklist().then(() => {
+  pruneDoneWorklist().then(applyTodayAnchor).then(() => {
     if(location.hash === '#worklist-route'){
       // A direct reload has no #worklist history entry. Seed it so the phone's
       // hardware Back button still returns through list, then capture.
