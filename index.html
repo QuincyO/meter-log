@@ -523,6 +523,17 @@
   </div>
 
 
+  <!-- Stuck uploads sheet: the review/clear screen for parked (poison) queue items -->
+  <div class="sheet hide" id="stuckSheet">
+    <div class="card">
+      <h2>Stuck uploads</h2>
+      <p>These writes were set aside so the rest of your queue could keep syncing — the server kept rejecting them. Retry once things are working again, or discard one you no longer need.</p>
+      <div id="stuckList"></div>
+      <button class="primary" id="stuckRetryAll" style="width:100%;margin-top:12px">Retry all</button>
+      <button class="ghost" id="stuckClose" style="width:100%;margin-top:8px">Close</button>
+    </div>
+  </div>
+
   <!-- Recent days sheet -->
   <div class="sheet hide" id="recentSheet">
     <div class="card">

@@ -8,7 +8,7 @@ import { $, enc, esc, attr, toast, withActivity } from '../dom.js';
 import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
-import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks, retryParked } from '../queue.js';
+import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks, retryParked, parkedItems, retryParkedOne, discardParkedOne } from '../queue.js';
 import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
@@ -29,7 +29,7 @@ import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 setQueueHooks({ onResult: (body, item) => {
   if (body.parked) {
     showNotice('flag',
-      `An upload couldn't be accepted and was set aside so the rest could sync${body.error ? ` (${body.error})` : ''}. Tap the sync pill to retry.`,
+      `An upload couldn't be accepted and was set aside so the rest could sync${body.error ? ` (${body.error})` : ''}. Tap the sync pill to review.`,
       []);
     return;
   }
@@ -59,8 +59,54 @@ function showNotice(type, msg, history) {
   noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);
 }
 $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
-// Tapping the sync pill forces a flush and un-parks any set-aside (stuck) uploads.
-const _statusPill = $('status'); if (_statusPill) _statusPill.onclick = () => retryParked();
+// Tapping the sync pill opens the "Stuck uploads" review when something is parked,
+// else just nudges a flush (a manual "sync now").
+const _statusPill = $('status');
+if (_statusPill) _statusPill.onclick = async () => {
+  const stuck = await parkedItems();
+  if (stuck.length) openStuckSheet(); else flush();
+};
+
+// ── stuck uploads: review / retry / discard the parked (poison) queue items ──
+function stuckLabel(it){
+  switch(it.action){
+    case 'addStop':      return `Stop · WO# ${it.workOrderId||'—'}${it.newJNumber?` · J# ${it.newJNumber}`:''} · ${it.status||'—'}`;
+    case 'addDowntime':  return `Downtime · ${catLabel(it.category)} ${it.minutes||0}m${it.workOrderId?` · WO# ${it.workOrderId}`:''}`;
+    case 'saveDriveTrack': return `Drive leg · ${it.date||''}${it.distanceM?` · ${(it.distanceM/1000).toFixed(1)} km`:''} · ${it.pointCount||0} pts`;
+    case 'endOfDay':     return 'End-of-day close';
+    case 'saveTravel':   return 'Travel review';
+    case 'saveDay':      return 'Day start / end times';
+    default:             return it.action || 'Upload';
+  }
+}
+async function renderStuck(){
+  const list = $('stuckList'); if(!list) return;
+  const items = await parkedItems();
+  if(!items.length){ list.innerHTML = '<p class="muted">Nothing stuck — all clear ✓</p>'; return; }
+  list.innerHTML = items.map(it => `
+    <div class="stuck-row">
+      <div class="stuck-info">
+        <div class="stuck-title">${esc(stuckLabel(it))}</div>
+        <div class="stuck-sub">${it._tries||0} attempts${it._error?` · ${esc(String(it._error))}`:''}</div>
+      </div>
+      <div class="stuck-actions">
+        <button class="ghost stuck-retry" data-seq="${it._seq}">Retry</button>
+        <button class="ghost stuck-discard" data-seq="${it._seq}">Discard</button>
+      </div>
+    </div>`).join('');
+}
+function openStuckSheet(){ renderStuck(); openSheet('stuckSheet'); }
+$('stuckList').onclick = async (e) => {
+  const retry = e.target.closest('.stuck-retry');
+  const discard = e.target.closest('.stuck-discard');
+  if(retry){ await retryParkedOne(Number(retry.dataset.seq)); toast('Retrying…'); await renderStuck(); return; }
+  if(discard){
+    if(!confirm('Discard this upload? It will not be sent to the office and can’t be recovered.')) return;
+    await discardParkedOne(Number(discard.dataset.seq)); await renderStuck(); return;
+  }
+};
+$('stuckRetryAll').onclick = async () => { await retryParked(); toast('Retrying stuck uploads…'); closeSheets(); };
+$('stuckClose').onclick = () => closeSheets();
 
 // ── work mode (boat | land) ─────────────────────────────────────────────
 // Persisted per device; flips the accent theme via <html data-mode> (the CSS

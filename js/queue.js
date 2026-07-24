@@ -61,7 +61,7 @@ export async function flush(){
       // times and are set aside so they can't wedge the writes queued behind them.
       const item = q.find(it => !it._parked);
       if(!item) break;
-      const {_seq, _tries, _parked, ...body} = item; // internal keys — don't send them
+      const {_seq, _tries, _parked, _error, ...body} = item; // internal keys — don't send them
       let resp;
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
@@ -85,8 +85,9 @@ export async function flush(){
         // stops blocking everything behind it, but never drop it: it stays in the
         // durable queue, flagged, and is surfaced (pill + notice) for review/retry.
         lastFlushFailed = false;        // we reached the server — this isn't an offline state
-        await idb.put('queue', { ...item, _tries: (_tries || 0) + 1, _parked: true });
-        if(_hooks.onResult) _hooks.onResult({ parked: true, error: respBody && respBody.error }, body);
+        const why = respBody && respBody.error;
+        await idb.put('queue', { ...item, _tries: (_tries || 0) + 1, _parked: true, _error: why });
+        if(_hooks.onResult) _hooks.onResult({ parked: true, error: why }, body);
         continue;                       // keep draining the rest of the queue
       }
       if(verdict === 'retry-count'){
@@ -103,12 +104,32 @@ export async function flush(){
   paint();
 }
 
-// Un-park every set-aside item and try again — the manual "retry stuck uploads"
-// path (tapping the status pill). Resets the strike count so they get a full run.
+// The parked (set-aside poison) items, for the "Stuck uploads" review screen.
+export async function parkedItems(){
+  return (await queueAll()).filter(it => it._parked);
+}
+
+// Un-park every set-aside item and try again — "Retry all". Resets the strike count
+// (and clears the last error) so each gets a full run.
 export async function retryParked(){
   const items = await queueAll();
-  for(const it of items) if(it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0 });
+  for(const it of items) if(it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
   return flush();
+}
+
+// Un-park and retry ONE item by its _seq (a row's Retry button).
+export async function retryParkedOne(seq){
+  const it = (await queueAll()).find(i => i._seq === seq);
+  if(it && it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
+  return flush();
+}
+
+// Drop ONE parked item — the "Discard" button. Guarded to parked-only so a race can
+// never delete an item that's still trying. A discarded write is gone for good.
+export async function discardParkedOne(seq){
+  const it = (await queueAll()).find(i => i._seq === seq);
+  if(it && it._parked) await idb.del('queue', seq);
+  return paint();
 }
 
 export async function paint(){
@@ -137,7 +158,7 @@ export async function paint(){
     p.classList.add('wait');
     t.textContent = pending + ' sending…' + (parked ? ` · ${parked} stuck` : '');
   }
-  else if(parked){ p.classList.add('off'); t.textContent = parked + ' stuck — tap to retry'; }
+  else if(parked){ p.classList.add('off'); t.textContent = parked + ' stuck — tap to review'; }
   else t.textContent = 'All synced';
 }
 

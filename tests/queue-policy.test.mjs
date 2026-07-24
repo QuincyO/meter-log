@@ -5,6 +5,8 @@ import { classifyFlush, MAX_FLUSH_TRIES } from '../js/queue-policy.js';
 
 const text = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const queue = text('js/queue.js');
+const capture = text('js/pages/capture.js');
+const indexHtml = text('index.html');
 
 // ── the pure policy ─────────────────────────────────────────────────────────
 test('a 2xx with ok / duplicate / flagged is delivered', () => {
@@ -52,4 +54,30 @@ test('the pill tells a truly-offline phone from an unresponsive spine', () => {
 test('parked items can be un-parked and retried', () => {
   assert.match(queue, /export async function retryParked/);
   assert.match(queue, /_parked: false, _tries: 0/);
+});
+
+// ── the "Stuck uploads" review screen ────────────────────────────────────────
+test('queue exposes the per-item review API', () => {
+  assert.match(queue, /export async function parkedItems/);
+  assert.match(queue, /export async function retryParkedOne/);
+  assert.match(queue, /export async function discardParkedOne/);
+});
+
+test('discardParkedOne only deletes an item that is actually parked', () => {
+  // Guard against a race deleting a write that is still trying (a real data loss).
+  assert.match(queue, /if\(it && it\._parked\) await idb\.del\('queue', seq\)/);
+});
+
+test('the capture page has a stuck-uploads sheet wired to the pill', () => {
+  assert.match(indexHtml, /id="stuckSheet"/);
+  assert.match(indexHtml, /id="stuckList"/);
+  assert.match(indexHtml, /id="stuckRetryAll"/);
+  // Tapping the pill opens the review when something is parked.
+  assert.match(capture, /const stuck = await parkedItems\(\);\s*\n\s*if \(stuck\.length\) openStuckSheet\(\)/);
+  assert.match(capture, /function openStuckSheet\(\)\{ renderStuck\(\); openSheet\('stuckSheet'\); \}/);
+});
+
+test('discarding a stuck upload is confirmed first (it is unrecoverable)', () => {
+  assert.match(capture, /discardParkedOne\(Number\(discard\.dataset\.seq\)\)/);
+  assert.match(capture, /if\(!confirm\(/);
 });
