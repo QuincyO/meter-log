@@ -38,24 +38,67 @@
 .drive-dest-wo{ font-size:19px; font-weight:800; letter-spacing:.5px; color:var(--accent); }
 .drive-dest-addr{ font-size:15px; font-weight:600; line-height:1.25; }
 
-/* On-pace line — two slim rows (target finish + working hours) pinned under the
-   "Driving to" card. Each row: a horizon label, the projected landing count, and
-   an on-pace/behind note. Green (accent) when it lands the route by that horizon,
-   amber when it falls short. Deliberately compact next to the big stepper card. */
+/* On-pace gauge — two cards (target finish + working hours) pinned under the
+   "Driving to" card, read like a truck instrument cluster. Each card: a horizon
+   eyebrow + state pill, a big projected install count, and a progress track that
+   shows the route spatially — solid = done, softer = will still fit, faint amber =
+   won't be reached by that horizon. Accent (green/blue by work mode) when on pace,
+   amber when short. All colors come from tokens so the cards theme with the app. */
 .drive-pace{
-  display:flex; flex-direction:column; gap:6px;
+  display:flex; flex-direction:column; gap:8px;
   margin-bottom:10px;
 }
-.dp-row{
-  display:flex; align-items:baseline; gap:10px;
+.dp-card{
+  display:flex; flex-direction:column; gap:8px;
   background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
-  padding:8px 14px;
+  box-shadow:var(--shadow);
+  padding:12px 16px 14px;
 }
-.dp-lab{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); }
-.dp-val{ font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; margin-left:auto; }
-.dp-note{ font-size:13px; font-weight:700; }
-.dp-row.on  .dp-val, .dp-row.on  .dp-note{ color:var(--accent); }
-.dp-row.behind .dp-val, .dp-row.behind .dp-note{ color:var(--amber-press); }
+.dp-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.dp-lab{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-soft); }
+
+/* State pill — the one-glance verdict. On pace wears the work-mode accent; short
+   wears amber. Colored by the card's .on / .behind class (set in js/drive.js). */
+.dp-state{
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+  padding:3px 9px; border-radius:999px; white-space:nowrap;
+}
+.dp-card.on .dp-state{ color:var(--accent); background:var(--accent-soft); }
+.dp-card.behind .dp-state{ color:var(--amber-press); background:color-mix(in srgb, var(--amber) 15%, transparent); }
+
+/* The projected install count — instrument-readout treatment of Inter: big, heavy,
+   tight, tabular so it doesn't jitter as it counts up (animated in js/drive.js). */
+.dp-read{ display:flex; align-items:baseline; gap:9px; }
+.dp-val{
+  font-size:40px; font-weight:800; line-height:1; letter-spacing:-1px;
+  font-variant-numeric:tabular-nums; color:var(--ink);
+}
+.dp-card.on .dp-val{ color:var(--accent); }
+.dp-card.behind .dp-val{ color:var(--amber-press); }
+.dp-unit{ font-size:13px; font-weight:600; color:var(--ink-soft); }
+
+/* Progress track — the signature. Three width-driven segments summing to the whole
+   route (done + will-fit + won't-fit). Widths are set as percentages in drive.js and
+   ease when the projection changes. On pace, the track carries a slow, low glow. */
+.dp-track{
+  display:flex; height:10px; border-radius:999px;
+  background:var(--line); overflow:hidden;
+}
+.dp-seg{ height:100%; transition:width .5s cubic-bezier(.4,0,.2,1); }
+.dp-done{ background:var(--accent); }
+.dp-more{ background:color-mix(in srgb, var(--accent) 34%, transparent); }
+.dp-short{ background:color-mix(in srgb, var(--amber) 42%, transparent); }
+.dp-card.on .dp-track{ animation:dpGlow 2.6s ease-in-out infinite; }
+
+.dp-cap{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+
+@keyframes dpGlow{ 0%,100%{ box-shadow:0 0 0 0 transparent; } 50%{ box-shadow:0 0 7px 0 var(--accent-ring); } }
+/* Quiet by default; silent for drivers who ask their OS for reduced motion. The
+   count-up in js/drive.js checks the same query and lands on the final number. */
+@media (prefers-reduced-motion:reduce){
+  .dp-seg{ transition:none; }
+  .dp-card.on .dp-track{ animation:none; }
+}
 
 /* The card fills the space so the driver reads it at a glance, one order only. */
 .drive-card-wrap{ flex:1; display:flex; align-items:center; }

@@ -311,15 +311,37 @@
          actual speed). Two paces — the installer's own target finish, and regular
          working hours (3:45, 4:45 OT past 4). Hidden until there's a route to project. -->
     <div class="drive-pace hide" id="drivePace" aria-live="polite">
-      <div class="dp-row hide" id="dpTarget">
-        <span class="dp-lab" id="dpTargetLab"></span>
-        <span class="dp-val" id="dpTargetVal"></span>
-        <span class="dp-note" id="dpTargetNote"></span>
+      <div class="dp-card hide" id="dpTarget">
+        <div class="dp-top">
+          <span class="dp-lab" id="dpTargetLab"></span>
+          <span class="dp-state" id="dpTargetState"></span>
+        </div>
+        <div class="dp-read">
+          <span class="dp-val" id="dpTargetVal">~0</span>
+          <span class="dp-unit" id="dpTargetUnit"></span>
+        </div>
+        <div class="dp-track" aria-hidden="true">
+          <span class="dp-seg dp-done" id="dpTargetDone"></span>
+          <span class="dp-seg dp-more" id="dpTargetMore"></span>
+          <span class="dp-seg dp-short" id="dpTargetShort"></span>
+        </div>
+        <span class="dp-cap" id="dpTargetCap"></span>
       </div>
-      <div class="dp-row hide" id="dpWork">
-        <span class="dp-lab" id="dpWorkLab"></span>
-        <span class="dp-val" id="dpWorkVal"></span>
-        <span class="dp-note" id="dpWorkNote"></span>
+      <div class="dp-card hide" id="dpWork">
+        <div class="dp-top">
+          <span class="dp-lab" id="dpWorkLab"></span>
+          <span class="dp-state" id="dpWorkState"></span>
+        </div>
+        <div class="dp-read">
+          <span class="dp-val" id="dpWorkVal">~0</span>
+          <span class="dp-unit" id="dpWorkUnit"></span>
+        </div>
+        <div class="dp-track" aria-hidden="true">
+          <span class="dp-seg dp-done" id="dpWorkDone"></span>
+          <span class="dp-seg dp-more" id="dpWorkMore"></span>
+          <span class="dp-seg dp-short" id="dpWorkShort"></span>
+        </div>
+        <span class="dp-cap" id="dpWorkCap"></span>
       </div>
     </div>
     <div class="drive-card-wrap">

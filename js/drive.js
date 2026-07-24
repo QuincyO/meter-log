@@ -11,6 +11,7 @@
 // imports worklist.js back (that would be circular), exactly like the route view.
 import { $, esc } from './dom.js';
 import { store } from './store.js';
+import { clockOf, hhmmMin, stamp } from './time.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
@@ -97,16 +98,53 @@ export function initDrive(opts){
   // the recorder ticks, at most every few seconds (it changes slowly and reads
   // the dayCache). Visible whenever there's a route to project, tracking or not.
   let paceAt = 0, paceBusy = false;
-  function fillPaceRow(id, pace, prefix){
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Ease the "~N" install count from its last value to n (easeOutCubic, ~420ms).
+  // Tabular-nums keeps it from jittering. Jumps straight to n when reduced motion
+  // is asked for, the value is unchanged, or the node is hidden (offsetParent null).
+  const countTimers = {};
+  function setCount(id, n){
+    const node = $(id);
+    if(!node) return;
+    const prev = parseInt(node.dataset.n || '0', 10);
+    node.dataset.n = String(n);
+    if(reduceMotion() || prev === n || !node.offsetParent){ node.textContent = `~${n}`; return; }
+    if(countTimers[id]) cancelAnimationFrame(countTimers[id]);
+    let start = 0;
+    const step = t => {
+      if(!start) start = t;
+      const p = Math.min(1, (t - start) / 420);
+      const e = 1 - Math.pow(1 - p, 3);
+      node.textContent = `~${Math.round(prev + (n - prev) * e)}`;
+      if(p < 1) countTimers[id] = requestAnimationFrame(step);
+    };
+    countTimers[id] = requestAnimationFrame(step);
+  }
+
+  // Paint one gauge card. hide short-circuits it (used to drop the Target card once
+  // its horizon is already in the past — see paintPace). Track widths are the route
+  // split done | will-fit | won't-fit as % of the whole route (done + pending).
+  function fillPaceRow(id, pace, prefix, est, hide){
     const row = $(id);
     if(!row) return;
-    if(!pace){ row.classList.add('hide'); return; }
+    if(!pace || hide){ row.classList.add('hide'); return; }
     row.classList.remove('hide');
-    $(id + 'Lab').textContent = `${prefix} ${pace.label}`;
-    $(id + 'Val').textContent = `~${pace.projected}`;
-    $(id + 'Note').textContent = pace.onPace ? 'on pace ✓' : `${pace.delta} behind`;
+    const done = est.done || 0;
+    const total = done + (est.pendingCount || 0);
+    const willDo = Math.max(0, pace.projected - done);
+    const short = Math.max(0, pace.delta || 0);
+    const pct = v => total > 0 ? (v / total) * 100 : 0;
+    $(id + 'Lab').textContent = `${prefix} · ${pace.label}`;
+    $(id + 'State').textContent = pace.onPace ? 'on pace' : `${pace.delta} short`;
+    $(id + 'Unit').textContent = `installs by ${pace.label}`;
+    $(id + 'Cap').textContent = `${done} of ${total} stops`;
+    $(id + 'Done').style.width = pct(done) + '%';
+    $(id + 'More').style.width = pct(willDo) + '%';
+    $(id + 'Short').style.width = pct(short) + '%';
     row.classList.toggle('on', pace.onPace);
     row.classList.toggle('behind', !pace.onPace);
+    setCount(id + 'Val', pace.projected);
   }
   async function paintPace(force){
     const el = $('drivePace');
@@ -119,8 +157,13 @@ export function initDrive(opts){
       paceAt = Date.now();
       if(!openState) return;
       if(!est){ el.classList.add('hide'); return; }
-      fillPaceRow('dpTarget', est.paces.target, 'Target');
-      fillPaceRow('dpWork', est.paces.work, 'Day');
+      // Once the installer's target time has passed, its projection freezes at what's
+      // already done and reads as nonsense — hide it and let the Day card carry on.
+      const nowMin = hhmmMin(clockOf(stamp()));
+      const t = est.paces.target;
+      const targetPast = !!(t && nowMin != null && t.horizonMin != null && t.horizonMin <= nowMin);
+      fillPaceRow('dpTarget', t, 'Target', est, targetPast);
+      fillPaceRow('dpWork', est.paces.work, 'Day', est, false);
       el.classList.remove('hide');
     } finally { paceBusy = false; }
   }
