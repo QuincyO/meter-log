@@ -12,7 +12,7 @@
 import { $, enc, esc, toast, withActivity } from './dom.js';
 import { idb } from './idb.js';
 import { store, cfg } from './store.js';
-import { stamp, localDate } from './time.js';
+import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
@@ -47,6 +47,12 @@ function nextWeekday(date){
   while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// A commute-pull dial value clamped to the 0–100 integer range; blank/garbage
+// falls back to the 70 default (the tuning screen is the only writer).
+function pullVal(v){
+  const n = Math.round(Number(v));
+  return isFinite(n) ? Math.max(0, Math.min(100, n)) : 70;
+}
 function planShape(){
   return {
     routeStartDate:nextWeekday(localDate()),
@@ -54,7 +60,9 @@ function planShape(){
     paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
     paceSource:store.get('wlPaceSource') || 'fallback',
     routeVariant:activeVariant(),
-    straightDistanceSource:store.get('wlStraightDistanceSource') || ''
+    straightDistanceSource:store.get('wlStraightDistanceSource') || '',
+    commutePull:pullVal(store.get('wlCommutePull')),
+    finishBy:store.get('wlFinishBy') || '14:00'
   };
 }
 
@@ -75,6 +83,8 @@ function loadPlanFields(plan){
   store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
   if(p.routeVariant) store.set('wlRouteVariant', p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('wlStraightDistanceSource', p.straightDistanceSource);
+  if(p.commutePull !== '' && p.commutePull != null) store.set('wlCommutePull', String(p.commutePull));
+  if(p.finishBy) store.set('wlFinishBy', p.finishBy);
   savePlanLocal();
 }
 
@@ -312,7 +322,9 @@ async function optimizeRouteHandler(straightLine){
     // tap route.js ignores it outright — there is no road matrix to compare
     // against, and this must never be the thing that causes one.
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
-      straightLine, startFromCurrent, compareVariants: !straightLine
+      straightLine, startFromCurrent, compareVariants: !straightLine,
+      target, dayFinishBy: hhmmMin(planShape().finishBy), departMin: hhmmMin(ROUTE_DEPART_TIME),
+      paceMin: planShape().paceMin, commutePull: planShape().commutePull
     });
     const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
@@ -321,7 +333,7 @@ async function optimizeRouteHandler(straightLine){
       x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
-    const planOpts = { ...planShape(), target };
+    const planOpts = { ...planShape(), target: base.dayTarget || target };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals

@@ -24,6 +24,15 @@ test('the phone plan anchors first-stop time to the departure constant', () => {
   assert.doesNotMatch(worklistJs, /\$\('wlRouteTime'\)/);
 });
 
+test('the phone reads dials and feeds them into optimize', () => {
+  // planShape surfaces both dials with the agreed defaults.
+  assert.match(worklistJs, /commutePull:\s*pullVal\(store\.get\('wlCommutePull'\)\)/);
+  assert.match(worklistJs, /finishBy:\s*store\.get\('wlFinishBy'\)\s*\|\|\s*'14:00'/);
+  // the optimize call now carries the day-sizing + weight inputs.
+  assert.match(worklistJs, /optimizeRoute\([^;]*\bdayFinishBy:\s*hhmmMin\(planShape\(\)\.finishBy\)/s);
+  assert.match(worklistJs, /optimizeRoute\([^;]*\bcommutePull:\s*planShape\(\)\.commutePull/s);
+});
+
 test('the planner drops its first-stop input and uses the departure constant', () => {
   assert.doesNotMatch(plannerHtml, /id="plRouteTime"/);
   assert.match(plannerHtml, /id="plRouteDate"/); // the office still picks a start date
