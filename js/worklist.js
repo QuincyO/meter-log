@@ -16,6 +16,7 @@ import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
+import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 // The address helpers (split/join/recent streets) live with the fill-in screen —
@@ -37,6 +38,7 @@ let planEstimate = null;        // set by initWorklist (capture.js): async () =>
 let _wlEditId = null;           // null = new order, string = id being edited
 let routeView = null;           // initialized once the capture page DOM is ready
 let addrFill = null;            // the address fill-in walkthrough (same)
+let tuning = null;              // the #tuning route-dials screen (same)
 let driveView = null;           // the #drive driving screen (same)
 
 function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
@@ -516,6 +518,10 @@ export async function openWorklist(){
   refreshAvgDay();   // best-effort avg/day hint beside the target field
   window.scrollTo(0, 0);
 }
+export function openTuning(){
+  if(location.hash !== '#tuning') history.pushState({ tuning:1 }, '', '#tuning');
+  return tuning.open();
+}
 function hideScreen(){
   $('worklistScreen').classList.add('hide');
   if(routeView) routeView.close();
@@ -556,6 +562,15 @@ async function openAddressFill(){
 }
 
 async function showHashScreen(){
+  // The route-tuning screen is a leaf opened from the capture nav — handle it
+  // first, and close it on any other hash (including Back out of it) so the
+  // existing chain below can restore the right screen.
+  if(location.hash === '#tuning'){
+    routeView.close();
+    await addrFill.close();
+    return tuning.open();
+  }
+  tuning.close();
   // Leaving the Drive screen just hides it — GPS recording is app-level now and
   // keeps running (js/drive-recorder.js). Close it before opening the next screen.
   if(driveView && driveView.isOpen() && location.hash !== '#drive') await driveView.close();
@@ -1314,6 +1329,7 @@ export function initWorklist(opts){
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });
+  tuning = initWorklistTuning();
   $('wlBack').onclick = closeWorklist;
   $('wlDrive').onclick = openDriveScreen;
   $('wlViewRoute').onclick = openWorklistRoute;

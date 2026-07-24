@@ -16,7 +16,7 @@ import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { projectDay } from '../compute/estimate.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
+import { initWorklist, openWorklist, openTuning, markWorklistDone, planAdvance, syncWorklist, planActive } from '../worklist.js';
 import {
   initDriveRecorder, finishAndUpload, isRecording, armedToday,
   startRecording, stopRecording, subscribe as subscribeDrive,
@@ -1481,6 +1481,7 @@ $('navBtn').onclick = e => { e.stopPropagation(); $('navMenu').classList.toggle(
 document.addEventListener('click', () => { const m=$('navMenu'); if(m) m.classList.add('hide'); });
 $('navWorklist').onclick = () => { $('navMenu').classList.add('hide'); openWorklist(); };
 $('navRecent').onclick    = () => { $('navMenu').classList.add('hide'); openRecent(); };
+$('navTuning').onclick    = () => { $('navMenu').classList.add('hide'); openTuning(); };
 $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openSheet('settingsSheet'); };
 $('navHelp').onclick      = () => { window.location.href = 'help.html'; };
 

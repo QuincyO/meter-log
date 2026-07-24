@@ -38,3 +38,17 @@ test('the tuning screen has both dials, a readout and a save', () => {
   // the org-wide leave time is shown as read-only context, not an input
   assert.match(html, /08:15/);
 });
+
+const worklistJs = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
+const captureJs = readFileSync(new URL('../js/pages/capture.js', import.meta.url), 'utf8');
+
+test('worklist routes #tuning and exports an opener', () => {
+  assert.match(worklistJs, /import\s*\{\s*initWorklistTuning\s*\}\s*from\s*'\.\/worklist-tuning\.js'/);
+  assert.match(worklistJs, /location\.hash === '#tuning'/);
+  assert.match(worklistJs, /export function openTuning\(/);
+});
+
+test('the capture nav opens the tuning screen', () => {
+  assert.match(captureJs, /openTuning/);
+  assert.match(captureJs, /\$\('navTuning'\)\.onclick/);
+});
