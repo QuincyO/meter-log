@@ -1059,8 +1059,9 @@ installer's saved rows.
 | `ignored`     | string | `'TRUE'` = set aside: out of the route, day counts, meters/day target and plan mode, but still on the list and still synced. Deliberately **not** a third `wlStatus` value — `clearDoneWorklistJob` sweeps `'done'` rows nightly, and a set-aside order must survive |
 | `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous **stop**. A day's first stop is 0 — the drive out to it is not in this total (see `homeLegMeters*`) |
 | `orderStraight` / `dayStraight` / `legMetersStraight` | number | the saved **straight-line route**, same three fields |
-| `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving **between-stops** leg for each variant. A day's first stop is empty — the drive out to it is not routed or drawn. Empty when the planner never fetched directions, a leg had no route, or an Optimize reordered the stop and OSRM was down (blanked so a stale leg can't be drawn — see "Route variants"). Opaque text; `setupSheets` pins these columns to `@` |
+| `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving **between-stops** leg for each variant. A day's first stop is empty here — its drive out from the crew start is drawn separately from `homeLegGeometry*` (below). Empty when the planner never fetched directions, a leg had no route, or an Optimize reordered the stop and OSRM was down (blanked so a stale leg can't be drawn — see "Route variants"). Opaque text; `setupSheets` pins these columns to `@` |
 | `homeLegMetersRoad` / `homeLegMetersStraight` | number | per-variant drive-out distance to a **day's first stop**, stored on that first stop (one per day). Measured from the crew's **team start** (the morning drive out of the muster point) — **only** when one is set. Home is the end-of-day bias and is **never** a drive-out anchor, so a run with no team start records nothing here. Deliberately **kept out of** `legMeters*` and the day/route total — a "distance out" reference number, shown as a **`start`** readout on the day headers. Empty for non-first stops and when the crew has no start location. (Field name is legacy; despite the `home` prefix it holds the **crew-start** drive-out.) |
+| `homeLegGeometryRoad` / `homeLegGeometryStraight` | string | per-variant **drive-out path** from the crew start to a **day's first stop**, stored on that first stop (parallel to `homeLegMeters*`). The OSRM road polyline (polyline5) when the local server is up, else a straight two-point line `encodePolyline`'d from the crew-start and first-stop coords, else empty (no crew start on file). Drawn as a **faint dashed line + start pin** on both the planner map and the phone route view — never in any distance total. Rides the sync verbatim, blanked on any reorder, drawn only while `variantMatchesLive` holds. Opaque text; `setupSheets` pins these columns (`AH:AI`) to `@` |
 
 ### Route variants (the two saved routes)
 
@@ -1096,9 +1097,11 @@ marks it "edited".
 **Road directions geometry.** The desktop planner also fetches the *actual road
 path* of every **between-stops** leg of both variants from the same local OSRM —
 the `route` service (`osrmLegGeometry` in `js/route.js`, one GET per leg), distinct
-from the `table` service that gives the distance matrix. A day's first stop has no
-incoming leg fetched or drawn — the drive out to it (from the crew start) is not
-routed (only measured), so no drive-out line appears on the planner map. The polyline5
+from the `table` service that gives the distance matrix. A day's first stop stores no
+*between-stops* geometry — but the **drive out to it from the crew start is fetched and
+drawn** separately, into `homeLegGeometry*` (road path when OSRM is up, a straight
+`encodePolyline`'d two-point line otherwise), rendered as a faint dashed line + start
+pin on both maps and kept out of every distance total. The polyline5
 result is stored on the **arriving** order in `legGeometryRoad`/`legGeometryStraight`
 (same between-stops leg semantics as `legMeters*`), so the planner map draws real
 roads instead of straight pin-to-pin lines (`decodePolyline` + Leaflet). Geometry is
@@ -1126,8 +1129,10 @@ variant's `legGeometry*` per leg with `decodePolyline` — on-device, **no netwo
 so a downloaded road route follows real roads on the phone map, exactly like the
 planner. Any leg without saved geometry (an edited/quick-change leg, or a list the
 office never routed) draws as a straight segment. So only the desktop *generates*
-geometry; the phone only *displays* it and stays fully offline. Like the planner,
-the phone draws no drive-out leg — the day's first stop just starts the line.
+geometry; the phone only *displays* it and stays fully offline. The phone also draws
+the crew-start **drive-out** the same way — decoding the day-first-stop's
+`homeLegGeometry*` into a faint dashed line with a distinct start pin (road path when
+the office saved one, straight otherwise; nothing when the crew has no start).
 
 ### WorklistPlan row  (one per installer → tab "WorklistPlans")
 | field | type | notes |
