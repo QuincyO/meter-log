@@ -12,7 +12,17 @@
 import { $, esc } from './dom.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
+  liveMetrics, showMetricsPref,
 } from './drive-recorder.js';
+
+// Driver-facing units: miles / mph (the office map uses km/kmh — deliberately
+// not reconciled). Metres→miles and m/s→mph.
+const MILES_PER_M = 1 / 1609.344;
+const MPH_PER_MS = 2.2369363;
+const fmtIdle = min => {
+  const s = Math.max(0, Math.round(min * 60));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+};
 
 export function initDrive(opts){
   let openState = false;
@@ -38,6 +48,26 @@ export function initDrive(opts){
     const w = $('driveWakeToggle');
     if(w) w.checked = wakePref();
   }
+
+  // ── optional driving-stats HUD (off unless the #tuning toggle is on) ──
+  // Shown only while this phone is actively recording; the numbers are
+  // foreground-tracked, so they undercount whenever the app was backgrounded
+  // (Google-Maps hand-off) — the card carries a note saying so.
+  function paintMetrics(){
+    const el = $('driveMetrics');
+    if(!el) return;
+    const show = showMetricsPref() && isRecording();
+    el.classList.toggle('hide', !show);
+    if(!show) return;
+    const m = liveMetrics();
+    $('dmDistance').textContent = (m.distanceM * MILES_PER_M).toFixed(1);
+    $('dmAvg').textContent = Math.round(m.avgSpeed * MPH_PER_MS);
+    $('dmIdle').textContent = fmtIdle(m.idleMin);
+    $('dmMax').textContent = Math.round(m.maxSpeed * MPH_PER_MS);
+  }
+
+  // One repaint entry point for the recorder's subscribe() — indicator + HUD.
+  function paintAll(){ paintIndicator(); paintMetrics(); }
 
   function renderCard(){
     const card = $('driveCard');
@@ -80,9 +110,9 @@ export function initDrive(opts){
     openState = true;
     idx = 0;
     screen.classList.remove('hide');
-    if(!unsub) unsub = subscribe(paintIndicator);
+    if(!unsub) unsub = subscribe(paintAll);
     await refresh();
-    paintIndicator();
+    paintAll();
     window.scrollTo(0, 0);
     $('driveBack').focus();
   }
@@ -112,7 +142,7 @@ export function initDrive(opts){
   $('driveTrackBtn').onclick = async () => {
     if(isRecording()) await stopRecording();
     else startRecording();
-    paintIndicator();
+    paintAll();
   };
   $('driveWakeToggle').onchange = e => { setWakePref(e.target.checked); };
 

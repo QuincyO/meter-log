@@ -37,6 +37,20 @@
 
 .drive-pos{ text-align:center; font-size:14px; margin:12px 0 4px; }
 
+/* Optional driving-stats HUD. Off by default; units are miles/mph for the driver
+   (the office map uses km/kmh — intentionally NOT reconciled). Numbers are
+   foreground-tracked only, so the note flags the Google-Maps gaps as excluded. */
+.drive-metrics{ margin:6px 0 2px; }
+.drive-metrics-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.dm-cell{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:10px 6px;
+}
+.dm-val{ font-size:22px; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; }
+.dm-lab{ font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.4px; }
+.dm-note{ text-align:center; font-size:12px; margin:8px 0 0; }
+
 /* Navigate is the primary target and the biggest; Back/Next flank it, smaller. */
 .drive-actions{
   display:flex; align-items:stretch; gap:10px; margin-top:4px;

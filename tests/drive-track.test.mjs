@@ -97,6 +97,36 @@ test('segmentSummary reports max speed and point count', () => {
   assert.ok(s.avgSpeed > 0);
 });
 
+test('segmentSummary counts stationary time as idle', () => {
+  // Truck parked: points land on the time trigger (~4 s apart) with ~0 speed and
+  // only GPS jitter for movement. Every interval after the first is idle.
+  const idleLeg = [
+    { lat: 45.0,      lng: -79.0, t: T0 + 0,     spd: 0 },
+    { lat: 45.00003,  lng: -79.0, t: T0 + 4000,  spd: 0.1 },
+    { lat: 45.0,      lng: -79.0, t: T0 + 8000,  spd: 0.0 },
+    { lat: 45.00002,  lng: -79.0, t: T0 + 12000, spd: 0.2 },
+  ];
+  const s = segmentSummary(idleLeg);
+  // 3 idle intervals × 4 s = 12 s ⇒ 0.2 min.
+  assert.ok(Math.abs(s.idleMin - 0.2) < 0.01, `idleMin ${s.idleMin}`);
+});
+
+test('segmentSummary reports ~zero idle for a steady drive', () => {
+  // `leg` never drops below 12 m/s, so no interval is idle.
+  assert.equal(segmentSummary(leg).idleMin, 0);
+});
+
+test('segmentSummary does not count a background gap as idle', () => {
+  // A 10-minute Google-Maps hand-off (spd 0 at the far-away resume) must not be
+  // read as ten idle minutes — the gap interval is excluded, like distance.
+  const seg = createSegment({ id: 's1' });
+  addFix(seg, { lat: 45.0, lng: -79.0, t: T0, spd: 10 });
+  addFix(seg, { lat: 45.002, lng: -79.0, t: T0 + 8000, spd: 12 });
+  markPause(seg);
+  markResume(seg, { lat: 45.5, lng: -79.5, t: T0 + 608000, spd: 0 }); // 10 min later
+  assert.ok(segmentSummary(seg.points).idleMin < 0.1, `idleMin ${segmentSummary(seg.points).idleMin}`);
+});
+
 test('finalizeSegment assembles the Sheet row', () => {
   const seg = createSegment({ id: 'seg-1', installer: 'Sam', date: '2026-07-23', workType: 'land' });
   leg.forEach(f => addFix(seg, f));

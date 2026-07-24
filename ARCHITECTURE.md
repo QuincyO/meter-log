@@ -661,7 +661,15 @@ screen, not just `#drive`.
   order that was pressed. Advance/Back move a **local display pointer** across the
   pending set *only*; none of them change an order's status, touch the Sheet, or affect
   plan mode (an order still goes `done` only when its meter is logged, exactly as
-  before). Deliberately no map, no speed, no trip numbers on screen. The screen also
+  before). **By default** no map, no speed, no trip numbers on screen — but an
+  **optional driving-stats HUD** (total distance / avg mph / idle / max mph, in
+  **miles+mph** for the driver, unlike the office map's km/kmh) can be switched on
+  **per phone** via the `#tuning` screen's *Show driving stats* toggle
+  (`localStorage['driveShowMetrics']`, default OFF, **never uploaded**). It shows only
+  while this phone is actively recording, updates each GPS fix from `liveMetrics()`
+  (recorder-side day totals = finalized legs + the live leg), and is labeled *"Maps gaps
+  not counted"* because foreground-only tracking undercounts a same-phone Maps hand-off
+  (true gap-filled totals are office-side, not yet built). The screen also
   holds the **▶ Start / ■ Stop drive tracking** button (arms/disarms the recorder) and
   the wake-lock toggle; opening/closing the screen no longer starts/stops GPS.
 - **Office-facing (silent, `js/drive-recorder.js`):** records the driving leg — GPS
@@ -687,7 +695,8 @@ The pure track model is `js/drive-track.js` (DOM-free, unit-tested): a segment
 state machine (`createSegment`/`addFix`/`markPause`/`markResume`/`finalizeSegment`),
 a compact interleaved-varint polyline (`encodeTrack`/`decodeTrack`, lat/lng ×1e5,
 time **relative** to leg start so the zig-zag never overflows int32, speed 0.1 m/s),
-and `segmentSummary` (distance/avg/max, m/s). A **fix filter** drops a new point
+and `segmentSummary` (distance/avg/max in m/s, plus **`idleMin`** — time on intervals
+at or below `IDLE_SPEED_MS` ≈ 0.5 m/s, gaps excluded like distance). A **fix filter** drops a new point
 that is both < 15 m and < 3 s from the last (jitter + battery/storage dial);
 `MAX_POINTS` rolls a very long leg to a fresh row before the 50k-char cell limit.
 

@@ -255,6 +255,8 @@ While the Drive screen is open, the app records your driving route and speed for
 
 Recording only happens while the Drive screen is in front. When you open Google Maps to navigate, recording pauses and picks back up when you return — the office sees those as gaps, not missing data. **Ending your day (Finish/Close) turns Drive mode off automatically.**
 
+**Want to see your own numbers?** Turn on **Show driving stats in Drive mode** on the **Route tuning** screen (this switch stays on your phone and isn't sent to the office). While you're recording, the Drive screen then shows total distance, average and top speed, and idle time. Because the phone can't track while you're in Google Maps, these count only what it recorded on the app — so they read low if you navigate on the same phone; the card says "Maps gaps not counted" as a reminder.
+
 ### Moving the list between devices
 
 **⇪ Upload list** saves your list to the sheet; **⇩ Download list** replaces the phone's list with the saved copy (matched on your H number, so set up Settings first). Use it to plan on one device and run the route on another. Both need signal, both replace the whole list, and both confirm before doing it.

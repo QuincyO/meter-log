@@ -7,6 +7,7 @@
 // (commute pull's true cost needs a real route — deferred, see docs/backlog).
 import { $, esc, toast } from './dom.js';
 import { store, cfg } from './store.js';
+import { showMetricsPref, setShowMetricsPref } from './drive-recorder.js';
 import { apiGet } from './api.js';
 import { hhmmMin } from './time.js';
 import { ROUTE_DEPART_TIME } from './config.js';
@@ -65,6 +66,7 @@ function loadControls(){
   pull.value = String(pullVal(store.get('wlCommutePull')));
   $('tuneCommutePullVal').textContent = pull.value + '%';
   $('tuneFinishBy').value = store.get('wlFinishBy') || '14:00';
+  $('tuneShowDriveMetrics').checked = showMetricsPref();
 }
 
 function save(){
@@ -90,6 +92,8 @@ export function initWorklistTuning(){
   $('tuneCommutePull').oninput = () => { $('tuneCommutePullVal').textContent = $('tuneCommutePull').value + '%'; };
   $('tuneFinishBy').oninput = render;
   $('tuneSave').onclick = save;
+  // Device-local: save on toggle, independent of Save/Upload — it never syncs.
+  $('tuneShowDriveMetrics').onchange = e => setShowMetricsPref(e.target.checked);
   $('tuneBack').onclick = () => location.hash === '#tuning' ? history.back() : close();
   return { open, close };
 }

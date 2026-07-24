@@ -24,7 +24,7 @@ import { localDate, localDateOffset } from './time.js';
 import { idb } from './idb.js';
 import { enqueue } from './queue.js';
 import {
-  createSegment, addFix, markPause, markResume, finalizeSegment,
+  createSegment, addFix, markPause, markResume, finalizeSegment, segmentSummary,
   isWorthUploading, MAX_POINTS,
 } from './drive-track.js';
 
@@ -42,6 +42,12 @@ function setRecord(on){ store.set('driveRecord', JSON.stringify({ on, date: loca
 // Keep-screen-awake is a device preference (persists across days), default off.
 export function wakePref(){ return store.get('driveWake') === '1'; }
 
+// Show-driving-stats is a device preference (per-phone, NOT uploaded — the office
+// never sees it; see js/worklist-tuning.js for the toggle). Default off, which
+// preserves the "no numbers on the Drive screen" behavior.
+export function showMetricsPref(){ return store.get('driveShowMetrics') === '1'; }
+export function setShowMetricsPref(on){ store.set('driveShowMetrics', on ? '1' : '0'); notify(); }
+
 // ── module singleton state ──────────────────────────────────────────────────
 let started = false;        // initDriveRecorder() ran once
 let seg = null;             // the active leg, or null when not tracking
@@ -49,6 +55,39 @@ let watchId = null;
 let wakeLock = null;
 let resumePending = false;   // the next fix closes a background gap
 const listeners = new Set();
+
+// ── live day metrics (for the optional Drive-screen HUD) ─────────────────────
+// Running totals of the day's FINALIZED legs; the active leg is added live in
+// liveMetrics() from segmentSummary(seg.points), so it's never double-counted.
+// Seeded from today's stored legs on init, folded once as each leg finalizes.
+// All internal units are SI (metres, ms, m/s) — the HUD converts to mi/mph.
+function emptyDay(){ return { distanceM: 0, idleMs: 0, elapsedMs: 0, maxSpeed: 0 }; }
+let dayBase = emptyDay();
+
+function foldIntoDay(sum){
+  if(!sum) return;
+  dayBase.distanceM += sum.distanceM || 0;
+  dayBase.idleMs    += (sum.idleMin || 0) * 60000;
+  dayBase.elapsedMs += (sum.driveMin || 0) * 60000;
+  if((sum.maxSpeed || 0) > dayBase.maxSpeed) dayBase.maxSpeed = sum.maxSpeed;
+}
+
+// Day totals so far = finalized legs (dayBase) + the leg in progress. Distances
+// in metres, speeds in m/s, idle in minutes; avg speed spans stopped time.
+export function liveMetrics(){
+  const live = seg ? segmentSummary(seg.points) : null;
+  const distanceM = dayBase.distanceM + (live ? live.distanceM : 0);
+  const idleMs    = dayBase.idleMs    + (live ? live.idleMin * 60000 : 0);
+  const elapsedMs = dayBase.elapsedMs + (live ? live.driveMin * 60000 : 0);
+  const maxSpeed  = Math.max(dayBase.maxSpeed, live ? live.maxSpeed : 0);
+  const avgSpeed  = elapsedMs > 0 ? distanceM / (elapsedMs / 1000) : 0;
+  return {
+    distanceM,
+    idleMin: +(idleMs / 60000).toFixed(2),
+    avgSpeed: +avgSpeed.toFixed(2),
+    maxSpeed: +maxSpeed.toFixed(2),
+  };
+}
 
 function notify(){ for(const cb of listeners) { try { cb(); } catch {} } }
 export function subscribe(cb){ listeners.add(cb); return () => listeners.delete(cb); }
@@ -92,7 +131,9 @@ function checkpoint(){
 // to end of day (finishAndUpload) or the next-open safety net (recoverStale).
 async function finalizeLocal(s){
   if(!isWorthUploading(s)){ await idb.del('driveTracks', s.id); return; }
-  await idb.put('driveTracks', { ...finalizeSegment(s), active: false, queued: false });
+  const row = { ...finalizeSegment(s), active: false, queued: false };
+  await idb.put('driveTracks', row);
+  foldIntoDay(row); // this leg is now finalized — roll it into the day totals
 }
 
 // ── GPS runtime ──
@@ -108,6 +149,7 @@ function onFix(p){
   if(resumePending){ markResume(seg, fix); resumePending = false; }
   else addFix(seg, fix);
   checkpoint();
+  notify(); // refresh the live HUD (only the Drive screen subscribes)
 }
 function onErr(){ /* a denied/timed-out fix just means no point this tick */ }
 
@@ -166,6 +208,12 @@ export async function initDriveRecorder(){
   // already checkpointed the leg, so recoverStale() picks it up next open.
   window.addEventListener('pagehide', () => { checkpoint(); });
   await recoverStale();
+  // Seed the day totals from today's already-finalized legs (recoverStale has
+  // just flipped any crash-leftover active leg to inactive). The leg we're about
+  // to start (if armed) stays live and uncounted here — liveMetrics() adds it.
+  dayBase = emptyDay();
+  const today = localDate();
+  for(const r of (await idb.all('driveTracks')) || []) if(r.date === today) foldIntoDay(r);
   if(recordState().on) startWatch();
   notify();
 }

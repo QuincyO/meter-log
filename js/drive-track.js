@@ -17,6 +17,10 @@
 export const MIN_MOVE_M = 15;
 export const MIN_GAP_S = 3;
 
+// A fix at or below this speed (m/s ≈ 1 mph) counts its interval as idle —
+// stopped at a light, parked, crawling. Used by segmentSummary()'s idle tally.
+export const IDLE_SPEED_MS = 0.5;
+
 // Safety cap on points per leg so a single row never approaches the Sheet's
 // 50k-char/cell limit (~12 chars/point encoded ⇒ ~42k chars). Island legs are
 // short, so this is a guard, not a norm; the runtime finalizes + starts a fresh
@@ -138,10 +142,13 @@ export function markResume(seg, fix){
 // ── Office-side numbers (never shown to the driver) ────────────────────────
 export function segmentSummary(points){
   const pts = points || [];
-  let distanceM = 0, maxSpeed = 0;
+  let distanceM = 0, maxSpeed = 0, idleMs = 0;
   for(let i = 1; i < pts.length; i++){
-    if(pts[i].gap) continue; // don't count the pause→resume jump as driven distance
+    if(pts[i].gap) continue; // don't count the pause→resume jump as driven distance/idle
     distanceM += haversineM(pts[i - 1], pts[i]);
+    // spd on point i characterizes the interval i-1→i (device speed, else derived
+    // from the move). At/below the idle threshold the truck was effectively stopped.
+    if((pts[i].spd || 0) <= IDLE_SPEED_MS) idleMs += pts[i].t - pts[i - 1].t;
   }
   for(const p of pts) if((p.spd || 0) > maxSpeed) maxSpeed = p.spd;
   const driveMs = pts.length > 1 ? pts[pts.length - 1].t - pts[0].t : 0;
@@ -150,6 +157,7 @@ export function segmentSummary(points){
     pointCount: pts.length,
     distanceM: Math.round(distanceM),
     driveMin: +(driveMs / 60000).toFixed(2),
+    idleMin: +(idleMs / 60000).toFixed(2), // stopped time (≤ IDLE_SPEED_MS), gaps excluded
     avgSpeed: +avgSpeed.toFixed(2), // m/s over the whole leg (stopped time included)
     maxSpeed: +maxSpeed.toFixed(2), // m/s, best single fix
   };

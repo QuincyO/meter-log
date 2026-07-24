@@ -303,6 +303,17 @@
       <p class="muted drive-empty hide" id="driveEmpty">No pending orders. Add or download orders from the worklist.</p>
     </div>
     <div class="drive-pos muted" id="drivePos" aria-live="polite"></div>
+    <!-- Optional driving stats (off by default; toggled on the #tuning screen and
+         stored per-phone). Numbers are foreground-tracked only — see the note. -->
+    <div class="drive-metrics hide" id="driveMetrics" aria-live="polite">
+      <div class="drive-metrics-grid">
+        <div class="dm-cell"><span class="dm-val" id="dmDistance">—</span><span class="dm-lab">miles</span></div>
+        <div class="dm-cell"><span class="dm-val" id="dmAvg">—</span><span class="dm-lab">avg mph</span></div>
+        <div class="dm-cell"><span class="dm-val" id="dmIdle">—</span><span class="dm-lab">idle</span></div>
+        <div class="dm-cell"><span class="dm-val" id="dmMax">—</span><span class="dm-lab">max mph</span></div>
+      </div>
+      <p class="muted dm-note">Tracked on this phone · Maps gaps not counted</p>
+    </div>
     <div class="drive-actions">
       <button class="ghost drive-step" id="drivePrev" type="button">‹ Back</button>
       <button class="primary drive-nav" id="driveNav" type="button">Navigate</button>
@@ -339,6 +350,13 @@
     <p class="muted tune-hint">Leave-start time is set for everyone: 08:15</p>
 
     <button class="primary" id="tuneSave" type="button" style="width:100%;margin-top:14px">Save</button>
+
+    <!-- Device-local preference — saves immediately on toggle and is NOT part of
+         the Upload above (see js/worklist-tuning.js). -->
+    <div class="tune-local">
+      <label class="drive-toggle"><input id="tuneShowDriveMetrics" type="checkbox"> Show driving stats in Drive mode</label>
+      <p class="muted tune-hint">Distance, speed &amp; idle time on the Drive screen while tracking. Stays on this phone — not uploaded to the office.</p>
+    </div>
   </section>
 
   <div class="toast" id="toast"></div>
