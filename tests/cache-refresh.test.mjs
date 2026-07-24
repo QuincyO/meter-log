@@ -31,7 +31,7 @@ test('the refresh bypasses the browser HTTP cache and never deletes first', () =
 });
 
 test('the worker still owns the one SHELL list the refresh walks', () => {
-  assert.match(worker, /const CACHE = 'meterlog-v29';/);
+  assert.match(worker, /const CACHE = 'meterlog-v30';/);
   // Refreshing SHELL itself (not a page-side copy) is what stops the file list
   // from drifting the first time someone adds a module.
   assert.match(worker, /SHELL\[next\+\+\]/);

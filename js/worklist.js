@@ -24,6 +24,7 @@ import {
   addressQueue, hasNoAddress, initWorklistAddressFill, joinAddr, recentStreets,
   sinkAddressless, splitAddr,
 } from './worklist-address-fill.js';
+import { dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -582,6 +583,7 @@ export async function renderWorklist(){
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
   paintVariantSwitch(items);
   paintFillAddr(items);
+  paintDedup(items);
   if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
@@ -644,6 +646,33 @@ function paintFillAddr(items){
   const n = addressQueue(items).length;
   btn.classList.toggle('hide', !n);
   btn.textContent = `📝 Fill in missing addresses (${n})`;
+}
+
+// The duplicate-cleanup entry point, shown only when the same WO# is on the list
+// more than once. The count is the number of copies that would be removed, so the
+// button's presence is itself the answer to "are there duplicates?".
+function paintDedup(items){
+  const btn = $('wlDedup');
+  if(!btn) return;
+  const n = dedupePlan(items).dupCount;
+  btn.classList.toggle('hide', !n);
+  btn.textContent = `🔍 Check for duplicate orders (${n})`;
+}
+
+// Scan every order, and for each WO# that appears more than once keep one copy
+// (the winner rule in worklist-dedup.js) and delete the rest from IndexedDB.
+// No confirmation — it does it and reports the count. Fixes THIS phone's list;
+// re-Upload to push the cleanup to the shared sheet.
+async function runDuplicateScan(){
+  await withActivity('Checking for duplicates…', async () => {
+    const { groups, removeIds } = dedupePlan(await allSorted());
+    if(!removeIds.length){ toast('No duplicate work orders ✓'); return; }
+    for(const id of removeIds) await idb.del('worklist', id);
+    await renderWorklist();
+    await planAdvance();   // a removed copy may have been the planned next order
+    toast(`${groups.length} duplicate WO#${groups.length === 1 ? '' : 's'} cleaned · `
+      + `${removeIds.length} cop${removeIds.length === 1 ? 'y' : 'ies'} removed`);
+  });
 }
 
 // Persist one address from the walkthrough. Mirrors wlSave's edit branch: a
@@ -1101,6 +1130,14 @@ async function wlSave(){
     if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined; }
   } else {
     const items = await allSorted();
+    // Prevent a duplicate WO# at the source — the way the existing duplicates got
+    // made. A blank WO# never collides (address-only orders are legitimate); a
+    // done copy is skipped so re-adding a completed WO# for a genuine revisit is
+    // still allowed (it gets swept nightly anyway).
+    if(wo && items.some(x => x.wlStatus !== 'done' && normalizeWo(x.workOrderId) === normalizeWo(wo))){
+      toast(`WO# ${wo} is already on your list`);
+      return;
+    }
     const last = items.filter(x => x.order != null).pop();
     item = {
       id: now + '-' + Math.random().toString(36).slice(2,6),
@@ -1256,6 +1293,7 @@ export function initWorklist(opts){
   $('wlDrive').onclick = openDriveScreen;
   $('wlViewRoute').onclick = openWorklistRoute;
   $('wlFillAddr').onclick = openAddressFill;
+  $('wlDedup').onclick = runDuplicateScan;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   bindOptimizeGesture($('wlOptimize'),

@@ -22,7 +22,7 @@ test('setup formats recent-30 InstallerMetrics fields by their header names', ()
 });
 
 test('the service-worker cache includes planner services, route variants and drive mode at v29', () => {
-  assert.match(worker, /const CACHE = 'meterlog-v29';/);
+  assert.match(worker, /const CACHE = 'meterlog-v30';/);
   assert.match(worker, /['\"]\.\/js\/planner-services\.js['\"]/);
   // A new shared module only reaches phones if it is in SHELL and CACHE moved.
   assert.match(worker, /['\"]\.\/js\/route-variants\.js['\"]/);
