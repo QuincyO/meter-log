@@ -20,6 +20,7 @@ import { store } from '../store.js';
 import { stamp, localDate } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
+import { ROUTE_DEPART_TIME } from '../config.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantMatchesLive, variantSelectable, variantSummary,
@@ -69,7 +70,7 @@ function nextWeekday(date){
 function planShape(){
   return {
     routeStartDate:$('plRouteDate').value || nextWeekday(localDate()),
-    firstStopTime:$('plRouteTime').value || '08:00',
+    firstStopTime:ROUTE_DEPART_TIME,
     paceMin:Math.max(1, Math.round(Number($('plPace').value) || 30)),
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
     routeVariant:activeVariant(),
@@ -84,7 +85,6 @@ function activeVariant(){
 function loadPlan(plan){
   const p = plan || {};
   $('plRouteDate').value = p.routeStartDate || nextWeekday(localDate());
-  $('plRouteTime').value = p.firstStopTime || '08:00';
   $('plPace').value = String(Math.max(1, Number(p.paceMin) || 30));
   store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
   if(p.routeVariant) store.set('plannerVariant:' + hNumber(), p.routeVariant === 'straight' ? 'straight' : 'road');
