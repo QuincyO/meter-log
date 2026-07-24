@@ -17,7 +17,7 @@
 export const MIN_MOVE_M = 15;
 export const MIN_GAP_S = 3;
 
-// A fix at or below this speed (m/s ≈ 1 mph) counts its interval as idle —
+// A fix at or below this speed (m/s ≈ 1.8 km/h) counts its interval as idle —
 // stopped at a light, parked, crawling. Used by segmentSummary()'s idle tally.
 export const IDLE_SPEED_MS = 0.5;
 

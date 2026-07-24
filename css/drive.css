@@ -37,9 +37,9 @@
 
 .drive-pos{ text-align:center; font-size:14px; margin:12px 0 4px; }
 
-/* Optional driving-stats HUD. Off by default; units are miles/mph for the driver
-   (the office map uses km/kmh — intentionally NOT reconciled). Numbers are
-   foreground-tracked only, so the note flags the Google-Maps gaps as excluded. */
+/* Optional driving-stats HUD. Off by default; units are metric (km / km/h),
+   matching the office map. Numbers are foreground-tracked only, so the note
+   flags the Google-Maps gaps as excluded. */
 .drive-metrics{ margin:6px 0 2px; }
 .drive-metrics-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
 .dm-cell{

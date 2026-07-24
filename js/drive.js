@@ -15,10 +15,10 @@ import {
   liveMetrics, showMetricsPref,
 } from './drive-recorder.js';
 
-// Driver-facing units: miles / mph (the office map uses km/kmh — deliberately
-// not reconciled). Metres→miles and m/s→mph.
-const MILES_PER_M = 1 / 1609.344;
-const MPH_PER_MS = 2.2369363;
+// Driver-facing units: metric (km / km/h), matching the office map. Metres→km
+// and m/s→km/h.
+const KM_PER_M = 1 / 1000;
+const KMH_PER_MS = 3.6;
 const fmtIdle = min => {
   const s = Math.max(0, Math.round(min * 60));
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -60,10 +60,10 @@ export function initDrive(opts){
     el.classList.toggle('hide', !show);
     if(!show) return;
     const m = liveMetrics();
-    $('dmDistance').textContent = (m.distanceM * MILES_PER_M).toFixed(1);
-    $('dmAvg').textContent = Math.round(m.avgSpeed * MPH_PER_MS);
+    $('dmDistance').textContent = (m.distanceM * KM_PER_M).toFixed(1);
+    $('dmAvg').textContent = Math.round(m.avgSpeed * KMH_PER_MS);
     $('dmIdle').textContent = fmtIdle(m.idleMin);
-    $('dmMax').textContent = Math.round(m.maxSpeed * MPH_PER_MS);
+    $('dmMax').textContent = Math.round(m.maxSpeed * KMH_PER_MS);
   }
 
   // One repaint entry point for the recorder's subscribe() — indicator + HUD.

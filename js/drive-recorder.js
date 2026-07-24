@@ -60,7 +60,7 @@ const listeners = new Set();
 // Running totals of the day's FINALIZED legs; the active leg is added live in
 // liveMetrics() from segmentSummary(seg.points), so it's never double-counted.
 // Seeded from today's stored legs on init, folded once as each leg finalizes.
-// All internal units are SI (metres, ms, m/s) — the HUD converts to mi/mph.
+// All internal units are SI (metres, ms, m/s) — the HUD converts to km/(km/h).
 function emptyDay(){ return { distanceM: 0, idleMs: 0, elapsedMs: 0, maxSpeed: 0 }; }
 let dayBase = emptyDay();
 
