@@ -5,6 +5,19 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+// On-site install minutes derived from the installer's 30-day pace. The pace
+// (recent30AvgLogMin) is a log-to-log gap that already bundles the typical short
+// drive between stops, so we subtract a nominal baseline drive to get the hands-on
+// portion — then the scheduler adds each leg's REAL road-travel time on top. Net
+// effect: a route whose legs run about the baseline behaves like the historical
+// pace, while a travel-heavy route correctly runs longer (fewer stops fit by the
+// finish clock — the home-bias vs production balance). Floored so it never vanishes.
+export const MIN_ONSITE_MIN = 8;
+export const NOMINAL_TRAVEL_MIN = 10;
+export function onSiteMinutes(paceMin){
+  return Math.max(MIN_ONSITE_MIN, (Number(paceMin) || 0) - NOMINAL_TRAVEL_MIN);
+}
+
 function dateAtUtc(text){
   if(!DATE_RE.test(String(text || ''))) return null;
   const [y,m,d] = String(text).split('-').map(Number);
@@ -60,11 +73,30 @@ export function currentRoutePlacement(items, itemId, target){
   return { day:Math.floor(index / perDay) + 1, slot:(index % perDay) + 1 };
 }
 
-function simulateDay(slotIds, byId, firstMin, pace){
+// `travel` (optional) is the run's road-duration lookup (js/route.js travelLookup):
+// { fromStart(id) } for the morning drive out of the muster point to a day's first
+// stop, { between(fromId,toId) } for the drive between two stops. When present, each
+// stop's arrival is the previous departure plus real travel, and departure is arrival
+// plus on-site time — so ETAs reflect actual road time. When absent (straight-line /
+// no durations), the legacy flat-pace cadence is used unchanged. A leg with no known
+// duration (a free-slot placeholder, or a missing matrix cell) falls back to a
+// nominal drive so the simulation still advances.
+function simulateDay(slotIds, byId, firstMin, pace, travel){
   const schedule = {}, errors = [];
-  let delayed = 0;
+  const onSite = onSiteMinutes(pace);
+  const moveFallback = Math.max(1, pace - onSite);
+  let delayed = 0;         // total appointment wait (flat model + return value)
+  let departClock = firstMin;   // running departure clock (time model)
+  let prevId = null;
   slotIds.forEach((id, i) => {
-    const item = byId[id], raw = firstMin + i * pace + delayed;
+    const item = byId[id];
+    let raw;
+    if(travel){
+      const move = (i === 0) ? travel.fromStart(id) : travel.between(prevId, id);
+      raw = departClock + (move == null ? (i === 0 ? 0 : moveFallback) : move);
+    } else {
+      raw = firstMin + i * pace + delayed;
+    }
     let eta = raw, waitMin = 0;
     if(item && item.appointmentTime){
       const deadline = timeMin(item.appointmentTime);
@@ -76,11 +108,13 @@ function simulateDay(slotIds, byId, firstMin, pace){
       }
     }
     schedule[id] = { slot:i + 1, eta:clock(eta), waitMin:Math.round(waitMin) };
+    departClock = eta + onSite;   // leave after the on-site work
+    prevId = id;
   });
   return { schedule, errors, waitMin:delayed };
 }
 
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace){
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
@@ -95,7 +129,7 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
       // Empty slots still consume one cadence interval; use stable placeholders
       // for simulation, then discard their schedule entries.
       for(let k = 0; k < count; k++) if(!slots[k]) slots[k] = `__free_${k}`;
-      const sim = simulateDay(slots, byId, firstMin, pace);
+      const sim = simulateDay(slots, byId, firstMin, pace, travel);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
       if(!best || sim.waitMin < best.waitMin ||
@@ -136,6 +170,10 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');
   const target = Math.max(1, Math.floor(Number(opts.target) || 1));
+  // Real road-travel lookup (js/route.js travelLookup), or null on a straight-line
+  // run — passed straight through to the day simulation so ETAs reflect actual drive
+  // times when we have them and fall back to flat pace when we don't.
+  const travel = opts.travel || null;
 
   let latestDay = Math.max(0, Math.ceil(route.length / target) - 1);
   const constrainedByDay = {}, minByDay = {};
@@ -183,7 +221,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       }
       if(item.appointmentDate) appts.push(item);
     }
-    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId, firstMin, pace).anchors;
+    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId, firstMin, pace, travel).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));
@@ -193,7 +231,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), ids = [];
     for(let slot = 1; slot <= counts[day]; slot++) ids.push(anchorsByDay[day][slot] || free[freeAt++]);
-    const sim = simulateDay(ids, byId, firstMin, pace);
+    const sim = simulateDay(ids, byId, firstMin, pace, travel);
     if(sim.errors.length) throw new Error(sim.errors.join('; '));
     ids.forEach(id => {
       finalIds.push(id); dayOf[id] = day + 1;

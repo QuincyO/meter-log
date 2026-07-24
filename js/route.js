@@ -31,6 +31,7 @@ import { GMAPS_API_KEY, ORS_API_KEY } from './config.js';
 import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
+import { onSiteMinutes } from './route-constraints.js';
 
 const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const MATRIX_URL  = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
@@ -424,14 +425,21 @@ async function buildMatrix(coords, onProgress){
 // of the {lat,lng} we store; the join below is the one conversion point.
 async function osrmMatrix(coords, osrmUrl){
   const pts = coords.map(c => `${c.lng},${c.lat}`).join(';');
-  const url = `${String(osrmUrl).replace(/\/+$/, '')}/table/v1/driving/${pts}?annotations=distance`;
+  // Ask for durations alongside distances: distances solve the route (unchanged),
+  // durations (T, seconds → minutes) drive the real per-stop ETAs. Only OSRM
+  // returns them here — the straight-line/Google paths carry no T, which is what
+  // keeps ETAs off a route with no road data.
+  const url = `${String(osrmUrl).replace(/\/+$/, '')}/table/v1/driving/${pts}?annotations=distance,duration`;
   let reason = 'no response';
   for(let attempt = 0; attempt < 2; attempt++){
     try {
       const res = await fetch(url);
       const data = res.ok ? await res.json().catch(() => null) : null;
       if(data && data.code === 'Ok' && Array.isArray(data.distances))
-        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))) };
+        return { D: data.distances.map(row => row.map(v => v == null ? Infinity : Number(v))),
+          T: Array.isArray(data.durations)
+            ? data.durations.map(row => row.map(v => v == null ? Infinity : Number(v) / 60))
+            : null };
       reason = res.ok ? ((data && data.code) || 'bad response') : `HTTP ${res.status}`;
       console.warn('OSRM table failed:', reason);
     } catch(e){
@@ -784,6 +792,18 @@ function orderChunkHome(D, locIdxChunk){
   // reverse + drop the home node → sub-positions 1..m, mapped back to the chunk.
   return t.slice().reverse().slice(0, -1).map(p => locIdxChunk[p - 1]);
 }
+// Two-anchor day-cluster: matrix M is over [teamStart, ...located, home] (node 0
+// = the crew's morning muster point, last node = the installer's home). Order the
+// chunk as an open path pinned at BOTH ends — start near the muster point, end
+// near home — so each day is a tidy commute: short drive out, short drive home.
+function orderChunkStartHome(D, locIdxChunk){
+  if(locIdxChunk.length <= 1) return locIdxChunk.slice();
+  const home = D.length - 1;
+  const nodes = [0, ...locIdxChunk.map(k => k + 1), home];  // start + chunk + home
+  const t = solveAnchoredPath(subMatrix(D, nodes), { pinEnd:true });
+  // drop start (first) and home (last); middle positions map back to the chunk.
+  return t.slice(1, -1).map(p => locIdxChunk[p - 1]);
+}
 
 // ── one route variant (solve + optional day-split) ──────────────────────────
 // Pulled out of optimizeRoute so the SAME construction can be run twice over
@@ -799,7 +819,17 @@ function solveVariant(M, located, { startC, homeC, target }){
   const dayOf = {};
   let dayFallback = false;
   if(target > 0){
-    if(homeC && !startC){
+    if(startC && homeC){
+      // Crew leaves the muster point each morning and heads home each night:
+      // every day is pinned start → … → home.
+      orderedSeq = [];
+      for(let s = 0; s < masterSeq.length; s += target){
+        const day = Math.floor(s / target) + 1;
+        const ordered = orderChunkStartHome(M, masterSeq.slice(s, s + target));
+        ordered.forEach(k => { dayOf[located[k].id] = day; });
+        orderedSeq.push(...ordered);
+      }
+    } else if(homeC && !startC){
       orderedSeq = [];
       for(let s = 0; s < masterSeq.length; s += target){
         const day = Math.floor(s / target) + 1;
@@ -831,49 +861,54 @@ function solveVariant(M, located, { startC, homeC, target }){
 export function legMetersFor(measure, orderedIds, dayOf){
   const out = {};
   if(!measure || !measure.D) return out;
-  const { D, indexById, homeIndex, startIndex } = measure;
+  const { D, indexById, homeIndex, startIndex, startIsCommute } = measure;
+  // Where the morning drive-out starts: the team muster point when one is set (a
+  // commute driven every day), else the home pin. Either way that leg is measured
+  // separately (homeLegMetersFor) and kept OUT of the between-stop total below.
+  const commuteAnchor = startIsCommute ? startIndex : homeIndex;
   let prev = null, prevDay = null;
   (orderedIds || []).forEach((id, i) => {
     const idx = indexById[id];
     if(idx == null) return;                    // parked/unknown — no leg
     const day = (dayOf && dayOf[id]) || null;
     const dayStart = prev == null || (day && day !== prevDay);
-    // The drive OUT from the home pin to a day's first stop is NOT charged to
-    // the day's driving total: it is measured on its own by homeLegMetersFor and
-    // saved for reference, deliberately kept out of the km the office compares.
-    // Every other leg is charged — including a phone "start from here" first leg
-    // (startIndex), which is a real driven leg, not a home leg.
-    const fromHome = dayStart && !(i === 0 && startIndex != null);
+    // A phone "start from here" GPS fix (not a muster point) makes the route's very
+    // first leg a real driven leg mid-route, which IS charged. Every other day-start
+    // leg is a drive-out — charged 0 here.
+    const chargedGpsFirst = !startIsCommute && i === 0 && startIndex != null;
+    const driveOut = dayStart && !chargedGpsFirst;
     let from = prev;
-    if(dayStart) from = fromHome ? homeIndex : startIndex;
-    const m = (fromHome || from == null) ? 0 : D[from][idx];
+    if(dayStart) from = chargedGpsFirst ? startIndex : commuteAnchor;
+    const m = (driveOut || from == null) ? 0 : D[from][idx];
     out[id] = isFinite(m) ? Math.round(m) : 0;
     prev = idx; prevDay = day;
   });
   return out;
 }
 
-// Metres driven OUT from the home pin to each day's FIRST stop — the drive-out
-// leg legMetersFor deliberately leaves out of the day total. Returns { id: metres }
-// keyed on the day's first stop, one entry per day, so the planner/phone can show
-// it as a per-day "distance to home" readout without folding it into the driving
-// total. Mirrors legMetersFor's day-start detection exactly. The phone "start from
-// here" first leg (startIndex) is a real driven leg, not a home leg, so it is not
-// recorded. Empty when the run had no home anchor.
+// Metres driven OUT to each day's FIRST stop — the drive-out leg legMetersFor
+// deliberately leaves out of the day total. The drive-out comes from the team
+// muster point when one is set (measured every day the crew leaves it), else from
+// the home pin. Returns { id: metres } keyed on the day's first stop, one entry per
+// day, so the planner/phone can show a per-day "distance out" readout without
+// folding it into the driving total. Mirrors legMetersFor's day-start detection.
+// The phone "start from here" first leg is a real driven leg, not a drive-out, so
+// it is not recorded. Empty when the run had no drive-out anchor.
 export function homeLegMetersFor(measure, orderedIds, dayOf){
   const out = {};
   if(!measure || !measure.D) return out;
-  const { D, indexById, homeIndex, startIndex } = measure;
-  if(homeIndex == null) return out;
+  const { D, indexById, homeIndex, startIndex, startIsCommute } = measure;
+  const commuteAnchor = startIsCommute ? startIndex : homeIndex;
+  if(commuteAnchor == null) return out;
   let prev = null, prevDay = null;
   (orderedIds || []).forEach((id, i) => {
     const idx = indexById[id];
     if(idx == null) return;                    // parked/unknown — no leg
     const day = (dayOf && dayOf[id]) || null;
     const dayStart = prev == null || (day && day !== prevDay);
-    const fromHome = dayStart && !(i === 0 && startIndex != null);
-    if(fromHome){
-      const m = D[homeIndex][idx];
+    const chargedGpsFirst = !startIsCommute && i === 0 && startIndex != null;
+    if(dayStart && !chargedGpsFirst){
+      const m = D[commuteAnchor][idx];
       out[id] = isFinite(m) ? Math.round(m) : 0;
     }
     prev = idx; prevDay = day;
@@ -881,10 +916,67 @@ export function homeLegMetersFor(measure, orderedIds, dayOf){
   return out;
 }
 
+// Travel-time lookup over the run's duration matrix (T), for the scheduler's real
+// per-stop ETAs. `between(fromId,toId)` is the drive time between two stops; the
+// scheduler uses it for any adjacency it forms (appointments can reorder within a
+// day). `fromStart(toId)` is the morning drive out of the team muster point (or the
+// home pin) to a day's first stop. Returns null when the run carried no durations
+// (straight-line / non-OSRM matrix) — which is what keeps ETAs off those routes.
+export function travelLookup(measure){
+  if(!measure || !measure.T) return null;
+  const { T, indexById, startIndex, homeIndex } = measure;
+  const startNode = startIndex != null ? startIndex : homeIndex;
+  const at = (a, b) => {
+    if(a == null || b == null) return null;
+    const v = T[a][b];
+    return isFinite(v) ? v : null;
+  };
+  return {
+    between: (fromId, toId) => at(indexById[fromId], indexById[toId]),
+    fromStart: (toId) => at(startNode, indexById[toId]),
+  };
+}
+
+// How many stops fit in a day and still finish by opts.dayFinishBy, given real
+// durations. Uses the installer's on-site time (onSiteMinutes, pace-derived) plus
+// the route's average between-stop drive and an average morning drive-out, so a
+// travel-heavy route yields a smaller day (fewer stops → home bias) while an easy
+// route keeps the full target. A rough average, not a per-day simulation — the
+// office target is "ideally" met two hours early, not a hard cap.
+function timeCapacity(T, offset, locatedCount, startNode, opts){
+  const avail = Number(opts.dayFinishBy) - Number(opts.departMin) - (Number(opts.breakMin) || 0);
+  if(!(avail > 0) || locatedCount < 1) return Infinity;
+  const pace = Math.max(1, Number(opts.paceMin) || 30);
+  let sum = 0, cnt = 0;
+  for(let k = 0; k < locatedCount - 1; k++){
+    const v = T[offset + k][offset + k + 1];
+    if(isFinite(v)){ sum += v; cnt++; }
+  }
+  const avgBetween = cnt ? sum / cnt : 0;
+  let msum = 0, mcnt = 0;
+  if(startNode != null) for(let k = 0; k < locatedCount; k++){
+    const v = T[startNode][offset + k];
+    if(isFinite(v)){ msum += v; mcnt++; }
+  }
+  const morning = mcnt ? msum / mcnt : 0;
+  const perStop = onSiteMinutes(pace) + avgBetween;
+  if(!(perStop > 0)) return Infinity;
+  return Math.max(1, Math.floor((avail - morning) / perStop));
+}
+
 // ── entry point ──────────────────────────────────────────────────────────────
 // pendingItems: the pending worklist orders in display order (each mutated in
 // place with coords). onProgress({phase, done, total}): optional UI callback.
-// home: {lat,lng} of the installer's saved home pin, or null.
+// home: {lat,lng} of the installer's home (the end-of-day bias anchor), or null.
+// opts.start: {lat,lng} of the crew's shared morning muster point (Teams tab), or
+// null. A persistent start anchor — the route departs it every day and the
+// drive-out to each day's first stop is measured from it. Distinct from
+// startFromCurrent (a one-run live GPS fix); GPS wins when both are present.
+// opts.dayFinishBy / opts.departMin / opts.breakMin / opts.paceMin: minutes-of-day
+// clock inputs for time-based day sizing. With real durations (OSRM T) and a
+// dayFinishBy, the per-day count shrinks so the work lands by that clock (default
+// planner value 14:00 — two hours before the 16:00 shift end). Returned as dayTarget
+// so the scheduler can chunk days to the same size. No durations ⇒ fixed opts.target.
 // opts.osrmUrl: a self-hosted OSRM base URL (the desktop planner passes its
 // local Docker instance) — the matrix primary is then OSRM instead of Google;
 // omitted = the phone path (budget-guarded Google matrix). Both paths back up
@@ -962,9 +1054,16 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // reassuring note, not an error: Google/ORS quietly caught the rest.
   const geoNote = geoFellBack ? 'some addresses used a fallback geocoder (local missed)' : null;
   const homeC = coordsOf(home);
-  const startC = wantsCurrentStart ? gps : null;
-  const startFallback = wantsCurrentStart && !startC;
-  const mode = startC ? (homeC ? 'here-home' : 'here') : (homeC ? 'home' : 'first');
+  // Two independent start anchors: a live "start from here" GPS fix (one run), and
+  // a persistent team muster point (opts.start) the crew leaves from every morning.
+  // GPS wins when armed and available; otherwise the team start anchors the route.
+  const teamStartC = coordsOf(opts.start) || null;
+  const startC = (wantsCurrentStart ? gps : null) || teamStartC;
+  const usingTeamStart = startC != null && startC === teamStartC && !(wantsCurrentStart && gps);
+  const startFallback = wantsCurrentStart && !gps && !teamStartC;
+  const mode = startC
+    ? (homeC ? (usingTeamStart ? 'start-home' : 'here-home') : (usingTeamStart ? 'start' : 'here'))
+    : (homeC ? 'home' : 'first');
 
   // Nothing to reorder — keep the located items in their current order.
   if(located.length < 2){
@@ -989,10 +1088,11 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // budget-guarded Google) → OpenRouteService backup → straight-line fallback.
   // ORS is only reached when the primary returns nothing; a fallback straight-line
   // solve then means BOTH failed.
-  let D, usedFallback = false, fallbackReason = '';
+  let D, T = null, usedFallback = false, fallbackReason = '';
   if(opts.straightLine){
     // Deliberate choice, NOT a degraded fallback: leave usedFallback false so the
-    // toast doesn't warn "straight-line (…)".
+    // toast doesn't warn "straight-line (…)". No durations on straight-line, so
+    // T stays null and no ETAs are shown for this run.
     D = haversineMatrix(coords);
     providerEvent(onProgress, 'routing', 'haversine', 'selected');
   } else {
@@ -1020,8 +1120,10 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
       else res = { error: (res.error || 'road data unavailable') + ' · ' + ors.error };
     }
     D = res.D;
+    T = res.T || null;   // only OSRM populates durations; Google/ORS/fallback = null
     if(!D){
       D = haversineMatrix(coords);
+      T = null;
       usedFallback = true;
       fallbackReason = res.error || 'road data unavailable';
       routingProvenance = { method:'straight-line', provider:'haversine', fallbackReason };
@@ -1035,7 +1137,15 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   onProgress && onProgress({ phase:'solve' });
   // Optional day-split. target > 0 cuts the master route into contiguous chunks
   // of `target`; with a home pin each chunk is re-solved to end near home.
-  const target = Math.max(0, Math.floor(Number(opts.target) || 0));
+  const userTarget = Math.max(0, Math.floor(Number(opts.target) || 0));
+  // With real durations (T) and a finish-by clock, shrink the per-day count so the
+  // day's work still lands by opts.dayFinishBy (default 14:00 — two hours before the
+  // 16:00 shift end). Travel-heavy routes hold fewer stops per day (the home-bias vs
+  // production balance); easy routes keep the full target. No T ⇒ fixed count as before.
+  const anchorOffset = (startC || homeC) ? 1 : 0;
+  const target = (T && userTarget && opts.dayFinishBy)
+    ? Math.max(1, Math.min(userTarget, timeCapacity(T, anchorOffset, located.length, startC ? 0 : null, opts)))
+    : userTarget;
   const shape = { startC, homeC, target };
   const primary = solveVariant(D, located, shape);
 
@@ -1051,17 +1161,21 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   } else variants.straight = primary;
 
   // Index map from order id → its row/column in D, plus the anchor nodes, so
-  // legMetersFor can price any sequence over these same stops.
-  const offset = (startC || homeC) ? 1 : 0;
+  // legMetersFor prices distances and travelLookup reads durations (T) over the
+  // same stops. startIndex = the team muster point (drive-out + morning ETA anchor),
+  // homeIndex = the installer's home (end-of-day bias).
+  const offset = anchorOffset;
   const indexById = {};
   located.forEach((x, k) => { indexById[x.id] = k + offset; });
-  const measure = { D, indexById,
+  const measure = { D, T, indexById,
     startIndex: startC ? 0 : null,
-    homeIndex: homeC ? (startC ? coords.length - 1 : 0) : null };
+    homeIndex: homeC ? (startC ? coords.length - 1 : 0) : null,
+    startIsCommute: usingTeamStart };
 
   return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
     note: combineNotes(orsNote(notes), geoNote),
     variants, measure, straightDistanceSource: onRoad ? 'road' : 'straight-line',
+    dayTarget: target,
     provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 }
 

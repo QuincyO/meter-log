@@ -176,10 +176,15 @@ export function initWorklistRouteView(opts){
     }
   }
 
+  // ETAs come from real road durations, saved at plan time on the road variant. A
+  // straight-line route carries no durations, so times are hidden on it — the phone
+  // shows only what the office actually estimated from road data.
+  function showTimes(){ return ((opts.routeVariant && opts.routeVariant()) || 'road') === 'road'; }
+
   function markerTooltip(item, position, parked){
     const prefix = parked ? '⚠ Parked — ' : `${position}. `;
     const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
-    const eta = item.scheduledEta ? ` · ETA ${esc(item.scheduledEta)}` : '';
+    const eta = (showTimes() && item.scheduledEta) ? ` · ETA ${esc(item.scheduledEta)}` : '';
     const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
     return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}`;
   }
@@ -233,7 +238,7 @@ export function initWorklistRouteView(opts){
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
-        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${item.scheduledEta ? `ETA ${esc(item.scheduledEta)}` : ''}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
+        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? `ETA ${esc(item.scheduledEta)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
     const handle = card.querySelector('.wl-route-handle');
     if(handle) wireDrag(handle, card);

@@ -18,7 +18,7 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, osrmLegGeometry, decodePolyline } from '../route.js';
+import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
@@ -44,6 +44,22 @@ const dayColor = d => DAY_COLORS[((Number(d) || 1) - 1) % DAY_COLORS.length];
 // The picked installer's cadence, from installerMetrics — sizes the day ETA and
 // the avg/day hint. avgLogMin = minutes per meter; avgPerDay = meters/day.
 let avgLogMin = null, avgPerDay = null;
+
+// Day time window (minutes-of-day). The crew leaves the muster point at 08:00 (no
+// later than 08:30) and aims to finish the daily target by 14:00 — two hours before
+// the 16:00 shift end — so a slow/heavy day can still knock off by ~16:00.
+const DEPART_MIN = 8 * 60;              // 08:00 earliest departure
+const DEPART_LATEST_MIN = 8 * 60 + 30; // 08:30 hard latest
+const DAY_FINISH_MIN = 14 * 60;        // 14:00 target finish
+const DAY_BREAK_MIN = 60;              // lunch + break allowance in the day budget
+// 'HH:MM' → minutes-of-day, clamped to the [08:00, 08:30] leave window; DEPART_MIN
+// on anything unparseable.
+function departMinutes(hhmm){
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+  if(!m) return DEPART_MIN;
+  const v = Number(m[1]) * 60 + Number(m[2]);
+  return Math.min(DEPART_LATEST_MIN, Math.max(DEPART_MIN, v));
+}
 
 function nextWeekday(date){
   const d = new Date(`${date}T12:00:00`);
@@ -169,6 +185,17 @@ function dayEta(count){
   const mins = count * avgLogMin + 60;             // + lunch + break
   const h = Math.floor(mins / 60), m = Math.round(mins % 60);
   return ` · ~${h}h${m ? ' ' + m + 'm' : ''} incl. lunch + break`;
+}
+
+// The day's real clock window — first departure to last install — from the saved
+// road-time ETAs. Only meaningful on the road variant (straight-line carries no
+// durations, so the caller shows the rough dayEta instead). '' when a day has no
+// ETAs yet. ETAs are zero-padded 24h 'HH:MM', so a lexical sort orders them.
+function dayWindow(pending, d){
+  const etas = pending.filter(p => (p.day || null) === d && p.scheduledEta)
+    .map(p => p.scheduledEta).sort();
+  if(!etas.length) return '';
+  return etas.length === 1 ? ` · ${etas[0]}` : ` · ${etas[0]}–${etas[etas.length - 1]}`;
 }
 
 // The picked installer's cadence: fills the avg/day hint beside the target field.
@@ -341,6 +368,38 @@ async function homePin(geoUrl){
   return null;
 }
 
+// The picked installer's team (the row whose memberLetters map carries their H#).
+function pickedTeam(){
+  const h = hNumber();
+  return (roster.teams || []).find(t => t.memberLetters && (h in t.memberLetters)) || null;
+}
+
+// A stored crew location → coords: use the saved lat/lng when present, else geocode
+// the address (cached in addrCache, so re-plans don't re-bill). null when there is
+// no address to resolve.
+async function anchorFrom(addr, lat, lng, geoUrl){
+  const a = String(addr || '').trim();
+  const nlat = Number(lat), nlng = Number(lng);
+  if(isFinite(nlat) && isFinite(nlng) && (nlat || nlng)) return { lat:nlat, lng:nlng };
+  if(!a) return null;
+  const hit = await geocodeOne(a, null, geoUrl, null, progress);
+  return (hit && !hit.ambig) ? { lat:hit.lat, lng:hit.lng } : null;
+}
+
+// The two route anchors for the picked installer:
+//   start = the crew's shared morning muster point (Teams tab) — departed each day;
+//   home  = the installer's own home (Employees tab) — the end-of-day bias.
+// Home falls back to the manual plHome pin when the sheet has no home on file.
+async function planAnchors(geoUrl){
+  const h = hNumber();
+  const emp = (roster.employees || []).find(e => String(e.hNumber) === h) || null;
+  const team = pickedTeam();
+  const home = (await anchorFrom(emp && emp.homeAddress, emp && emp.homeLat, emp && emp.homeLng, geoUrl))
+    || await homePin(geoUrl);
+  const start = await anchorFrom(team && team.startAddress, team && team.startLat, team && team.startLng, geoUrl);
+  return { home, start };
+}
+
 // ── optimize ────────────────────────────────────────────────────────────────
 function progress(p){
   const el = $('plProg');
@@ -388,26 +447,33 @@ async function optimize(pending, health){
   const prog = $('plProg');
   prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
-    const home = await homePin(geocodeUrl);
+    const { home, start } = await planAnchors(geocodeUrl);
     // The planner is the road-matrix path, so it always asks for the second,
-    // straight-line ordering too — one extra local solve, no extra lookup.
+    // straight-line ordering too — one extra local solve, no extra lookup. `start`
+    // (team muster point) + `home` (installer's home) anchor the two ends; the
+    // finish-by clock + pace let route.js size each day to land by 14:00.
     const base = await optimizeRoute(pending, progress, home,
-      { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true });
+      { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true,
+        start, target, dayFinishBy:DAY_FINISH_MIN, breakMin:DAY_BREAK_MIN,
+        departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
-    const planOpts = { ...planShape(), target };
-    // Schedule and price each route this run produced. Appointments and locks can
-    // move stops, so the legs are measured after that — and both routes against
-    // the same matrix, which is what makes their totals comparable.
+    // Real road-travel lookup — non-null only on a road run that got durations. It
+    // feeds the ROAD variant's schedule so its ETAs reflect actual drive times; the
+    // straight variant stays flat-pace and its times are hidden in the UI. The
+    // effective per-day count (dayTarget, time-shrunk) keeps day boundaries aligned.
+    const roadTravel = travelLookup(base.measure);
+    const planOpts = { ...planShape(), target: base.dayTarget || target };
     const computed = {};
     for(const v of VARIANTS){
       const variant = base.variants[v];
       if(!variant) continue;
       const routedItems = variant.orderedIds.map(id => byId[id]).filter(Boolean);
-      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
+      const travel = v === 'road' ? roadTravel : null;
+      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, { ...planOpts, travel });
       computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
         homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
     }
@@ -465,7 +531,10 @@ async function optimize(pending, health){
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     const totalM = Object.values(prim.legMeters).reduce((a, b) => a + b, 0);
-    toast((mode === 'home' ? 'Route ends near the anchor ✓' : 'Route starts at the first order ✓')
+    toast((mode === 'start-home' ? 'Route leaves the crew start and ends near home ✓'
+        : mode === 'start' ? 'Route leaves the crew start ✓'
+        : mode === 'home' ? 'Route ends near the anchor ✓'
+        : 'Route starts at the first order ✓')
       + ` · ${fmtKm(totalM)}`
       + (days > 1 ? ` · ${days} days of ${target}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
@@ -644,6 +713,10 @@ function render(){
     return;
   }
   const variant = activeVariant();
+  // Times (per-stop ETA + the day clock window) come from real road durations, so
+  // they show only on the road variant. A straight-line route has no durations, so
+  // it shows distances only — never a time it can't actually estimate.
+  const showTimes = variant === 'road';
   const card = document.createElement('div');
   card.className = 'card';
   let curDay = null;
@@ -673,7 +746,8 @@ function render(){
         + `Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
         + (km == null ? '' : ` · ${esc(fmtKm(km))}`)
         + (homeKm == null ? '' : ` · ⌂ ${esc(fmtKm(homeKm))}`)
-        + ` — ends near home<span class="plday-eta">${esc(dayEta(count))}</span>`;
+        + ` — ends near home<span class="plday-eta">${esc(showTimes
+            ? (dayWindow(pending, d) || dayEta(count)) : dayEta(count))}</span>`;
       card.appendChild(hdr);
     }
     const row = document.createElement('div');
@@ -691,7 +765,7 @@ function render(){
         <strong>${item.workOrderId ? 'WO ' + esc(item.workOrderId) : '(no WO#)'}</strong>${
           setAside ? ' <span class="pltag pltag-mute" title="Left out of the route — still saved">set aside</span>' : ''}
         <div class="pladdr">${esc(item.address || '')}${setAside ? '' : tag}</div>
-        <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${item.scheduledEta ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
+        <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${(showTimes && item.scheduledEta) ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
         ${isPending(item) ? `<div class="plappt">
           <label>🔔 Date<input data-appt="date" type="date" value="${esc(item.appointmentDate||'')}"></label>
           <label>Time<input data-appt="time" type="time" value="${esc(item.appointmentTime||'')}"></label>
@@ -796,6 +870,7 @@ function renderMap(){
   // stop has no incoming leg — the drive out from home is not drawn (only measured,
   // see homeLegMetersFor), so the route starts at the first pin.
   const segs = {};
+  const showTimes = activeVariant() === 'road';   // ETAs only on the road variant
   const geomField = VARIANT_FIELDS[activeVariant()].geometry;
   const prevByDay = {};      // last routed coord seen per day (nothing before the first)
   pendingItems().forEach((item, i) => {
@@ -817,7 +892,7 @@ function renderMap(){
       className: 'plpin' + (parked ? ' plpin-parked' : ''),
       html:`<span>${parked ? '!' : i + 1}</span>`,
       iconSize:[26,26], iconAnchor:[13,13] }) })
-      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}${item.scheduledEta ? ' · ETA ' + item.scheduledEta : ''}${item.appointmentTime ? ' · appointment ' + item.appointmentTime : ''}`)
+      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}${(showTimes && item.scheduledEta) ? ' · ETA ' + item.scheduledEta : ''}${item.appointmentTime ? ' · appointment ' + item.appointmentTime : ''}`)
       .addTo(mapLayer);
     // Tint the routed pin by day (parked keeps the muted grey from CSS).
     if(!parked && day){ const el = marker.getElement(); if(el) el.style.background = color; }

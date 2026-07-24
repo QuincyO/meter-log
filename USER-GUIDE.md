@@ -275,6 +275,14 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
   Google road matrix.
 - The persistent **Last optimization** card shows the actual providers and
   fallback used for the most recent desktop run in that browser.
+- **Start and home addresses drive the times.** Set the crew's **start location**
+  on the boat/crew card in Crew & Teams (the morning meet-up spot — the route leaves
+  it at 08:00, no later than 08:30) and each installer's **home address** on their
+  crew row (the route is planned to end near it). With a road (Matrix) run the
+  planner then shows a real **ETA** per stop and a start→finish **time window** on
+  each day header, and sizes the day so the target lands by about **2:00 PM** —
+  leaving room to keep going or knock off early. A **Straight-line** route has no
+  road times, so it shows distances only — switch to the road route to see the clock.
 
 ---
 

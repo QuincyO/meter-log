@@ -108,7 +108,11 @@ const TRACKER_HEADERS = [
 // display label; hNumber is the identity. subName is the installer's own
 // sub-foreman pick (capture-page Settings) — used only when they're not on a
 // team; a team's subName always wins.
-const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active','subName'];
+// homeAddress + homeLat/homeLng: the installer's own home, the end-of-day
+// route-bias anchor (each planned day is pulled to finish near it). Appended
+// columns — geocoded lazily by the planner (see js/route.js), stored here so the
+// anchor is sheet-backed and office-visible instead of a per-device pin.
+const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active','subName','homeAddress','homeLat','homeLng'];
 // One row per BOAT (boatNumber, e.g. "11"). Each crew member on the boat is
 // assigned a letter in memberLetters — a JSON map {hNumber: "A"} — and people
 // who share a letter are partners, so member H100→"A" on boat 11 reads as team
@@ -118,7 +122,11 @@ const EMPLOYEES_HEADERS = ['hNumber','firstName','lastName','active','subName'];
 // `type` ('boat' | 'land', blank = boat) splits boat teams from land crews: a
 // land crew reuses the same shape — boatNumber holds the crew number, subName
 // holds the sub foreman, captainName/boatName stay blank.
-const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','memberLetters','type'];
+// startAddress + startLat/startLng: the crew's shared morning meet-up point. The
+// route planner departs from here every day (08:00, no later than 08:30) and
+// measures the drive-out to each day's first stop from it. Appended columns,
+// geocoded lazily by the planner; ensureTeamsColumns() creates them on any save.
+const TEAMS_HEADERS = ['id','boatNumber','boatName','captainName','subName','memberLetters','type','startAddress','startLat','startLng'];
 // Quick-pick name lists that feed the team form's captain / sub dropdowns.
 const CAPTAINS_HEADERS = ['name'];
 const SUBS_HEADERS     = ['name'];
@@ -1619,7 +1627,10 @@ function employeesList() {
     firstName: String(r.firstName == null ? '' : r.firstName).trim(),
     lastName:  String(r.lastName == null ? '' : r.lastName).trim(),
     active:    isTruthy(r.active, true),
-    subName:   String(r.subName == null ? '' : r.subName).trim()
+    subName:   String(r.subName == null ? '' : r.subName).trim(),
+    homeAddress: String(r.homeAddress == null ? '' : r.homeAddress).trim(),
+    homeLat:   numOrNull(r.homeLat),
+    homeLng:   numOrNull(r.homeLng)
   })).filter(e => e.hNumber);
 }
 
@@ -1631,16 +1642,28 @@ function teamsList() {
     captainName:   String(r.captainName == null ? '' : r.captainName).trim(),
     subName:       String(r.subName == null ? '' : r.subName).trim(),
     type:          normWorkType(r.type),
+    startAddress:  String(r.startAddress == null ? '' : r.startAddress).trim(),
+    startLat:      numOrNull(r.startLat),
+    startLng:      numOrNull(r.startLng),
     memberLetters: normalizeLetters(parseMemberLetters(
       (r.memberLetters != null && r.memberLetters !== '') ? r.memberLetters : r.memberHs
     ))
   })).filter(t => t.id);
 }
 
+/** Sheet cell → a finite number, or null for blank/non-numeric. Used for the
+ *  crew location lat/lng columns (a blank address means no pin yet). */
+function numOrNull(v) {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return isFinite(n) ? n : null;
+}
+
 /** Add a crew member, or update one in place when the H number already exists. */
 function saveEmployee(b) {
   const h = String(b.hNumber == null ? '' : b.hNumber).trim();
   if (!h) return { ok: false, error: 'employee number (H#) required' };
+  ensureEmployeesColumns();
   const first = String(b.firstName == null ? '' : b.firstName).trim();
   const last  = String(b.lastName  == null ? '' : b.lastName ).trim();
   if (!first || !last) return { ok: false, error: 'first and last name required' };
@@ -1653,6 +1676,14 @@ function saveEmployee(b) {
   if (b.subName != null) {
     fields.subName = String(b.subName).trim();
     if (fields.subName) ensureName('Subs', fields.subName);
+  }
+  // Home location rides only when the request carries it (the crew admin's home
+  // field) — an omitted key preserves the existing cell, like subName above. Its
+  // coords ride together with the address so a re-typed home never keeps a stale pin.
+  if (b.homeAddress != null) {
+    fields.homeAddress = String(b.homeAddress).trim();
+    fields.homeLat = numOrNull(b.homeLat);
+    fields.homeLng = numOrNull(b.homeLng);
   }
   const r = upsertByHeader('Employees', 'hNumber', h, fields);
   // Land self-join: picking a sub in capture Settings (land mode) also adds this
@@ -1728,16 +1759,32 @@ function deleteEmployee(b) {
  *  created before captainName/subName/memberLetters existed). Safe on every
  *  save — it's a no-op once all columns are present. */
 function ensureTeamsColumns() {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
+  ensureColumns('Teams', ['boatName', 'captainName', 'subName', 'memberLetters',
+    'type', 'startAddress', 'startLat', 'startLng']);
+}
+
+/** Same auto-append for Employees, so the home-location columns exist before a
+ *  crew admin save writes them even if setupSheets() hasn't been re-run yet. */
+function ensureEmployeesColumns() {
+  ensureColumns('Employees', ['subName', 'homeAddress', 'homeLat', 'homeLng']);
+}
+
+/** Append any of `cols` missing from the tab's header row, on the right. A no-op
+ *  once all are present. Shared by the ensure*Columns helpers so a save never
+ *  silently drops a field whose column doesn't exist yet (upsertByHeader only
+ *  writes headers that are already columns). */
+function ensureColumns(tabName, cols) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
   if (!sh || sh.getLastColumn() === 0) return;
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
-  let next = sh.getLastColumn() + 1;
-  ['boatName', 'captainName', 'subName', 'memberLetters', 'type'].forEach(col => {
+  let next = sh.getLastColumn() + 1, appended = false;
+  cols.forEach(col => {
     if (headers.indexOf(col) === -1) {
       sh.getRange(1, next).setValue(col).setFontWeight('bold');
-      next++;
+      next++; appended = true;
     }
   });
+  if (appended) bustRows(tabName);
 }
 
 /** Resolve a typed-in crew name to an employee H number, creating the Employees
@@ -1778,7 +1825,7 @@ function saveTeam(b) {
   ensureName('Subs', subName);
 
   const id = b.id ? String(b.id) : newId();
-  const r = upsertByHeader('Teams', 'id', b.id ? id : null, {
+  const teamFields = {
     id: id,
     boatNumber:    String(b.boatNumber == null ? '' : b.boatNumber).trim(),
     boatName:      String(b.boatName == null ? '' : b.boatName).trim(),
@@ -1786,7 +1833,15 @@ function saveTeam(b) {
     subName:       subName,
     memberLetters: JSON.stringify(memberLetters),
     type:          normWorkType(b.type)
-  });
+  };
+  // Start (meet-up) location rides only when the request carries it, so a save
+  // from an old client without the field never blanks it. Coords ride with the address.
+  if (b.startAddress != null) {
+    teamFields.startAddress = String(b.startAddress).trim();
+    teamFields.startLat = numOrNull(b.startLat);
+    teamFields.startLng = numOrNull(b.startLng);
+  }
+  const r = upsertByHeader('Teams', 'id', b.id ? id : null, teamFields);
   const res = { ok: true, id: id };
   res[r.created ? 'created' : 'updated'] = true;
   return res;

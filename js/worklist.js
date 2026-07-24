@@ -808,7 +808,9 @@ function appointmentBadge(item){
   return `<span class="wl-badge appt">🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}</span>`;
 }
 function scheduleBadge(item){
-  if(!item.scheduledDate || !item.scheduledEta) return '';
+  // ETAs are only meaningful when they came from real road durations (the road
+  // variant); a straight-line route has no travel times, so hide them there.
+  if(activeVariant() !== 'road' || !item.scheduledDate || !item.scheduledEta) return '';
   const wait = Number(item.scheduledWaitMin) > 0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : '';
   return `<span class="wl-badge">ETA ${esc(item.scheduledEta)}${wait}</span>`;
 }

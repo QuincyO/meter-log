@@ -4,16 +4,17 @@
 // the log-to-log gap (travel + on-site time per meter) that computeGapsLocal
 // already derives — projected forward to the fixed workday horizon.
 //
-// Horizon is fixed by the crew's schedule: regular end of day 4:00 PM, overtime
-// ceiling 5:00 PM. Before 4:00 we project to 4:00; once past it (working OT) we
-// project to the 5:00 ceiling. Count basis is every printable stop, since the
-// time is spent regardless of the outcome (DONE markers are excluded).
+// Horizon is fixed by the crew's schedule: the last install lands 30 min before
+// the shift ends so there is room for end-of-day work — regular horizon 3:30 PM,
+// overtime ceiling 4:30 PM. Before 3:30 we project to 3:30; once past it (working
+// OT) we project to the 4:30 ceiling. Count basis is every printable stop, since
+// the time is spent regardless of the outcome (DONE markers are excluded).
 import { PRINTABLE } from './tally.js';
 import { computeGapsLocal } from './gaps.js';
 import { clockOf, hhmmMin, stamp } from '../time.js';
 
-const QUIT_MIN = 16 * 60;  // 4:00 PM — regular end of day
-const OT_MIN   = 17 * 60;  // 5:00 PM — overtime ceiling
+const QUIT_MIN = 15 * 60 + 30;  // 3:30 PM — regular end of day (last install)
+const OT_MIN   = 16 * 60 + 30;  // 4:30 PM — overtime ceiling
 
 // stops: today's cached stop records (any status). nowMin: minutes-of-day
 // override for testing; defaults to the current Toronto clock.
@@ -29,8 +30,8 @@ export function projectDay(stops, nowMin){
   const avg = gaps.reduce((a, g) => a + g.idleMin, 0) / gaps.length;
   const now = (nowMin == null) ? hhmmMin(clockOf(stamp())) : nowMin;
 
-  let target = QUIT_MIN, label = '4:00';
-  if(now >= QUIT_MIN){ target = OT_MIN; label = '5:00 OT'; }
+  let target = QUIT_MIN, label = '3:30';
+  if(now >= QUIT_MIN){ target = OT_MIN; label = '4:30 OT'; }
 
   const left = target - now;
   const more = (left > 0 && avg > 0) ? Math.round(left / avg) : 0;

@@ -108,6 +108,7 @@ function renderCrew(){
       <div><label>Employee # (H)</label><input class="mono" value="${attr(e.hNumber)}" disabled title="The H# is the key and can’t be changed — delete &amp; re-add to change it"></div>
       <button class="btn x" data-act="save" title="Save">✓</button>
       <button class="btn danger x" data-act="del" title="Remove">✕</button>
+      <div class="crewhome"><label>Home address <span class="hint">route ends near here</span></label><input data-f="homeAddress" value="${attr(e.homeAddress||'')}" placeholder="street, town" autocapitalize="words"></div>
     </div>`).join('');
 
   box.querySelectorAll('.crewrow').forEach(row => {
@@ -115,8 +116,11 @@ function renderCrew(){
     row.querySelector('[data-act="save"]').onclick = async () => {
       const first = row.querySelector('[data-f="firstName"]').value.trim();
       const last  = row.querySelector('[data-f="lastName"]').value.trim();
+      const home  = row.querySelector('[data-f="homeAddress"]').value.trim();
       if(!first || !last){ toast('First and last name required'); return; }
-      try{ await post({ action:'saveEmployee', hNumber:h, firstName:first, lastName:last });
+      // Home rides as an address only — the planner geocodes it lazily (and caches
+      // the pin), so the admin never needs to resolve coordinates here.
+      try{ await post({ action:'saveEmployee', hNumber:h, firstName:first, lastName:last, homeAddress:home });
            toast('Saved ✓'); await load(); }
       catch(err){ toast(err.message); }
     };
@@ -251,6 +255,7 @@ function teamCard(t){
         <div class="${land ? 'hide' : ''}"><label>Captain</label>${nameSelect('captain', t.captainName, state.captains)}</div>
         <div><label>${land ? 'Sub foreman' : 'Sub / subforeman'}</label>${nameSelect('sub', t.subName, state.subs)}</div>
       </div>
+      <div><label>Start location <span style="font-weight:500;color:var(--ink-soft)">(crew meet-up — routes depart here at 08:00)</span></label><input data-f="startAddress" value="${attr(t.startAddress||'')}" placeholder="yard / dock address" autocapitalize="words"></div>
       <label>Crew ${land ? '' : `— assign a team letter <span style="font-weight:500;color:var(--ink-soft)">(same letter = partners)</span>`}</label>
       <div class="assignlist" data-role="members"></div>
       <div class="addmember" data-role="addmember"></div>
@@ -395,6 +400,7 @@ function teamCard(t){
       await post({ action:'saveTeam', id:t.id||undefined, type:teamType(t),
         boatNumber:g('boatNumber'), boatName:land ? '' : g('boatName'),
         captainName:land ? '' : resolveName('captain'), subName:resolveName('sub'),
+        startAddress:g('startAddress'),   // geocoded lazily by the planner
         memberLetters:Object.assign({}, assigned),
         newMembers:pending.map(p => ({ name:p.name, letter:p.letter })) });
       toast(land ? 'Crew saved ✓' : 'Boat saved ✓'); await load();

@@ -575,7 +575,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   home-pinned tour is roughly distance-banded) and **each chunk is re-solved
   home-pinned** over its own sub-matrix so the day **ends near home** — the last
   day ending at the globally closest-to-home meter, and a lone near-home order
-  falling into a late day, not an early far one. Zig-zag *within* a day is fine;
+  falling into a late day, not an early far one. With **both** a team start and a
+  home (the planner's case), each chunk is instead re-solved as an open path pinned
+  at **both** ends (`orderChunkStartHome`: team start → … → home) so every day is a
+  tidy commute — short drive out of the muster point, short drive home. Zig-zag *within* a day is fine;
   only the day endpoints are constrained. It returns `dayOf` (`{id: dayNumber}`);
   with no home pin it degrades to plain count-chunks (`dayFallback:true`). The
   `target` is a soft anchor from a manual meters/day field on both the planner and
@@ -588,11 +591,41 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   plans a route at zero matrix cost and uploads it for the phone to Download
   (see the planner page bullet under "The three layers").
   After the geographic solve, `js/route-constraints.js` maps route days to weekdays
-  and applies appointments/locks. ETAs use `firstStopTime + (slot-1) × pace`, with
-  no break adjustment. Appointments are never planned late; arrival may be up to
-  20 minutes early, and earlier arrival becomes explicit waiting that shifts later
-  ETAs. Invalid weekends, duplicate slots, late locked appointments, and other
-  impossible layouts abort without rewriting the current route.
+  and applies appointments/locks. Appointments are never planned late; arrival may
+  be up to 20 minutes early, and earlier arrival becomes explicit waiting that
+  shifts later ETAs. Invalid weekends, duplicate slots, late locked appointments,
+  and other impossible layouts abort without rewriting the current route.
+- **Two-anchor, time-aware routing (desktop planner).** The planner sources two
+  sheet-backed anchors per installer instead of the phone's single localStorage home
+  pin: the crew's shared **start location** (Teams `startAddress` — the morning
+  muster point, departed **08:00**, no later than **08:30**) and the installer's own
+  **home** (Employees `homeAddress` — the end-of-day bias). `optimizeRoute` takes
+  the start as `opts.start` (a *persistent* start anchor, distinct from the one-run
+  GPS **Start from here**) and the home as `home`. The drive-out to each day's first
+  stop is measured **from the team start** every day (`homeLegMetersFor`, still kept
+  out of the between-stop total); `measure.startIsCommute` marks that anchor as a
+  commute so a real GPS start is still charged as a driven leg.
+  When the matrix source is OSRM (`?annotations=distance,duration`), `measure.T`
+  carries a **durations** matrix and `travelLookup(measure)` exposes it as
+  `fromStart(id)` (morning drive out) and `between(fromId,toId)` (drive between two
+  stops). The scheduler's `simulateDay` then builds each ETA from the previous
+  departure + real travel + **on-site time** (`onSiteMinutes(pace)` = the 30-day
+  `recent30AvgLogMin` minus a nominal baseline drive, floored — so real per-leg
+  travel is added on top without double-counting). No durations (straight-line, or a
+  non-OSRM matrix) ⇒ the legacy flat `firstStopTime + (slot-1) × pace` cadence, and
+  the UI **hides the times entirely** (per-stop ETA, the day clock window, and map
+  tooltips show only on the road variant). **Day sizing to ~14:00:** with durations,
+  `timeCapacity` shrinks the per-day count (`dayTarget`, returned to keep the
+  scheduler's day boundaries aligned) so the daily target lands by 14:00 — two hours
+  before the 16:00 shift end — which makes travel-heavy days hold fewer stops (the
+  "home bias as important as production" balance falls out of charging real travel
+  time, not a tunable weight).
+- **Known limits of the time model.** ETAs are authoritative right after a road
+  Optimize (the road variant is the active one and its `scheduledEta` is saved and
+  synced). A later manual **variant re-switch** or a phone-side edit re-runs the
+  scheduler with no in-memory `measure`, so it falls back to flat pace — same
+  staleness contract as the "edited" distance marker. Road durations are OSRM-only
+  for now; the phone's Google/ORS matrix path carries no `T`.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 
@@ -868,6 +901,8 @@ are a display label only.
 | `lastName`  | string  | display label                                      |
 | `active`    | boolean | soft-delete / hide from pickers (defaults to true) |
 | `subName`   | string  | the installer's **own** sub-foreman pick (capture-page Settings). Only meaningful when they're not on a team — a team's `subName` always wins (the Settings field shows it locked). Rides `saveEmployee` **only when the payload carries it**, so admin saves never blank it; feeds the reports-page grouping and the daily-log "Sub:" box as a fallback. |
+| `homeAddress` | string | the installer's home — the route planner's **end-of-day bias anchor** (each planned day is pulled to finish near it). Entered on the crew card in `teams.html`; the planner geocodes it lazily (`homeLat`/`homeLng` cache the pin — currently written only if a planner write-back runs, else left blank and re-geocoded from the address). Rides `saveEmployee` **only when the payload carries it**. `ensureEmployeesColumns()` appends the three columns on any save. |
+| `homeLat` / `homeLng` | number | cached geocode of `homeAddress` (may be blank — the planner re-geocodes the address when absent) |
 
 ### Team  (one row per boat → tab "Teams")
 A boat, managed from `teams.html`. `memberLetters` is a JSON map keying each
@@ -892,6 +927,8 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 | `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
 | `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
 | `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank. `teamsList()` projects it (normalized via `normWorkType`) so the `roster` read carries it — teams.html's boat/land mode filter depends on that |
+| `startAddress`  | string      | the crew's shared **morning meet-up point** — the route planner's start anchor (routes depart it at 08:00, no later than 08:30, and the drive-out to each day's first stop is measured from it). Entered on the boat/crew card; geocoded lazily by the planner. Rides `saveTeam` **only when the payload carries it**; `ensureTeamsColumns()` appends the three columns on any save |
+| `startLat` / `startLng` | number | cached geocode of `startAddress` (may be blank — re-geocoded from the address when absent) |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their
 `installerId` (H number). The spine finds their boat row, reads `memberLetters`,
@@ -1023,7 +1060,7 @@ installer's saved rows.
 | `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous **stop**. A day's first stop is 0 — the drive out from home is not in this total (see `homeLegMeters*`) |
 | `orderStraight` / `dayStraight` / `legMetersStraight` | number | the saved **straight-line route**, same three fields |
 | `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving **between-stops** leg for each variant. A day's first stop is empty — the drive out from home is not routed or drawn. Empty when the planner never fetched directions or a leg had no route. Opaque text; `setupSheets` pins these columns to `@`. See "Route variants" |
-| `homeLegMetersRoad` / `homeLegMetersStraight` | number | per-variant drive-out distance from the home pin to a **day's first stop**, stored on that first stop (one per day). Measured on Optimize but deliberately **kept out of** `legMeters*` and the day/route total — a "distance to home" reference number, shown as a `⌂` readout on the day headers. Empty for non-first stops and when the run had no home pin |
+| `homeLegMetersRoad` / `homeLegMetersStraight` | number | per-variant drive-out distance to a **day's first stop**, stored on that first stop (one per day). Measured from the crew's **team start** when one is set (the planner's case — the morning drive out of the muster point), else from the home pin. Deliberately **kept out of** `legMeters*` and the day/route total — a "distance out" reference number, shown as a `⌂` readout on the day headers. Empty for non-first stops and when the run had no drive-out anchor |
 
 ### Route variants (the two saved routes)
 

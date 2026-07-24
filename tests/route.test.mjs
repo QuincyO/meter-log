@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, homeLegMetersFor, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, decodePolyline, osrmLegGeometry } from '../js/route.js';
+import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, decodePolyline, osrmLegGeometry } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -84,6 +84,58 @@ test('homeLegMetersFor is empty with no home anchor', () => {
     indexById: { a:0, b:1 }, homeIndex: null, startIndex: null
   };
   assert.deepEqual(homeLegMetersFor(measure, ['a', 'b'], {}), {});
+});
+
+// node 0 = the team muster point, nodes 1..2 = orders, node 3 = the installer's
+// home. startIsCommute: the crew leaves the muster point EVERY morning, so each
+// day's first-stop drive-out comes from node 0, stays out of the between-total, and
+// is saved per day (mirrors home semantics but for the shared start).
+const TEAM_MEASURE = {
+  D: matrix([
+    [0, 10, 20, 99],   // team start
+    [10, 0, 4, 7],     // a
+    [20, 4, 0, 5],     // b
+    [99, 7, 5, 0]      // home
+  ]),
+  indexById: { a:1, b:2 }, startIndex:0, homeIndex:3, startIsCommute:true
+};
+
+test('the team muster drive-out is excluded from the day total, every day', () => {
+  const legs = legMetersFor(TEAM_MEASURE, ['a', 'b'], { a:1, b:2 });
+  assert.equal(legs.a, 0);   // team → a excluded (day 1 drive-out)
+  assert.equal(legs.b, 0);   // team → b excluded (day 2 drive-out)
+});
+
+test('the team muster drive-out is saved per day from the start anchor', () => {
+  const home = homeLegMetersFor(TEAM_MEASURE, ['a', 'b'], { a:1, b:2 });
+  assert.deepEqual(home, { a:10, b:20 });   // team→a, team→b
+});
+
+test('within a day, between-stop legs are still charged with a team start', () => {
+  const legs = legMetersFor(TEAM_MEASURE, ['a', 'b'], { a:1, b:1 });
+  assert.equal(legs.a, 0);   // day 1 drive-out from the muster point
+  assert.equal(legs.b, 4);   // a → b, same day
+});
+
+const T_MEASURE = {
+  T: matrix([
+    [0, 15, 30, 99],
+    [15, 0, 10, 7],
+    [30, 10, 0, 5],
+    [99, 7, 5, 0]
+  ]),
+  indexById: { a:1, b:2 }, startIndex:0, homeIndex:3
+};
+
+test('travelLookup reads drive times from the start anchor and between stops', () => {
+  const t = travelLookup(T_MEASURE);
+  assert.equal(t.fromStart('a'), 15);
+  assert.equal(t.between('a', 'b'), 10);
+  assert.equal(t.between('b', 'a'), 10);
+});
+
+test('travelLookup is null without a duration matrix', () => {
+  assert.equal(travelLookup({ D: matrix([[0, 1], [1, 0]]), indexById:{ a:0, b:1 } }), null);
 });
 
 test('a phone start-from-here first leg is charged, not saved as a home leg', () => {
@@ -170,6 +222,27 @@ test('a road-matrix run saves both routes, priced on the same road matrix', asyn
     assert.equal(total(road), 3000);        // a→c→b→d, all 1 km hops
     assert.equal(total(straight), 151000);  // a→b is 100 km and c→d another 50
   });
+});
+
+test('an OSRM run captures durations, marks the team start a commute, and time-sizes the day', async () => {
+  // 6 nodes: [teamStart, a, b, c, d, home]. Distances grow with index gap;
+  // durations are those metres at ~2 min/km (osrmMatrix divides seconds by 60).
+  const dist6 = Array.from({ length:6 }, (_, i) => Array.from({ length:6 }, (_, j) => i === j ? 0 : 1000 * Math.abs(i - j)));
+  const dur6 = dist6.map(row => row.map(v => v / 1000 * 120));   // seconds
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok:true, json: async () => ({ code:'Ok', distances:dist6, durations:dur6 }) });
+  try {
+    const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 }, {
+      osrmUrl:'http://localhost:5000', osrmReady:true, compareVariants:true,
+      start:{ lat:45.0, lng:-78.95 },
+      target:3, dayFinishBy:14 * 60, departMin:8 * 60, breakMin:60, paceMin:30,
+    });
+    assert.ok(r.measure.T, 'durations are captured into measure.T');
+    assert.equal(r.measure.startIsCommute, true, 'the team start is a commute anchor');
+    const t = travelLookup(r.measure);
+    assert.ok(t && typeof t.fromStart === 'function', 'travelLookup is available on a duration run');
+    assert.ok(r.dayTarget >= 1 && r.dayTarget <= 3, 'the day is sized within the target');
+  } finally { globalThis.fetch = before; }
 });
 
 test('a straight-line run does one solve and saves no road route', async () => {

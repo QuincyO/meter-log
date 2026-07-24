@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentRoutePlacement, scheduleRouteConstraints, workdayOffset } from '../js/route-constraints.js';
+import { currentRoutePlacement, scheduleRouteConstraints, workdayOffset, onSiteMinutes } from '../js/route-constraints.js';
 
 const item = (id, extra={}) => ({ id, workOrderId:id.toUpperCase(), ...extra });
 const opts = (extra={}) => ({
@@ -81,6 +81,33 @@ test('a later appointment day receives enough route slots for all appointments',
 test('locking before optimization converts a global index to a within-day slot', () => {
   const items = Array.from({ length:26 }, (_, i) => item(`item${i}`));
   assert.deepEqual(currentRoutePlacement(items, 'item25', 24), { day:2, slot:2 });
+});
+
+test('onSiteMinutes subtracts the nominal baseline drive, floored at the minimum', () => {
+  assert.equal(onSiteMinutes(30), 20);   // 30 pace − 10 nominal drive
+  assert.equal(onSiteMinutes(12), 8);    // floored at MIN_ONSITE_MIN
+});
+
+test('with real travel, ETAs accumulate drive time plus on-site time', () => {
+  const items = [item('a'), item('b'), item('c')];
+  const travel = {
+    fromStart: id => (({ a:15 })[id] ?? null),
+    between: (f, t) => (({ 'a|b':10, 'b|c':25 })[f + '|' + t] ?? null),
+  };
+  const result = scheduleRouteConstraints(items, ['a', 'b', 'c'], opts({ target:3, travel }));
+  // onSite = onSiteMinutes(30) = 20; depart the muster point at 08:00 (480).
+  assert.equal(result.scheduleById.a.eta, '08:15');   // 480 + 15
+  assert.equal(result.scheduleById.b.eta, '08:45');   // (495 + 20) + 10 = 525
+  assert.equal(result.scheduleById.c.eta, '09:30');   // (525 + 20) + 25 = 570
+});
+
+test('an unknown between-leg falls back to a nominal drive instead of stalling', () => {
+  const items = [item('a'), item('b')];
+  // between() returns null → moveFallback = pace − onSite = 30 − 20 = 10.
+  const travel = { fromStart: () => 0, between: () => null };
+  const result = scheduleRouteConstraints(items, ['a', 'b'], opts({ target:2, travel }));
+  assert.equal(result.scheduleById.a.eta, '08:00');   // 480 + 0
+  assert.equal(result.scheduleById.b.eta, '08:30');   // (480 + 20) + 10 = 510
 });
 
 test('locking after a manual reorder uses the current slot, not an old ETA slot', () => {
