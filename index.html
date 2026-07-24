@@ -298,6 +298,14 @@
       <button class="wl-back" id="driveBack" type="button" aria-label="Back to worklist">‹ Worklist</button>
       <span class="drive-indicator off" id="driveIndicator" aria-live="polite">Location off</span>
     </div>
+    <!-- Locked current destination: whatever you last pressed Navigate on. Hidden
+         until the first Navigate; persisted so it survives reloads and trips back
+         to the worklist. Tap it to re-open Maps to that destination. -->
+    <button class="drive-dest hide" id="driveDest" type="button" aria-live="polite">
+      <span class="drive-dest-label">Driving to</span>
+      <span class="drive-dest-wo mono" id="driveDestWo"></span>
+      <span class="drive-dest-addr" id="driveDestAddr"></span>
+    </button>
     <div class="drive-card-wrap">
       <div class="drive-card" id="driveCard"></div>
       <p class="muted drive-empty hide" id="driveEmpty">No pending orders. Add or download orders from the worklist.</p>

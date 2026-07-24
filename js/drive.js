@@ -10,10 +10,26 @@
 // pending-orders accessor and the shared openDirections() — this module never
 // imports worklist.js back (that would be circular), exactly like the route view.
 import { $, esc } from './dom.js';
+import { store } from './store.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
 } from './drive-recorder.js';
+
+// The locked "Driving to" destination — the last order Navigate was pressed on.
+// Persisted (trivial replaceable config, not durable data) so the top card
+// survives a reload or a trip back to the worklist and back.
+const DEST_KEY = 'driveDest';
+const saveDest = item => store.set(DEST_KEY, JSON.stringify(item));
+const clearDest = () => store.set(DEST_KEY, '');
+const loadDest = () => {
+  try { const raw = store.get(DEST_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+};
+// Address string shown on both cards + copied by the Maps hand-off — unit + street.
+const addrOf = item => [item.unit, item.address].filter(Boolean).join(' ').trim();
+// Match a saved dest to a pending order: WO# when present, else the address.
+const destKey = item => item.workOrderId || addrOf(item);
 
 // Driver-facing units: metric (km / km/h), matching the office map. Metres→km
 // and m/s→km/h.
@@ -75,8 +91,22 @@ export function initDrive(opts){
     $('dmMax').textContent = Math.round(m.maxSpeed * KMH_PER_MS);
   }
 
-  // One repaint entry point for the recorder's subscribe() — indicator + HUD.
-  function paintAll(){ paintIndicator(); paintMetrics(); }
+  // ── locked "Driving to" card (top of screen) ──
+  // Shows the destination the driver last pressed Navigate on, so they always
+  // know where they're headed even after the stepper has advanced or they've
+  // stepped back to the worklist. Hidden until the first Navigate.
+  function renderDest(){
+    const el = $('driveDest');
+    if(!el) return;
+    const d = loadDest();
+    if(!d){ el.classList.add('hide'); return; }
+    $('driveDestWo').textContent = d.workOrderId ? d.workOrderId : '(no WO#)';
+    $('driveDestAddr').textContent = addrOf(d) || 'No address';
+    el.classList.remove('hide');
+  }
+
+  // One repaint entry point for the recorder's subscribe() — indicator + HUD + dest.
+  function paintAll(){ paintIndicator(); paintMetrics(); renderDest(); }
 
   function renderCard(){
     const card = $('driveCard');
@@ -94,7 +124,7 @@ export function initDrive(opts){
     card.classList.remove('hide');
     const item = pending[idx];
     pos.textContent = `${idx + 1} of ${pending.length}`;
-    const addr = [item.unit, item.address].filter(Boolean).join(' ').trim();
+    const addr = addrOf(item);
     card.innerHTML = `
       <div class="drive-wo mono">${item.workOrderId ? esc(item.workOrderId) : '(no WO#)'}</div>
       <div class="drive-addr">${addr ? esc(addr) : 'No address'}</div>
@@ -108,7 +138,12 @@ export function initDrive(opts){
   async function refresh(){
     pending = await opts.getPending();
     if(idx >= pending.length) idx = Math.max(0, pending.length - 1);
+    // Clear the locked destination once its order is no longer pending (logged or
+    // archived) — don't keep telling the driver to drive somewhere they finished.
+    const d = loadDest();
+    if(d && !pending.some(p => destKey(p) === destKey(d))) clearDest();
     renderCard();
+    renderDest();
   }
 
   // ── open / close / teardown ──
@@ -141,6 +176,10 @@ export function initDrive(opts){
   $('driveNav').onclick = () => {
     const item = pending[idx];
     if(!item) return;
+    // Lock this order into the top "Driving to" card before we advance — that
+    // card holds the destination now, so it's safe for the stepper to move on.
+    saveDest(item);
+    renderDest();
     // Advance the display to the next order BEFORE handing off to Maps, so the
     // next card is already showing when the driver switches back. Navigation
     // still goes to the order that was pressed, not the newly shown one. Like
@@ -148,6 +187,8 @@ export function initDrive(opts){
     if(idx < pending.length - 1){ idx++; renderCard(); }
     opts.openDirections(item);
   };
+  // Tap the locked card to re-open Maps to that same destination.
+  $('driveDest').onclick = () => { const d = loadDest(); if(d) opts.openDirections(d); };
   $('driveTrackBtn').onclick = async () => {
     if(isRecording()) await stopRecording();
     else startRecording();
