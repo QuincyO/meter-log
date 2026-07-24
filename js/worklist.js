@@ -25,6 +25,7 @@ import {
   sinkAddressless, splitAddr,
 } from './worklist-address-fill.js';
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
+import { ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from './route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -48,8 +49,8 @@ function nextWeekday(date){
 }
 function planShape(){
   return {
-    routeStartDate:$('wlRouteDate').value || nextWeekday(localDate()),
-    firstStopTime:$('wlRouteTime').value || '08:00',
+    routeStartDate:nextWeekday(localDate()),
+    firstStopTime:ROUTE_DEPART_TIME,
     paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
     paceSource:store.get('wlPaceSource') || 'fallback',
     routeVariant:activeVariant(),
@@ -65,14 +66,11 @@ function activeVariant(){
 }
 function savePlanLocal(){
   const p = planShape();
-  store.set('wlRouteDate', p.routeStartDate); store.set('wlRouteTime', p.firstStopTime);
   store.set('wlPaceMin', String(p.paceMin));
   return p;
 }
 function loadPlanFields(plan){
   const p = plan || {};
-  $('wlRouteDate').value = p.routeStartDate || store.get('wlRouteDate') || nextWeekday(localDate());
-  $('wlRouteTime').value = p.firstStopTime || store.get('wlRouteTime') || '08:00';
   $('wlPace').value = String(Math.max(1, Number(p.paceMin || store.get('wlPaceMin')) || 30));
   store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
   if(p.routeVariant) store.set('wlRouteVariant', p.routeVariant === 'straight' ? 'straight' : 'road');
@@ -1324,8 +1322,6 @@ export function initWorklist(opts){
     $('wlTarget').value = String(v); store.set('wlTarget', String(v));
   };
   loadPlanFields();
-  $('wlRouteDate').onchange = savePlanLocal;
-  $('wlRouteTime').onchange = savePlanLocal;
   $('wlPace').onchange = () => {
     store.set('wlPaceSource', 'override');
     const p = savePlanLocal(); $('wlPace').value = String(p.paceMin);

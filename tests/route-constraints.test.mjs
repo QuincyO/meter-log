@@ -42,6 +42,13 @@ test('appointment waiting shifts later ETAs', () => {
   assert.equal(result.scheduleById.c.eta, '10:10');
 });
 
+test('first-stop ETA is the departure clock plus the drive out from the start', () => {
+  const items = [item('a'), item('b')];
+  const travel = { fromStart:() => 17, between:() => 12 };
+  const r = scheduleRouteConstraints(items, ['a','b'], opts({ firstStopTime:'08:15', travel }));
+  assert.equal(r.scheduleById.a.eta, '08:32'); // 08:15 + 17 min drive out
+});
+
 test('conflicting locks fail without changing the supplied route', () => {
   const route = ['a','b'];
   const items = [
