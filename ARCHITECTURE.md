@@ -1022,6 +1022,7 @@ installer's saved rows.
 | `ignored`     | string | `'TRUE'` = set aside: out of the route, day counts, meters/day target and plan mode, but still on the list and still synced. Deliberately **not** a third `wlStatus` value — `clearDoneWorklistJob` sweeps `'done'` rows nightly, and a set-aside order must survive |
 | `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous point |
 | `orderStraight` / `dayStraight` / `legMetersStraight` | number | the saved **straight-line route**, same three fields |
+| `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving leg for each variant — the actual road path from the previous point (the home anchor for a day's first stop). Empty when the planner never fetched directions or a leg had no route. Opaque text; `setupSheets` pins these columns to `@`. See "Route variants" |
 
 ### Route variants (the two saved routes)
 
@@ -1045,6 +1046,20 @@ variant, and leaves any earlier road route untouched. Staleness is handled by
 display, never by deletion: a saved sequence that no longer covers the pending
 orders greys its button out and marks the total "out of date", and a manual drag
 marks it "edited".
+
+**Road directions geometry.** The desktop planner also fetches the *actual road
+path* of every leg of both variants from the same local OSRM — the `route`
+service (`osrmLegGeometry` in `js/route.js`, one GET per leg), distinct from the
+`table` service that gives the distance matrix. The polyline5 result is stored on
+the **arriving** order in `legGeometryRoad`/`legGeometryStraight` (same leg
+semantics as `legMeters*`), so the planner map draws real roads instead of
+straight pin-to-pin lines (`decodePolyline` + Leaflet), and a phone/map viewer can
+draw them later. Geometry is fetched automatically at the end of a road-matrix
+Optimize (skipped when the matrix fell back off OSRM) and on demand via the
+planner's **Get directions** button (no re-solve). It rides the sync verbatim like
+`legMeters*` — the phone never generates it and must not blank it — and an
+address edit clears both the pin and the stale geometry. A leg with no route saved
+falls back to a straight segment on the map.
 
 ### WorklistPlan row  (one per installer → tab "WorklistPlans")
 | field | type | notes |

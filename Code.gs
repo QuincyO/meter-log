@@ -192,12 +192,16 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
 // `scheduled*` remain the LIVE sequence — switching variants just copies one of
 // these groups into them. legMeters* is metres driven arriving at that stop from
 // the previous point in that variant (the home anchor for a day's first stop).
+// legGeometry* is the OSRM-encoded polyline of that same arriving leg (the actual
+// road path, fetched from OSRM /route by the desktop planner) — opaque text, so
+// setupSheets pins its columns to '@' the way it does the DriveTracks polyline.
 const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','address',
   'oldJNumber','wlStatus','order','createdAt','updatedAt','lat','lng','day',
   'appointmentDate','appointmentTime','lockedDate','lockedSlot',
   'scheduledDate','scheduledEta','scheduledSlot','scheduledWaitMin',
   'ignored','orderRoad','dayRoad','legMetersRoad',
-  'orderStraight','dayStraight','legMetersStraight'];
+  'orderStraight','dayStraight','legMetersStraight',
+  'legGeometryRoad','legGeometryStraight'];
 // One synchronized route-plan record per installer. Kept separate from the
 // order rows so route settings do not repeat on every Worklist row.
 // `routeVariant` ('road'|'straight') is which saved variant is currently live —
@@ -279,6 +283,7 @@ function setupSheets() {
   ss.getSheetByName('Worklist').getRange('J2:K').setNumberFormat('@');  // createdAt, updatedAt
   ss.getSheetByName('Worklist').getRange('O2:Q').setNumberFormat('@');  // appointment/lock dates + time
   ss.getSheetByName('Worklist').getRange('S2:T').setNumberFormat('@');  // scheduled date + ETA
+  ss.getSheetByName('Worklist').getRange('AD2:AE').setNumberFormat('@'); // legGeometry road/straight (encoded polyline)
   ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
   // The encoded polyline / gaps JSON are opaque text — keep Sheets from reading a
   // leading '@' or '[' as anything but a literal string. (gaps = col L, encoded = M.)
@@ -1206,7 +1211,9 @@ function saveWorklist(b) {
     // renumbered): these are positions WITHIN their own variant, and rewriting
     // them here would desync them from the legMeters measured for that sequence.
     numOrBlank(o.orderRoad), numOrBlank(o.dayRoad), numOrBlank(o.legMetersRoad),
-    numOrBlank(o.orderStraight), numOrBlank(o.dayStraight), numOrBlank(o.legMetersStraight) ]));
+    numOrBlank(o.orderStraight), numOrBlank(o.dayStraight), numOrBlank(o.legMetersStraight),
+    // Encoded road polylines — opaque text, ride through verbatim like the metres.
+    String(o.legGeometryRoad || ''), String(o.legGeometryStraight || '') ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;

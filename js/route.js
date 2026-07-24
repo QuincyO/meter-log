@@ -443,6 +443,58 @@ async function osrmMatrix(coords, osrmUrl){
   return { error: 'OSRM ' + reason };
 }
 
+// ── road DIRECTIONS geometry (self-hosted OSRM `route` service) ──────────────
+// One GET against the same local OSRM as the matrix, but the `route` service
+// (not `table`): it returns the actual driven path between two points, encoded
+// as a polyline5 string (overview=full = every shape point). Used by the desktop
+// planner to save each variant's per-leg road geometry on the sheet and to draw
+// the real roads on its map. Returns the encoded string, or '' on any failure —
+// a missing leg just falls back to a straight line, never an error. Same lng,lat
+// GOTCHA as the matrix: OSRM speaks GeoJSON order, the reverse of our {lat,lng}.
+export async function osrmLegGeometry(from, to, osrmUrl){
+  const a = coordsOf(from), b = coordsOf(to);
+  if(!a || !b) return '';
+  const pts = `${a.lng},${a.lat};${b.lng},${b.lat}`;
+  const url = `${String(osrmUrl).replace(/\/+$/, '')}/route/v1/driving/${pts}`
+    + '?overview=full&geometries=polyline&steps=false&alternatives=false';
+  for(let attempt = 0; attempt < 2; attempt++){
+    try {
+      const res = await fetch(url);
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      const geom = data && data.code === 'Ok' && data.routes && data.routes[0]
+        && data.routes[0].geometry;
+      if(geom) return String(geom);
+      console.warn('OSRM route failed:', res.ok ? ((data && data.code) || 'bad response') : `HTTP ${res.status}`);
+    } catch(e){
+      console.warn('OSRM route failed:', e);
+    }
+    if(attempt === 0) await sleep(MATRIX_MS);
+  }
+  return '';
+}
+
+// Decode an OSRM/Google polyline5 string to [[lat,lng], …]. The inverse of the
+// encoding osrmLegGeometry stores; the planner map uses it to draw the road path.
+// Standard algorithm: 5-bit chunks, zig-zag sign, 1e5 fixed point, deltas.
+export function decodePolyline(str, precision = 5){
+  if(!str) return [];
+  const factor = Math.pow(10, precision);
+  const out = [];
+  let index = 0, lat = 0, lng = 0;
+  while(index < str.length){
+    let shift = 0, result = 0, byte;
+    do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; }
+    while(byte >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; }
+    while(byte >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    out.push([lat / factor, lng / factor]);
+  }
+  return out;
+}
+
 // ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
 // One POST to ORS's hosted matrix (config.js ORS_API_KEY): free, no tiling, but
 // capped at ORS_MATRIX_MAX location-PAIRS — a list over the cap skips ORS so the

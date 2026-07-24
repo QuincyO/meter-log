@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath } from '../js/route.js';
+import { legMetersFor, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, decodePolyline, osrmLegGeometry } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -158,5 +158,55 @@ test('a road run whose matrix fails leaves no road route to compare', async () =
     assert.equal(r.variants.road, null);
     assert.ok(r.variants.straight);
     assert.equal(r.straightDistanceSource, 'straight-line');
+  } finally { globalThis.fetch = before; }
+});
+
+// ── OSRM directions geometry (per-leg road path) ─────────────────────────────
+
+test('decodePolyline recovers the canonical Google polyline points', () => {
+  // The example from Google's polyline algorithm docs.
+  const pts = decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
+  assert.equal(pts.length, 3);
+  const round = ([lat, lng]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5];
+  assert.deepEqual(pts.map(round), [[38.5, -120.2], [40.7, -120.95], [43.252, -126.453]]);
+});
+
+test('decodePolyline returns an empty array for a blank string', () => {
+  assert.deepEqual(decodePolyline(''), []);
+  assert.deepEqual(decodePolyline(null), []);
+});
+
+test('osrmLegGeometry returns the encoded route geometry on success', async () => {
+  const before = globalThis.fetch;
+  let calledUrl = '';
+  globalThis.fetch = async url => {
+    calledUrl = url;
+    return { ok:true, json: async () => ({ code:'Ok', routes:[{ geometry:'abc123' }] }) };
+  };
+  try {
+    const g = await osrmLegGeometry({ lat:45.0, lng:-79.0 }, { lat:45.1, lng:-79.2 }, 'http://localhost:5000');
+    assert.equal(g, 'abc123');
+    // lng,lat order (OSRM's GeoJSON convention), against the /route service.
+    assert.match(calledUrl, /\/route\/v1\/driving\/-79,45;-79\.2,45\.1\?/);
+  } finally { globalThis.fetch = before; }
+});
+
+test('osrmLegGeometry returns empty string when OSRM has no route', async () => {
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok:true, json: async () => ({ code:'NoRoute', routes:[] }) });
+  try {
+    const g = await osrmLegGeometry({ lat:45, lng:-79 }, { lat:46, lng:-80 }, 'http://localhost:5000');
+    assert.equal(g, '');
+  } finally { globalThis.fetch = before; }
+});
+
+test('osrmLegGeometry returns empty string when an endpoint has no coords', async () => {
+  const before = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok:true, json: async () => ({}) }; };
+  try {
+    const g = await osrmLegGeometry({ lat:'', lng:'' }, { lat:46, lng:-80 }, 'http://localhost:5000');
+    assert.equal(g, '');
+    assert.equal(called, false, 'a missing coord must short-circuit before the fetch');
   } finally { globalThis.fetch = before; }
 });

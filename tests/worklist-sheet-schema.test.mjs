@@ -36,9 +36,10 @@ test('the route-variant and set-aside columns are appended, never inserted', () 
   // into the middle renames nothing on an existing sheet and duplicates the
   // tail instead. New columns must go on the end.
   const wl = headers('WORKLIST_HEADERS');
-  assert.deepEqual(wl.slice(-7), ['ignored', 'orderRoad', 'dayRoad', 'legMetersRoad',
-    'orderStraight', 'dayStraight', 'legMetersStraight']);
-  assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 8, 'the pre-existing tail must not move');
+  assert.deepEqual(wl.slice(-9), ['ignored', 'orderRoad', 'dayRoad', 'legMetersRoad',
+    'orderStraight', 'dayStraight', 'legMetersStraight',
+    'legGeometryRoad', 'legGeometryStraight']);
+  assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 10, 'the pre-existing tail must not move');
 
   const wp = headers('WORKLIST_PLANS_HEADERS');
   assert.deepEqual(wp.slice(-2), ['routeVariant', 'straightDistanceSource']);

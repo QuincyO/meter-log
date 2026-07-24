@@ -18,7 +18,7 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor } from '../route.js';
+import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, osrmLegGeometry, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -254,7 +254,8 @@ function wireShape(x){
     ignored:isIgnored(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
-    legMetersStraight:blank(x.legMetersStraight) };
+    legMetersStraight:blank(x.legMetersStraight),
+    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
 // form the sheet and the variant helpers both understand.
@@ -291,7 +292,8 @@ async function loadList(){
       ignored:isIgnored(o),
       orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
       orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
-      legMetersStraight:blank(o.legMetersStraight) })));
+      legMetersStraight:blank(o.legMetersStraight),
+      legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') })));
     setStatus('ok','Synced');
     toast(`Loaded ${items.length} orders ✓`);
   } catch { setStatus('off','Error'); toast('Load failed — check signal'); }
@@ -334,6 +336,15 @@ async function homePin(geoUrl){
     return { lat: hit.lat, lng: hit.lng };
   }
   toast('End-near address didn’t pin — routing without it');
+  return null;
+}
+// The already-geocoded end-near anchor, read straight from cache (no lookup) —
+// used by the on-demand directions fetch, where re-geocoding would be wasteful.
+function cachedHomeAnchor(){
+  try{
+    const s = JSON.parse(store.get('plannerHome:' + hNumber()) || 'null');
+    if(s && isFinite(s.lat) && isFinite(s.lng)) return { lat:s.lat, lng:s.lng };
+  } catch {}
   return null;
 }
 
@@ -441,6 +452,10 @@ async function optimize(pending, health){
     for(const x of items) await idb.put('worklist', x);
     store.set('plannerVariant:' + h, primaryVariant);
     if(base.variants.straight) store.set('plannerStraightSource:' + h, base.straightDistanceSource);
+    // Fetch the real road path for every leg of both variants while OSRM is up —
+    // usedFallback means the matrix already fell back off OSRM, so /route would
+    // fail too; skip it then rather than hammer a down server.
+    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl, home);
     render();
     const who = roster.employees.find(e => String(e.hNumber) === h);
     const runRecord = {
@@ -466,6 +481,64 @@ async function optimize(pending, health){
     toast((err && err.message) || 'Optimize failed — try again');
   } finally {
     prog.classList.add('hide'); prog.textContent = '';
+  }
+}
+
+// ── directions geometry ──────────────────────────────────────────────────────
+// Walk each variant's saved sequence and ask OSRM /route for the actual road path
+// of every leg, storing the encoded polyline on the ARRIVING order (matching how
+// legMetersFor charges each leg). A day's first stop is measured from the home
+// anchor. Runs both during Optimize (home passed in) and from the on-demand
+// button (home read from cache). One local OSRM GET per leg — free and fast.
+async function fetchVariantGeometry(osrmUrl, home){
+  const anchor = home || cachedHomeAnchor();
+  const prog = $('plProg');
+  let fetched = 0, missed = 0, total = 0;
+  for(const v of VARIANTS){
+    const f = VARIANT_FIELDS[v];
+    const routed = pendingItems()
+      .filter(x => !isParked(x) && coordsOf(x) && x[f.order] !== '' && x[f.order] != null)
+      .sort((a, b) => Number(a[f.order]) - Number(b[f.order]));
+    const prevByDay = {};
+    for(const x of routed){
+      const day = x[f.day] || 0;
+      const prev = prevByDay[day] ? coordsOf(prevByDay[day]) : anchor;  // day's first leg starts at home
+      if(prev){
+        total++;
+        if(prog) prog.textContent = `Fetching directions… ${total}`;
+        const g = await osrmLegGeometry(prev, coordsOf(x), osrmUrl);
+        if(g){ x[f.geometry] = g; fetched++; } else { x[f.geometry] = ''; missed++; }
+      } else {
+        x[f.geometry] = '';   // no home anchor → nothing to draw for a day's first stop
+      }
+      prevByDay[day] = x;
+      await idb.put('worklist', x);
+    }
+  }
+  return { fetched, missed };
+}
+
+// On-demand refresh: fetch road geometry for the CURRENT sequences without
+// re-solving. Useful after a manual drag or an address fix, or on a list loaded
+// from the sheet that was optimized on another machine.
+async function requestDirections(){
+  const h = hNumber();
+  if(!h){ toast('Pick an installer first'); return; }
+  if(!pendingItems().length){ toast('No orders to route'); return; }
+  const btn = $('plDirections'); btn.disabled = true;
+  const prog = $('plProg'); prog.classList.remove('hide'); prog.textContent = 'Checking OSRM…';
+  try{
+    const health = await checkServices();
+    if(!health.osrm.online){ toast('OSRM offline — start the local server (DEPLOY.md)'); return; }
+    const { fetched, missed } = await fetchVariantGeometry(providerUrls().osrm, null);
+    render();
+    toast(fetched
+      ? `Directions saved ✓ · ${fetched} legs${missed ? ` · ${missed} missed` : ''} — ⇪ Upload to send`
+      : 'No routed legs yet — Optimize first');
+  } catch(err){
+    toast((err && err.message) || 'Directions failed');
+  } finally {
+    btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
 }
 
@@ -628,7 +701,17 @@ function render(){
         ${(!setAside && item.geoAmbig && item.geoAmbig.length) ? `<div class="plchips">${
           item.geoAmbig.map((c, ci) => `<button class="chip" data-ci="${ci}" type="button">${esc(c.label)}</button>`).join('')
         }</div>` : ''}
+        ${item.wlStatus !== 'done' ? `<div class="pledit hide">
+          <label>WO#<input data-edit="wo" value="${attr(item.workOrderId||'')}"></label>
+          <label>Address<input data-edit="addr" value="${attr(item.address||'')}"></label>
+          <label>Old J#<input data-edit="oldj" value="${attr(item.oldJNumber||'')}"></label>
+          <div class="pledit-actions">
+            <button class="pledit-save" type="button">Save</button>
+            <button class="pledit-cancel" type="button">Cancel</button>
+          </div>
+        </div>` : ''}
       </div>
+      ${item.wlStatus !== 'done' ? `<button class="pledit-btn" type="button" aria-label="Edit order">✏️</button>` : ''}
       ${item.wlStatus !== 'done' ? `<button class="plaside-btn${setAside ? ' on' : ''}" type="button" aria-label="${setAside ? 'Put back in the route' : 'Set aside — leave out of the route'}">${setAside ? '↩' : '🚫'}</button>` : ''}
       <button class="pldel" type="button" aria-label="Remove">✕</button>`;
     const asideBtn = row.querySelector('.plaside-btn');
@@ -653,6 +736,33 @@ function render(){
       toast('Town pinned ✓ — optimize again to route it');
       render();
     }; });
+    const editBtn = row.querySelector('.pledit-btn');
+    const editForm = row.querySelector('.pledit');
+    if(editBtn && editForm){
+      editBtn.onclick = () => {
+        editForm.classList.toggle('hide');
+        if(!editForm.classList.contains('hide')) editForm.querySelector('[data-edit="wo"]').focus();
+      };
+      editForm.querySelector('.pledit-cancel').onclick = () => editForm.classList.add('hide');
+      editForm.querySelector('.pledit-save').onclick = async () => {
+        const wo = editForm.querySelector('[data-edit="wo"]').value.trim();
+        const addr = editForm.querySelector('[data-edit="addr"]').value.trim();
+        const oldj = editForm.querySelector('[data-edit="oldj"]').value.trim();
+        const addrChanged = addr !== String(item.address || '');
+        item.workOrderId = wo; item.oldJNumber = oldj; item.updatedAt = stamp();
+        if(addrChanged){
+          // Hand-edited address invalidates the pin (like the phone) AND the saved
+          // road geometry — the stop has moved, so both must be re-derived.
+          item.address = addr;
+          item.lat = undefined; item.lng = undefined;
+          item.geoFail = false; item.geoAmbig = undefined;
+          item.legGeometryRoad = ''; item.legGeometryStraight = '';
+        }
+        await idb.put('worklist', item);
+        toast(addrChanged ? 'Saved ✓ — Optimize to re-locate the new address' : 'Saved ✓');
+        render();
+      };
+    }
     row.querySelector('.pldel').onclick = async () => {
       await idb.del('worklist', item.id);
       items = items.filter(x => x.id !== item.id);
@@ -682,8 +792,13 @@ function renderMap(){
   const all = [];
   // Polyline points grouped by day (each day drawn in its own color so the
   // office can see every day finish back toward home). Ungrouped when there's
-  // no day split — one neutral line.
+  // no day split — one neutral line. When the active variant carries saved OSRM
+  // road geometry, each leg is drawn along its real path; a leg with no geometry
+  // falls back to a straight segment between the two pins.
   const segs = {};
+  const geomField = VARIANT_FIELDS[activeVariant()].geometry;
+  const anchor = cachedHomeAnchor();
+  const prevByDay = {};      // last routed coord seen per day (home anchor before the first)
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);
     if(!c) return;
@@ -691,7 +806,12 @@ function renderMap(){
     const day = item.day || 0;
     const color = day ? dayColor(day) : '#2b6cff';
     if(!parked){                                  // polyline + numbering: routed only
-      (segs[day] = segs[day] || []).push([c.lat, c.lng]);
+      const prev = prevByDay[day] || anchor;      // day's first leg starts at home
+      const leg = decodePolyline(item[geomField]);
+      const pts = leg.length ? leg
+        : (prev ? [[prev.lat, prev.lng], [c.lat, c.lng]] : [[c.lat, c.lng]]);
+      (segs[day] = segs[day] || []).push(...pts);
+      prevByDay[day] = c;
     }
     all.push([c.lat, c.lng]);
     const marker = L.marker([c.lat, c.lng], { icon: L.divIcon({
@@ -726,6 +846,7 @@ $('plLoad').onclick = loadList;
 $('plImportBtn').onclick = () => $('plImport').classList.toggle('hide');
 $('plPasteAdd').onclick = importPaste;
 $('plOptimize').onclick = requestOptimize;
+$('plDirections').onclick = requestDirections;
 $('plUpload').onclick = upload;
 $('plVariantRoad').onclick = () => switchVariant('road');
 $('plVariantStraight').onclick = () => switchVariant('straight');

@@ -180,7 +180,10 @@ function wireShape(x){
     ignored:isIgnored(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
-    legMetersStraight:blank(x.legMetersStraight) };
+    legMetersStraight:blank(x.legMetersStraight),
+    // The phone never generates road geometry — carry the office's verbatim so an
+    // upload from here can't blank it (same reason legMeters* round-trips).
+    legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
 // form the sheet and the variant helpers both understand.
@@ -255,7 +258,8 @@ async function wlDownload(){
         ignored:isIgnored(o),
         orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
         orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
-        legMetersStraight:blank(o.legMetersStraight) });
+        legMetersStraight:blank(o.legMetersStraight),
+        legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') });
     }
     if(r.plan) loadPlanFields(r.plan);
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
