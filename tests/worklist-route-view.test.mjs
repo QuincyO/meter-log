@@ -9,6 +9,7 @@ import {
   routeCardState,
   needsOrderWrite,
 } from '../js/worklist-route-view.js';
+import { decodePolyline } from '../js/route.js';
 
 const item = (id, order, day = '', wlStatus = 'pending') => ({
   id, order, day, wlStatus, address: `Stop ${id}`,
@@ -96,6 +97,26 @@ test('keeps full route positions on pins and excludes parked pins from the line'
   assert.deepEqual(model.line, [[45.1, -79.1], [45.4, -79.4]]);
   assert.equal(model.missing, 1);
   assert.equal(model.parked, 1);
+});
+
+test('path follows saved road geometry per leg and falls back to a straight leg', () => {
+  // The classic polyline5 example: three points along a curve. On-device decode
+  // only — no network. The phone has no home anchor, so the first stop just
+  // starts the line; the a→b leg follows its saved geometry; b→c has none and
+  // draws straight (an edited/quick-change leg).
+  const geom = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+  const decoded = decodePolyline(geom);
+  const model = buildRouteMapModel([
+    { ...item('a', 0, 1), lat:38.5, lng:-120.2 },
+    { ...item('b', 10, 1), lat:40.7, lng:-120.95, legGeometryRoad:geom },
+    { ...item('c', 20, 1), lat:43.252, lng:-126.453 },
+  ], 'legGeometryRoad');
+
+  assert.deepEqual(model.path, [
+    [38.5, -120.2],                          // first routed stop starts the line
+    ...decoded,                              // a → b follows the saved road path
+    [40.7, -120.95], [43.252, -126.453],     // b → c straight (no saved geometry)
+  ]);
 });
 
 test('labels missing coordinates as no pin before applying the broader parked state', () => {

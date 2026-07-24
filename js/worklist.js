@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor } from './route.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
@@ -179,8 +179,9 @@ function wireShape(x){
     scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
     ignored:isIgnored(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
+    homeLegMetersRoad:blank(x.homeLegMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
-    legMetersStraight:blank(x.legMetersStraight),
+    legMetersStraight:blank(x.legMetersStraight), homeLegMetersStraight:blank(x.homeLegMetersStraight),
     // The phone never generates road geometry — carry the office's verbatim so an
     // upload from here can't blank it (same reason legMeters* round-trips).
     legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
@@ -257,8 +258,9 @@ async function wlDownload(){
         scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin),
         ignored:isIgnored(o),
         orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
+        homeLegMetersRoad:blank(o.homeLegMetersRoad),
         orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
-        legMetersStraight:blank(o.legMetersStraight),
+        legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
         legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') });
     }
     if(r.plan) loadPlanFields(r.plan);
@@ -332,7 +334,8 @@ async function optimizeRouteHandler(straightLine){
       if(!variant) continue;
       const routedItems = variant.orderedIds.map(id => refreshedById[id]).filter(Boolean);
       const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
-      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf) };
+      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
+        homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
     }
     const primaryVariant = base.variants.road ? 'road' : 'straight';
     const prim = computed[primaryVariant];
@@ -354,7 +357,8 @@ async function optimizeRouteHandler(straightLine){
       const c = computed[v], pos = {};
       [...c.orderedIds, ...parkedIds].forEach((id, n) => {
         pos[id] = { order:n * 10, day:c.dayOf[id] || '',
-          legMeters:c.legMeters[id] == null ? '' : c.legMeters[id] };
+          legMeters:c.legMeters[id] == null ? '' : c.legMeters[id],
+          homeLegMeters:c.homeLegMeters[id] == null ? '' : c.homeLegMeters[id] };
       });
       variantPos[v] = pos;
     }
@@ -377,6 +381,7 @@ async function optimizeRouteHandler(straightLine){
         patch[f.order] = p ? p.order : '';
         patch[f.day] = p ? p.day : '';
         patch[f.legMeters] = p ? p.legMeters : '';
+        patch[f.homeLegMeters] = p ? p.homeLegMeters : '';
       }
       await idb.put('worklist', Object.assign({}, item, patch));
     }

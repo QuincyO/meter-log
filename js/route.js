@@ -837,11 +837,45 @@ export function legMetersFor(measure, orderedIds, dayOf){
     const idx = indexById[id];
     if(idx == null) return;                    // parked/unknown — no leg
     const day = (dayOf && dayOf[id]) || null;
+    const dayStart = prev == null || (day && day !== prevDay);
+    // The drive OUT from the home pin to a day's first stop is NOT charged to
+    // the day's driving total: it is measured on its own by homeLegMetersFor and
+    // saved for reference, deliberately kept out of the km the office compares.
+    // Every other leg is charged — including a phone "start from here" first leg
+    // (startIndex), which is a real driven leg, not a home leg.
+    const fromHome = dayStart && !(i === 0 && startIndex != null);
     let from = prev;
-    if(prev == null || (day && day !== prevDay))
-      from = (i === 0 && startIndex != null) ? startIndex : homeIndex;
-    const m = from == null ? 0 : D[from][idx];
+    if(dayStart) from = fromHome ? homeIndex : startIndex;
+    const m = (fromHome || from == null) ? 0 : D[from][idx];
     out[id] = isFinite(m) ? Math.round(m) : 0;
+    prev = idx; prevDay = day;
+  });
+  return out;
+}
+
+// Metres driven OUT from the home pin to each day's FIRST stop — the drive-out
+// leg legMetersFor deliberately leaves out of the day total. Returns { id: metres }
+// keyed on the day's first stop, one entry per day, so the planner/phone can show
+// it as a per-day "distance to home" readout without folding it into the driving
+// total. Mirrors legMetersFor's day-start detection exactly. The phone "start from
+// here" first leg (startIndex) is a real driven leg, not a home leg, so it is not
+// recorded. Empty when the run had no home anchor.
+export function homeLegMetersFor(measure, orderedIds, dayOf){
+  const out = {};
+  if(!measure || !measure.D) return out;
+  const { D, indexById, homeIndex, startIndex } = measure;
+  if(homeIndex == null) return out;
+  let prev = null, prevDay = null;
+  (orderedIds || []).forEach((id, i) => {
+    const idx = indexById[id];
+    if(idx == null) return;                    // parked/unknown — no leg
+    const day = (dayOf && dayOf[id]) || null;
+    const dayStart = prev == null || (day && day !== prevDay);
+    const fromHome = dayStart && !(i === 0 && startIndex != null);
+    if(fromHome){
+      const m = D[homeIndex][idx];
+      out[id] = isFinite(m) ? Math.round(m) : 0;
+    }
     prev = idx; prevDay = day;
   });
   return out;

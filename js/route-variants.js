@@ -16,8 +16,8 @@ import { scheduleRouteConstraints } from './route-constraints.js';
 export const VARIANTS = ['road', 'straight'];
 
 export const VARIANT_FIELDS = {
-  road:     { order:'orderRoad',     day:'dayRoad',     legMeters:'legMetersRoad',     geometry:'legGeometryRoad' },
-  straight: { order:'orderStraight', day:'dayStraight', legMeters:'legMetersStraight', geometry:'legGeometryStraight' },
+  road:     { order:'orderRoad',     day:'dayRoad',     legMeters:'legMetersRoad',     homeLegMeters:'homeLegMetersRoad',     geometry:'legGeometryRoad' },
+  straight: { order:'orderStraight', day:'dayStraight', legMeters:'legMetersStraight', homeLegMeters:'homeLegMetersStraight', geometry:'legGeometryStraight' },
 };
 
 export const VARIANT_LABELS = { road:'Road matrix', straight:'Straight-line' };
@@ -148,13 +148,9 @@ export function variantMeters(items, variant, opts = {}){
 
 /** Metres for the LIVE route's day, taken from whichever variant is active.
  *  Day numbers on the live route are the active variant's, so this is just
- *  variantMeters keyed on the live `day` field.
- *
- *  Caveat: the saved legs charge each day's FIRST stop the drive out from home,
- *  so if the meters/day target changed since the route was worked out, the days
- *  are re-cut here and a boundary leg can land on the wrong day. The ROUTE total
- *  stays exact either way; only the per-day split can drift, and re-optimizing
- *  at the new target puts it right. */
+ *  variantMeters keyed on the live `day` field. The per-day and route totals are
+ *  the driving legs BETWEEN stops only — the drive out from home to a day's first
+ *  stop is measured separately (see dayHomeMeters) and kept out of these totals. */
 export function liveDayMeters(items, variant, day){
   const f = VARIANT_FIELDS[variant];
   if(!f) return null;
@@ -167,6 +163,24 @@ export function liveDayMeters(items, variant, day){
     total += m; seen = true;
   }
   return seen ? total : null;
+}
+
+/** The saved drive-OUT distance from the home pin to a day's first stop, for the
+ *  given variant — measured at optimize time but deliberately NOT in the day/route
+ *  driving total (homeLegMetersFor in route.js). Stored on the day's first stop,
+ *  so this reads that one value off the live day's stops; null when the run had no
+ *  home pin or this variant never measured it. A per-day "distance to home"
+ *  reference number, not part of the km the office compares. */
+export function dayHomeMeters(items, variant, day){
+  const f = VARIANT_FIELDS[variant];
+  if(!f || !f.homeLegMeters) return null;
+  const want = Number(day);
+  for(const item of pendingOf(items)){
+    if(Number(item.day) !== want) continue;
+    const m = num(item[f.homeLegMeters]);
+    if(m != null) return m;
+  }
+  return null;
 }
 
 /** Metres → a short human distance. One decimal below 10 km (a 4.2 km day reads

@@ -2,8 +2,8 @@
 // this view a sorted snapshot plus one persistence callback; this module owns
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
-import { coordsOf, isParked } from './route.js';
-import { fmtKm, isPending, liveDayMeters } from './route-variants.js';
+import { coordsOf, decodePolyline, isParked } from './route.js';
+import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 
 function routeKey(item){
@@ -67,20 +67,39 @@ export function reorderRouteGroup(items, key, orderedIds){
   return source.map((item, index) => Object.assign({}, item, { order:index * 10 }));
 }
 
-export function buildRouteMapModel(items){
+// `geomField` (VARIANT_FIELDS[...].geometry) is optional: when given, `path`
+// follows each between-stops leg's saved OSRM road polyline (decoded on-device —
+// no network), falling back to a straight segment for any leg with no saved
+// geometry (an edited/quick-change leg, or a list the desktop never routed). The
+// first routed stop starts `path` at its own pin — the phone has no home anchor,
+// so there is no incoming home leg to draw. `line` is the straight pin-to-pin
+// route kept as-is (used when no geometry field is passed).
+export function buildRouteMapModel(items, geomField){
   const markers = [];
   const line = [];
+  const path = [];
   let missing = 0;
   let parked = 0;
+  let prev = null;
   (items || []).forEach((item, index) => {
     const c = coordsOf(item);
     if(!c){ missing++; return; }
     const stopped = isParked(item);
-    if(stopped) parked++;
-    else line.push([c.lat, c.lng]);
+    if(stopped){ parked++; }
+    else {
+      line.push([c.lat, c.lng]);
+      if(prev == null){
+        path.push([c.lat, c.lng]);
+      } else {
+        const leg = geomField ? decodePolyline(item[geomField]) : [];
+        if(leg.length) path.push(...leg);
+        else path.push([prev.lat, prev.lng], [c.lat, c.lng]);
+      }
+      prev = c;
+    }
     markers.push({ item, position:index + 1, parked:stopped, point:[c.lat, c.lng] });
   });
-  return { markers, line, missing, parked };
+  return { markers, line, path, missing, parked };
 }
 
 export function routeCardState(item){
@@ -143,11 +162,15 @@ export function initWorklistRouteView(opts){
       b.type = 'button';
       b.className = 'wl-route-day' + (group.key === selected ? ' on' : '');
       b.setAttribute('aria-pressed', group.key === selected ? 'true' : 'false');
-      // The day's driving distance, when the route has been optimized — the
-      // number that says whether "24 meters" is a short day or a long one.
+      // The day's driving distance (between stops), when the route has been
+      // optimized — the number that says whether "24 meters" is a short day or a
+      // long one. ⌂ is the saved drive out from home to the first stop, measured
+      // for reference and deliberately kept out of that driving total.
       const km = group.day == null ? null : liveDayMeters(snapshot, variant, group.day);
+      const homeKm = group.day == null ? null : dayHomeMeters(snapshot, variant, group.day);
       b.textContent = `${group.label} · ${group.items.length}`
-        + (km == null ? '' : ` · ${fmtKm(km)}`);
+        + (km == null ? '' : ` · ${fmtKm(km)}`)
+        + (homeKm == null ? '' : ` · ⌂ ${fmtKm(homeKm)}`);
       b.onclick = async () => { selected = group.key; await render(); };
       daysEl.appendChild(b);
     }
@@ -169,7 +192,9 @@ export function initWorklistRouteView(opts){
     }
     layer.clearLayers();
     const L = globalThis.L;
-    const model = buildRouteMapModel(group ? group.items : []);
+    const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
+    const geomField = (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).geometry;
+    const model = buildRouteMapModel(group ? group.items : [], geomField);
     const bounds = [];
     const color = group && group.day ? dayColor(group.day) : '#2563EB';
     model.markers.forEach(({ item, position, parked, point }) => {
@@ -184,7 +209,10 @@ export function initWorklistRouteView(opts){
         if(el) el.style.background = color;
       }
     });
-    if(model.line.length > 1) L.polyline(model.line, { color, weight:4, opacity:.78 }).addTo(layer);
+    // Draw the road-following path (decoded saved geometry, straight fallback per
+    // leg) when there is one; otherwise the straight pin-to-pin route.
+    const route = model.path.length > 1 ? model.path : model.line;
+    if(route.length > 1) L.polyline(route, { color, weight:4, opacity:.78 }).addTo(layer);
     setTimeout(() => {
       map.invalidateSize();
       if(bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(.18));

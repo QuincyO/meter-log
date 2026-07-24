@@ -201,7 +201,12 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
   'scheduledDate','scheduledEta','scheduledSlot','scheduledWaitMin',
   'ignored','orderRoad','dayRoad','legMetersRoad',
   'orderStraight','dayStraight','legMetersStraight',
-  'legGeometryRoad','legGeometryStraight'];
+  'legGeometryRoad','legGeometryStraight',
+  // The drive-out distance from home to each day's first stop, per variant —
+  // measured on Optimize but deliberately NOT in legMeters* / the day total;
+  // saved for reference (see route.js homeLegMetersFor). Appended AFTER the
+  // geometry columns so the AD2:AE '@' pin above still lands on legGeometry*.
+  'homeLegMetersRoad','homeLegMetersStraight'];
 // One synchronized route-plan record per installer. Kept separate from the
 // order rows so route settings do not repeat on every Worklist row.
 // `routeVariant` ('road'|'straight') is which saved variant is currently live —
@@ -1213,7 +1218,9 @@ function saveWorklist(b) {
     numOrBlank(o.orderRoad), numOrBlank(o.dayRoad), numOrBlank(o.legMetersRoad),
     numOrBlank(o.orderStraight), numOrBlank(o.dayStraight), numOrBlank(o.legMetersStraight),
     // Encoded road polylines — opaque text, ride through verbatim like the metres.
-    String(o.legGeometryRoad || ''), String(o.legGeometryStraight || '') ]));
+    String(o.legGeometryRoad || ''), String(o.legGeometryStraight || ''),
+    // Per-day home→first-stop distance, kept out of the day total, saved for reference.
+    numOrBlank(o.homeLegMetersRoad), numOrBlank(o.homeLegMetersStraight) ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;

@@ -18,10 +18,10 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, osrmLegGeometry, decodePolyline } from '../route.js';
+import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, osrmLegGeometry, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import {
-  VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
+  VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from '../route-variants.js';
 import {
@@ -253,8 +253,9 @@ function wireShape(x){
     scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
     ignored:isIgnored(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
+    homeLegMetersRoad:blank(x.homeLegMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
-    legMetersStraight:blank(x.legMetersStraight),
+    legMetersStraight:blank(x.legMetersStraight), homeLegMetersStraight:blank(x.homeLegMetersStraight),
     legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || '') };
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
@@ -291,8 +292,9 @@ async function loadList(){
       scheduledWaitMin:(o.scheduledWaitMin===''||o.scheduledWaitMin==null)?'':Number(o.scheduledWaitMin),
       ignored:isIgnored(o),
       orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
+      homeLegMetersRoad:blank(o.homeLegMetersRoad),
       orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
-      legMetersStraight:blank(o.legMetersStraight),
+      legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
       legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || '') })));
     setStatus('ok','Synced');
     toast(`Loaded ${items.length} orders ✓`);
@@ -336,15 +338,6 @@ async function homePin(geoUrl){
     return { lat: hit.lat, lng: hit.lng };
   }
   toast('End-near address didn’t pin — routing without it');
-  return null;
-}
-// The already-geocoded end-near anchor, read straight from cache (no lookup) —
-// used by the on-demand directions fetch, where re-geocoding would be wasteful.
-function cachedHomeAnchor(){
-  try{
-    const s = JSON.parse(store.get('plannerHome:' + hNumber()) || 'null');
-    if(s && isFinite(s.lat) && isFinite(s.lng)) return { lat:s.lat, lng:s.lng };
-  } catch {}
   return null;
 }
 
@@ -415,7 +408,8 @@ async function optimize(pending, health){
       if(!variant) continue;
       const routedItems = variant.orderedIds.map(id => byId[id]).filter(Boolean);
       const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
-      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf) };
+      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
+        homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
     }
     const primaryVariant = base.variants.road ? 'road' : 'straight';
     const prim = computed[primaryVariant];
@@ -427,7 +421,8 @@ async function optimize(pending, health){
       const c = computed[v], pos = {};
       [...c.orderedIds, ...parkedIds].forEach((id, n) => {
         pos[id] = { order:n * 10, day:c.dayOf[id] || '',
-          legMeters:c.legMeters[id] == null ? '' : c.legMeters[id] };
+          legMeters:c.legMeters[id] == null ? '' : c.legMeters[id],
+          homeLegMeters:c.homeLegMeters[id] == null ? '' : c.homeLegMeters[id] };
       });
       variantPos[v] = pos;
     }
@@ -446,6 +441,7 @@ async function optimize(pending, health){
         x[f.order] = p ? p.order : '';
         x[f.day] = p ? p.day : '';
         x[f.legMeters] = p ? p.legMeters : '';
+        x[f.homeLegMeters] = p ? p.homeLegMeters : '';
       }
     });
     items = seq;
@@ -455,7 +451,7 @@ async function optimize(pending, health){
     // Fetch the real road path for every leg of both variants while OSRM is up —
     // usedFallback means the matrix already fell back off OSRM, so /route would
     // fail too; skip it then rather than hammer a down server.
-    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl, home);
+    if(health.osrm.online && !usedFallback) await fetchVariantGeometry(osrmUrl);
     render();
     const who = roster.employees.find(e => String(e.hNumber) === h);
     const runRecord = {
@@ -486,12 +482,12 @@ async function optimize(pending, health){
 
 // ── directions geometry ──────────────────────────────────────────────────────
 // Walk each variant's saved sequence and ask OSRM /route for the actual road path
-// of every leg, storing the encoded polyline on the ARRIVING order (matching how
-// legMetersFor charges each leg). A day's first stop is measured from the home
-// anchor. Runs both during Optimize (home passed in) and from the on-demand
-// button (home read from cache). One local OSRM GET per leg — free and fast.
-async function fetchVariantGeometry(osrmUrl, home){
-  const anchor = home || cachedHomeAnchor();
+// of every leg BETWEEN stops, storing the encoded polyline on the ARRIVING order
+// (matching how legMetersFor charges each leg). A day's FIRST stop has no incoming
+// leg drawn — the drive out from home is deliberately not routed or drawn, only
+// measured (homeLegMetersFor) — so it stores empty geometry. One local OSRM GET
+// per between-stops leg — free and fast.
+async function fetchVariantGeometry(osrmUrl){
   const prog = $('plProg');
   let fetched = 0, missed = 0, total = 0;
   for(const v of VARIANTS){
@@ -502,14 +498,14 @@ async function fetchVariantGeometry(osrmUrl, home){
     const prevByDay = {};
     for(const x of routed){
       const day = x[f.day] || 0;
-      const prev = prevByDay[day] ? coordsOf(prevByDay[day]) : anchor;  // day's first leg starts at home
+      const prev = prevByDay[day] ? coordsOf(prevByDay[day]) : null;  // no home leg — first stop draws nothing
       if(prev){
         total++;
         if(prog) prog.textContent = `Fetching directions… ${total}`;
         const g = await osrmLegGeometry(prev, coordsOf(x), osrmUrl);
         if(g){ x[f.geometry] = g; fetched++; } else { x[f.geometry] = ''; missed++; }
       } else {
-        x[f.geometry] = '';   // no home anchor → nothing to draw for a day's first stop
+        x[f.geometry] = '';   // a day's first stop → no incoming leg (home drive-out not drawn)
       }
       prevByDay[day] = x;
       await idb.put('worklist', x);
@@ -530,7 +526,7 @@ async function requestDirections(){
   try{
     const health = await checkServices();
     if(!health.osrm.online){ toast('OSRM offline — start the local server (DEPLOY.md)'); return; }
-    const { fetched, missed } = await fetchVariantGeometry(providerUrls().osrm, null);
+    const { fetched, missed } = await fetchVariantGeometry(providerUrls().osrm);
     render();
     toast(fetched
       ? `Directions saved ✓ · ${fetched} legs${missed ? ` · ${missed} missed` : ''} — ⇪ Upload to send`
@@ -668,12 +664,15 @@ function render(){
       const count = pending.filter(p => (p.day || null) === d).length;
       const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
       const km = liveDayMeters(items, variant, d);
+      const homeKm = dayHomeMeters(items, variant, d);
       const hdr = document.createElement('div');
       hdr.className = 'plday';
-      hdr.title = 'Distance covers the drive out and between stops, not the drive home.';
+      hdr.title = 'Distance is the drive between stops. ⌂ is the saved drive out from '
+        + 'home to the first stop — measured for reference, not in the total.';
       hdr.innerHTML = `<span class="plday-dot" style="background:${dayColor(d)}"></span>`
         + `Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
         + (km == null ? '' : ` · ${esc(fmtKm(km))}`)
+        + (homeKm == null ? '' : ` · ⌂ ${esc(fmtKm(homeKm))}`)
         + ` — ends near home<span class="plday-eta">${esc(dayEta(count))}</span>`;
       card.appendChild(hdr);
     }
@@ -790,15 +789,15 @@ function renderMap(){
   }
   mapLayer.clearLayers();
   const all = [];
-  // Polyline points grouped by day (each day drawn in its own color so the
-  // office can see every day finish back toward home). Ungrouped when there's
-  // no day split — one neutral line. When the active variant carries saved OSRM
-  // road geometry, each leg is drawn along its real path; a leg with no geometry
-  // falls back to a straight segment between the two pins.
+  // Polyline points grouped by day (each day drawn in its own color). Ungrouped
+  // when there's no day split — one neutral line. When the active variant carries
+  // saved OSRM road geometry, each leg is drawn along its real path; a leg with no
+  // geometry falls back to a straight segment between the two pins. A day's FIRST
+  // stop has no incoming leg — the drive out from home is not drawn (only measured,
+  // see homeLegMetersFor), so the route starts at the first pin.
   const segs = {};
   const geomField = VARIANT_FIELDS[activeVariant()].geometry;
-  const anchor = cachedHomeAnchor();
-  const prevByDay = {};      // last routed coord seen per day (home anchor before the first)
+  const prevByDay = {};      // last routed coord seen per day (nothing before the first)
   pendingItems().forEach((item, i) => {
     const c = coordsOf(item);
     if(!c) return;
@@ -806,7 +805,7 @@ function renderMap(){
     const day = item.day || 0;
     const color = day ? dayColor(day) : '#2b6cff';
     if(!parked){                                  // polyline + numbering: routed only
-      const prev = prevByDay[day] || anchor;      // day's first leg starts at home
+      const prev = prevByDay[day];                // no home leg — first stop starts the line
       const leg = decodePolyline(item[geomField]);
       const pts = leg.length ? leg
         : (prev ? [[prev.lat, prev.lng], [c.lat, c.lng]] : [[c.lat, c.lng]]);

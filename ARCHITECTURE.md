@@ -1020,9 +1020,10 @@ installer's saved rows.
 | `scheduledDate` / `scheduledEta` | string | optimizer result displayed on both route surfaces |
 | `scheduledSlot` / `scheduledWaitMin` | number | one-based day slot and explicit early-arrival waiting |
 | `ignored`     | string | `'TRUE'` = set aside: out of the route, day counts, meters/day target and plan mode, but still on the list and still synced. Deliberately **not** a third `wlStatus` value — `clearDoneWorklistJob` sweeps `'done'` rows nightly, and a set-aside order must survive |
-| `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous point |
+| `orderRoad` / `dayRoad` / `legMetersRoad` | number | the saved **road-matrix route**: position, day cluster, and metres driven arriving at this stop from the previous **stop**. A day's first stop is 0 — the drive out from home is not in this total (see `homeLegMeters*`) |
 | `orderStraight` / `dayStraight` / `legMetersStraight` | number | the saved **straight-line route**, same three fields |
-| `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving leg for each variant — the actual road path from the previous point (the home anchor for a day's first stop). Empty when the planner never fetched directions or a leg had no route. Opaque text; `setupSheets` pins these columns to `@`. See "Route variants" |
+| `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving **between-stops** leg for each variant. A day's first stop is empty — the drive out from home is not routed or drawn. Empty when the planner never fetched directions or a leg had no route. Opaque text; `setupSheets` pins these columns to `@`. See "Route variants" |
+| `homeLegMetersRoad` / `homeLegMetersStraight` | number | per-variant drive-out distance from the home pin to a **day's first stop**, stored on that first stop (one per day). Measured on Optimize but deliberately **kept out of** `legMeters*` and the day/route total — a "distance to home" reference number, shown as a `⌂` readout on the day headers. Empty for non-first stops and when the run had no home pin |
 
 ### Route variants (the two saved routes)
 
@@ -1037,29 +1038,46 @@ that logic for both screens.
 
 Both sequences are **priced against the same matrix**, so their kilometre totals
 answer "which order is cheaper to drive" rather than comparing road km with
-crow-flies km. `legMeters*` charges each day's first stop the drive out from the
-home anchor; the drive back at day's end is not counted (each day already ends
-near home). The extra solve is local and costs no lookup — and it happens **only
-on a run that actually pulled a road matrix**. A straight-line run (the phone's
-plain Optimize tap) still does exactly one solve, writes only the straight
+crow-flies km. `legMeters*` counts the driving **between stops** only: a day's
+first stop is charged 0, and neither the drive out to it nor the drive back home
+at day's end is in the total (each day already ends near home). The **drive out
+from the home pin** to a day's first stop is still measured — `homeLegMetersFor`
+prices it per day into `homeLegMeters*` — but kept out of the total and saved for
+reference (shown as a `⌂` readout on the day headers), because folding a home leg
+that varies with where the installer lives into the driving total muddies the
+"which order is cheaper" comparison. A phone "start from here" first leg (a real
+driven leg from the current GPS fix, not a home leg) **is** still charged to the
+total. The extra straight-line solve is local and costs no lookup — and it happens
+**only on a run that actually pulled a road matrix**. A straight-line run (the
+phone's plain Optimize tap) still does exactly one solve, writes only the straight
 variant, and leaves any earlier road route untouched. Staleness is handled by
 display, never by deletion: a saved sequence that no longer covers the pending
 orders greys its button out and marks the total "out of date", and a manual drag
 marks it "edited".
 
 **Road directions geometry.** The desktop planner also fetches the *actual road
-path* of every leg of both variants from the same local OSRM — the `route`
-service (`osrmLegGeometry` in `js/route.js`, one GET per leg), distinct from the
-`table` service that gives the distance matrix. The polyline5 result is stored on
-the **arriving** order in `legGeometryRoad`/`legGeometryStraight` (same leg
-semantics as `legMeters*`), so the planner map draws real roads instead of
-straight pin-to-pin lines (`decodePolyline` + Leaflet), and a phone/map viewer can
-draw them later. Geometry is fetched automatically at the end of a road-matrix
-Optimize (skipped when the matrix fell back off OSRM) and on demand via the
-planner's **Get directions** button (no re-solve). It rides the sync verbatim like
-`legMeters*` — the phone never generates it and must not blank it — and an
-address edit clears both the pin and the stale geometry. A leg with no route saved
-falls back to a straight segment on the map.
+path* of every **between-stops** leg of both variants from the same local OSRM —
+the `route` service (`osrmLegGeometry` in `js/route.js`, one GET per leg), distinct
+from the `table` service that gives the distance matrix. A day's first stop has no
+incoming leg fetched or drawn — the drive out from home is not routed (only
+measured), so no `home → first stop` line appears on the planner map. The polyline5
+result is stored on the **arriving** order in `legGeometryRoad`/`legGeometryStraight`
+(same between-stops leg semantics as `legMeters*`), so the planner map draws real
+roads instead of straight pin-to-pin lines (`decodePolyline` + Leaflet). Geometry is
+fetched automatically at the end of a road-matrix Optimize (skipped when the matrix
+fell back off OSRM) and on demand via the planner's **Get directions** button (no
+re-solve). It rides the sync verbatim like `legMeters*` — the phone never generates
+it and must not blank it — and an address edit clears both the pin and the stale
+geometry. A leg with no route saved falls back to a straight segment on the map.
+
+**The phone draws that saved geometry too, but never fetches any.** The phone's
+route view (`js/worklist-route-view.js` `buildRouteMapModel`) decodes the active
+variant's `legGeometry*` per leg with `decodePolyline` — on-device, **no network** —
+so a downloaded road route follows real roads on the phone map, exactly like the
+planner. Any leg without saved geometry (an edited/quick-change leg, or a list the
+office never routed) draws as a straight segment. So only the desktop *generates*
+geometry; the phone only *displays* it and stays fully offline. Like the planner,
+the phone draws no home leg — the day's first stop just starts the line.
 
 ### WorklistPlan row  (one per installer → tab "WorklistPlans")
 | field | type | notes |
