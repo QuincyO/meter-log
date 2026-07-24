@@ -4,3 +4,6 @@
 
 # node (only used transiently for clasp; no package.json in this repo)
 node_modules/
+
+# Obsidian knowledge vault — local-only, never pushed to the public repo
+vault/
