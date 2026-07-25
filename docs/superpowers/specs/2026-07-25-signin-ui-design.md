@@ -205,8 +205,13 @@ parks; this design adds no code between a tap and the queue.
 
 ## Service worker
 
-`css/auth.css` and the three new modules join `SHELL`, and `CACHE` goes to `v35`.
-Without the bump phones keep serving the old shell and none of this ships.
+`css/auth.css` and the three new modules join `SHELL`, and `CACHE` is bumped —
+once per implementation plan that adds a file, so v34 → v35 → v36 → v37. Without a
+bump phones keep serving the old shell and none of this ships.
+
+Tests assert only that the shell moved *past* the version that lacked the file, never
+that it equals a specific one: a version-pinned assertion fails the moment the next
+change bumps it.
 
 ## Out of scope
 
