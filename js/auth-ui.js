@@ -67,27 +67,37 @@ let mode = 'signin';          // 'signin' | 'signup'
 /** Mount once, paint, and subscribe. Safe to call on any page and twice. */
 export function initAuthUI(){
   if(mounted || typeof document === 'undefined') return;
-  // Guard against a retried mount after a partial failure: `mounted` only
-  // latches once wiring below succeeds (see the comment at the bottom of this
-  // function), so a caller may legitimately call initAuthUI() again after an
-  // exception. Without this check that retry would insertAdjacentHTML a
-  // second banner + sheet on top of the first.
-  if(document.getElementById('authBanner')) return;
 
-  // The banner sits directly under the page's top bar on every page that has
-  // one, so it reads as chrome rather than as part of the form beneath it.
+  // Each injection below is guarded on its own markup rather than on `mounted`
+  // (which only latches once wiring finishes — see the bottom of this
+  // function). That is what lets a caller retry after a partial failure: the
+  // retry re-enters this function, skips whatever markup a prior attempt
+  // already placed, and still reaches the wiring it never got to. Without
+  // per-element guards a bare "did we run before" check would either block
+  // that retry forever or re-run insertAdjacentHTML and duplicate the markup.
   const bar = document.querySelector('.bar');
-  if(bar) bar.insertAdjacentHTML('afterend', BANNER_HTML);
-  else document.body.insertAdjacentHTML('afterbegin', BANNER_HTML);
-  document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
+  if(!document.getElementById('authBanner')){
+    // The banner sits directly under the page's top bar on every page that has
+    // one, so it reads as chrome rather than as part of the form beneath it.
+    if(bar) bar.insertAdjacentHTML('afterend', BANNER_HTML);
+    else document.body.insertAdjacentHTML('afterbegin', BANNER_HTML);
+    document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
+  }
+  if(!document.getElementById('navSignIn')){
+    // #navMenu is the capture page's ☰ dropdown (a page-owned list of plain
+    // <button id="…"> children); a page without one (map/teams/…) gets the
+    // button appended to its top bar instead.
+    const navMenu = document.getElementById('navMenu');
+    if(navMenu) navMenu.insertAdjacentHTML('beforeend', NAV_HTML);
+    else if(bar) bar.insertAdjacentHTML('beforeend', NAV_HTML);
+  }
 
-  // The nav entry: #navMenu is the capture page's ☰ dropdown (a page-owned
-  // list of plain <button id="…"> children); a page without one (map/teams/…)
-  // gets the button appended to its top bar instead.
-  const navMenu = document.getElementById('navMenu');
-  if(navMenu) navMenu.insertAdjacentHTML('beforeend', NAV_HTML);
-  else if(bar) bar.insertAdjacentHTML('beforeend', NAV_HTML);
-
+  // The wiring itself always runs, even on a retry whose markup already
+  // exists from an earlier partial mount. Every handler below is assigned as
+  // a plain property (`.onclick = …`, `.onkeydown = …`) rather than added
+  // with addEventListener specifically so that re-running this block is
+  // idempotent — a second assignment replaces the first instead of stacking
+  // a second listener beside it.
   $('authBannerCta').onclick = () => openAuthSheet();
   $('authBannerX').onclick   = dismissBanner;
   $('authClose').onclick     = closeAuthSheet;
@@ -103,18 +113,19 @@ export function initAuthUI(){
   };
 
   // Backdrop tap closes. It is dismissible by design.
-  $('authSheet').addEventListener('click', e => { if(e.target === $('authSheet')) closeAuthSheet(); });
+  $('authSheet').onclick = e => { if(e.target === $('authSheet')) closeAuthSheet(); };
   // Escape closes too — there is no focus trap and nothing is `inert`, so
   // this is a courtesy dismissal, not a modal behaviour.
-  $('authSheet').addEventListener('keydown', e => { if(e.key === 'Escape') closeAuthSheet(); });
+  $('authSheet').onkeydown = e => { if(e.key === 'Escape') closeAuthSheet(); };
   // Enter submits from either PIN field.
   for(const id of ['authPin', 'authPin2']){
-    $(id).addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+    $(id).onkeydown = e => { if(e.key === 'Enter') submit(); };
   }
 
-  // Only latch `mounted` once the wiring above has actually succeeded — if an
+  // Only latch `mounted` once the wiring above has actually finished — if an
   // exception were thrown partway through, leaving this false lets a later
-  // call retry instead of permanently no-op-ing openAuthSheet() for the page.
+  // call retry (see the guards above) instead of permanently no-op-ing
+  // openAuthSheet() for the page.
   mounted = true;
   onAuthChange(paintBanner);
   onAuthChange(paintNav);

@@ -77,6 +77,25 @@ test('an unknown page is shown rather than hidden', () => {
   assert.ok(policy.canSeePage('brand-new.html', 'installer'));
 });
 
+test('an unrecognised role fails open, same as a blank one', () => {
+  // Code.gs deploys separately from the static pages, so a spine that starts
+  // issuing a role this mirror has never heard of must not strand that person —
+  // this layer only hides UI, the spine refuses the request regardless.
+  for (const page of Object.keys(policy.PAGE_ROLES)) {
+    assert.ok(policy.canSeePage(page, 'dispatcher'), `${page} must stay visible to an unknown role`);
+  }
+  for (const nav of Object.values(policy.PAGE_ROLES)) {
+    assert.ok(policy.roleAllows(nav, 'dispatcher'), 'every capability set must allow an unknown role too');
+  }
+});
+
+test('a recognised role outside a set is still refused, unlike an unrecognised one', () => {
+  // The fix folds "unrecognised" into "blank", not "recognised". An installer
+  // is a real role that simply has no business on map.html.
+  assert.ok(!policy.canSeePage('map.html', 'installer'));
+  assert.ok(!policy.roleAllows(policy.R_VIEW, 'installer'));
+});
+
 test('everyone sees everything until they have a session', () => {
   // The migration window: the spine still accepts the shared token, nobody has
   // signed up yet, and hiding the app from them would be the wall this design

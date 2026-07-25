@@ -23,13 +23,20 @@ export const R_VIEW    = ['owner', 'admin', 'foreman', 'backoffice'];
 export const R_ONBOARD = ['owner', 'admin', 'backoffice'];
 export const R_MANAGE  = ['owner', 'admin'];
 
-/** Membership test. A blank role is the migration window (no session yet) and is
- *  allowed everything — the spine is still accepting the shared token, and hiding
- *  the app from a crew that hasn't signed up yet would be the wall this design
- *  explicitly refuses to build. */
+/** Membership test. A blank role is the migration window (no session yet); an
+ *  *unrecognised* role — one this mirror has never heard of — gets the same
+ *  "allow everything" treatment, folded in beside it. That covers the gap between
+ *  the two deploy paths: Code.gs ships via a GitHub Action, the static pages via
+ *  GitHub Pages, so a spine that starts issuing a new role before this file is
+ *  updated to match must not stand between that person and the app. This layer is
+ *  UI hiding, never a security boundary — the spine's POST_POLICY/GET_POLICY is
+ *  the only authority and refuses the request regardless — so failing open here
+ *  is strictly safer than stranding someone on help.html with nowhere to go. A
+ *  *recognised* role that is simply outside this particular set is still refused,
+ *  same as always. */
 export function roleAllows(set, role) {
   const r = String(role || '').trim();
-  return !r || set.indexOf(r) !== -1;
+  return !r || ROLES.indexOf(r) === -1 || set.indexOf(r) !== -1;
 }
 
 // Which roles have any business opening each page. Capture is the interesting
