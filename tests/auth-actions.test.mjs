@@ -302,6 +302,23 @@ test('the PIN hash never leaves the spine', () => {
   assert.ok(!/pinHash|pinSalt|pinIters/.test(seen), 'nor even the field names');
 });
 
+test('the stored hash is HMAC over salt + NUL + pin, not some other join', () => {
+  // pinHashOf writes the domain separator as the two-char escape '\0', which must
+  // stay exactly one U+0000 character between salt and pin — not the raw byte it
+  // used to be, and not swallowed by an octal-escape typo. Recomputing the hash out
+  // here with an explicit NUL and matching the stored value proves that at runtime,
+  // not just by reading the source.
+  const api = spine({ employees: CREW });
+  api.makeOwner('H1');
+  api.authSignup({ hNumber: 'H1', pin: PIN });
+  const row = api.row('H1');
+  const salt = row.pinSalt, iters = Number(row.pinIters);
+
+  let acc = Array.from(Buffer.from(salt + '\0' + PIN, 'utf8'));
+  for (let i = 0; i < iters; i++) acc = hmac(acc, 'test-pepper');
+  assert.equal(row.pinHash, Buffer.from(acc).toString('base64'));
+});
+
 // ── The wrong-PIN ladder ───────────────────────────────────────────────────
 
 test('five wrong PINs lock the account, and the lockout survives a cache wipe', () => {

@@ -459,7 +459,12 @@ function b64urlDecodeToString(s) {
 function pinHashOf(pin, salt, iters) {
   const pepper = scriptProp('PIN_PEPPER');
   if (!pepper) throw new Error('PIN_PEPPER script property is not set — see DEPLOY.md');
-  let acc = Utilities.newBlob(String(salt) + ' ' + String(pin)).getBytes();
+  // The NUL between salt and pin keeps the two fields unambiguous when concatenated —
+  // without a separator, salt 'ab'+pin '12' and salt 'a'+pin 'b12' would hash the same
+  // string. NUL can never appear in either field (salt is base36, pin is digits), so it
+  // is deliberately a NUL rather than a printable separator that a future salt or PIN
+  // format could someday contain.
+  let acc = Utilities.newBlob(String(salt) + '\0' + String(pin)).getBytes();
   const n = Math.max(1, Number(iters) || 1);
   for (let i = 0; i < n; i++) acc = Utilities.computeHmacSha256Signature(acc, pepper);
   return Utilities.base64Encode(acc);
