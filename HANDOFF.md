@@ -145,11 +145,15 @@ Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
    sheet. Inert while a role is blank, so the migration window still shows everything;
    reads the remembered role, never session validity. It is UI hiding only — the spine
    still re-checks every request. Details in `AGENTS.md` §"Frontend module layout".
-3. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
-   from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not only
-   in a back-office page. `authAction(action, hNumber, extra)` is the one call it
-   needs; the spine re-checks every rule, so don't duplicate any of them client-side.
-4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
+3. **An approvals screen — done.** `js/approvals.js` (`rowControls` pure,
+   `initApprovals()`/`openApprovals()`) mounts on `index.html` and `reports.html` — the
+   two pages an R_ONBOARD role can actually open, since `R_CAPTURE` is owner/admin/
+   installer and Back-Office reaches `reports.html` via `R_VIEW` instead. Every action
+   goes through `authAction(action, hNumber, extra)`, re-checked server-side through
+   `authTarget`; the client duplicates none of the spine's rules. Details in
+   `AGENTS.md` §"Frontend module layout".
+4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`. **Not yet done — this is
+   all that's left of Phase 1.**
 
 Then Phase 2 (edge box + Cloudflare Tunnel + key rotation), Phase 3 (SSE relay),
 Phase 4 (bounded tail reads, metrics out of the write lock).

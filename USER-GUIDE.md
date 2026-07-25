@@ -35,6 +35,17 @@ That's it. Everything you log from now on is tagged with your name and H number.
 
 ---
 
+## Signing in
+
+On top of the "Who are you?" Settings you just filled in, the app can also sign you in.
+
+- Tap **🔑 Sign in** (☰ menu on the capture page, or the top bar on the office pages) and enter your **employee number** and your **6-digit PIN**.
+- No PIN yet? Tap **New here? Create a PIN**, enter your employee number, and pick a 6-digit PIN. An administrator has to approve you before it works — until they do, that PIN won't sign you in yet.
+- You'll sometimes see a banner near the top of the screen reminding you to sign in. It's only a reminder: the app works exactly the same whether you're signed in or not, **even with no signal at all**, and nothing you log is ever lost by staying signed out. Dismiss it and it stays out of your way for the rest of the day.
+- Once a week, you'll be asked to sign in again. That's normal, not a problem with your account.
+
+---
+
 ## Boat and Land mode
 
 The **Boat / Land** switch sits in the top bar (blue = Boat, green = Land). Pick the mode for the kind of route you're running:
