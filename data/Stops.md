@@ -1,6 +1,6 @@
 # Stops
 
-_438 rows · exported 2026-07-24 03:52 America/Toronto_
+_457 rows · exported 2026-07-25 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -442,3 +442,22 @@ _438 rows · exported 2026-07-24 03:52 America/Toronto_
 | 1784833050142-zfeodw | 2026-07-23 14:57:30 | Quincy Orta | 693981 |  | 832 East Waseosa Lake Rd, Chaffey | 45.397235 | -79.264462 | J4646700 | J3453647 | 8309 | INSTALLED |  |  |  |  |  | land |
 | 1784834013997-hwt3e2 | 2026-07-23 15:13:33 | Quincy Orta | 693979 |  | Town of, 770 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.399255 | -79.267966 | J4646699 | J3080987 | 10141 | INSTALLED |  |  |  |  |  | land |
 | 1784835035361-smd2vv | 2026-07-23 15:30:35 | Quincy Orta | 693819 | 79 | Ceramic Mine Rd N, Huntsville, ON P1H 2J4, Canada | 45.413483 | -79.237034 | J4646724 | J3385466 | 42493 | INSTALLED |  |  |  |  |  | land |
+| 1784899602756-k5n8r0 | 2026-07-24 09:26:42 | Quincy Orta | 693802 |  | 18 Esther St, Kearney, ON P0A 0B1, Canada | 45.558704 | -79.226604 | J4647972 | J3252943 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784901831296-ry6c7w | 2026-07-24 10:03:51 | Quincy Orta | 693900 | 206 | Locke Rd, Perry, ON P1H 2J6, Canada | 45.472097 | -79.230209 | J4647970 | J3996347 | 20172 | INSTALLED |  |  |  |  |  | land |
+| 1784903821136-hqolgt | 2026-07-24 10:37:01 | Quincy Orta | 693781 |  | 60 Lakeview Dr, Perry, ON P1H 2J6, Canada | 45.47199 | -79.212652 | J4647969 | J3129199 | 40577 | INSTALLED |  |  |  |  |  | land |
+| 1784905069120-94wq36 | 2026-07-24 10:57:49 | Quincy Orta | 693821 |  | 366 Sherwood Dr, Kearney, ON P1H 2J6, Canada | 45.470809 | -79.175779 | J4647948 | J3976049 | 26643 | INSTALLED |  |  |  |  |  | land |
+| 1784907108787-bm3o30 | 2026-07-24 11:31:48 | Quincy Orta | 693883 |  | 216 Maws Rd | 45.455575 | -79.202874 | J4647971 | J4229601 | 2243 | INSTALLED |  |  |  |  |  | land |
+| 1784908046174-mszlgo | 2026-07-24 11:47:26 | Quincy Orta | 693871 |  | 31 Maws Rd, Novar, ON P1H 2J6, Canada | 45.457297 | -79.206374 | J4647945 | J2723005 | 28403 | INSTALLED |  |  |  |  |  | land |
+| 1784908978178-wf3k9r | 2026-07-24 12:02:58 | Quincy Orta | 693892 |  | Town of, 52 Maws Hill Rd, Huntsville, ON P1H 2J6, Canada | 45.454908 | -79.22054 | J4647946 | J3229741 | 61767 | INSTALLED |  |  |  |  |  | land |
+| 1784910006389-9goxda | 2026-07-24 12:20:06 | Quincy Orta | 693862 |  | 482 Fish Lake Rd, Novar, ON P1H 2J6, Canada | 45.459879 | -79.227736 | J4647947 | J3179497 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784912302960-y99f97 | 2026-07-24 12:58:22 | Quincy Orta | 693820 |  | 57 Wolf Trail | 45.442122 | -79.309793 | J4647973 | J2640966 | 72235 | INSTALLED |  |  |  |  |  | land |
+| 1784913621429-1vcvbk | 2026-07-24 13:20:21 | Quincy Orta | 693786 |  | 343 Boundary Rd, Novar, ON P0A 1R0, Canada | 45.443911 | -79.266837 | J4647974 | J2690311 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784914858365-etl38g | 2026-07-24 13:40:58 | Quincy Orta | 693917 |  | 14 Gabriel Ln, Novar, ON P0A 1R0, Canada | 45.448354 | -79.257212 | J4647975 | J3385802 | 25680 | INSTALLED |  |  |  |  |  | land |
+| 1784915311370-o3cpjr | 2026-07-24 13:48:31 | Quincy Orta | 693901 |  | 62 Florence St, Perry, ON P0A 1R0, Canada | 45.450484 | -79.255729 | J4647976 | J3535613 | 21129 | INSTALLED |  |  |  |  |  | land |
+| 1784916356877-ncrq6u | 2026-07-24 14:05:56 | Quincy Orta | 693891 |  | 34 Mcphail Cir | 45.450181 | -79.253787 | J4647928 | J3535541 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784917936442-a4t6ky | 2026-07-24 14:32:16 | Quincy Orta | 693873 |  | 91 Boundary Rd, Novar, ON P0A 1R0, Canada | 45.44859 | -79.250983 | J4647926 | J2573334 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784918691697-kjjf9d | 2026-07-24 14:44:51 | Quincy Orta | 693875 |  | 86 Mccrandle St, Perry, ON P0A 1R0, Canada | 45.45243 | -79.251741 | J4647925 | J3356481 | 28429 | INSTALLED |  |  |  |  |  | land |
+| 1784919483835-ebjchd | 2026-07-24 14:58:03 | Quincy Orta | 693876 |  | 26 Boundary Rd | 45.449825 | -79.247931 | J4647927 | J3180156 | 99544 | INSTALLED |  |  |  |  |  | land |
+| 1784920869369-ant708 | 2026-07-24 15:21:09 | Quincy Orta | 693884 |  | 135 Boundary Rd, Huntsville, ON P1H 2J4, Canada | 45.447825 | -79.253761 | J4646722 | J2547148 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784921484022-kupvem | 2026-07-24 15:31:24 | Quincy Orta | 693878 |  | 12 George St, Novar, ON P0A 1R0, Canada | 45.450463 | -79.249116 | J4646721 | J2736843 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784921956799-oequzk | 2026-07-24 15:39:16 | Quincy Orta | 693881 |  | 71 Novar Rd, Novar, ON P0A 1R0, Canada | 45.44803 | -79.248249 | J4646723 | J3535599 |  | INSTALLED |  |  | Missing segments |  |  | land |

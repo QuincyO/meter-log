@@ -1,6 +1,6 @@
 # Downtime
 
-_157 rows · exported 2026-07-24 03:52 America/Toronto_
+_160 rows · exported 2026-07-25 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -161,3 +161,6 @@ _157 rows · exported 2026-07-24 03:52 America/Toronto_
 | 1784835672860-up60xu | 2026-07-23 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 15 | 683088 | gap 12:43–13:31 |  |
 | 1784835672860-jim2x0 | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 685888 | gap 13:31–14:00 |  |
 | 1784835672860-4vsns5 | 2026-07-23 12:00:00 | Phillip Monteiro | MISC_TRAVEL | 15 | 687378 | gap 14:00–14:19 |  |
+| 1784922475842-gnpwp8 | 2026-07-24 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693802 | gap 09:26–09:26 |  |
+| 1784922475842-6z92xw | 2026-07-24 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693802 | gap 09:26–09:26 |  |
+| 1784922475842-v61ol1 | 2026-07-24 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 693802 | gap 09:26–09:26 |  |
