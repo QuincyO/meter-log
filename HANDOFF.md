@@ -134,15 +134,15 @@ Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
 
 ## Next, in order
 
-1. **The sign-in UI.** An `#authSheet` login/signup screen in `index.html` +
-   `js/pages/capture.js` wiring, and a status banner. Everything it needs is already
-   exported: `auth()` gives `state`/`hNumber`/`name`, `signIn`/`signUp` return a
-   `kind` to switch on (`ok`/`pending`/`locked`/`needsPin`/`failed`/`offline`) rather
-   than prose to pattern-match, and `onAuthChange` fires on sign-in, sign-out and on
-   wake (a session expires at a fixed Monday 04:00, so a phone left open over the
-   weekend crosses it with no request happening). **The offline-Monday rule governs
-   this screen**: it is a banner and a dismissible sheet, never a gate — the app
-   opens, capture works, writes queue.
+1. **The sign-in UI — done, on the capture page.** `js/auth-ui.js` + `css/auth.css`
+   inject a dismissible status banner and an `#authSheet` login/signup screen, wired
+   into `js/pages/capture.js` and `index.html`, routing every decision through
+   `auth-policy.js`'s `bannerFor`/`bannerDismissed`/`signInFeedback`/`signUpFeedback`.
+   Verified in a headless browser: the banner, its day-scoped dismissal, the sheet,
+   the offline reassurance copy, and capture still working with the banner up.
+   **Still open:** the module is written to mount on every page (that's why it's
+   self-contained) but is only wired into `capture.js` so far — the other six pages
+   don't show it yet.
 2. **Per-role nav hiding**, via `can(page)` / `landingPage()` from `js/auth.js`.
 3. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
    from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not only
