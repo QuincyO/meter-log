@@ -4,11 +4,13 @@
 // a security one.
 import { $, esc, attr, toast } from './dom.js';
 import { pendingSignups, authAction, role, onAuthChange } from './auth.js';
-import { R_ONBOARD, roleAllows } from './auth-policy.js';
+import { R_ONBOARD, R_MANAGE, roleAllows } from './auth-policy.js';
 
-/** Which action buttons a row gets, based on status, lock state, and role
- *  grantability. Pure and testable. */
-export function rowControls(user, grantable) {
+/** Which action buttons a row gets, based on status, lock state, role
+ *  grantability, and the ACTING administrator's own role. Pure and testable —
+ *  `actorRole` is threaded in by the caller rather than read off a module
+ *  global, so this stays a pure function of its arguments. */
+export function rowControls(user, grantable, actorRole) {
   const roles = Array.isArray(grantable) ? grantable : [];
   if (!user || !user.manageable)
     return { approve: false, reject: false, resetPin: false, unlock: false,
@@ -27,7 +29,13 @@ export function rowControls(user, grantable) {
     // pending row in 'reset' — where the next signup activates unapproved.
     resetPin: status === 'active' || status === 'reset',
     unlock:   !!user.locked,
-    revoke:   status !== 'disabled',
+    // authRevoke (Code.gs) requires R_MANAGE, not R_ONBOARD — Back-Office holds
+    // the latter but not the former, so it was being shown a button the spine
+    // always refuses. roleAllows is the same drift-guarded mirror paintEntry()
+    // already uses for R_ONBOARD; tests/auth-client.test.mjs fails the build if
+    // it drifts from Code.gs. It fails open for a blank actorRole, which is
+    // correct: the migration window really can revoke.
+    revoke:   status !== 'disabled' && roleAllows(R_MANAGE, actorRole),
     setRole:  roles.length > 0 && status !== 'disabled',
     roles:    roles.slice(),
   };
@@ -60,14 +68,26 @@ let grantable = [];
  *  it there would leave nobody able to approve the first people. */
 export function initApprovals(){
   if(mounted || typeof document === 'undefined') return;
-  mounted = true;
-  document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
+
+  // Guarded on the sheet's own markup, not on `mounted` — the same per-element
+  // pattern initAuthUI() uses and the same reason: `mounted` only latches once
+  // the wiring below finishes, so a caller retrying after a partial failure
+  // skips markup a prior attempt already placed and still reaches the wiring
+  // it never got to, instead of being permanently no-op'd for the page.
+  if(!document.getElementById('approvalsSheet'))
+    document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
+
   $('apprClose').onclick   = () => $('approvalsSheet').classList.add('hide');
   $('apprRefresh').onclick = load;
   $('approvalsSheet').addEventListener('click', e => {
     if(e.target === $('approvalsSheet')) $('approvalsSheet').classList.add('hide');
   });
   mountEntry();
+
+  // Only latch once the wiring above has actually finished — the exact
+  // anti-pattern just removed from initAuthUI() was latching this before the
+  // wiring, which would have permanently no-op'd a retry after a partial throw.
+  mounted = true;
   onAuthChange(paintEntry);
 }
 
@@ -82,15 +102,17 @@ export function openApprovals(){
 // navigate on pick, so those get a plain button in the bar instead.
 
 function mountEntry(){
-  const menu = document.getElementById('navMenu');
-  if(menu){
-    menu.insertAdjacentHTML('beforeend',
-      '<button id="navApprovals" class="hide">✅ Approvals</button>');
-  } else {
-    const bar = document.querySelector('.bar');
-    if(!bar) return;
-    bar.insertAdjacentHTML('beforeend',
-      '<button id="navApprovals" class="auth-mini hide" type="button">✅ Approvals</button>');
+  if(!document.getElementById('navApprovals')){
+    const menu = document.getElementById('navMenu');
+    if(menu){
+      menu.insertAdjacentHTML('beforeend',
+        '<button id="navApprovals" class="hide" type="button">✅ Approvals</button>');
+    } else {
+      const bar = document.querySelector('.bar');
+      if(!bar) return;
+      bar.insertAdjacentHTML('beforeend',
+        '<button id="navApprovals" class="auth-mini hide" type="button">✅ Approvals</button>');
+    }
   }
   $('navApprovals').onclick = () => {
     const m = document.getElementById('navMenu');
@@ -134,9 +156,14 @@ async function load(){
     }
     say('', '');
     grantable = d.grantable || [];
+    // The role of the administrator LOOKING at this screen, not the row being
+    // rendered — rowControls() needs it to decide whether Revoke is offered
+    // (R_MANAGE), threaded in here rather than read off a module global so the
+    // function stays pure.
+    const actorRole = role();
     const pending = d.pending || [];
     $('apprPending').innerHTML = pending.length
-      ? pending.map(rowHTML).join('')
+      ? pending.map(u => rowHTML(u, actorRole)).join('')
       : '<p class="appr-empty">Nobody is waiting.</p>';
     // pendingAuthRead's `pending` is a filter OVER `users`, not a disjoint set —
     // every pending account is already in `users` too. Drop it here so "All
@@ -144,7 +171,7 @@ async function load(){
     // (below) is the real fix for the click-the-wrong-copy bug this caused, but
     // there is no reason for the screen to show the same person twice anyway.
     const others = (d.users || []).filter(u => u.status !== 'pending');
-    $('apprUsers').innerHTML = others.map(rowHTML).join('')
+    $('apprUsers').innerHTML = others.map(u => rowHTML(u, actorRole)).join('')
       || '<p class="appr-empty">No accounts yet.</p>';
     for(const btn of document.querySelectorAll('#approvalsSheet [data-act]')){
       // .catch, not a bare call: act() can reject (a defensive try/finally lives
@@ -153,7 +180,13 @@ async function load(){
       // touches this function). The arrow has no braces so the promise chain
       // itself is what onclick() returns — tests await it directly.
       btn.onclick = () => act(btn.dataset.act, btn.dataset.h, btn)
-        .catch(err => console.warn('approval action failed', err));
+        .catch(err => {
+          // A throw here means the operator tapped something and the screen
+          // never explained why nothing happened — console.warn alone is
+          // invisible to anyone who isn't at devtools.
+          console.warn('approval action failed', err);
+          toast('Something went wrong — try again');
+        });
     }
   } finally {
     loading = false;
@@ -183,8 +216,8 @@ const CONFIRM_ACTION = {
     + '— they will need to set a new one before they can sign in again.',
 };
 
-function rowHTML(u){
-  const c = rowControls(u, grantable);
+function rowHTML(u, actorRole){
+  const c = rowControls(u, grantable, actorRole);
   const h = attr(u.hNumber);
   const name = attr(u.name || u.hNumber);
   const bits = [];
@@ -243,16 +276,26 @@ async function act(action, hNumber, btn){
     // row's own ancestor is correct regardless of whether the two sections
     // ever overlap again.
     const sel = btn.closest('.appr-row').querySelector('.appr-role');
-    // Post a role only when the operator actually changed it. rowHTML()
-    // pre-selects the row's current role, so posting sel.value unconditionally
-    // is safe only as long as manageableRoles/grantableRoles (Code.gs) happen
-    // to keep the current role inside the option list, which is what keeps it
-    // pre-selected. If those tables ever diverge, the picker would fall back to
-    // its first option and a plain Approve would silently become a role change.
-    // This isn't enforcing a spine rule — it's declining to post a value the
-    // operator never touched.
-    if(sel && (action === 'authApprove' || action === 'authSetRole')
-       && sel.value !== (sel.dataset.current || '')) extra.role = sel.value;
+    if(sel && action === 'authSetRole'){
+      // authSetRole ALWAYS carries a role — Code.gs computes `role = ''` when
+      // none is posted and refuses with "you cannot assign the role (blank)".
+      // An untouched picker still shows a real selected option (rowHTML()
+      // pre-selects the row's current role), so posting sel.value
+      // unconditionally here is exactly "set it to what the picker shows",
+      // never a value the operator didn't choose.
+      extra.role = sel.value;
+    } else if(sel && action === 'authApprove'
+              && sel.value !== (sel.dataset.current || '')){
+      // Approve is different: posting no role at all is a valid, safe outcome
+      // (approve as whatever role the row already has), so here a role is only
+      // posted when the operator actually changed the picker. If
+      // manageableRoles/grantableRoles (Code.gs) ever let the current role
+      // fall out of the option list, the picker would default to its first
+      // option and an untouched Approve would silently become a role change —
+      // this guard is what stops that, and it does not apply to authSetRole,
+      // whose entire job is changing the role.
+      extra.role = sel.value;
+    }
     const resp = await authAction(action, hNumber, extra);
     if(!resp || !resp.ok){
       const err = (resp && resp.error) || 'that did not work';

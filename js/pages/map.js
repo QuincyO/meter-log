@@ -7,6 +7,7 @@ import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { guardPage, applyRoleNav } from '../nav-roles.js';
 import { initAuthUI } from '../auth-ui.js';
+import { initApprovals } from '../approvals.js';
 import { decodeTrack } from '../drive-track.js';
 
 // Role gate first, so a needed redirect is issued as early as possible. But
@@ -14,7 +15,11 @@ import { decodeTrack } from '../drive-track.js';
 // module — nav wiring, fetches, Leaflet init — still runs to completion before
 // the browser navigates away, which is harmless: the destination re-fetches
 // cleanly. Inert during the migration window, when every role is blank.
-try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+// initApprovals() belongs here too: homePageFor('backoffice') resolves to
+// map.html (R_OPS excludes Back-Office from edit.html/index.html, R_VIEW
+// includes it here), so it is this role's actual landing page and needs the
+// Approvals entry same as reports.html.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); initApprovals(); } }
 catch(e){ console.warn('auth UI failed to mount', e); }
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };

@@ -146,12 +146,14 @@ Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
    reads the remembered role, never session validity. It is UI hiding only — the spine
    still re-checks every request. Details in `AGENTS.md` §"Frontend module layout".
 3. **An approvals screen — done.** `js/approvals.js` (`rowControls` pure,
-   `initApprovals()`/`openApprovals()`) mounts on `index.html` and `reports.html` — the
-   two pages an R_ONBOARD role can actually open, since `R_CAPTURE` is owner/admin/
-   installer and Back-Office reaches `reports.html` via `R_VIEW` instead. Every action
-   goes through `authAction(action, hNumber, extra)`, re-checked server-side through
-   `authTarget`; the client duplicates none of the spine's rules. Details in
-   `AGENTS.md` §"Frontend module layout".
+   `initApprovals()`/`openApprovals()`) mounts on `index.html`, `reports.html` and
+   `map.html` — the pages an R_ONBOARD role can actually open, since `R_CAPTURE` is
+   owner/admin/installer and Back-Office reaches `reports.html`/`map.html` via
+   `R_VIEW` instead (`map.html` is Back-Office's actual landing page —
+   `homePageFor('backoffice')` resolves there). Every action goes through
+   `authAction(action, hNumber, extra)`, re-checked server-side through `authTarget`;
+   the client duplicates none of the spine's rules. Details in `AGENTS.md`
+   §"Frontend module layout".
 4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`. **Not yet done — this is
    all that's left of Phase 1.**
 

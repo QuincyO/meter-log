@@ -128,26 +128,31 @@ No bundler — native ES modules + plain CSS, loaded as-is by the browser. Share
 - `store.js` — `store` (localStorage) + `cfg()` + **`authFields()`**, the single place that decides what a request is authenticated with (shared by `api.js` and the offline queue). `idb.js` — the IndexedDB wrapper + `DB_VERSION`. `api.js` — `apiGet(action, params)` / `apiPost(body)` (inject the credential + URL).
 - `auth.js` — the per-user session: `signIn`/`signUp`/`signOut`, `auth()` (`state` is `'none' | 'expired' | 'ok'`), `can(page)`, the approver calls, and `onAuthChange`. `auth-policy.js` — its pure half (role sets, `canSeePage`, `sessionState`, `loginOutcome`), unit-tested in `tests/auth-client.test.mjs`. **The role sets there are a mirror of `Code.gs` and exist only to hide unusable UI — never a security boundary; the spine re-checks everything.** `tests/auth-client.test.mjs` parses both files and fails on drift. **Login is a banner, never a wall:** a PIN can only be checked server-side, so a phone with no signal on a Monday can't get a session and still has a day of meters to log — nothing in these modules may block the app opening, capture, or a queued write. `auth-ui.js` — the sign-in banner + sheet. Injects its own markup and ships its own self-contained `css/auth.css` because it is built to mount on every page, not just the capture one: a session expires at a fixed Monday 04:00 and may strand someone on `edit.html`. It routes every decision through four pure functions in `auth-policy.js` (`bannerFor`, `bannerDismissed`, `signInFeedback`, `signUpFeedback`); dismissal is day-scoped via `localStorage['authBannerDay']`. It may nudge and explain but **may never redirect, disable capture, or sit between a tap and the queue** — login is a banner, never a wall. `nav-roles.js` — per-role nav hiding (`applyRoleNav`) and the wrong-page redirect (`guardPage`), over `canSeePage`/`homePageFor`; it is now mounted on all seven pages. **Inert while a role is blank** — that is the migration window, and a blank role sees everything; breaking that would hide a production app from the whole crew before anyone has signed up. It reads the *remembered* role, never session validity, so the nav stays correct on a phone with no signal. Like the role sets it reads, it is UI hiding and never a security boundary — the spine re-checks every request. Every page mounts it as `try { if (guardPage()) { initAuthUI(); applyRoleNav(); } } catch(e){ console.warn(...) }` — worth preserving as-is: on `capture.js` an uncaught throw would abort module evaluation before `navigator.serviceWorker.register()` runs, costing a fresh phone its offline shell; on the other six pages the call sits at the top of the module, so an uncaught throw there would abort the whole page. `help.html`'s Back button falls back to `landingPage()` rather than a hardcoded `index.html`, because a Foreman cannot open the capture page.
 - `approvals.js` — the onboarding queue screen over the `pendingAuth` read. Exports
-  `rowControls` (pure), `initApprovals()`, `openApprovals()`; it injects its own sheet
-  and a `#navApprovals` nav entry, mounted on `index.html` (owner/admin approving from
-  a phone on shift) and `reports.html` (Back-Office holds `R_ONBOARD` but cannot open
-  `index.html` — `R_CAPTURE` is owner/admin/installer — and can open `reports.html` via
-  `R_VIEW`). **It duplicates no rule from `Code.gs`** — `manageable`/`grantable` ride
-  in on the `pendingAuth` response and are advisory; every action is re-checked
-  server-side through `authTarget`, and the spine's refusal is shown verbatim. A blank
-  role reaches the screen on purpose — the migration window, where the spine marks
-  only installer rows manageable and grants no roles, and it is how the first people
-  get approved. **Approve is offered only for a `'pending'` row**, a deliberate
-  decision: the spine would accept approving a `'disabled'` (revoked) row and would
-  reactivate it with the old PIN intact, so the way back from revoked is Reject
-  instead, which wipes the PIN material and frees the H number so the person signs up
-  again — no old credential silently comes back to life. Reject therefore covers
-  `'pending'`, `'reset'` and `'disabled'`, labelled contextually. Revoke and Reset PIN
-  sit behind a `confirm()`; the other actions don't. Also from this plan: `roleAllows`
-  now treats an **unrecognised** role like a blank one (allowed everything), because
-  `Code.gs` and the static pages deploy separately and a spine shipping a new role
-  first would otherwise strand those users — a *recognised* role outside a set is
-  still refused.
+  `rowControls` (pure — takes the acting administrator's own role as a third argument,
+  since Revoke is gated on `roleAllows(R_MANAGE, actorRole)`, not just `R_ONBOARD`),
+  `initApprovals()`, `openApprovals()`; it injects its own sheet and a `#navApprovals`
+  nav entry, mounted on `index.html` (owner/admin approving from a phone on shift),
+  `reports.html` and `map.html` (Back-Office holds `R_ONBOARD` but cannot open
+  `index.html` — `R_CAPTURE` is owner/admin/installer — or `edit.html`/`planner.html`
+  — `R_OPS` is owner/admin/foreman — and reaches both `reports.html` and `map.html` via
+  `R_VIEW`; `map.html` is mounted too because `homePageFor('backoffice')` resolves
+  there — it is that role's actual landing page). **It duplicates no rule from
+  `Code.gs`** — `manageable`/`grantable` ride in on the `pendingAuth` response and are
+  advisory; every action is re-checked server-side through `authTarget`, and the
+  spine's refusal is shown verbatim. A blank role reaches the screen on purpose — the
+  migration window, where the spine marks only installer rows manageable and grants no
+  roles, and it is how the first people get approved (a blank/unrecognised `actorRole`
+  also still sees Revoke, for the same reason). **Approve is offered only for a
+  `'pending'` row**, a deliberate decision: the spine would accept approving a
+  `'disabled'` (revoked) row and would reactivate it with the old PIN intact, so the
+  way back from revoked is Reject instead, which wipes the PIN material and frees the
+  H number so the person signs up again — no old credential silently comes back to
+  life. Reject therefore covers `'pending'`, `'reset'` and `'disabled'`, labelled
+  contextually. Revoke and Reset PIN sit behind a `confirm()`; the other actions don't.
+  Also from this plan: `roleAllows` now treats an **unrecognised** role like a blank
+  one (allowed everything), because `Code.gs` and the static pages deploy separately
+  and a spine shipping a new role first would otherwise strand those users — a
+  *recognised* role outside a set is still refused.
 - `queue.js` — offline queue (`enqueue`/`flush`/`paint`/`migrateLegacyQueue`; page UI side-effects via `setQueueHooks`). `daycache.js` — optimistic/reconcile/merge + retention + recent-days. `geocode.js` — addrCache + `resolveAddress` + `backfillAddresses`.
 - `compute/` — `gaps.js` (WO→WO gaps), `tally.js` (`PRINTABLE`/`countDay`/`tallyText`), `summary.js` (the offline daily-log summary), `categories.js`, `estimate.js`.
 - `drive.js` — the `#drive` driving screen only (a hash-routed sibling screen like `worklist-route-view.js`, wired by `initWorklist`; shows the current order card + the ▶ Start/■ Stop drive-tracking button; no GPS code). `drive-recorder.js` — the **app-level** GPS-tracking runtime, initialized once by `capture.js` and running whenever the PWA is open (any screen); records the leg silently, holds it on the phone, and enqueues `saveDriveTrack` only at end of day (`finishAndUpload`). `drive-track.js` — the pure, DOM-free track model (segment state machine + `encodeTrack`/`decodeTrack` polyline + `segmentSummary`), unit-tested in `tests/drive-track.test.mjs`. See ARCHITECTURE.md §"Drive mode".

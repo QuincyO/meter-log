@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { rowControls, initApprovals, openApprovals } from '../js/approvals.js';
+import { signIn, signOut } from '../js/auth.js';
 
 const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -38,11 +39,31 @@ test('a pending signup can be approved or rejected, and nothing else', () => {
 });
 
 test('an active account can have its PIN reset or be revoked, not approved again', () => {
-  const c = rowControls(row({ status: 'active' }), ALL_ROLES);
+  const c = rowControls(row({ status: 'active' }), ALL_ROLES, 'owner');
   assert.equal(c.approve, false);
   assert.equal(c.reject, false);     // the spine says "revoke instead of rejecting"
   assert.equal(c.resetPin, true);
   assert.equal(c.revoke, true);
+});
+
+test('revoke requires R_MANAGE, not just R_ONBOARD — Back-Office cannot see it', () => {
+  // authRevoke (Code.gs) is gated on R_MANAGE (owner/admin only). Back-Office holds
+  // R_ONBOARD — enough to reach this screen and approve/reject/reset — but not
+  // R_MANAGE, so it must not be offered a button the spine always refuses.
+  // roleAllows(R_MANAGE, …) is the same drift-guarded mirror paintEntry() already
+  // uses for R_ONBOARD; tests/auth-client.test.mjs fails the build if it drifts.
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, 'owner').revoke, true);
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, 'admin').revoke, true);
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, 'backoffice').revoke, false);
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, 'foreman').revoke, false);
+});
+
+test('a blank or unrecognised actorRole can still revoke — the migration window', () => {
+  // A null session IS the migration window (see AGENTS.md "The auth gate"), and
+  // it really can revoke — roleAllows fails open for a blank/unrecognised role,
+  // same as everywhere else this mirror is used.
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, '').revoke, true);
+  assert.equal(rowControls(row({ status: 'active' }), ALL_ROLES, undefined).revoke, true);
 });
 
 test('a reset row can be reset again but not re-approved', () => {
@@ -52,7 +73,7 @@ test('a reset row can be reset again but not re-approved', () => {
 });
 
 test('an already-revoked account is not offered revoke again', () => {
-  const c = rowControls(row({ status: 'disabled' }), ALL_ROLES);
+  const c = rowControls(row({ status: 'disabled' }), ALL_ROLES, 'owner');
   assert.equal(c.revoke, false);
   assert.equal(c.setRole, false);
 });
@@ -158,17 +179,25 @@ test('reject carries a status-dependent label, because the same action means two
 });
 
 test('the service worker ships it and the cache was bumped', () => {
-  // Not pinned to an exact version, for the same reason as the other two suites:
-  // a version-pinned assertion breaks whenever the next change bumps the shell.
+  // A numeric floor, not an exact pin or a doesNotMatch alternation — the old
+  // /meterlog-v3[456]/ form would equally pass for v33, since it only rules out
+  // three specific past versions rather than requiring forward progress. This
+  // parses the number and requires it to have actually advanced, matching the
+  // same fix already applied in tests/auth-ui.test.mjs / tests/nav-roles.test.mjs.
   const sw = read('sw.js');
   assert.match(sw, /'\.\/js\/approvals\.js'/);
-  assert.doesNotMatch(sw, /const CACHE = 'meterlog-v3[456]'/);
+  const m = sw.match(/meterlog-v(\d+)/);
+  assert.ok(m, 'sw.js should define a versioned CACHE name');
+  assert.ok(Number(m[1]) >= 37, `expected CACHE version >= 37, got v${m[1]}`);
 });
 
-test('both mount points initialise it', () => {
-  // index.html for owner/admin on a phone; reports.html because Back-Office holds
-  // R_ONBOARD but cannot open the capture page at all.
-  for (const p of ['capture', 'reports']) {
+test('all three mount points initialise it', () => {
+  // index.html for owner/admin on a phone; reports.html and map.html because
+  // Back-Office holds R_ONBOARD but cannot open the capture page at all — and
+  // map.html specifically because homePageFor('backoffice') resolves there
+  // (R_OPS excludes it from edit.html, R_VIEW includes it here), so it is that
+  // role's actual landing page and needs the entry same as reports.html.
+  for (const p of ['capture', 'reports', 'map']) {
     const page = read(`js/pages/${p}.js`);
     assert.match(page, /import\s*\{[^}]*initApprovals[^}]*\}\s*from\s*'\.\.\/approvals\.js'/,
       `js/pages/${p}.js should import initApprovals`);
@@ -246,11 +275,33 @@ class FakeElement {
   set disabled(v) { this._disabled = v; }
   get onclick() { return this._onclick; }
   set onclick(fn) { this._onclick = fn; }
-  addEventListener() {}
+  // A real registration + dispatch, not a no-op: the old `addEventListener() {}`
+  // silently swallowed every listener, so the backdrop-close handler on
+  // #approvalsSheet was never exercised by any test — and any FUTURE
+  // addEventListener handler would be invisible rather than failing loudly.
+  addEventListener(type, fn) {
+    (this._listeners || (this._listeners = {}));
+    (this._listeners[type] || (this._listeners[type] = [])).push(fn);
+  }
+  dispatchEvent(evt) {
+    const list = (this._listeners && this._listeners[evt.type]) || [];
+    for (const fn of list) fn(evt);
+  }
   get textContent() { return collectText(this); }
   set textContent(v) { this.children = [new FakeText(String(v))]; }
-  set innerHTML(html) { this.children = parseHTML(html); for (const c of this.children) c.parentNode = this; }
-  get innerHTML() { return ''; }   // never read by approvals.js — write-only here
+  set innerHTML(html) {
+    this._rawHTML = html;
+    this.children = parseHTML(html);
+    for (const c of this.children) c.parentNode = this;
+  }
+  // Returns the exact string that was set — used by the escaping test below,
+  // which asserts against the generated markup itself rather than the parsed
+  // fake tree: the fake's tag-matching regex is built for WELL-FORMED markup,
+  // so an unescaped '<b>' from a broken esc()/attr() would get silently folded
+  // into the (fake) element tree, and reading it back via .textContent strips
+  // tag markup entirely — making a genuine escaping regression look clean. The
+  // raw string is what a real browser actually receives.
+  get innerHTML() { return this._rawHTML || ''; }
   insertAdjacentHTML(pos, html) {
     const nodes = parseHTML(html);
     for (const n of nodes) n.parentNode = this;
@@ -385,6 +436,16 @@ function stubFetch({ getResponse, onPost }) {
 
 // Mount once. See the block comment above for why this can't be redone per test.
 const fakeDoc = new FakeDocument();
+// Real pages provide a top bar, a #navMenu (index.html's ☰ dropdown) and a
+// #toast element. The original fake document had none of these, so
+// mountEntry() always hit its early `if(!bar) return;` before ever creating
+// #navApprovals — meaning the ENTIRE nav-entry and roleAllows(R_ONBOARD, …)
+// gate was never executed by any test, only grepped for in source — and
+// toast() always no-op'd (no #toast to find), so a spine refusal reaching the
+// operator had no behavioural coverage either. Add all three before the one
+// mount below.
+fakeDoc.body.insertAdjacentHTML('beforeend',
+  '<div class="bar"></div><div id="navMenu"></div><div id="toast"></div>');
 globalThis.document = fakeDoc;
 initApprovals();
 
@@ -478,7 +539,40 @@ test('DOM: an unexpected throw inside act() still re-enables the button', async 
   } finally { restore(); }
 });
 
-test('DOM: no role is posted when the picker is untouched, and it is when changed', async () => {
+test('DOM: an untouched Approve posts no role, and a changed one does', async () => {
+  // authApprove keeps the changed-only guard: posting no role at all is a safe,
+  // valid outcome (approve as whatever role the row already has), so a role is
+  // only sent when the operator actually moved the picker.
+  const calls = [];
+  const restore = stubFetch({
+    getResponse: {
+      ok: true, grantable: ['foreman', 'installer'],
+      pending: [row({ hNumber: 'H1', status: 'pending', role: 'installer' })], users: [],
+    },
+    onPost: body => { calls.push(body); return { ok: true }; },
+  });
+  try {
+    await openApprovals();
+    const approveBtn1 = fakeDoc.getElementById('apprPending').querySelector('[data-act="authApprove"]');
+    await approveBtn1.onclick();   // picker never touched — still shows 'installer'
+    assert.ok(!('role' in calls[0]), 'no role should be posted on an untouched Approve');
+
+    // The action above re-ran load(), which re-rendered the row from scratch —
+    // grab fresh elements rather than reusing the (now-superseded) ones above.
+    const row2 = fakeDoc.getElementById('apprPending').querySelector('.appr-row');
+    row2.querySelector('.appr-role').value = 'foreman';
+    await row2.querySelector('[data-act="authApprove"]').onclick();
+    assert.equal(calls[1].role, 'foreman', 'a real change should be posted');
+  } finally { restore(); }
+});
+
+test('DOM: authSetRole ALWAYS carries a role, even when the picker is never touched', async () => {
+  // THE IMPORTANT ONE (fix 1). With no `role` in the body, Code.gs computes
+  // role = '' and refuses "you cannot assign the role (blank)" — so an
+  // untouched Set-role tap used to read as a permissions failure, on the one
+  // screen where permissions are the subject. Proving "the spine would accept
+  // the result" means asserting the posted role is a real, grantable value —
+  // not merely that some value was posted.
   const calls = [];
   const restore = stubFetch({
     getResponse: {
@@ -489,16 +583,11 @@ test('DOM: no role is posted when the picker is untouched, and it is when change
   });
   try {
     await openApprovals();
-    const setRoleBtn1 = fakeDoc.getElementById('apprUsers').querySelector('[data-act="authSetRole"]');
-    await setRoleBtn1.onclick();   // picker never touched — still shows 'installer'
-    assert.ok(!('role' in calls[0]), 'no role should be posted when the picker was not touched');
-
-    // The action above re-ran load(), which re-rendered the row from scratch —
-    // grab fresh elements rather than reusing the (now-superseded) ones above.
-    const row2 = fakeDoc.getElementById('apprUsers').querySelector('.appr-row');
-    row2.querySelector('.appr-role').value = 'foreman';
-    await row2.querySelector('[data-act="authSetRole"]').onclick();
-    assert.equal(calls[1].role, 'foreman', 'a real change should be posted');
+    const btn = fakeDoc.getElementById('apprUsers').querySelector('[data-act="authSetRole"]');
+    await btn.onclick();   // picker never touched — still shows the row's current role
+    assert.ok('role' in calls[0], 'authSetRole must always post a role');
+    assert.equal(calls[0].role, 'installer',
+      'an untouched Set role tap must post the picker\'s pre-selected (current, grantable) value');
   } finally { restore(); }
 });
 
@@ -565,4 +654,170 @@ test('DOM: Approve, Reject, Unlock and Set role do NOT confirm first', async () 
     globalThis.confirm = origConfirm;
     restore();
   }
+});
+
+// ── fixing the harness's own blind spots (fix 3) ────────────────────────────
+// Everything below exercises a code path the ORIGINAL fake DOM made
+// unreachable or invisible: addEventListener() was a silent no-op, mountEntry()
+// always returned before creating anything (no .bar/#navMenu), toast() always
+// no-op'd (no #toast), and nothing checked the in-flight disabled state or
+// load()'s own re-entrancy guard. "436 pass" didn't cover any of this before.
+
+test('DOM: the #navMenu nav-entry button has type="button", like every sibling', () => {
+  const el = fakeDoc.getElementById('navApprovals');
+  assert.ok(el, 'mountEntry should have created #navApprovals once #navMenu exists');
+  assert.equal(el.attrs.get('type'), 'button');
+});
+
+test('DOM: a genuine backdrop tap closes the sheet; a tap on its contents does not', () => {
+  // The old fake's addEventListener() {} meant this listener (js/approvals.js,
+  // wired in initApprovals()) was never invoked by any test.
+  const sheet = fakeDoc.getElementById('approvalsSheet');
+  const card = sheet.querySelector('.auth-card');
+  assert.ok(card, 'the sheet should contain its card element');
+
+  sheet.classList.remove('hide');
+  sheet.dispatchEvent({ type: 'click', target: card });
+  assert.ok(!sheet.classList.contains('hide'),
+    'a tap whose target is a descendant, not the sheet itself, must not close it');
+
+  sheet.dispatchEvent({ type: 'click', target: sheet });
+  assert.ok(sheet.classList.contains('hide'),
+    'a tap whose target IS the sheet element (the backdrop) must close it');
+});
+
+test('DOM: a refusal from the spine reaches #toast verbatim', async () => {
+  // "the spine's refusal is shown verbatim" (js/approvals.js's own comment)
+  // had no behavioural coverage — the old fake had no #toast, so dom.js's
+  // toast() always hit its `if(!t) return;` no-op branch.
+  const refusal = 'you cannot assign the role (blank)';
+  const restore = stubFetch({
+    getResponse: { ok: true, grantable: [], pending: [row({ status: 'pending' })], users: [] },
+    onPost: () => ({ ok: false, error: refusal }),
+  });
+  try {
+    await openApprovals();
+    const btn = fakeDoc.getElementById('apprPending').querySelector('[data-act="authApprove"]');
+    await btn.onclick();
+    assert.equal(fakeDoc.getElementById('toast').textContent, refusal,
+      'the spine is the authority; its refusal text must reach the operator unchanged');
+  } finally { restore(); }
+});
+
+test('DOM: a name with quotes and angle brackets is escaped in the generated markup', async () => {
+  // Asserted against the RAW html string load() builds (via the innerHTML
+  // getter added above), not the fake's parsed tree: the fake's tag-matching
+  // regex is built to parse WELL-FORMED markup, so an unescaped '<b>' from a
+  // broken esc()/attr() would get folded into the (fake) element tree, and
+  // reading it back via .textContent strips tag markup entirely — a genuine
+  // escaping regression would still look "clean" through that lens. The raw
+  // string is what a real browser actually receives, so that is what is
+  // checked — the more honest of the two per the review's own note.
+  const nasty = 'Dana "Reid" <b>x</b>&';
+  const restore = stubFetch({
+    getResponse: {
+      ok: true, grantable: ['installer'],
+      pending: [row({ status: 'pending', name: nasty, role: 'installer' })],
+      users: [],
+    },
+  });
+  try {
+    await openApprovals();
+    const html = fakeDoc.getElementById('apprPending').innerHTML;
+    assert.ok(!/<b>x<\/b>/.test(html),
+      'a literal tag from a stored name must never survive into the generated markup');
+    assert.match(html, /Dana "Reid" &lt;b&gt;x&lt;\/b&gt;&amp;/,
+      'esc() should escape & < > wherever the name is rendered as text');
+    assert.match(html, /data-name="Dana &quot;Reid&quot; &lt;b&gt;x&lt;\/b&gt;&amp;"/,
+      'attr() should additionally escape quotes so the value cannot break out of the attribute');
+  } finally { restore(); }
+});
+
+test('DOM: the button stays disabled WHILE the request is in flight, not just after', async () => {
+  // Deleting `btn.disabled = true` (js/approvals.js act()) left every existing
+  // test passing, because none of them checked the state DURING the await —
+  // only before the click and after it resolved.
+  // resolvePost is captured OUTSIDE the mock, at setup time, not lazily inside
+  // .json() — .json() isn't actually called until several microtask ticks
+  // after btn.onclick() returns (fetch's own async resolution, fetchRetry's
+  // await, apiPost's await all sit in between), so a resolver assigned only
+  // when .json() runs isn't ready yet at the point this test needs to use it.
+  let resolvePost;
+  const postPromise = new Promise(resolve => { resolvePost = resolve; });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (!opts) return { json: async () => ({ ok: true, grantable: [], pending: [row({ status: 'pending' })], users: [] }) };
+    return { json: () => postPromise };
+  };
+  try {
+    await openApprovals();
+    const btn = fakeDoc.getElementById('apprPending').querySelector('[data-act="authApprove"]');
+    assert.equal(btn.disabled, false);
+    const clickPromise = btn.onclick();
+    assert.equal(btn.disabled, true,
+      'the button must already be disabled the instant the tap fires, before the request settles');
+    resolvePost({ ok: true });
+    await clickPromise;
+    assert.equal(btn.disabled, false);
+  } finally { globalThis.fetch = orig; }
+});
+
+test('DOM: a concurrent load() call is a no-op while one is already in flight', async () => {
+  // apprRefresh, openApprovals() and act()'s trailing reload can all race one
+  // another; load()'s `loading` guard exists precisely so a slower, staler
+  // response can't paint over a fresher one. Nothing had exercised the guard
+  // itself — only its comment.
+  // Same reasoning as the disabled-in-flight test above: the resolver is
+  // captured at mock-setup time, since .json() isn't reached until well after
+  // openApprovals() has already returned its (pending) promise.
+  let getCalls = 0;
+  let resolveGet;
+  const getPromise = new Promise(resolve => { resolveGet = resolve; });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (!opts) {
+      getCalls++;
+      return { json: () => getPromise };
+    }
+    return { json: async () => ({ ok: true }) };
+  };
+  try {
+    const p1 = openApprovals();   // starts load(): `loading = true` is set synchronously
+    const p2 = openApprovals();   // …so this second load() must see it and no-op
+    resolveGet({ ok: true, grantable: [], pending: [], users: [] });
+    await Promise.all([p1, p2]);
+    assert.equal(getCalls, 1, 'a concurrent load() must not issue a second fetch of its own');
+  } finally { globalThis.fetch = orig; }
+});
+
+test('DOM: the nav entry is shown for a blank role and every R_ONBOARD role, hidden for installer', async () => {
+  // The original fake document had no #navMenu/.bar, so mountEntry() always
+  // returned early — the ENTIRE nav-entry and roleAllows(R_ONBOARD, …) gate
+  // (domain rule 3) was covered only by a source grep, never actually run.
+  // This test runs LAST and ends by restoring a blank role, since store state
+  // persists across tests in this file.
+  const nav = () => fakeDoc.getElementById('navApprovals');
+  assert.ok(nav(), 'the nav entry must already exist from the one initApprovals() mount');
+
+  const signInAs = async wantRole => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = async (url, opts) => {
+      if (!opts) return { json: async () => ({ ok: true }) };
+      return { json: async () => ({ ok: true, auth: 'tok', expires: Date.now() + 86400000,
+                                     hNumber: 'H1', role: wantRole, name: 'Test' }) };
+    };
+    try { await signIn('H1', '123456'); } finally { globalThis.fetch = orig; }
+  };
+
+  for (const r of ['owner', 'admin', 'backoffice']) {
+    await signInAs(r);
+    assert.equal(nav().classList.contains('hide'), false, `${r} holds R_ONBOARD and should see Approvals`);
+  }
+
+  await signInAs('installer');
+  assert.equal(nav().classList.contains('hide'), true, 'installer does not hold R_ONBOARD and must not see it');
+
+  signOut();   // back to a blank role — the migration window
+  assert.equal(nav().classList.contains('hide'), false,
+    'a blank role must still see Approvals — that is the migration window, and it is how the first people get approved');
 });

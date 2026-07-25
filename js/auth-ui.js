@@ -81,6 +81,12 @@ export function initAuthUI(){
     // one, so it reads as chrome rather than as part of the form beneath it.
     if(bar) bar.insertAdjacentHTML('afterend', BANNER_HTML);
     else document.body.insertAdjacentHTML('afterbegin', BANNER_HTML);
+  }
+  // Guarded on #authSheet's OWN absence, not the banner's — they used to share
+  // one guard, so a retry that found the banner already landed (from a prior
+  // partial mount) but the sheet missing would skip the sheet insert entirely
+  // and then throw at $('authClose').onclick below with nothing to attach to.
+  if(!document.getElementById('authSheet')){
     document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
   }
   if(!document.getElementById('navSignIn')){
