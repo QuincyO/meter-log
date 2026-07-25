@@ -140,9 +140,6 @@ Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
    `auth-policy.js`'s `bannerFor`/`bannerDismissed`/`signInFeedback`/`signUpFeedback`.
    Verified in a headless browser: the banner, its day-scoped dismissal, the sheet,
    the offline reassurance copy, and capture still working with the banner up.
-   **Still open:** the module is written to mount on every page (that's why it's
-   self-contained) but is only wired into `capture.js` so far — the other six pages
-   don't show it yet.
 2. **Per-role nav hiding — done.** `js/nav-roles.js` (`applyRoleNav`/`guardPage`, over
    `canSeePage`/`homePageFor`) is mounted on all seven pages alongside the sign-in
    sheet. Inert while a role is blank, so the migration window still shows everything;
