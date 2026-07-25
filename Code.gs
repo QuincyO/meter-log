@@ -42,6 +42,61 @@
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr'; // crude gate; must match the caller
 const TIMEZONE     = 'America/Toronto';
 
+// ── Auth: roles, PIN credentials, sessions ────────────────────────────────
+// Replaces SHARED_TOKEN as the real gate. The shared token stays accepted while
+// REQUIRE_AUTH is off so the crew can migrate without losing queued work; see
+// §"Rollout" in DEPLOY.md. Identity is DERIVED here and never trusted from the
+// payload — `installer`/`installerId` in a request body are overwritten from the
+// session for anyone who isn't allowed to act for others.
+//
+// Secrets live in Script Properties, never in this file and never in the Sheet:
+//   PIN_PEPPER      — mixed into every PIN hash, so a leaked Sheet alone yields
+//                     nothing crackable. This is the highest-value control here:
+//                     a 6-digit PIN is only 10^6 candidates, so the hash is worth
+//                     little on its own.
+//   SESSION_SECRET  — signs session tokens. Rotating it signs everyone out.
+//   SHORTCUT_KEY    — the Apple Shortcut's own credential (it can't do PIN login).
+// The Auth tab is deliberately NOT in EXPORT_TABS — exportSheetToGithub() commits
+// every listed tab to data/*.md in the git repo, which would publish PIN hashes.
+const AUTH_HEADERS = ['hNumber','pinSalt','pinHash','pinIters','status','role','tokenGen',
+                      'createdAt','approvedAt','approvedBy','lastLoginAt',
+                      'failCount','lockedUntil'];
+
+const ROLE_OWNER = 'owner', ROLE_ADMIN = 'admin', ROLE_FOREMAN = 'foreman',
+      ROLE_BACKOFFICE = 'backoffice', ROLE_INSTALLER = 'installer';
+const ALL_ROLES = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_BACKOFFICE, ROLE_INSTALLER];
+
+// Capability sets — NOT a privilege ladder, and the code must never treat them as
+// one. Foreman has edit + planner that Back-Office does not; Back-Office has the
+// onboarding actions that Foreman does not. Neither contains the other, so there
+// is no correct ordering and any `level >= level` comparison would silently grant
+// one of them the other's actions. Always compare with indexOf on an explicit set.
+const R_FIELD   = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_INSTALLER];  // capture app
+const R_OPS     = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN];                  // edit + planner, all crew
+const R_VIEW    = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_BACKOFFICE]; // map + analytics
+const R_ONBOARD = [ROLE_OWNER, ROLE_ADMIN, ROLE_BACKOFFICE];              // approvals, PIN resets
+const R_MANAGE  = [ROLE_OWNER, ROLE_ADMIN];                                // roster/teams/deletes
+
+// Which roles may act on OTHER people's data. Everyone else is pinned to their own
+// H number regardless of what the request claims (see scopeToSession).
+const R_ACT_FOR_OTHERS = R_OPS;
+
+// A 6-digit PIN. Length is fixed by policy; see rejectWeakPin for the rest.
+const PIN_LENGTH = 6;
+// Sessions run the working week and re-prompt every Monday at this hour (Toronto),
+// which sits before the workday so nobody is interrupted mid-shift.
+const SESSION_ANCHOR_HOUR = 4;
+// Floor on a freshly-issued session, so a Sunday-night or Monday-dawn login can't
+// be handed a two-hour token.
+const SESSION_MIN_MS = 24 * 60 * 60 * 1000;
+// Wrong-PIN ladder. Counters live in CacheService for speed; the durable copy on
+// the Auth row is what survives a cache eviction, so the lockout can't be reset by
+// waiting one out.
+const PIN_FAIL_WINDOW_S = 900;
+const PIN_LOCK_STEPS = [{ fails: 5,  lockMin: 15 },
+                        { fails: 10, lockMin: 60 },
+                        { fails: 15, lockMin: 0 }];   // 0 = locked until an admin unlocks
+
 // ── Travel / downtime tuning (field-tunable) ───────────────────────────────
 // Timing is derived from the timestamps + GPS already on each stop. Walking the
 // team's stops in time order, each gap between two consecutive stops is gated by
@@ -274,6 +329,13 @@ function setupSheets() {
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
+  // Credentials. Deliberately absent from EXPORT_TABS — exportSheetToGithub()
+  // commits every listed tab to data/*.md in the git repo, which would publish the
+  // PIN hashes. Keep it out of that list if you ever extend the export.
+  ensureTab(ss, 'Auth', AUTH_HEADERS);
+  // Salt/hash are opaque base64 and H numbers can look numeric — keep Sheets from
+  // coercing any of it, the same way the timestamp columns are pinned below.
+  ss.getSheetByName('Auth').getRange('A2:D').setNumberFormat('@');
   // These values are minute counts, not Sheets date serials. Find their columns
   // by header so schema additions/reordering cannot turn a fixed column into one.
   const installerMetrics = ss.getSheetByName('InstallerMetrics');
@@ -325,6 +387,235 @@ function ensureTab(ss, name, headers) {
   sh.getRange(1, 1, 1, headers.length).setFontWeight('bold');
   sh.setFrozenRows(1);
   return sh;
+}
+
+// ── Auth implementation ────────────────────────────────────────────────────
+
+function scriptProp(name) {
+  try { return PropertiesService.getScriptProperties().getProperty(name) || ''; }
+  catch (e) { return ''; }
+}
+/** Auth is enforced only once REQUIRE_AUTH is 'true'. Until then the spine accepts
+ *  a valid session OR the legacy shared token, so the crew can sign up and drain
+ *  their queues before the switch. Flipping this property back is the rollback —
+ *  no redeploy needed. */
+function requireAuth() { return String(scriptProp('REQUIRE_AUTH')).toLowerCase() === 'true'; }
+
+function b64url(bytes) {
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, '');
+}
+function b64urlDecodeToString(s) {
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(
+    String(s) + '==='.slice(0, (4 - String(s).length % 4) % 4))).getDataAsString();
+}
+
+/** Iterated HMAC-SHA256 with a per-user salt and a server-side pepper. Apps Script
+ *  has no bcrypt, so this is the available shape. Tune iterations with
+ *  benchmarkPinHash(); the stored pinIters is per row so the cost can be raised
+ *  later and rows re-hashed on their next successful login. */
+function pinHashOf(pin, salt, iters) {
+  const pepper = scriptProp('PIN_PEPPER');
+  if (!pepper) throw new Error('PIN_PEPPER script property is not set — see DEPLOY.md');
+  let acc = Utilities.newBlob(String(salt) + ' ' + String(pin)).getBytes();
+  const n = Math.max(1, Number(iters) || 1);
+  for (let i = 0; i < n; i++) acc = Utilities.computeHmacSha256Signature(acc, pepper);
+  return Utilities.base64Encode(acc);
+}
+function newSalt() {
+  let s = '';
+  for (let i = 0; i < 4; i++) s += Math.random().toString(36).slice(2, 10);
+  return s.slice(0, 24);
+}
+/** Constant-time-ish compare, so a wrong PIN can't be narrowed by response timing. */
+function safeEquals(a, b) {
+  const x = String(a), y = String(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    diff |= (x.charCodeAt(i) || 0) ^ (y.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+/** A PIN this weak is worse than the lockout can compensate for. */
+function rejectWeakPin(pin) {
+  const p = String(pin == null ? '' : pin);
+  if (!new RegExp('^\\d{' + PIN_LENGTH + '}$').test(p)) return PIN_LENGTH + ' digits, numbers only';
+  if (/^(\d)\1+$/.test(p)) return 'not all the same digit';
+  const asc = '01234567890', desc = '09876543210';
+  if (asc.indexOf(p) !== -1 || desc.indexOf(p) !== -1) return 'not a run of consecutive digits';
+  if (/^(19|20)\d{4}$/.test(p)) return 'not a year';
+  return '';
+}
+
+/** Whole days added to a Toronto calendar date. Built at noon UTC so a DST shift
+ *  can never move the result onto the neighbouring day. */
+function addDaysYmd(ymd, n) {
+  const m = String(ymd).match(/(\d{4})-(\d\d)-(\d\d)/);
+  if (!m) return ymd;
+  const dt = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return Utilities.formatDate(dt, 'UTC', 'yyyy-MM-dd');
+}
+/** Session expiry: the NEXT Monday at SESSION_ANCHOR_HOUR Toronto, at least
+ *  SESSION_MIN_MS away. A fixed weekday anchor, not a rolling seven days — rolling
+ *  would drift, so someone who first signed in on a Wednesday would then be
+ *  prompted every Wednesday instead of with everyone else on Monday. */
+function nextMondayExpiry(nowMs) {
+  const now = new Date(nowMs);
+  const dow = Number(Utilities.formatDate(now, TIMEZONE, 'u'));   // 1=Mon … 7=Sun
+  let ahead = (8 - dow) % 7;
+  if (!ahead) ahead = 7;                                          // today is Monday → next one
+  const todayYmd = Utilities.formatDate(now, TIMEZONE, 'yyyy-MM-dd');
+  for (let guard = 0; guard < 4; guard++, ahead += 7) {
+    const ms = localMs(addDaysYmd(todayYmd, ahead) + ' '
+                       + ('0' + SESSION_ANCHOR_HOUR).slice(-2) + ':00:00');
+    if (ms != null && ms - nowMs >= SESSION_MIN_MS) return ms;
+  }
+  return nowMs + 7 * 24 * 60 * 60 * 1000;                         // unreachable in practice
+}
+
+/** token = b64url(payload).b64url(HMAC(SESSION_SECRET, payload)).
+ *  Stateless on purpose: a Sessions tab would be a growing sheet read on every
+ *  request, which is the exact cost this app is trying to shed. Revocation rides
+ *  on tokenGen instead (bump it and every token that person holds stops verifying). */
+function signSession(payload) {
+  const secret = scriptProp('SESSION_SECRET');
+  if (!secret) throw new Error('SESSION_SECRET script property is not set — see DEPLOY.md');
+  const body = JSON.stringify(payload);
+  const sig = Utilities.computeHmacSha256Signature(body, secret);
+  return b64url(Utilities.newBlob(body).getBytes()) + '.' + b64url(sig);
+}
+function verifySession(token) {
+  const parts = String(token == null ? '' : token).split('.');
+  if (parts.length !== 2) return null;
+  let payload;
+  try { payload = JSON.parse(b64urlDecodeToString(parts[0])); } catch (e) { return null; }
+  const secret = scriptProp('SESSION_SECRET');
+  if (!secret) return null;
+  const want = b64url(Utilities.computeHmacSha256Signature(JSON.stringify(payload), secret));
+  if (!safeEquals(want, parts[1])) return null;
+  if (!payload || !payload.h) return null;
+  if (!(Number(payload.x) > Date.now())) return null;                 // expired
+  const rec = authIndex()[String(payload.h).trim()];
+  if (!rec || rec.status !== 'active') return null;                   // disabled / removed
+  if (Number(rec.tokenGen) !== Number(payload.g || 0)) return null;   // revoked
+  // Role comes from the ROSTER, not the token — a demotion takes effect within the
+  // authIndex TTL instead of waiting for the token to expire on Monday.
+  return { h: String(payload.h), role: rec.role || ROLE_INSTALLER, exp: Number(payload.x) };
+}
+
+/** Create the Auth tab if it's missing. WRITES (ensureTab sets header formatting and
+ *  freezes the row), so call it only from setup/signup paths — never from the
+ *  per-request verify path, which would fire sheet writes on every single call. */
+function ensureAuthTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName('Auth')) ensureTab(ss, 'Auth', AUTH_HEADERS);
+}
+/** Read-only lookup on the request hot path: a missing tab is simply "no such user"
+ *  rather than a reason to create anything. Returns the FULL row including the hash —
+ *  use it only where the hash is actually needed (login). Session verification goes
+ *  through authIndex() instead. */
+function authRowFor(h) {
+  const want = String(h == null ? '' : h).trim();
+  if (!want) return null;
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Auth')) return null;
+  return rows('Auth').filter(function (r) { return String(r.hNumber).trim() === want; })[0] || null;
+}
+
+// Session verification runs on EVERY authenticated request, so it must not scan the
+// Auth tab each time. This is a deliberately narrow projection — {status, role,
+// tokenGen} keyed by H number — cached across requests. Two reasons it is a
+// projection rather than adding 'Auth' to CACHED_TABS: the PIN hashes never enter
+// the shared cache, and the payload stays tiny (200 crew ≈ 12KB, far under the
+// 100KB/key limit) so it can't silently stop caching as the crew grows.
+const AUTH_INDEX_TTL_S = 600;   // 10 min — the ceiling on how long a revoke can lag
+let AUTH_IDX_MEMO = null;
+function bustAuthIndex() {
+  AUTH_IDX_MEMO = null;
+  bustRows('Auth');
+  const c = scriptCache();
+  if (c) try { c.remove('authIndex'); } catch (e) {}
+}
+function authIndex() {
+  if (AUTH_IDX_MEMO) return AUTH_IDX_MEMO;
+  const c = scriptCache();
+  const hit = c && c.get('authIndex');
+  if (hit) { try { return (AUTH_IDX_MEMO = JSON.parse(hit)); } catch (e) {} }
+  const idx = {};
+  if (SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Auth')) {
+    rows('Auth').forEach(function (r) {
+      const h = String(r.hNumber).trim();
+      if (h) idx[h] = { status: String(r.status || ''), role: String(r.role || ROLE_INSTALLER),
+                        tokenGen: Number(r.tokenGen || 0) };
+    });
+  }
+  if (c) try { c.put('authIndex', JSON.stringify(idx), AUTH_INDEX_TTL_S); } catch (e) {}
+  return (AUTH_IDX_MEMO = idx);
+}
+
+/** May `role` act on someone else's data? Everyone else is pinned to their own H
+ *  number — the request's installer/installerId are OVERWRITTEN, not rejected, so
+ *  an older client that still sends them keeps working while the server ignores
+ *  what it claimed. This is the line that turns identity from caller-asserted into
+ *  server-derived. */
+function scopeToSession(sess, obj) {
+  if (!sess || R_ACT_FOR_OTHERS.indexOf(sess.role) !== -1) return obj;
+  const name = nameOfH(sess.h);
+  if ('installerId' in obj || 'installer' in obj || 'hNumber' in obj) {
+    if ('installerId' in obj) obj.installerId = sess.h;
+    if ('hNumber' in obj)     obj.hNumber     = sess.h;
+    if ('installer' in obj)   obj.installer   = name || obj.installer;
+  }
+  return obj;
+}
+
+/** Roles a granter may assign. An Admin can staff up the crew but cannot mint
+ *  another Admin or an Owner — the "can't grant at or above your own level" rule,
+ *  which is the one place an ordering IS meaningful, so it is spelled out
+ *  explicitly rather than derived from a numeric level. */
+function grantableRoles(granterRole) {
+  if (granterRole === ROLE_OWNER) return ALL_ROLES.slice();
+  if (granterRole === ROLE_ADMIN) return [ROLE_FOREMAN, ROLE_BACKOFFICE, ROLE_INSTALLER];
+  return [];
+}
+
+/** Promote an H number to Owner. EDITOR-RUN ONLY — Apps Script will only let the
+ *  account that owns the script run it, so running it IS the proof of ownership.
+ *  This is the permanent escape hatch if every Owner account is ever locked out;
+ *  do not delete it, and do not expose it as a web action. */
+function makeOwner(hNumber) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  if (!h) throw new Error('makeOwner("H12345") — pass the employee H number');
+  ensureAuthTab();
+  const existing = authRowFor(h);
+  upsertByHeader('Auth', 'hNumber', h, {
+    hNumber: h,
+    status: 'active',
+    role: ROLE_OWNER,
+    tokenGen: Number((existing && existing.tokenGen) || 0),
+    createdAt: (existing && existing.createdAt) || now(),
+    approvedAt: now(),
+    approvedBy: 'script-editor',
+    failCount: 0,
+    lockedUntil: ''
+  });
+  bustAuthIndex();
+  return 'Owner: ' + h + (existing && existing.pinHash ? '' : ' — they still need to set a PIN via signup');
+}
+
+/** Editor-run. Times the PIN hash so the iteration count can be tuned to the real
+ *  project rather than guessed: pick the largest count that keeps a login well
+ *  under ~400ms, since this runs on the login path. */
+function benchmarkPinHash() {
+  const salt = newSalt();
+  const out = [];
+  [1000, 5000, 20000, 50000].forEach(function (n) {
+    const t0 = Date.now();
+    pinHashOf('123456', salt, n);
+    out.push(n + ' iters → ' + (Date.now() - t0) + 'ms');
+  });
+  Logger.log(out.join('\n'));
+  return out;
 }
 
 // ── POST: capture layer sends JSON here ────────────────────────────────────
