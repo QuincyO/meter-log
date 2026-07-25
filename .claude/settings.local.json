@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git --no-pager diff -- Code.gs)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git -C /home/user/meter-log log --oneline -10)",
+      "Bash(git -C /home/user/meter-log branch -a)",
+      "Bash(curl -s -o /dev/null -w \"config.js -> HTTP %{http_code}\\\\n\" https://quincyo.github.io/meter-log/js/config.js --max-time 20)",
+      "Bash(curl -s -o /dev/null -w \"index.html -> HTTP %{http_code}\\\\n\" https://quincyo.github.io/meter-log/index.html --max-time 20)",
+      "Bash(grep -n '^#\\\\{1,3\\\\} ' /home/user/meter-log/ARCHITECTURE.md)",
+      "Bash(git -C /home/user/meter-log remote -v)"
     ]
   }
 }
