@@ -128,3 +128,79 @@ test('the sheet is a fixed overlay so it works on a page with any layout', () =>
   const css = read('css/auth.css');
   assert.match(css, /\.auth-sheet\s*\{[^}]*position\s*:\s*fixed/);
 });
+
+// ── the DOM half ───────────────────────────────────────────────────────────
+// Structural assertions, in the style of the tuning-screen tests: they check the
+// wiring exists, not that a browser renders it. VERIFY.md covers the real thing.
+
+const ui = read('js/auth-ui.js');
+
+test('the module injects its own markup rather than needing it in the page', () => {
+  // This is what lets plan 2 mount it on six more pages without copying markup.
+  assert.match(ui, /insertAdjacentHTML|innerHTML\s*=/);
+  assert.match(ui, /id="authBanner"/);
+  assert.match(ui, /id="authSheet"/);
+});
+
+test('the sheet has both modes and a confirm field for signup', () => {
+  assert.match(ui, /id="authH"/);
+  assert.match(ui, /id="authPin"/);
+  assert.match(ui, /id="authPin2"/);
+  assert.match(ui, /id="authSubmit"/);
+  assert.match(ui, /id="authSwitch"/);
+});
+
+test('the PIN fields are 6-digit numeric and masked', () => {
+  assert.match(ui, /id="authPin"[^>]*type="password"/);
+  assert.match(ui, /id="authPin"[^>]*inputmode="numeric"/);
+  assert.match(ui, /id="authPin"[^>]*maxlength="6"/);
+});
+
+test('it re-paints on auth change, which is what surfaces a weekend expiry', () => {
+  // A session dies at a fixed Monday 04:00 with no request happening; auth.js
+  // re-announces on wake, and this is the listener that turns that into a banner.
+  assert.match(ui, /onAuthChange\s*\(/);
+});
+
+test('it routes outcomes through the tested policy instead of re-deciding', () => {
+  assert.match(ui, /signInFeedback/);
+  assert.match(ui, /signUpFeedback/);
+  assert.match(ui, /bannerFor/);
+  assert.match(ui, /bannerDismissed/);
+});
+
+test('signing out is offered, and goes through auth.js signOut', () => {
+  // signOut() touches only the session keys — the queue, day cache and worklist
+  // must survive it, so this must never grow its own storage clearing.
+  assert.match(ui, /\bsignOut\b/);
+  assert.doesNotMatch(ui, /localStorage\.clear|deleteDatabase|caches\.delete/);
+});
+
+test('nothing here gates capture', () => {
+  // No redirect, no disabling of the form, no early return that hides the page.
+  assert.doesNotMatch(ui, /location\.(replace|assign|href)\s*=/);
+  assert.doesNotMatch(ui, /document\.body\.style\.display/);
+});
+
+// ── shipping ───────────────────────────────────────────────────────────────
+
+test('the service worker ships the new module and stylesheet', () => {
+  const sw = read('sw.js');
+  assert.match(sw, /'\.\/js\/auth-ui\.js'/);
+  assert.match(sw, /'\.\/css\/auth\.css'/);
+});
+
+test('the cache version was bumped, or phones keep the old shell', () => {
+  // Deliberately "not v34" rather than "is v35": plans 2 and 3 each add a module
+  // and bump again, and a test pinned to an exact version would fail the moment
+  // the next plan lands. What matters is that the shell moved past the last
+  // release that lacked these files.
+  assert.doesNotMatch(read('sw.js'), /const CACHE = 'meterlog-v34'/);
+});
+
+test('the capture page loads the stylesheet and initialises the module', () => {
+  assert.match(read('index.html'), /<link rel="stylesheet" href="css\/auth\.css">/);
+  const capture = read('js/pages/capture.js');
+  assert.match(capture, /import\s*\{[^}]*initAuthUI[^}]*\}\s*from\s*'\.\.\/auth-ui\.js'/);
+  assert.match(capture, /initAuthUI\s*\(\s*\)/);
+});

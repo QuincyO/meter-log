@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v34';
+const CACHE = 'meterlog-v35';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -19,7 +19,7 @@ const SHELL = [
   // CSS (capture page shares tokens+base; map/teams/edit/reports are self-contained)
   './css/tokens.css', './css/base.css', './css/capture.css',
   './css/map.css', './css/teams.css', './css/edit.css', './css/reports.css',
-  './css/help.css', './css/planner.css', './css/drive.css',
+  './css/help.css', './css/planner.css', './css/drive.css', './css/auth.css',
   // vendored Leaflet CSS + its sprite images (map.html)
   './css/vendor/leaflet.css',
   './css/vendor/images/marker-icon.png', './css/vendor/images/marker-icon-2x.png',
@@ -27,7 +27,7 @@ const SHELL = [
   './css/vendor/images/layers.png', './css/vendor/images/layers-2x.png',
   // shared JS modules
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
-  './js/api.js', './js/auth.js', './js/auth-policy.js',
+  './js/api.js', './js/auth.js', './js/auth-policy.js', './js/auth-ui.js',
   './js/daycache.js', './js/queue.js', './js/queue-policy.js', './js/geocode.js',
   './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
   './js/worklist-dedup.js', './js/worklist-tuning.js',

@@ -22,6 +22,7 @@ import {
 } from '../drive-recorder.js';
 import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
+import { initAuthUI } from '../auth-ui.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -1675,6 +1676,9 @@ migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
   if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
 });
+// The sign-in banner. Mounted last so it paints over a page that is already
+// working — it never gates any of the above.
+initAuthUI();
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.
