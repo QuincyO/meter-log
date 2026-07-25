@@ -48,7 +48,11 @@ export function currentPage() {
 const REDIRECT_KEY = 'navRedirectMsg';
 
 /** Send someone off a page their role cannot open. Returns false when a redirect
- *  has been started, so a caller can skip loading data it is about to discard.
+ *  has been started — but `location.replace()` does not halt synchronous execution,
+ *  so the caller's own init still runs to completion before the navigation commits.
+ *  That is harmless (the destination re-fetches cleanly) and no caller relies on the
+ *  return value to skip anything; it exists so the redirect is issued as early as
+ *  the caller cares to check.
  *  Never dead-ends: homePageFor always names a page the role can open, and an
  *  equal destination is left alone rather than reloaded forever. */
 export function guardPage() {
@@ -67,6 +71,10 @@ export function guardPage() {
 /** Drop the nav entries this role cannot use, and deliver any redirect notice. */
 export function applyRoleNav() {
   const r = role();
+  // Delivered first, ahead of the filtering below: if anything past this point
+  // threw, the notice would never reach this page and would sit in sessionStorage
+  // to surface out of context on whatever page loads next.
+  deliverRedirectNotice();
   // Map.html predates the shared jump menu and calls its control a view selector
   // (#viewSel); the other back-office pages use #navSel. Query both so filtering
   // works regardless of which page called this, and so a third variant is a
@@ -78,8 +86,10 @@ export function applyRoleNav() {
     }
   }
   const help = document.getElementById('navHelp');
+  // Currently unreachable: PAGE_ROLES['help.html'] is the full ROLES list and
+  // roleAllows lets a blank role through too, so canSeePage('help.html', r) is
+  // true for every role this app has. Kept as defence, not as live filtering.
   if (help && !canSeePage('help.html', r)) help.classList.add('hide');
-  deliverRedirectNotice();
 }
 
 function deliverRedirectNotice() {

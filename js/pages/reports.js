@@ -14,8 +14,11 @@ import { initAuthUI } from '../auth-ui.js';
 import { PRINTABLE } from '../compute/tally.js';
 import { BREAK_CATS, TRAVEL_ADJ_CATS } from '../compute/categories.js';
 
-// Role gate first: a redirect here should happen before this page fetches
-// anything. Inert during the migration window, when every role is blank.
+// Role gate first, so a needed redirect is issued as early as possible. But
+// location.replace() doesn't halt synchronous execution, so the rest of this
+// module — nav wiring, fetches, etc. — still runs to completion before the
+// browser navigates away, which is harmless: the destination re-fetches
+// cleanly. Inert during the migration window, when every role is blank.
 try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
 catch(e){ console.warn('auth UI failed to mount', e); }
 

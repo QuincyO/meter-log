@@ -105,112 +105,108 @@ test('the service worker ships the module and the cache was bumped', () => {
 
 test('the loop guard holds: no redirect when already on the home page', async () => {
   const { guardPage } = await setupDomTest();
+  try {
+    for (const r of [...ROLES, '']) {
+      store.set('authRole', r);
+      const home = homePageFor(r);
+      globalThis.location.pathname = home;
+      globalThis.location.replaceWasCalled = false;
 
-  for (const r of [...ROLES, '']) {
-    store.set('authRole', r);
-    const home = homePageFor(r);
-    globalThis.location.pathname = home;
-    globalThis.location.replaceWasCalled = false;
+      const result = guardPage();
 
-    const result = guardPage();
-
-    assert.equal(result, true, `guardPage() should return true for role '${r}' on its home page '${home}'`);
-    assert.equal(globalThis.location.replaceWasCalled, false,
-      `location.replace should not be called for role '${r}' on ${home}`);
-  }
-
-  teardownDomTest();
+      assert.equal(result, true, `guardPage() should return true for role '${r}' on its home page '${home}'`);
+      assert.equal(globalThis.location.replaceWasCalled, false,
+        `location.replace should not be called for role '${r}' on ${home}`);
+    }
+  } finally { teardownDomTest(); }
 });
 
 test('a wrong page redirects exactly once to the home page', async () => {
   const { guardPage } = await setupDomTest();
+  try {
+    // Installer on map.html should redirect to index.html
+    store.set('authRole', 'installer');
+    globalThis.location.pathname = 'map.html';
+    globalThis.location.replaceWasCalled = false;
+    globalThis.location.replaceUrl = null;
 
-  // Installer on map.html should redirect to index.html
-  store.set('authRole', 'installer');
-  globalThis.location.pathname = 'map.html';
-  globalThis.location.replaceWasCalled = false;
-  globalThis.location.replaceUrl = null;
+    const result = guardPage();
 
-  const result = guardPage();
-
-  assert.equal(result, false, 'guardPage() should return false when starting a redirect');
-  assert.equal(globalThis.location.replaceWasCalled, true, 'location.replace should be called');
-  assert.equal(globalThis.location.replaceUrl, 'index.html', 'should redirect to installer home page');
-
-  teardownDomTest();
+    assert.equal(result, false, 'guardPage() should return false when starting a redirect');
+    assert.equal(globalThis.location.replaceWasCalled, true, 'location.replace should be called');
+    assert.equal(globalThis.location.replaceUrl, 'index.html', 'should redirect to installer home page');
+  } finally { teardownDomTest(); }
 });
 
 test('a blank role is never redirected from any page', async () => {
   const { guardPage } = await setupDomTest();
-  const pages = ['index.html', 'map.html', 'teams.html', 'edit.html', 'reports.html', 'planner.html', 'help.html'];
+  try {
+    const pages = ['index.html', 'map.html', 'teams.html', 'edit.html', 'reports.html', 'planner.html', 'help.html'];
 
-  store.set('authRole', '');
+    store.set('authRole', '');
 
-  for (const page of pages) {
-    globalThis.location.pathname = page;
-    globalThis.location.replaceWasCalled = false;
+    for (const page of pages) {
+      globalThis.location.pathname = page;
+      globalThis.location.replaceWasCalled = false;
 
-    const result = guardPage();
+      const result = guardPage();
 
-    assert.equal(result, true, `blank role should not be redirected from ${page}`);
-    assert.equal(globalThis.location.replaceWasCalled, false,
-      `location.replace should not be called for blank role on ${page}`);
-  }
-
-  teardownDomTest();
+      assert.equal(result, true, `blank role should not be redirected from ${page}`);
+      assert.equal(globalThis.location.replaceWasCalled, false,
+        `location.replace should not be called for blank role on ${page}`);
+    }
+  } finally { teardownDomTest(); }
 });
 
 test('currentPage() derives a bare filename from nested paths and trailing slashes', async () => {
   const { currentPage } = await setupDomTest();
+  try {
+    const cases = [
+      ['/app/index.html', 'index.html'],
+      ['/deep/nested/path/map.html', 'map.html'],
+      ['/path/', 'index.html'],
+      ['/', 'index.html'],
+      ['index.html', 'index.html'],
+    ];
 
-  const cases = [
-    ['/app/index.html', 'index.html'],
-    ['/deep/nested/path/map.html', 'map.html'],
-    ['/path/', 'index.html'],
-    ['/', 'index.html'],
-    ['index.html', 'index.html'],
-  ];
-
-  for (const [pathname, expected] of cases) {
-    globalThis.location.pathname = pathname;
-    const result = currentPage();
-    assert.equal(result, expected, `currentPage() for pathname '${pathname}' should be '${expected}'`);
-  }
-
-  teardownDomTest();
+    for (const [pathname, expected] of cases) {
+      globalThis.location.pathname = pathname;
+      const result = currentPage();
+      assert.equal(result, expected, `currentPage() for pathname '${pathname}' should be '${expected}'`);
+    }
+  } finally { teardownDomTest(); }
 });
 
 test('applyRoleNav() removes forbidden options and leaves allowed ones', async () => {
   const { applyRoleNav } = await setupDomTest();
+  try {
+    store.set('authRole', 'installer');
 
-  store.set('authRole', 'installer');
+    // Create a nav select with all options that can be removed
+    const removedOptions = [];
+    const options = ALL.map(v => ({
+      value: v,
+      remove: function() {
+        removedOptions.push(this.value);
+      }
+    }));
 
-  // Create a nav select with all options that can be removed
-  const removedOptions = [];
-  const options = ALL.map(v => ({
-    value: v,
-    remove: function() {
-      removedOptions.push(this.value);
-    }
-  }));
+    globalThis.document.querySelectorAll = (selector) => {
+      if (selector === '#navSel, #viewSel') return [{ options }];
+      return [];
+    };
+    globalThis.document.getElementById = (id) => {
+      if (id === 'navHelp') return { classList: { add: () => {} } };
+      return null;
+    };
 
-  globalThis.document.querySelectorAll = (selector) => {
-    if (selector === '#navSel, #viewSel') return [{ options }];
-    return [];
-  };
-  globalThis.document.getElementById = (id) => {
-    if (id === 'navHelp') return { classList: { add: () => {} } };
-    return null;
-  };
+    applyRoleNav();
 
-  applyRoleNav();
-
-  assert.ok(!removedOptions.includes('log'), 'log (index.html) should not be removed for installer');
-  assert.ok(!removedOptions.includes('help'), 'help should not be removed for installer');
-  assert.ok(removedOptions.includes('map'), 'map should be removed for installer');
-  assert.ok(removedOptions.includes('teams'), 'teams should be removed for installer');
-
-  teardownDomTest();
+    assert.ok(!removedOptions.includes('log'), 'log (index.html) should not be removed for installer');
+    assert.ok(!removedOptions.includes('help'), 'help should not be removed for installer');
+    assert.ok(removedOptions.includes('map'), 'map should be removed for installer');
+    assert.ok(removedOptions.includes('teams'), 'teams should be removed for installer');
+  } finally { teardownDomTest(); }
 });
 
 test('applyRoleNav() leaves the full menu untouched during the migration window', async () => {
@@ -219,102 +215,128 @@ test('applyRoleNav() leaves the full menu untouched during the migration window'
   // hide most of the app from all 200 installers at once. This test ensures that
   // path stays inert during the transition.
   const { applyRoleNav } = await setupDomTest();
+  try {
+    store.set('authRole', '');
 
-  store.set('authRole', '');
+    // Create a nav select with all options that can be removed
+    const removedOptions = [];
+    const options = ALL.map(v => ({
+      value: v,
+      remove: function() {
+        removedOptions.push(this.value);
+      }
+    }));
 
-  // Create a nav select with all options that can be removed
-  const removedOptions = [];
-  const options = ALL.map(v => ({
-    value: v,
-    remove: function() {
-      removedOptions.push(this.value);
-    }
-  }));
+    globalThis.document.querySelectorAll = (selector) => {
+      if (selector === '#navSel, #viewSel') return [{ options }];
+      return [];
+    };
+    globalThis.document.getElementById = (id) => {
+      if (id === 'navHelp') return { classList: { add: () => {} } };
+      return null;
+    };
 
-  globalThis.document.querySelectorAll = (selector) => {
-    if (selector === '#navSel, #viewSel') return [{ options }];
-    return [];
-  };
-  globalThis.document.getElementById = (id) => {
-    if (id === 'navHelp') return { classList: { add: () => {} } };
-    return null;
-  };
+    applyRoleNav();
 
-  applyRoleNav();
-
-  assert.deepEqual(removedOptions, [], 'blank role should remove zero nav options (full menu survives)');
-  assert.deepEqual(options.map(o => o.value), ALL, 'options remain in original order');
-
-  teardownDomTest();
+    assert.deepEqual(removedOptions, [], 'blank role should remove zero nav options (full menu survives)');
+    assert.deepEqual(options.map(o => o.value), ALL, 'options remain in original order');
+  } finally { teardownDomTest(); }
 });
 
 test('applyRoleNav() filters map.html\'s #viewSel for the backoffice role', async () => {
   // Map.html predates the shared jump menu and uses #viewSel instead of #navSel.
   // The filtering logic must work on both, or map.html's nav won't be filtered.
   const { applyRoleNav } = await setupDomTest();
+  try {
+    store.set('authRole', 'backoffice');
 
-  store.set('authRole', 'backoffice');
+    // Map.html's real option list
+    const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
+    const removedOptions = [];
+    const options = mapOptions.map(v => ({
+      value: v,
+      remove: function() {
+        removedOptions.push(this.value);
+      }
+    }));
 
-  // Map.html's real option list
-  const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
-  const removedOptions = [];
-  const options = mapOptions.map(v => ({
-    value: v,
-    remove: function() {
-      removedOptions.push(this.value);
-    }
-  }));
+    globalThis.document.querySelectorAll = (selector) => {
+      if (selector === '#navSel, #viewSel') return [{ options }];
+      return [];
+    };
+    globalThis.document.getElementById = (id) => {
+      if (id === 'navHelp') return { classList: { add: () => {} } };
+      return null;
+    };
 
-  globalThis.document.querySelectorAll = (selector) => {
-    if (selector === '#navSel, #viewSel') return [{ options }];
-    return [];
-  };
-  globalThis.document.getElementById = (id) => {
-    if (id === 'navHelp') return { classList: { add: () => {} } };
-    return null;
-  };
+    applyRoleNav();
 
-  applyRoleNav();
-
-  assert.ok(removedOptions.includes('teams'), 'backoffice should not see teams option on map.html');
-  assert.ok(removedOptions.includes('edit'), 'backoffice should not see edit option on map.html');
-  assert.ok(!removedOptions.includes('map'), 'map should remain for backoffice');
-  assert.ok(!removedOptions.includes('analytics'), 'analytics should remain for backoffice');
-  assert.ok(!removedOptions.includes('reports'), 'reports should remain for backoffice');
-  assert.ok(!removedOptions.includes('help'), 'help should remain for backoffice');
-
-  teardownDomTest();
+    assert.ok(removedOptions.includes('teams'), 'backoffice should not see teams option on map.html');
+    assert.ok(removedOptions.includes('edit'), 'backoffice should not see edit option on map.html');
+    assert.ok(!removedOptions.includes('map'), 'map should remain for backoffice');
+    assert.ok(!removedOptions.includes('analytics'), 'analytics should remain for backoffice');
+    assert.ok(!removedOptions.includes('reports'), 'reports should remain for backoffice');
+    assert.ok(!removedOptions.includes('help'), 'help should remain for backoffice');
+  } finally { teardownDomTest(); }
 });
 
 test('applyRoleNav() leaves #viewSel untouched for a blank role', async () => {
   // Blank role is the migration window and must see everything, including on map.html.
   const { applyRoleNav } = await setupDomTest();
+  try {
+    store.set('authRole', '');
 
-  store.set('authRole', '');
+    const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
+    const removedOptions = [];
+    const options = mapOptions.map(v => ({
+      value: v,
+      remove: function() {
+        removedOptions.push(this.value);
+      }
+    }));
 
-  const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
-  const removedOptions = [];
-  const options = mapOptions.map(v => ({
-    value: v,
-    remove: function() {
-      removedOptions.push(this.value);
+    globalThis.document.querySelectorAll = (selector) => {
+      if (selector === '#navSel, #viewSel') return [{ options }];
+      return [];
+    };
+    globalThis.document.getElementById = (id) => {
+      if (id === 'navHelp') return { classList: { add: () => {} } };
+      return null;
+    };
+
+    applyRoleNav();
+
+    assert.deepEqual(removedOptions, [], 'blank role should remove zero options from #viewSel');
+  } finally { teardownDomTest(); }
+});
+
+test('every jump-menu option value is a known NAV_PAGES key', () => {
+  // The #viewSel bug was a wrong assumption no test caught: an option whose
+  // value doesn't match a NAV_PAGES key isn't dropped by visibleNavValues (an
+  // unknown value survives by design, so a new entry still renders before
+  // someone maps it) — but it also means a *renamed* value silently stops being
+  // filtered, and a back-office user sees an entry that just bounces them.
+  // Scoped to the jump-menu <select> itself (id="navSel" on edit/teams/reports/
+  // planner, id="viewSel" on map) because these pages carry other, unrelated
+  // <select> elements (edit.html #who, reports.html #sub, planner.html #plWho)
+  // whose values must not be swept into this check.
+  const pages = {
+    'map.html': 'viewSel',
+    'edit.html': 'navSel',
+    'teams.html': 'navSel',
+    'reports.html': 'navSel',
+    'planner.html': 'navSel',
+  };
+  for (const [page, selId] of Object.entries(pages)) {
+    const html = read(page);
+    const selMatch = html.match(new RegExp(`<select[^>]*\\bid="${selId}"[^>]*>([\\s\\S]*?)</select>`));
+    assert.ok(selMatch, `${page} should carry a #${selId} jump-menu <select>...</select> block`);
+    const values = [...selMatch[1].matchAll(/value="([^"]+)"/g)].map(m => m[1]);
+    assert.ok(values.length > 0, `${page}'s #${selId} should have at least one <option value="…">`);
+    for (const v of values) {
+      assert.ok(v in NAV_PAGES, `${page}'s #${selId} option value "${v}" is not a NAV_PAGES key`);
     }
-  }));
-
-  globalThis.document.querySelectorAll = (selector) => {
-    if (selector === '#navSel, #viewSel') return [{ options }];
-    return [];
-  };
-  globalThis.document.getElementById = (id) => {
-    if (id === 'navHelp') return { classList: { add: () => {} } };
-    return null;
-  };
-
-  applyRoleNav();
-
-  assert.deepEqual(removedOptions, [], 'blank role should remove zero options from #viewSel');
-
-  teardownDomTest();
+  }
 });
 
 test('map.html and other back-office pages use different select ids', () => {
@@ -332,24 +354,23 @@ test('map.html and other back-office pages use different select ids', () => {
 
 test('the redirect notice is delivered once, then cleared from sessionStorage', async () => {
   const { guardPage, applyRoleNav } = await setupDomTest();
+  try {
+    store.set('authRole', 'installer');
+    globalThis.location.pathname = 'map.html';
 
-  store.set('authRole', 'installer');
-  globalThis.location.pathname = 'map.html';
+    // First redirect: should set the message
+    const redirectStarted = guardPage() === false;
+    assert.equal(redirectStarted, true, 'guardPage should start a redirect from map.html for installer');
+    const msgAfterRedirect = globalThis.sessionStorageData.navRedirectMsg;
+    assert.ok(msgAfterRedirect, 'redirect message should be set in sessionStorage after guardPage');
 
-  // First redirect: should set the message
-  const redirectStarted = guardPage() === false;
-  assert.equal(redirectStarted, true, 'guardPage should start a redirect from map.html for installer');
-  const msgAfterRedirect = globalThis.sessionStorageData.navRedirectMsg;
-  assert.ok(msgAfterRedirect, 'redirect message should be set in sessionStorage after guardPage');
+    // applyRoleNav should read the message and clear it
+    applyRoleNav();
 
-  // applyRoleNav should read the message and clear it
-  applyRoleNav();
-
-  const msgAfterApply = globalThis.sessionStorageData.navRedirectMsg;
-  assert.equal(msgAfterApply, undefined,
-    'message should be cleared from sessionStorage after applyRoleNav calls deliverRedirectNotice');
-
-  teardownDomTest();
+    const msgAfterApply = globalThis.sessionStorageData.navRedirectMsg;
+    assert.equal(msgAfterApply, undefined,
+      'message should be cleared from sessionStorage after applyRoleNav calls deliverRedirectNotice');
+  } finally { teardownDomTest(); }
 });
 
 // ── Test helpers ───────────────────────────────────────────────────────────
@@ -373,8 +394,6 @@ async function setupDomTest() {
       return null;
     },
     querySelectorAll: (selector) => [],
-    hidden: false,
-    addEventListener: () => {},
   };
 
   globalThis.sessionStorageData = {};
@@ -384,7 +403,14 @@ async function setupDomTest() {
     removeItem: (k) => { delete globalThis.sessionStorageData[k]; },
   };
 
-  // Import nav-roles with the fake globals in place
+  // js/nav-roles.js is already imported statically at the top of this file, so
+  // this dynamic import does not re-evaluate the module against these fake
+  // globals — it returns the cached, already-evaluated module from that static
+  // import. It works only because nav-roles.js reads location/document/
+  // sessionStorage exclusively inside function bodies, never at module scope;
+  // a module-scope DOM read added there later would break these tests
+  // confusingly (silently seeing the real, DOM-less globals from the static
+  // import instead) rather than being caught by them.
   return import('../js/nav-roles.js');
 }
 
@@ -396,6 +422,10 @@ function teardownDomTest() {
   delete globalThis.testNavOptions;
   delete globalThis.testToastMsg;
   delete globalThis.sessionStorageData;
+  // A failed assertion above must not leave a non-blank role for whatever test
+  // runs next in this file — that is exactly the state the migration-window
+  // test exists to protect against.
+  store.set('authRole', '');
 }
 
 // ── every page mounts it ───────────────────────────────────────────────────

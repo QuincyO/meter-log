@@ -60,7 +60,7 @@
    #authConfirmWrap and #authMsg all live inside .auth-card. */
 .auth-banner.hide, .auth-sheet.hide, .auth-card .hide{display:none}
 
-/* The nav entry on a page with no #navMenu (map/edit/teams/reports/planner):
+/* The nav entry on a page with no #navMenu (map/edit/teams/reports/planner/help):
    initAuthUI() appends #navSignIn straight into the page's own .bar, a flex
    row (see css/reports.css, css/map.css). Scoped to `.bar >` so it can never
    touch the capture page's #navMenu variant, which keeps inheriting plain
