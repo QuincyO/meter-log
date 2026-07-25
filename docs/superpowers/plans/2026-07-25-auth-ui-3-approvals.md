@@ -185,6 +185,8 @@ export function rowControls(user, grantable) {
 }
 ```
 
+**Review note:** After review against `Code.gs`, `reject` was widened from `status === 'pending'` to cover `'pending' | 'reset' | 'disabled'` — the three ways to free an H number: a typo'd signup, a stalled reset, and a revoked account sent back through signup. `approve` was deliberately NOT widened to reactivate disabled rows with their old PIN intact; rejecting and re-signing-up is the intended path. `roles` returns a defensive copy to avoid mutations of the shared list from `pendingAuthRead`.
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test tests/approvals-ui.test.mjs`

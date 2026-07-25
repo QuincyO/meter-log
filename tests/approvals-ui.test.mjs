@@ -78,6 +78,35 @@ test('the role picker offers exactly what the spine said is grantable', () => {
   assert.deepEqual(c.roles, ['foreman', 'installer']);
 });
 
+test('a disabled row offers reject to free the H number, but not approve', () => {
+  // A revoked account cannot be approved directly — it would reactivate the old
+  // PIN. The way to reinstate is through reject, which wipes the PIN material and
+  // frees the H number for a fresh signup and approval.
+  const c = rowControls(row({ status: 'disabled' }), ALL_ROLES);
+  assert.equal(c.reject, true);
+  assert.equal(c.approve, false);
+});
+
+test('a reset row offers reject alongside reset-pin, freeing a stalled H number', () => {
+  // A stuck reset row can be rejected to free the H number for signup again.
+  const c = rowControls(row({ status: 'reset' }), ALL_ROLES);
+  assert.equal(c.reject, true);
+  assert.equal(c.resetPin, true);
+});
+
+test('a rejected row offers neither approve nor reject', () => {
+  // A row already rejected is a terminal state; re-rejecting is noise.
+  const c = rowControls(row({ status: 'rejected' }), ALL_ROLES);
+  assert.equal(c.approve, false);
+  assert.equal(c.reject, false);
+});
+
+test('an active row still offers no reject', () => {
+  // The spine refuses to reject an active row — revoke instead.
+  const c = rowControls(row({ status: 'active' }), ALL_ROLES);
+  assert.equal(c.reject, false);
+});
+
 test('a missing user or a missing grantable list is handled, not thrown on', () => {
   assert.equal(rowControls(null, null).approve, false);
   assert.deepEqual(rowControls(row({}), null).roles, []);
