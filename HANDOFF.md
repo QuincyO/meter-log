@@ -9,7 +9,7 @@ them. Do not let it become a second source of truth; that is the exact failure
 
 **Read `AGENTS.md` in full first.** Then this.
 
-Branch: `claude/security-scalability-architecture-t142cu` · 285 tests green ·
+Branch: `claude/security-scalability-architecture-t142cu` · 316 tests green ·
 nothing on `main`, so nothing is deployed.
 
 ---
@@ -86,24 +86,47 @@ The role matrix is in `DEPLOY.md` §"Per-user auth" — that is its home, keep i
 - `DEPLOY.md` documents the three Script Properties, `makeOwner()` bootstrap, the
   migration window and the flip.
 
+**Phase 1 steps 1–2 — the credential lifecycle.** All eight auth actions plus the
+`pendingAuth` read are implemented and dispatched; the wrong-PIN ladder is enforced.
+The `status` state machine, the four separate privileges, and the reasoning behind
+each are in `ARCHITECTURE.md` §"Per-user auth" and `AGENTS.md` §"The auth gate" —
+**that is their home, don't restate them here.** Four things worth knowing that
+aren't obvious from the diff:
+
+- **`manageableRoles` is new, and it closed a takeover.** `R_ONBOARD` includes
+  Back-Office, so without a second bound they could `authResetPin` the *Owner* and
+  sign up against the resulting `reset` row as Owner. Every approver action now
+  resolves its target through `authTarget`.
+- **`makeOwner` now leaves the row in `reset`, not `active`.** Writing `active` with
+  no PIN deadlocked the whole rollout (signup refuses an active row, login refuses a
+  row with no hash) — the first Owner could never get in. Caught by the bootstrap
+  test, which is why that test exists.
+- **`authLogin`/`authSignup` dispatch from `UNLOCKED_POST`, ahead of the script
+  lock**, and take a short one of their own for the row write. A Monday morning is
+  ~200 logins in a few minutes; behind the crew's write lock that stalls the field.
+- **`saveEmployee` gained `actFor: R_MANAGE`.** It was `scope:'self'` with the
+  default write set, which let a *Foreman* create and rename crew — roster
+  management, and contrary to the table its own comment pointed at.
+
+`AUTH_HEADERS` gained `lastFailAt` (the rolling fail window), so `setupSheets()` must
+be re-run before this ships — it's additive.
+
 ---
 
 ## Next, in order
 
-1. **Auth actions.** `authSignup`, `authLogin`, `authApprove`/`authReject`,
-   `authSetRole` (through `grantableRoles` — an Admin must not mint an Admin or
-   Owner), `authResetPin`, `authUnlock`, `authRevoke`, and the `pendingAuth` read.
-   *The policy tables already name all of these*, so they are authorized but not
-   implemented — calling one today returns "unknown action".
-2. **The wrong-PIN ladder.** `PIN_LOCK_STEPS` is defined but **not enforced yet**.
-   CacheService counter for speed plus the durable `failCount`/`lockedUntil` on the
-   Auth row so a cache eviction can't reset a lockout. Rate limiting — not the
-   iteration count — is the real defence for a 6-digit PIN.
-3. **Frontend.** `js/auth.js`, the `#authSheet` login/signup/pending UI in
+1. **Frontend.** `js/auth.js`, the `#authSheet` login/signup/pending UI in
    `index.html`, `js/api.js` injection, per-role nav hiding (including hiding
    `index.html` from Back-Office and Foreman, who don't capture). Add `js/auth.js`
-   to `sw.js` `SHELL` and bump `CACHE`.
-4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
+   to `sw.js` `SHELL` and bump `CACHE`. The spine side of this is done — read
+   `authLogin`'s return shape (`auth`, `expires`, `role`, `name`) and
+   `pendingAuthRead` (`pending`, `users`, `grantable`, per-row `manageable`) and
+   build to those. **Remember the offline-Monday rule below: login is a banner, not
+   a wall.**
+2. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
+   from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not
+   only in a back-office page.
+3. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
 
 Then Phase 2 (edge box + Cloudflare Tunnel + key rotation), Phase 3 (SSE relay),
 Phase 4 (bounded tail reads, metrics out of the write lock).
@@ -152,6 +175,13 @@ node --test "tests/*.test.mjs"     # 285 green; no install needed
 against Apps Script stubs rather than asserting on source text, because a wrong gate
 locks 200 people out of a production spine. Its first test is the property that
 matters most: while `REQUIRE_AUTH` is off, behaviour is unchanged.
+
+`tests/auth-actions.test.mjs` does the same for the credential lifecycle, over an
+in-memory Sheet. It forces `TZ=America/Toronto` at the top on purpose: `Code.gs`
+formats timestamps in `TIMEZONE` but parses them back with a component-wise
+`new Date(y, m, d, …)`, which reads as *host*-local, and that round-trip is only
+exact when the two agree — as they do in Apps Script, where the script timezone
+**is** Toronto.
 
 For driving the real pages, and for exercising write paths **without writing to the
 production Sheet**, follow `VERIFY.md`. Auth touches every write path, so use a test

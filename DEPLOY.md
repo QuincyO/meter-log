@@ -322,7 +322,12 @@ choose to flip it.
 Generate each with something like `openssl rand -base64 32`. They are real
 secrets and live only in Script Properties.
 
-`REQUIRE_AUTH` is the fourth property, and you add it **last** — see step 4.
+Two more, both optional:
+
+| Property | Value | Notes |
+|---|---|---|
+| `PIN_ITERS` | a number | Iterations for newly-set PIN hashes. Unset = a deliberately low default, because a login slow enough to time out locks the whole crew out and that is far worse than the iteration count — against a 6-digit PIN the *pepper* is what an offline attacker lacks. Raise it after step 2's benchmark; the count is stored per row, so raising it re-hashes people one at a time on their next successful login rather than invalidating anyone's PIN. |
+| `REQUIRE_AUTH` | `true` | The flip. Add it **last** — see step 4. |
 
 ### 2. Create the tab and the first Owner
 
@@ -332,8 +337,14 @@ secrets and live only in Script Properties.
    ownership. **Keep this function forever** — it's the escape hatch if every Owner
    account is ever locked out.
 3. Run `benchmarkPinHash()` once and read the log. Pick the largest iteration count
-   that stays comfortably under ~400 ms, since it runs on every login, and use it
-   for the `pinIters` written at signup.
+   that stays comfortably under ~400 ms, since it runs on every login, and put it in
+   the `PIN_ITERS` property above.
+4. Sign up as yourself from the app, then log in. `makeOwner()` grants the role but
+   deliberately sets no PIN — running it from the editor proves you own the script,
+   which is not the same as knowing a credential. It leaves the row in `reset`
+   ("approved, still has to choose a PIN"), so your signup sets one and lands
+   straight in `active` with nobody to approve it. **Do this before step 4's flip**:
+   until an Owner can log in, there is nobody who can approve anyone else.
 
 > The `Auth` tab is deliberately **not** in `EXPORT_TABS`. `exportSheetToGithub()`
 > commits every listed tab to `data/*.md` and pushes it, so adding `Auth` would
@@ -342,9 +353,25 @@ secrets and live only in Script Properties.
 
 ### 3. Migration window (shared token still accepted)
 
-Deploy, then have each installer sign up and approve them. Watch `Auth.lastSeenAt`
+Deploy, then have each installer sign up and approve them. Watch `Auth.lastLoginAt`
 fill in, and confirm every phone's status pill reads "All synced" — that means no
 device is still holding un-synced work.
+
+An account is one row on the `Auth` tab, and its `status` cell tells you where that
+person is:
+
+| status | means | what to do |
+|---|---|---|
+| `pending` | signed up, nobody has approved them | approve or reject it. If they need to change the PIN they just chose, **reject it** — they can sign up again straight away, and nothing else may overwrite a PIN already on a row |
+| `active` | signed up and approved; can log in | — |
+| `reset` | approved, but has no PIN right now | they sign up again to choose one; it activates with no second approval |
+| `rejected` | you said no. PIN wiped, H number free | they can sign up again — a typo'd H number is the usual reason |
+| `disabled` | revoked. Signup refused | only you can bring them back |
+
+Two columns are the lockout: `failCount`/`lockedUntil`, cleared by **Unlock**. A
+`lockedUntil` of `admin` is the top of the ladder — that one only clears by hand.
+**Never edit `pinSalt`/`pinHash`/`pinIters` by hand**; use Reset PIN, which is the
+supported way to clear them.
 
 ### 4. The flip
 
@@ -368,9 +395,21 @@ Back-Office doesn't, Back-Office has onboarding that Foreman doesn't.
 | Map + analytics | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Stop editor + planner (all crew) | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Close a day | ✅ | ✅ | ✅ all crew | ✅ quick close only | ✅ own |
-| Approve signups, reset PIN | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Approve signups, reset PIN, unlock | ✅ anyone | ✅ except Admin/Owner | ❌ | ✅ installers only | ❌ |
 | Crew/teams, deletes | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Assign roles | ✅ any | ✅ except Admin/Owner | ❌ | ❌ | ❌ |
+
+**Row 5 is bounded twice, and the second bound is the important one.** Being allowed
+to run the onboarding actions is not the same as being allowed to run them on
+*anybody*: a Back-Office user who could Reset PIN on the **Owner** would put that row
+in `reset`, sign up against it, and be the Owner. So each of those actions also
+checks whose account you may administer — Back-Office administers installers, an
+Admin everyone below Admin, the Owner anyone. **Nobody administers their own
+account** (an Owner who could revoke themselves can lock the system out); ask another
+administrator, or fall back to `makeOwner()` in the editor.
+
+Taking a role away is checked the same way as giving one, so an Admin can no more
+demote an Owner than create one.
 
 **Using a phone and managing a day are separate privileges**, which is why the
 first and fourth rows differ. Foremen work from laptops — they run `edit.html`
@@ -384,6 +423,20 @@ generalise into "Back-Office may write anything for anyone").
 Sessions run the working week and re-prompt every **Monday** (expiry is the next
 Monday 04:00 Toronto, at least 24 h out). A phone with no signal on a Monday can
 still capture and queue normally — the login is a banner, never a wall.
+
+### Wrong PINs
+
+Five wrong PINs lock the account for 15 minutes, ten for an hour, fifteen until you
+unlock it by hand. The count is kept on the row (so it survives a server cache being
+dropped) and resets itself after 15 quiet minutes, so an honest fumble this morning
+doesn't count against someone this afternoon. Attempts made *while* locked don't
+count at all — otherwise anyone who knew a colleague's H number could hammer it up to
+the permanent step and lock them out on purpose.
+
+This, rather than the hash cost, is what actually protects a 6-digit PIN: a million
+combinations falls quickly to unlimited guessing however expensive each guess is.
+`PIN_PEPPER` is the other half — it is what someone holding a leaked copy of the
+Sheet still doesn't have.
 
 ## After a schema change
 

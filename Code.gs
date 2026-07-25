@@ -60,7 +60,22 @@ const TIMEZONE     = 'America/Toronto';
 // every listed tab to data/*.md in the git repo, which would publish PIN hashes.
 const AUTH_HEADERS = ['hNumber','pinSalt','pinHash','pinIters','status','role','tokenGen',
                       'createdAt','approvedAt','approvedBy','lastLoginAt',
-                      'failCount','lockedUntil'];
+                      'failCount','lockedUntil','lastFailAt'];
+
+// The `status` column. verifySession() accepts 'active' and nothing else, so every
+// other value here is a way of being signed out.
+const AUTH_PENDING  = 'pending';    // signed up, waiting on an approver
+const AUTH_ACTIVE   = 'active';     // may log in
+const AUTH_RESET    = 'reset';      // approved before, PIN cleared by an approver:
+                                    // one signup gets through to set a new PIN and
+                                    // lands straight back in 'active' — the approval
+                                    // already happened and re-doing it is busywork
+const AUTH_REJECTED = 'rejected';   // approver said no. The PIN material is wiped and
+                                    // the H number is free to sign up again, because
+                                    // the usual reason to reject is a typo'd H number
+const AUTH_DISABLED = 'disabled';   // revoked. Signup is REFUSED — getting back in
+                                    // takes an administrator, which is the difference
+                                    // between this and 'rejected'
 
 const ROLE_OWNER = 'owner', ROLE_ADMIN = 'admin', ROLE_FOREMAN = 'foreman',
       ROLE_BACKOFFICE = 'backoffice', ROLE_INSTALLER = 'installer';
@@ -112,6 +127,16 @@ const PIN_FAIL_WINDOW_S = 900;
 const PIN_LOCK_STEPS = [{ fails: 5,  lockMin: 15 },
                         { fails: 10, lockMin: 60 },
                         { fails: 15, lockMin: 0 }];   // 0 = locked until an admin unlocks
+// Written into `lockedUntil` for that last step, where there is no time to store.
+const PIN_LOCK_FOREVER = 'admin';
+// Iterations for a NEWLY written PIN hash. Deliberately low by default and raised
+// through a PIN_ITERS Script Property after benchmarkPinHash() has been run against
+// the real project (see DEPLOY.md): a login that times out locks the whole crew out,
+// which is far worse than the iteration count, and against a 6-digit PIN the pepper
+// — not the iteration count — is what an offline attacker actually lacks. The count
+// used is stored per row, so raising it re-hashes people one at a time on their next
+// successful login instead of invalidating anyone's PIN.
+const PIN_ITERS_DEFAULT = 1000;
 
 // ── Travel / downtime tuning (field-tunable) ───────────────────────────────
 // Timing is derived from the timestamps + GPS already on each stop. Walking the
@@ -349,9 +374,11 @@ function setupSheets() {
   // commits every listed tab to data/*.md in the git repo, which would publish the
   // PIN hashes. Keep it out of that list if you ever extend the export.
   ensureTab(ss, 'Auth', AUTH_HEADERS);
-  // Salt/hash are opaque base64 and H numbers can look numeric — keep Sheets from
-  // coercing any of it, the same way the timestamp columns are pinned below.
-  ss.getSheetByName('Auth').getRange('A2:D').setNumberFormat('@');
+  // The whole tab is opaque text. Salt/hash are base64, H numbers can look numeric,
+  // and the timestamps must stay the naive Toronto strings they were written as —
+  // the same coercion the columns below are pinned against. Every numeric field here
+  // is read back through Number(), so pinning the lot costs nothing.
+  ss.getSheetByName('Auth').getRange('A2:N').setNumberFormat('@');
   // These values are minute counts, not Sheets date serials. Find their columns
   // by header so schema additions/reordering cannot turn a fixed column into one.
   const installerMetrics = ss.getSheetByName('InstallerMetrics');
@@ -455,11 +482,12 @@ function safeEquals(a, b) {
 /** A PIN this weak is worse than the lockout can compensate for. */
 function rejectWeakPin(pin) {
   const p = String(pin == null ? '' : pin);
+  // Every message completes the sentence "PIN must be …" (see authSignup).
   if (!new RegExp('^\\d{' + PIN_LENGTH + '}$').test(p)) return PIN_LENGTH + ' digits, numbers only';
-  if (/^(\d)\1+$/.test(p)) return 'not all the same digit';
+  if (/^(\d)\1+$/.test(p)) return PIN_LENGTH + ' digits that are not all the same';
   const asc = '01234567890', desc = '09876543210';
-  if (asc.indexOf(p) !== -1 || desc.indexOf(p) !== -1) return 'not a run of consecutive digits';
-  if (/^(19|20)\d{4}$/.test(p)) return 'not a year';
+  if (asc.indexOf(p) !== -1 || desc.indexOf(p) !== -1) return PIN_LENGTH + ' digits that are not a run in order';
+  if (/^(19|20)\d{4}$/.test(p)) return PIN_LENGTH + ' digits that are not a year';
   return '';
 }
 
@@ -598,6 +626,26 @@ function grantableRoles(granterRole) {
   return [];
 }
 
+/** Whose ACCOUNT may this role administer — approve, reject, reset the PIN, unlock,
+ *  revoke. A third privilege, separate from reading someone's rows and from writing
+ *  for them, and separate again from grantableRoles (what you may ASSIGN).
+ *
+ *  It exists because R_ONBOARD contains Back-Office, and without it Back-Office
+ *  could authResetPin the OWNER — clearing the Owner's PIN puts the row in 'reset',
+ *  where the next signup sets a new PIN and walks straight back in as Owner. That
+ *  is a complete takeover through the intended onboarding path, so the onboarding
+ *  actions are bounded by who you may administer, not only by R_ONBOARD.
+ *
+ *  Back-Office onboards installers, which is the actual job; anything above that is
+ *  an Admin's. Note this is still not a ladder — Foreman appears in nobody's set
+ *  because Foreman administers no accounts at all. */
+function manageableRoles(actorRole) {
+  if (actorRole === ROLE_OWNER)      return ALL_ROLES.slice();
+  if (actorRole === ROLE_ADMIN)      return [ROLE_FOREMAN, ROLE_BACKOFFICE, ROLE_INSTALLER];
+  if (actorRole === ROLE_BACKOFFICE) return [ROLE_INSTALLER];
+  return [];
+}
+
 /** Promote an H number to Owner. EDITOR-RUN ONLY — Apps Script will only let the
  *  account that owns the script run it, so running it IS the proof of ownership.
  *  This is the permanent escape hatch if every Owner account is ever locked out;
@@ -609,7 +657,13 @@ function makeOwner(hNumber) {
   const existing = authRowFor(h);
   upsertByHeader('Auth', 'hNumber', h, {
     hNumber: h,
-    status: 'active',
+    // AUTH_RESET, not AUTH_ACTIVE, when there is no PIN on the row yet — it means
+    // exactly this: approved, still has to choose one, and the next signup takes
+    // them straight to active without an approver (there isn't one yet). Writing
+    // 'active' here instead would deadlock the entire rollout: authSignup refuses an
+    // active row, authLogin refuses a row with no hash, and the first Owner could
+    // never get in. tests/auth-actions.test.mjs covers the bootstrap for that reason.
+    status: (existing && existing.pinHash) ? AUTH_ACTIVE : AUTH_RESET,
     role: ROLE_OWNER,
     tokenGen: Number((existing && existing.tokenGen) || 0),
     createdAt: (existing && existing.createdAt) || now(),
@@ -648,9 +702,11 @@ const POST_POLICY = {
   // Whole-list replace of an installer's planned orders — destructive, so OPS only.
   saveWorklist:    { roles: R_OPS },
   // Self-service settings for your own row; changing someone ELSE's is R_MANAGE.
-  // saveEmployee enforces the field subset itself (see the handler). Every role has
-  // a row of their own to maintain, including Back-Office.
-  saveEmployee:    { roles: ALL_ROLES, scope: 'self' },
+  // Every role has a row of their own to maintain, including Back-Office — hence
+  // ALL_ROLES + scope:'self'. The actFor override is load-bearing: without it the
+  // default write set (R_OPS) would let a Foreman create and rename crew, which is
+  // roster management and belongs to Owner/Admin (see the table in DEPLOY.md).
+  saveEmployee:    { roles: ALL_ROLES, scope: 'self', actFor: R_MANAGE },
   // Roster and list management.
   saveTeam:        { roles: R_MANAGE },
   saveCaptain:     { roles: R_MANAGE },
@@ -701,6 +757,20 @@ const GET_POLICY = {
   // Onboarding queue.
   pendingAuth:      { roles: R_ONBOARD }
 };
+
+// POSTs dispatched BEFORE doPost takes the script lock, for two different reasons.
+// previewDailyLog writes nothing at all (buildDaySummary is a pure read) and the
+// phones re-request it on every settled EOD edit, so at quitting time that traffic
+// must not queue behind the crew's real writes. authLogin/authSignup DO write, but
+// they spend most of their time in pinHashOf, and on a Monday morning the whole crew
+// signs in within a few minutes of each other — holding the single write lock
+// through 200 PIN hashes would stall every capture in the field. Both take a short
+// lock around their own row write instead (withAuthLock).
+// Anything added here still needs a POST_POLICY entry; tests/auth-policy.test.mjs
+// reads this table as well as the switch.
+const UNLOCKED_POST = { previewDailyLog: previewDailyLog,
+                        authLogin: authLogin,
+                        authSignup: authSignup };
 
 /** Resolve the caller. Returns {ok:true, sess} — sess null when the legacy shared
  *  token carried the request during the migration window — or {ok:false, ...} with
@@ -767,6 +837,371 @@ function benchmarkPinHash() {
   return out;
 }
 
+// ── Auth actions ───────────────────────────────────────────────────────────
+// The gate above decides WHO may call these. This is what they do. Everything here
+// writes the Auth tab through authWrite() so the cached projection can never
+// outlive the row it projects, and nothing here ever returns a salt or a hash.
+
+function pinIterations() {
+  const n = Number(scriptProp('PIN_ITERS'));
+  return n >= 1 ? Math.min(n, 200000) : PIN_ITERS_DEFAULT;
+}
+
+/** H numbers are typed by hand at signup, so match the roster's own spelling
+ *  whenever one exists. The Auth key, Employees.hNumber and the installerId that
+ *  scopeToSession stamps onto every write have to be the same string — nameOfH()
+ *  and every name-keyed read of Stops/Tracker depend on it. */
+function canonicalH(v) {
+  const h = String(v == null ? '' : v).trim();
+  if (!h) return '';
+  const hit = employeesList().filter(function (e) {
+    return String(e.hNumber).trim().toLowerCase() === h.toLowerCase();
+  })[0];
+  return hit ? String(hit.hNumber).trim() : h;
+}
+
+/** Every Auth write goes through here. upsertByHeader busts the row cache;
+ *  bustAuthIndex additionally drops the per-request memo and the shared projection,
+ *  without which a revoke or a role change would lag by up to AUTH_INDEX_TTL_S. */
+function authWrite(h, fields) {
+  ensureAuthTab();
+  upsertByHeader('Auth', 'hNumber', h, fields);
+  bustAuthIndex();
+}
+
+/** A short script lock around one Auth read-modify-write. authLogin runs OUTSIDE
+ *  doPost's lock on purpose (see UNLOCKED_POST) so the PIN hash never holds the
+ *  crew's write lock; it takes the lock here instead, for the row write only. */
+function withAuthLock(fn) {
+  const lock = LockService.getScriptLock();
+  let held = false;
+  try { held = lock.tryLock(20000); } catch (e) { /* lock service down — proceed */ }
+  try { return fn(); }
+  finally { if (held) try { lock.releaseLock(); } catch (e2) {} }
+}
+
+// The lockout has a CacheService copy purely so a locked-out H number can be turned
+// away without reading the sheet or running the hash. The ROW is the authority: the
+// cache is only ever consulted to confirm a lockout the sheet already recorded, so
+// an eviction costs one sheet read and can never bypass a lockout.
+function lockCacheKey(h) { return 'pinlock:' + h; }
+function cachedLock(h) {
+  const c = scriptCache();
+  if (!c) return '';
+  try { return c.get(lockCacheKey(h)) || ''; } catch (e) { return ''; }
+}
+function cacheLock(h, until, seconds) {
+  const c = scriptCache();
+  if (!c) return;
+  try { c.put(lockCacheKey(h), String(until), Math.max(1, Math.min(21600, Math.round(seconds)))); }
+  catch (e) {}
+}
+function clearCachedLock(h) {
+  const c = scriptCache();
+  if (c) try { c.remove(lockCacheKey(h)); } catch (e) {}
+}
+
+/** ms left on a lockout — 0 if none, Infinity for the admin-unlock-only step. */
+function lockRemainingMs(lockedUntil, nowMs) {
+  const v = String(lockedUntil == null ? '' : lockedUntil).trim();
+  if (!v) return 0;
+  if (v === PIN_LOCK_FOREVER) return Infinity;
+  const ms = localMs(lockedUntil);
+  return ms != null && ms > nowMs ? ms - nowMs : 0;
+}
+function lockedReply(lockedUntil) {
+  const forever = String(lockedUntil).trim() === PIN_LOCK_FOREVER;
+  const mins = forever ? 0 : Math.ceil(lockRemainingMs(lockedUntil, Date.now()) / 60000);
+  return { ok: false, locked: true, lockedUntil: forever ? '' : String(lockedUntil),
+           error: forever ? 'locked — ask an administrator to unlock it'
+                          : 'too many wrong PINs — try again in ' + mins + ' min' };
+}
+
+/** The wrong-PIN ladder. Rate limiting, NOT the hash iteration count, is the real
+ *  defence for a 6-digit PIN — a million candidates falls in an afternoon if you can
+ *  simply keep guessing, however expensive each guess is.
+ *
+ *  Counted durably on the row so a cache eviction cannot reset a lockout, over a
+ *  rolling PIN_FAIL_WINDOW_S window keyed on lastFailAt so an honest fumble hours
+ *  apart never accumulates. Attempts made WHILE locked are rejected before they get
+ *  here and do not count: otherwise anyone who knew a colleague's H number could
+ *  hammer it up to the permanent step and lock them out for good. */
+function notePinFailure(h) {
+  return withAuthLock(function () {
+    // Re-read inside the lock: this request memoized the Auth tab before the fail.
+    bustRows('Auth');
+    const row = authRowFor(h);
+    if (!row) return { locked: false, lockedUntil: '' };
+    const nowMs = Date.now();
+    const lastMs = localMs(row.lastFailAt);
+    const stale = lastMs == null || (nowMs - lastMs) > PIN_FAIL_WINDOW_S * 1000;
+    const fails = (stale ? 0 : Number(row.failCount || 0)) + 1;
+
+    // The highest step whose threshold this crosses. Steps are cumulative, so a
+    // sixth failure re-locks for the first step's 15 minutes rather than doing
+    // nothing until the tenth.
+    let step = null;
+    PIN_LOCK_STEPS.forEach(function (s) { if (fails >= s.fails) step = s; });
+
+    let lockedUntil = '';
+    if (step) {
+      lockedUntil = step.lockMin > 0
+        ? Utilities.formatDate(new Date(nowMs + step.lockMin * 60000), TIMEZONE, 'yyyy-MM-dd HH:mm:ss')
+        : PIN_LOCK_FOREVER;
+      cacheLock(h, lockedUntil, step.lockMin > 0 ? step.lockMin * 60 : 21600);
+    }
+    authWrite(h, { failCount: fails, lastFailAt: now(), lockedUntil: lockedUntil });
+    return { locked: !!step, lockedUntil: lockedUntil };
+  });
+}
+
+/** Self-signup: claim an H number and set a PIN.
+ *
+ *  The rule, and it is absolute: **a signup only ever writes a PIN to a row that has
+ *  none.** Without it, anyone who knew a colleague's H number could overwrite their
+ *  PIN by signing up again and the entire gate would be decorative. Note it covers
+ *  a *pending* row too — overwriting a signup that is still waiting means the
+ *  approver approves the H number they expected and lets in whoever typed last.
+ *  Clearing a PIN is an approver action (authResetPin); it parks the row in 'reset',
+ *  which is how exactly one signup gets through to choose the new one. */
+function authSignup(b) {
+  const h = canonicalH(b.hNumber);
+  if (!h) return { ok: false, error: 'employee number (H#) required' };
+  const weak = rejectWeakPin(b.pin);
+  if (weak) return { ok: false, error: 'PIN must be ' + weak };
+
+  return withAuthLock(function () {
+    ensureAuthTab();
+    bustRows('Auth');
+    const row = authRowFor(h);
+    const status = row ? String(row.status || '').trim() : '';
+    if (status === AUTH_DISABLED)
+      return { ok: false, error: 'that H number is not available — ask an administrator' };
+    if (row && row.pinHash)
+      return { ok: false, error: status === AUTH_PENDING
+        ? 'that H number already has a signup waiting to be approved'
+        : 'that H number is already registered — sign in, or ask for a PIN reset' };
+
+    // An approved person choosing a replacement PIN skips re-approval: the reset was
+    // the approval. Anyone else lands in the queue.
+    const returning = status === AUTH_RESET;
+    const salt = newSalt(), iters = pinIterations();
+    authWrite(h, {
+      hNumber: h,
+      pinSalt: salt,
+      pinHash: pinHashOf(b.pin, salt, iters),
+      pinIters: iters,
+      status: returning ? AUTH_ACTIVE : AUTH_PENDING,
+      role: (row && String(row.role || '').trim()) || ROLE_INSTALLER,
+      tokenGen: Number((row && row.tokenGen) || 0),
+      createdAt: (row && row.createdAt) || now(),
+      failCount: 0, lastFailAt: '', lockedUntil: ''
+    });
+    clearCachedLock(h);
+    return { ok: true, hNumber: h, status: returning ? AUTH_ACTIVE : AUTH_PENDING,
+             pending: !returning, onRoster: !!employeeByH(h) };
+  });
+}
+
+/** H number + PIN → a session token. Runs outside doPost's script lock (see
+ *  UNLOCKED_POST): the hash is the slow part and on a Monday morning the whole crew
+ *  signs in at once, so holding the single write lock through it would queue every
+ *  capture in the field behind the login stampede. Only the row write takes a lock. */
+function authLogin(b) {
+  const h = canonicalH(b.hNumber);
+  const pin = String(b.pin == null ? '' : b.pin);
+  // One answer for every "no" that isn't a lockout or a pending approval. Telling a
+  // caller "no such H number" apart from "wrong PIN" hands them half the credential.
+  const NO = { ok: false, error: 'wrong H number or PIN', authFailed: true };
+  if (!h || !pin) return NO;
+
+  const cached = cachedLock(h);
+  if (cached && lockRemainingMs(cached, Date.now()) > 0) return lockedReply(cached);
+
+  const row = authRowFor(h);
+  if (!row) return NO;
+  if (lockRemainingMs(row.lockedUntil, Date.now()) > 0) return lockedReply(row.lockedUntil);
+
+  // Status is read BEFORE the hash. Two of these rows have no usable hash to compare
+  // against — 'reset' had it cleared — and both need an answer the phone can act on:
+  // "wrong PIN" would send someone to re-type a PIN that no longer exists. This does
+  // tell a caller the H number is real, which is the deliberate trade: the person who
+  // just signed up has to be told they are waiting, and the person whose PIN an admin
+  // just cleared has to be told to choose a new one.
+  const status = String(row.status || '').trim();
+  if (status === AUTH_PENDING)
+    return { ok: false, error: 'waiting for approval', pending: true };
+  if (status === AUTH_RESET)
+    return { ok: false, error: 'your PIN was reset — sign up again to choose a new one', needsPin: true };
+  if (status !== AUTH_ACTIVE || !row.pinHash) return NO;
+
+  if (!safeEquals(pinHashOf(pin, row.pinSalt, row.pinIters), String(row.pinHash))) {
+    const f = notePinFailure(h);
+    return f.locked ? lockedReply(f.lockedUntil) : NO;
+  }
+
+  const exp = nextMondayExpiry(Date.now());
+  const token = signSession({ h: h, g: Number(row.tokenGen || 0), x: exp });
+  const fields = { failCount: 0, lastFailAt: '', lockedUntil: '', lastLoginAt: now() };
+  // Re-hash if the cost has been raised since this PIN was set. pinIters is stored
+  // per row precisely so it can be, and this is the only moment the plaintext exists.
+  const want = pinIterations();
+  if (Number(row.pinIters || 0) < want) {
+    const salt = newSalt();
+    fields.pinSalt = salt;
+    fields.pinHash = pinHashOf(pin, salt, want);
+    fields.pinIters = want;
+  }
+  withAuthLock(function () { authWrite(h, fields); });
+  clearCachedLock(h);
+  return { ok: true, auth: token, expires: exp, hNumber: h, name: nameOfH(h),
+           role: String(row.role || ROLE_INSTALLER).trim() };
+}
+
+/** Resolve the target of an approver action and confirm the actor may administer
+ *  it. Returns {row, h} or {error}.
+ *
+ *  A null session is the migration window — REQUIRE_AUTH still off, the shared token
+ *  carrying the request. It may administer installers and nothing else, so the
+ *  window cannot be used to mint privilege that outlives it. */
+function authTarget(sess, hNumber) {
+  const h = canonicalH(hNumber);
+  if (!h) return { error: 'employee number (H#) required' };
+  const row = authRowFor(h);
+  if (!row) return { error: 'no signup for ' + h };
+  // Self-service on your own account is not an approver action. Blanket-refusing it
+  // keeps an Owner from demoting or revoking themselves into a locked-out system;
+  // the editor-run makeOwner() is the escape hatch either way.
+  if (sess && String(sess.h).trim() === h)
+    return { error: 'ask another administrator to do that to your own account' };
+  const targetRole = String(row.role || ROLE_INSTALLER).trim();
+  const allowed = sess ? manageableRoles(sess.role) : [ROLE_INSTALLER];
+  if (allowed.indexOf(targetRole) === -1) return { error: 'not allowed for your role' };
+  return { row: row, h: h };
+}
+
+function authApprove(b, sess) {
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  if (!t.row.pinHash) return { ok: false, error: 'they have not chosen a PIN yet' };
+  if (String(t.row.status || '').trim() === AUTH_ACTIVE)
+    return { ok: true, hNumber: t.h, alreadyActive: true };
+
+  // A role may be set at approval time, but only one the approver may grant — and
+  // grantableRoles(null) is empty, so the migration window can only ever approve
+  // someone as an installer. An Owner promotes them afterwards.
+  // Only a CHANGE is checked: an approvals screen naturally posts the role it is
+  // showing, and Back-Office (who grants nothing) must still be able to approve the
+  // installer in front of them without that echo reading as an attempted grant.
+  let role = String(t.row.role || ROLE_INSTALLER).trim();
+  const asked = String(b.role == null ? '' : b.role).trim();
+  if (asked && asked !== role) {
+    if (grantableRoles(sess ? sess.role : null).indexOf(asked) === -1)
+      return { ok: false, error: 'you cannot assign the role ' + asked };
+    role = asked;
+  }
+  authWrite(t.h, { status: AUTH_ACTIVE, role: role, approvedAt: now(),
+                   approvedBy: sess ? sess.h : 'shared-token',
+                   failCount: 0, lastFailAt: '', lockedUntil: '' });
+  clearCachedLock(t.h);
+  return { ok: true, hNumber: t.h, role: role, status: AUTH_ACTIVE };
+}
+
+function authReject(b, sess) {
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  if (String(t.row.status || '').trim() === AUTH_ACTIVE)
+    return { ok: false, error: 'they are already active — revoke instead of rejecting' };
+  // Wipe the PIN material but leave the H number free to sign up again: the usual
+  // reason a signup gets rejected is a typo'd H number, and that person has to be
+  // able to try again without an administrator. authRevoke is the permanent one.
+  authWrite(t.h, { status: AUTH_REJECTED, pinSalt: '', pinHash: '', pinIters: '',
+                   tokenGen: Number(t.row.tokenGen || 0) + 1,
+                   failCount: 0, lastFailAt: '', lockedUntil: '' });
+  clearCachedLock(t.h);
+  return { ok: true, hNumber: t.h, status: AUTH_REJECTED };
+}
+
+function authSetRole(b, sess) {
+  // No session means the shared token, which grants nothing here: grantableRoles is
+  // empty for it and a role minted in the migration window would outlive the window.
+  if (!sess) return { ok: false, error: 'sign in to change a role' };
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  const role = String(b.role == null ? '' : b.role).trim();
+  // Both ends are checked. authTarget already vetted the role being taken AWAY — an
+  // Admin must not be able to demote an Owner any more than they can create one —
+  // and this vets the one being given.
+  if (grantableRoles(sess.role).indexOf(role) === -1)
+    return { ok: false, error: 'you cannot assign the role ' + (role || '(blank)') };
+  // No tokenGen bump: verifySession reads the role from the roster rather than the
+  // token, so busting the index (authWrite does) is what makes this take effect.
+  authWrite(t.h, { role: role });
+  return { ok: true, hNumber: t.h, role: role };
+}
+
+function authResetPin(b, sess) {
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  // Only for someone already approved. Resetting a still-pending signup would park
+  // it in 'reset', where the next signup activates WITHOUT anyone having approved it.
+  const status = String(t.row.status || '').trim();
+  if (status !== AUTH_ACTIVE && status !== AUTH_RESET)
+    return { ok: false, error: 'that signup is not approved yet — approve or reject it' };
+  authWrite(t.h, { status: AUTH_RESET, pinSalt: '', pinHash: '', pinIters: '',
+                   tokenGen: Number(t.row.tokenGen || 0) + 1,
+                   failCount: 0, lastFailAt: '', lockedUntil: '' });
+  clearCachedLock(t.h);
+  return { ok: true, hNumber: t.h, status: AUTH_RESET };
+}
+
+function authUnlock(b, sess) {
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  authWrite(t.h, { failCount: 0, lastFailAt: '', lockedUntil: '' });
+  clearCachedLock(t.h);
+  return { ok: true, hNumber: t.h };
+}
+
+function authRevoke(b, sess) {
+  const t = authTarget(sess, b.hNumber);
+  if (t.error) return { ok: false, error: t.error };
+  // Two independent revocations, because either alone is enough and both are cheap:
+  // 'disabled' fails verifySession's status check AND refuses a fresh signup, while
+  // the tokenGen bump invalidates every token already in that person's hands.
+  authWrite(t.h, { status: AUTH_DISABLED, tokenGen: Number(t.row.tokenGen || 0) + 1 });
+  clearCachedLock(t.h);
+  return { ok: true, hNumber: t.h, status: AUTH_DISABLED };
+}
+
+/** The onboarding queue plus the accounts behind it. PROJECTED — this response goes
+ *  to a browser, so no salt and no hash, ever. `manageable` tells the UI which rows
+ *  this administrator may act on, and `grantable` which roles they may assign; both
+ *  are advisory, and every action re-checks them server-side through authTarget. */
+function pendingAuthRead(sess) {
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Auth'))
+    return { ok: true, pending: [], users: [], grantable: [] };
+  const nowMs = Date.now();
+  const allowed = sess ? manageableRoles(sess.role) : [ROLE_INSTALLER];
+  const users = rows('Auth').map(function (r) {
+    const h = String(r.hNumber).trim();
+    const role = String(r.role || ROLE_INSTALLER).trim();
+    return { hNumber: h, name: nameOfH(h), onRoster: !!employeeByH(h),
+             status: String(r.status || '').trim(), role: role,
+             createdAt: r.createdAt || '', approvedAt: r.approvedAt || '',
+             approvedBy: r.approvedBy || '', lastLoginAt: r.lastLoginAt || '',
+             failCount: Number(r.failCount || 0),
+             locked: lockRemainingMs(r.lockedUntil, nowMs) > 0,
+             lockedUntil: String(r.lockedUntil || ''),
+             manageable: allowed.indexOf(role) !== -1
+                         && !(sess && String(sess.h).trim() === h) };
+  }).filter(function (u) { return u.hNumber; });
+  return { ok: true,
+           pending: users.filter(function (u) { return u.status === AUTH_PENDING; }),
+           users: users,
+           grantable: grantableRoles(sess ? sess.role : null) };
+}
+
 // ── POST: capture layer sends JSON here ────────────────────────────────────
 function doPost(e) {
   // Serialize all writes. Apps Script web apps can run concurrently, and several
@@ -789,9 +1224,11 @@ function doPost(e) {
     ? { ok: false, error: gate.error }
     : { ok: false, error: gate.error, authError: gate.authError });
   applyScope(POST_POLICY[body.action], gate.sess, body);
+  const SESSION = gate.sess;   // null during the migration window — handlers allow for it
 
-  if (body.action === 'previewDailyLog') {
-    try { return json(previewDailyLog(body)); }
+  const unlocked = UNLOCKED_POST[body.action];
+  if (unlocked) {
+    try { return json(unlocked(body)); }
     catch (err) { return json({ ok: false, error: String(err) }); }
   }
 
@@ -821,6 +1258,15 @@ function doPost(e) {
       case 'deleteCaptain':  return json(deleteName('Captains', body.name));
       case 'saveSub':        return json(saveName('Subs', body.name));
       case 'deleteSub':      return json(deleteName('Subs', body.name));
+      // Approver actions. They take the SESSION because "who approved this" and
+      // "what may you grant" are properties of the actor, not of the request body —
+      // the one place applyScope's identity stamping isn't enough on its own.
+      case 'authApprove':    return json(authApprove(body, SESSION));
+      case 'authReject':     return json(authReject(body, SESSION));
+      case 'authSetRole':    return json(authSetRole(body, SESSION));
+      case 'authResetPin':   return json(authResetPin(body, SESSION));
+      case 'authUnlock':     return json(authUnlock(body, SESSION));
+      case 'authRevoke':     return json(authRevoke(body, SESSION));
       default:               return json({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
@@ -900,6 +1346,7 @@ function doGet(e) {
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
   if (p.action === 'roster')  return json(roster(SESSION));
+  if (p.action === 'pendingAuth') return json(pendingAuthRead(SESSION));
   if (p.action === 'idle') {
     const date = p.date || today();
     const id   = String(p.installerId == null ? '' : p.installerId).trim();

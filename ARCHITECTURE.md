@@ -1510,6 +1510,62 @@ consistent with the rest of the app.
   offline queue, so the employee record is created even with no signal at
   registration time. Good enough for a small crew; see the limits below.
 
+### Per-user auth — the credential lifecycle (server side landed, ships disabled)
+
+Replacing the shared token. The spine accepts a valid session **or** the old token
+until the `REQUIRE_AUTH` Script Property is `'true'`; see DEPLOY.md for the rollout.
+
+An `Auth` row is one person, keyed on their H number, and its `status` column is the
+whole state machine:
+
+| status | means | how you leave it |
+|---|---|---|
+| `pending` | signed up, waiting on an approver | `authApprove` → `active`, `authReject` → `rejected` |
+| `active` | may log in | `authResetPin` → `reset`, `authRevoke` → `disabled` |
+| `reset` | approved before; an approver cleared the PIN | one `authSignup` sets a new PIN → straight back to `active` |
+| `rejected` | approver said no; PIN material wiped | `authSignup` again — the H number is free |
+| `disabled` | revoked | an approver only; signup is refused |
+
+Three properties hold this together, and each exists because the obvious simpler
+version is exploitable:
+
+- **A signup only ever writes a PIN to a row that has none.** Otherwise knowing a
+  colleague's H number would be enough to re-set their PIN and become them, and every
+  role check downstream would be decorative. The test is on the stored hash rather
+  than on a list of statuses, so it also covers a row still *pending* — overwriting a
+  signup that is waiting means the approver approves the H number they expected and
+  lets in whoever typed last — and cannot be defeated by adding a status later and
+  forgetting to list it. Clearing a PIN is an approver action, and `reset` is how
+  exactly one signup gets through to choose the new one.
+- **`rejected` and `disabled` are deliberately different.** The usual reason a signup
+  is rejected is a typo'd H number, so that person must be able to try again without
+  an administrator. A revoke is the permanent one.
+- **Administering an account is its own privilege** (`manageableRoles`), separate
+  from reading someone's rows (`R_READ_ANY`) and from writing for them
+  (`R_ACT_FOR_OTHERS`), and separate again from which roles you may *assign*
+  (`grantableRoles`). Back-Office onboards installers and nothing above that. See
+  AGENTS.md §"Security note" for why collapsing these is a takeover.
+
+Sessions are **stateless** — `b64url(payload).b64url(HMAC(SESSION_SECRET, payload))`,
+no Sessions tab to read on every request. Revocation rides on the `tokenGen` counter
+instead: bump it and every token that person holds stops verifying. The role is read
+from the roster at verify time rather than from the token, so a demotion takes effect
+within the `authIndex` cache TTL instead of waiting for Monday.
+
+**Rate limiting, not the hash cost, is the defence.** A 6-digit PIN is 10⁶
+candidates; no iteration count survives unlimited guessing. `PIN_LOCK_STEPS` is
+counted durably on the row (a cache eviction must not reset a lockout) over a rolling
+`PIN_FAIL_WINDOW_S` window, and attempts made *while* locked don't count — otherwise
+anyone who knew an H number could hammer it to the permanent step and lock a
+colleague out for good. The `PIN_PEPPER` Script Property, not `pinIters`, is what an
+attacker holding a leaked Sheet actually lacks.
+
+**`authLogin`/`authSignup` dispatch before `doPost` takes the script lock**
+(`UNLOCKED_POST`). They write, but they spend most of their time hashing, and on a
+Monday morning the whole crew signs in within a few minutes — holding the crew's
+single write lock through 200 PIN hashes would stall every capture in the field.
+They take a short lock around their own row write instead.
+
 ---
 
 ## Build order
@@ -1556,6 +1612,12 @@ stays optional. Landed so far:
   `visibilitychange`/`focus` drained the queue outbound and pulled nothing, so a
   phone left open all day never re-read the server — the reason a second device
   looked stale. Still pull-based; the push layer comes with the edge box.
+- **The auth gate and the credential lifecycle** (`Code.gs`): the `Auth` tab, PIN
+  hashing, Monday-anchored stateless sessions, the five roles, a
+  `POST_POLICY`/`GET_POLICY` table over every action where *missing means denied*,
+  and the signup → approve → login → reset/revoke actions behind it. **Ships
+  disabled** — see §"Per-user auth" above and DEPLOY.md for the flip. What remains
+  is the frontend (`js/auth.js`, the login/signup sheet, per-role nav).
 - **Two hot paths de-quadratic'd**: `deleteDayRows` batches into consecutive runs
   (one `deleteRows` call instead of one round-trip per row, inside the write lock
   on every close), and `avgDispatchTime` indexes installs by `oldJ` instead of
