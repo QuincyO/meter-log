@@ -60,7 +60,6 @@ let mode = 'signin';          // 'signin' | 'signup'
 /** Mount once, paint, and subscribe. Safe to call on any page and twice. */
 export function initAuthUI(){
   if(mounted || typeof document === 'undefined') return;
-  mounted = true;
 
   // The banner sits directly under the page's top bar on every page that has
   // one, so it reads as chrome rather than as part of the form beneath it.
@@ -74,7 +73,7 @@ export function initAuthUI(){
   $('authClose').onclick     = closeAuthSheet;
   $('authSwitch').onclick    = () => setMode(mode === 'signin' ? 'signup' : 'signin');
   $('authSubmit').onclick    = submit;
-  $('authSignOut').onclick   = () => { signOut(); setMode('signin'); toast('Signed out'); };
+  $('authSignOut').onclick   = () => { signOut(); setMode('signin'); closeAuthSheet(); toast('Signed out'); };
 
   // Backdrop tap closes. It is dismissible by design.
   $('authSheet').addEventListener('click', e => { if(e.target === $('authSheet')) closeAuthSheet(); });
@@ -83,6 +82,10 @@ export function initAuthUI(){
     $(id).addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
   }
 
+  // Only latch `mounted` once the wiring above has actually succeeded — if an
+  // exception were thrown partway through, leaving this false lets a later
+  // call retry instead of permanently no-op-ing openAuthSheet() for the page.
+  mounted = true;
   onAuthChange(paintBanner);
   paintBanner();
 }
@@ -129,6 +132,9 @@ function setMode(next){
     const strong = document.createElement('strong');
     strong.textContent = a.name || a.hNumber || 'Signed in';
     $('authMeText').appendChild(strong);
+    // An explicit break rather than relying on `.auth-me strong{display:block}`
+    // to do the separating — this text still reads right if that rule ever moves.
+    $('authMeText').appendChild(document.createElement('br'));
     $('authMeText').appendChild(
       document.createTextNode(`${a.hNumber || ''}${a.role ? ' · ' + a.role : ''}`));
     return;
@@ -164,7 +170,6 @@ async function submit(){
 
   const btn = $('authSubmit');
   btn.disabled = true;
-  const label = btn.textContent;
   btn.textContent = mode === 'signup' ? 'Creating…' : 'Signing in…';
   try {
     const out = mode === 'signup' ? await signUp(h, pin) : await signIn(h, pin);
@@ -182,6 +187,10 @@ async function submit(){
     say(fb.text, fb.tone);
   } finally {
     btn.disabled = false;
-    btn.textContent = label;
+    // Re-derive from the current `mode` rather than restoring the label
+    // captured before the request: a needsPin outcome flips `mode` to 'signup'
+    // above, and the pre-submit "Sign in" string would otherwise stick on a
+    // button that now belongs to the create-a-PIN form.
+    btn.textContent = mode === 'signup' ? 'Create PIN' : 'Sign in';
   }
 }

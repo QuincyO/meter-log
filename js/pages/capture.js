@@ -1676,9 +1676,11 @@ migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
   if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
 });
-// The sign-in banner. Mounted last so it paints over a page that is already
-// working — it never gates any of the above.
-initAuthUI();
+// The sign-in banner, mounted late so it paints over a page that is already
+// working. Wrapped: nothing about a sign-in banner may cost a phone its
+// offline shell, and an uncaught throw here would abort module evaluation
+// before the service-worker registration below ever runs.
+try { initAuthUI(); } catch {}
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.
