@@ -23,6 +23,15 @@ another. Two consequences that matter more than they sound:
 - **Don't fork this file.** If you need a tool-specific note, keep it to a clearly
   labelled line in §"Tool-specific notes" rather than starting a parallel document.
 
+### Work in flight
+
+There is currently a multi-phase change underway — per-user auth, cost control, and
+near-instant cross-device sync. **If you are picking that up, read
+[`HANDOFF.md`](HANDOFF.md)** after this file: it records where the work stopped and
+what comes next. It is deliberately transient and gets deleted when Phase 1 ships;
+the durable decisions it links to live here, in `ARCHITECTURE.md` and in `DEPLOY.md`.
+If `HANDOFF.md` doesn't exist, the work landed and there's nothing in flight.
+
 ### Standing workflow rules
 
 - **Commit and push when work is complete — don't ask.** This repo's deploy model *is*

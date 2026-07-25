@@ -1,0 +1,162 @@
+# HANDOFF — auth, cost control, and near-instant sync
+
+**Transient file. Delete it when Phase 1 ships.** It exists so a new session (any
+agent) can pick this work up mid-flight. It records *where the work is*, not *how the
+system works* — every durable decision already lives in `AGENTS.md`,
+`ARCHITECTURE.md` and `DEPLOY.md`, and this file links to them rather than repeating
+them. Do not let it become a second source of truth; that is the exact failure
+`CLAUDE.md` was written about.
+
+**Read `AGENTS.md` in full first.** Then this.
+
+Branch: `claude/security-scalability-architecture-t142cu` · 285 tests green ·
+nothing on `main`, so nothing is deployed.
+
+---
+
+## Why this work exists
+
+A 6-person crew's app is being considered for ~200 installers. Three things block
+that, and they compound:
+
+1. **No authentication.** One hardcoded `SHARED_TOKEN` was the entire gate, shipped
+   in `js/config.js` to every browser alongside `GMAPS_API_KEY` and `ORS_API_KEY`,
+   against an `ANYONE_ANONYMOUS` web app running as the owner. Anyone holding it
+   could call `deleteEmployee`. `installer`/`installerId` were caller-supplied
+   strings the spine never validated.
+2. **The API bill doesn't survive multiplication.** The Routes matrix is billed per
+   element (N² per optimize) and guarded only by a per-device localStorage counter.
+   Order of magnitude at 200 installers: ~3M elements and ~100k geocodes a month
+   against free tiers of 10k each. Self-hosted OSRM + Nominatim already exist in
+   `DEPLOY.md` but only `planner.html` uses them.
+3. **Nothing pushes.** No polling, SSE or websocket anywhere. Two phones never saw
+   each other's work until someone re-opened a list by hand.
+
+Full reasoning, cost figures and the phase plan: see the "Known limits & next phase"
+section of `ARCHITECTURE.md`.
+
+---
+
+## Decisions locked with the user — do not re-litigate
+
+| | |
+|---|---|
+| Auth | H number + **6-digit PIN**, self-signup → owner approves. Not a roster pick. |
+| Session | Working week, re-prompt **every Monday** (next Monday 04:00 Toronto, ≥24h out). Not rolling. |
+| Roles | Five: Owner, Admin, Foreman, Back-Office, Installer — **capability sets, not a ladder**. |
+| Approach | Phased: harden the current stack, keep a seam for a future database. |
+| Hosting | Home desktop runs **routing + realtime only** (both degradable). Surface Pro = warm standby. Login and data stay on Apps Script/Sheets for now. |
+| Keys | Spine token rotates at the Phase 1 flip. **Maps + ORS rotation deferred to Phase 2** so they rotate once, when they move server-side. |
+| Domain | None yet — Phase 2 includes buying one and setting up Cloudflare Tunnel. |
+| Scale | ~200 installers, cost kept low. |
+
+The role matrix is in `DEPLOY.md` §"Per-user auth" — that is its home, keep it there.
+
+---
+
+## Done and pushed
+
+**Phase 0 — made credential rotation survivable.**
+- `js/queue.js` resolves the credential at **send time** (`authFields()`) instead of
+  storing it on each queued item. This is also the migration for items already in
+  users' IndexedDB: one destructure key, nothing lost.
+- `js/queue-policy.js` gained an `'auth'` verdict. `{ok:false, error:'bad token'}`
+  matches neither `busy` nor `retry`, so it used to classify as a *definitive
+  reject* and **park every un-synced write on every phone after six attempts** —
+  surfaced only as "N stuck" on the pill. A rejected credential is not a poison
+  payload.
+- `js/pages/capture.js` `resync()` — foreground now pulls as well as pushes. The
+  listeners called `flush()` (outbound only), so a phone open all day re-read the
+  server zero times. This is the fix for the two-phones complaint at the pull level.
+- `deleteDayRows` batches into consecutive runs; `avgDispatchTime` indexes installs
+  by `oldJ` instead of scanning every install per request (verified equivalent over
+  3000 randomized fixtures — deliberately *not* also windowed, which would change
+  which pairs match).
+
+**Phase 1 steps 1 — the gate.**
+- `Auth` tab + `setupSheets()`; PIN hashing (iterated HMAC + per-user salt + a
+  `PIN_PEPPER` in Script Properties); Monday-anchored sessions; the five roles;
+  `POST_POLICY`/`GET_POLICY` over every action (**missing = denied**);
+  `authenticate()` wired into `doPost`/`doGet`; `applyScope`.
+- **Ships disabled.** Until `REQUIRE_AUTH` is `'true'`, the spine accepts a valid
+  session *or* the old shared token, so crew behaviour is unchanged. Flipping it
+  back is the rollback, no redeploy.
+- `roster()` is projected — it used to hand every installer's home address and GPS
+  pin to any caller.
+- `DEPLOY.md` documents the three Script Properties, `makeOwner()` bootstrap, the
+  migration window and the flip.
+
+---
+
+## Next, in order
+
+1. **Auth actions.** `authSignup`, `authLogin`, `authApprove`/`authReject`,
+   `authSetRole` (through `grantableRoles` — an Admin must not mint an Admin or
+   Owner), `authResetPin`, `authUnlock`, `authRevoke`, and the `pendingAuth` read.
+   *The policy tables already name all of these*, so they are authorized but not
+   implemented — calling one today returns "unknown action".
+2. **The wrong-PIN ladder.** `PIN_LOCK_STEPS` is defined but **not enforced yet**.
+   CacheService counter for speed plus the durable `failCount`/`lockedUntil` on the
+   Auth row so a cache eviction can't reset a lockout. Rate limiting — not the
+   iteration count — is the real defence for a 6-digit PIN.
+3. **Frontend.** `js/auth.js`, the `#authSheet` login/signup/pending UI in
+   `index.html`, `js/api.js` injection, per-role nav hiding (including hiding
+   `index.html` from Back-Office and Foreman, who don't capture). Add `js/auth.js`
+   to `sw.js` `SHELL` and bump `CACHE`.
+4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
+
+Then Phase 2 (edge box + Cloudflare Tunnel + key rotation), Phase 3 (SSE relay),
+Phase 4 (bounded tail reads, metrics out of the write lock).
+
+---
+
+## Landmines specific to this work
+
+- **Never let an auth change make a queued write unsendable.** `enqueue()` must
+  accept a write with no valid credential, and a credential rejection must never
+  park. `tests/queue-auth.test.mjs` guards both. See `AGENTS.md` §"Security note".
+- **An existing action's payload may only gain *optional* fields.** A new *required*
+  field means a new action name — items already queued won't have it, will be
+  definitively rejected, and will park.
+- **Roles are sets. Never introduce a numeric level.** Foreman has edit/planner that
+  Back-Office lacks; Back-Office has onboarding that Foreman lacks. Neither contains
+  the other, so any ordering is wrong and `>=` would silently grant one the other's
+  actions. `tests/auth-foundation.test.mjs` fails if a role level appears.
+- **Reading for others ≠ writing for others.** `R_READ_ANY` vs `R_ACT_FOR_OTHERS`.
+  Back-Office must read the whole crew (that *is* map/analytics) but must never
+  write for them. Back-Office's `endOfDay` is a deliberately narrow per-action
+  `actFor` override for the reports quick close — do not widen it.
+- **`Auth` must never enter `EXPORT_TABS`.** `exportSheetToGithub()` commits every
+  listed tab to `data/*.md` and pushes it; that would publish PIN hashes into git
+  history. Tested.
+- **Nothing on the request hot path may write to the sheet.** `ensureTab()` sets
+  formatting and freezes a row — both writes. `authRowFor()` deliberately does not
+  call it, and session verification uses the cached `authIndex()` projection rather
+  than scanning `Auth` (which also keeps hashes out of shared cache).
+- **Offline Monday.** A PIN can only be verified server-side, so a phone with no
+  signal on Monday cannot get a session. **The local UI must never be gated on
+  session validity** — the app opens, capture works, writes queue. Login is a
+  banner, not a wall.
+- Standing repo rules still apply: bump `sw.js` `CACHE` when adding a module, and
+  unregister the service worker before re-measuring locally (`VERIFY.md`).
+
+---
+
+## Verify
+
+```bash
+node --test "tests/*.test.mjs"     # 285 green; no install needed
+```
+
+`tests/auth-gate.test.mjs` is the one to read first — it **executes** the real gate
+against Apps Script stubs rather than asserting on source text, because a wrong gate
+locks 200 people out of a production spine. Its first test is the property that
+matters most: while `REQUIRE_AUTH` is off, behaviour is unchanged.
+
+For driving the real pages, and for exercising write paths **without writing to the
+production Sheet**, follow `VERIFY.md`. Auth touches every write path, so use a test
+deployment against a copy of the Sheet.
+
+Still to write: `tests/session-monday.test.mjs` (the Monday anchor was verified by
+an ad-hoc sweep over every hour of 2026 including both DST transitions, but that
+check is not yet a permanent test) and `tests/rows-tail.test.mjs` for Phase 4.
