@@ -9,7 +9,7 @@ them. Do not let it become a second source of truth; that is the exact failure
 
 **Read `AGENTS.md` in full first.** Then this.
 
-Branch: `claude/security-scalability-architecture-t142cu` · 316 tests green ·
+Branch: `claude/security-scalability-architecture-t142cu` · 333 tests green ·
 nothing on `main`, so nothing is deployed.
 
 ---
@@ -113,20 +113,42 @@ be re-run before this ships — it's additive.
 
 ---
 
+**Phase 1 step 3a — the client credential + role model.** `js/auth.js` (session
+state, `signIn`/`signUp`/`signOut`, the approver calls, `onAuthChange`) and its pure
+half `js/auth-policy.js` (role sets, `canSeePage`, `sessionState`, `loginOutcome`).
+Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
+`AGENTS.md` §"Frontend module layout" — three notes that aren't obvious:
+
+- **`authFields()` moved from `js/queue.js` to `js/store.js`.** It now serves the
+  direct `api.js` calls too, so there is still exactly one function that decides what
+  a request carries. `apiGet` injects it into the query string as well — it used to
+  hardcode `token=`.
+- **The role sets in `auth-policy.js` are a mirror of `Code.gs`** and exist only to
+  hide unusable nav. `tests/auth-client.test.mjs` parses both files and fails on
+  drift; if the mirror ever becomes a burden, delete it rather than let it rot.
+- **A blank role means "no session yet" and is allowed everything.** That is the
+  migration window — hiding the app from a crew that hasn't signed up would be the
+  wall this design refuses to build.
+
+---
+
 ## Next, in order
 
-1. **Frontend.** `js/auth.js`, the `#authSheet` login/signup/pending UI in
-   `index.html`, `js/api.js` injection, per-role nav hiding (including hiding
-   `index.html` from Back-Office and Foreman, who don't capture). Add `js/auth.js`
-   to `sw.js` `SHELL` and bump `CACHE`. The spine side of this is done — read
-   `authLogin`'s return shape (`auth`, `expires`, `role`, `name`) and
-   `pendingAuthRead` (`pending`, `users`, `grantable`, per-row `manageable`) and
-   build to those. **Remember the offline-Monday rule below: login is a banner, not
-   a wall.**
-2. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
-   from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not
-   only in a back-office page.
-3. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
+1. **The sign-in UI.** An `#authSheet` login/signup screen in `index.html` +
+   `js/pages/capture.js` wiring, and a status banner. Everything it needs is already
+   exported: `auth()` gives `state`/`hNumber`/`name`, `signIn`/`signUp` return a
+   `kind` to switch on (`ok`/`pending`/`locked`/`needsPin`/`failed`/`offline`) rather
+   than prose to pattern-match, and `onAuthChange` fires on sign-in, sign-out and on
+   wake (a session expires at a fixed Monday 04:00, so a phone left open over the
+   weekend crosses it with no request happening). **The offline-Monday rule governs
+   this screen**: it is a banner and a dismissible sheet, never a gate — the app
+   opens, capture works, writes queue.
+2. **Per-role nav hiding**, via `can(page)` / `landingPage()` from `js/auth.js`.
+3. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
+   from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not only
+   in a back-office page. `authAction(action, hNumber, extra)` is the one call it
+   needs; the spine re-checks every rule, so don't duplicate any of them client-side.
+4. **Rollout** per `DEPLOY.md`, then rotate `SHARED_TOKEN`.
 
 Then Phase 2 (edge box + Cloudflare Tunnel + key rotation), Phase 3 (SSE relay),
 Phase 4 (bounded tail reads, metrics out of the write lock).

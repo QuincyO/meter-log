@@ -60,8 +60,15 @@ test('flush strips any stored credential and injects the current one', () => {
     'flush() must destructure the stored token out of the payload');
   assert.match(QUEUE_SRC, /\.\.\.stored,\s*\.\.\.authFields\(\)/,
     'the current credential must be spread in AFTER the stored fields, so it wins');
-  assert.match(QUEUE_SRC, /const authFields = \(\) =>/,
-    'authFields() is the single place that knows what authenticates a request');
+  // authFields() is the single place that knows what authenticates a request. It
+  // lives in store.js as of per-user auth, so the direct api.js calls share it
+  // rather than growing a second copy — but it must still be the queue's source.
+  assert.match(QUEUE_SRC, /import \{ cfg, authFields \} from '\.\/store\.js'/,
+    'the queue must import the shared authFields, not define its own');
+  assert.ok(!/const authFields\s*=/.test(QUEUE_SRC),
+    'a local copy here is how the queue and the direct calls drift apart');
+  assert.match(readFileSync(new URL('../js/store.js', import.meta.url), 'utf8'),
+    /export function authFields\(\)/, 'and store.js must actually export it');
 });
 
 test('no enqueue call site bakes a credential into the stored payload', () => {

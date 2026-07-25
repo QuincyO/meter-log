@@ -3,7 +3,7 @@
 // repeating that plumbing. They throw on a network failure (callers keep their
 // own try/catch); the offline queue (queue.js) does NOT go through apiPost — it
 // posts raw queued bodies directly so it can own retry semantics.
-import { cfg } from './store.js';
+import { cfg, authFields } from './store.js';
 import { enc } from './dom.js';
 
 // Fetch once, retry a single time on a network-layer throw. Mobile browsers
@@ -18,10 +18,13 @@ async function fetchRetry(url, opts){
   catch { return await fetch(url, opts); }
 }
 
-// GET ?token=…&action=…&<params>. `params` values are URL-encoded.
+// GET ?action=…&<credential>&<params>. `params` values are URL-encoded.
+// The credential comes from authFields() (store.js) — the single place that knows
+// what a request is authenticated with, shared with the offline queue.
 export async function apiGet(action, params = {}){
   const c = cfg();
-  let u = `${c.url}?token=${enc(c.token)}&action=${enc(action)}`;
+  let u = `${c.url}?action=${enc(action)}`;
+  for(const [k, v] of Object.entries(authFields())) u += `&${k}=${enc(v)}`;
   for(const k in params){
     const v = params[k];
     if(v !== undefined && v !== null) u += `&${k}=${enc(v)}`;
@@ -29,12 +32,12 @@ export async function apiGet(action, params = {}){
   return (await fetchRetry(u)).json();
 }
 
-// POST {token, ...body}. text/plain dodges the CORS preflight.
+// POST {…credential, ...body}. text/plain dodges the CORS preflight.
 export async function apiPost(body){
   const c = cfg();
   const resp = await fetchRetry(c.url, {
     method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify(Object.assign({ token:c.token }, body))
+    body: JSON.stringify(Object.assign(authFields(), body))
   });
   return resp.json();
 }

@@ -5,20 +5,21 @@
 // auto-increment '_seq' key gives FIFO order: idb.all('queue') returns items
 // oldest-first, so q[0] is the head.
 import { idb } from './idb.js';
-import { cfg } from './store.js';
+import { cfg, authFields } from './store.js';
 import { $, activeActivity, onActivityChange } from './dom.js';
 import { applyOptimisticCache, reconcileCache } from './daycache.js';
 import { classifyFlush } from './queue-policy.js';
 
-// The credential a queued write is sent with is resolved HERE, at send time — it is
-// deliberately NOT stored on the item. Queued writes can sit in IndexedDB for days
-// (a phone offline on the water, a parked item awaiting review), and a credential
-// that was current at enqueue() time may well have been rotated, expired or
-// replaced by then. Baking it in at enqueue was how a token rotation used to strand
-// a whole day of work. Keep this the single place that knows what a request is
-// authenticated with, so swapping the shared token for a per-user session touches
-// one function.
-const authFields = () => { const c = cfg(); return c.token ? { token: c.token } : {}; };
+// The credential a queued write is sent with is resolved at SEND time (below, via
+// authFields) — it is deliberately NOT stored on the item. Queued writes can sit in
+// IndexedDB for days (a phone offline on the water, a parked item awaiting review),
+// and a credential that was current at enqueue() time may well have been rotated,
+// expired or replaced by then. Baking it in at enqueue was how a token rotation used
+// to strand a whole day of work.
+//
+// authFields lives in store.js so that ONE function serves both the queue and the
+// direct api.js calls; it now returns a per-user session alongside the shared token.
+// Do not re-add a local copy here.
 
 const queueAll = async () => (await idb.all('queue')) || [];
 

@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v33';
+const CACHE = 'meterlog-v34';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -27,7 +27,8 @@ const SHELL = [
   './css/vendor/images/layers.png', './css/vendor/images/layers-2x.png',
   // shared JS modules
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
-  './js/api.js', './js/daycache.js', './js/queue.js', './js/queue-policy.js', './js/geocode.js',
+  './js/api.js', './js/auth.js', './js/auth-policy.js',
+  './js/daycache.js', './js/queue.js', './js/queue-policy.js', './js/geocode.js',
   './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
   './js/worklist-dedup.js', './js/worklist-tuning.js',
   './js/drive.js', './js/drive-track.js', './js/drive-recorder.js',
