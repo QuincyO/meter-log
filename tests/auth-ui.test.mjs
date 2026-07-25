@@ -110,3 +110,21 @@ test('a failed signup keeps them on the signup form with the spine reason', () =
   assert.equal(f.tone, 'error');
   assert.match(f.text, /roster/);
 });
+
+// ── the stylesheet stands alone ────────────────────────────────────────────
+
+test('auth.css defines its own hide and card styling, borrowing nothing', () => {
+  // Plan 2 mounts this on reports.html and friends, which never load capture.css.
+  // If auth.css leans on .sheet/.card/.primary the sign-in screen renders as
+  // unstyled text on five of the seven pages.
+  const css = read('css/auth.css');
+  for (const cls of ['.auth-banner', '.auth-sheet', '.auth-card', '.auth-primary', '.auth-msg']) {
+    assert.ok(css.includes(cls), `css/auth.css should define ${cls}`);
+  }
+  assert.match(css, /\.auth-sheet\.hide|\.hide\b/, 'auth.css must define its own .hide');
+});
+
+test('the sheet is a fixed overlay so it works on a page with any layout', () => {
+  const css = read('css/auth.css');
+  assert.match(css, /\.auth-sheet\s*\{[^}]*position\s*:\s*fixed/);
+});
