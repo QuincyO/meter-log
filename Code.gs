@@ -513,6 +513,14 @@ function nextMondayExpiry(nowMs) {
   const now = new Date(nowMs);
   const dow = Number(Utilities.formatDate(now, TIMEZONE, 'u'));   // 1=Mon … 7=Sun
   let ahead = (8 - dow) % 7;
+  // Kept even though the guard loop below would reach the same answer without it:
+  // if today is Monday, `ahead` starts at 0, that first candidate is today's own
+  // 04:00, which always fails the SESSION_MIN_MS floor (it's already past, or at
+  // best a few hours off), so the loop retries at ahead+=7 and lands on next
+  // Monday regardless. This line is kept so `ahead` means "days until the next
+  // Monday" on its own, without relying on the floor to cover for it — and it
+  // becomes load-bearing the moment SESSION_MIN_MS is ever lowered enough that
+  // today's own anchor could pass the floor.
   if (!ahead) ahead = 7;                                          // today is Monday → next one
   const todayYmd = Utilities.formatDate(now, TIMEZONE, 'yyyy-MM-dd');
   for (let guard = 0; guard < 4; guard++, ahead += 7) {
