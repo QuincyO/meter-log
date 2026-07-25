@@ -121,5 +121,7 @@ test('both drag lists use the shared autoscroll and stop it on release', () => {
 test('the service worker ships the new module', () => {
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'\.\/js\/drag-autoscroll\.js'/);
-  assert.match(sw, /const CACHE = 'meterlog-v35'/);
+  // Not pinning the version: this test's job is the module line above, and the
+  // shell gets bumped again by whichever change next adds a file to it.
+  assert.match(sw, /const CACHE = 'meterlog-v\d+'/);
 });
