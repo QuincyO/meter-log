@@ -430,7 +430,7 @@ $('logStop').onclick = () => {
   const otherJ = $('otherOldJ').value.trim();
   const outStatus = status==='OTHER' ? (otherJ ? 'VISITED' : 'UNACCOUNTED') : status;
   const base = {
-    token:c.token, action:'addStop', installer:c.name, installerId:c.hNumber,
+    action:'addStop', installer:c.name, installerId:c.hNumber,
     timestamp:stamp(), workType:workMode(),
     workOrderId:$('wo').value.trim(), unit:$('unit').value.trim(),
     address:$('addr').value.trim(), lat:coords.lat, lng:coords.lng, status:outStatus,
@@ -513,7 +513,7 @@ $('markDone').onclick = async () => {
   toast('Getting location…');
   try {
     const loc = await sampleLocation();
-    enqueue({ token:c.token, action:'addStop', installer:c.name,
+    enqueue({ action:'addStop', installer:c.name,
               timestamp:stamp(), lat:loc.lat, lng:loc.lng, status:'DONE',
               workType:workMode() });
     toast('Marked — already installed ✓');
@@ -551,7 +551,7 @@ $('saveDowntime').onclick = () => {
   const c = cfg();
   if(!$('dtMin').value.trim()){ toast('Minutes required'); return; }
   if($('dtCat').value==='OTHER' && !$('dtNote').value.trim()){ toast('Describe what happened'); return; }
-  enqueue({ token:c.token, action:'addDowntime', installer:c.name,
+  enqueue({ action:'addDowntime', installer:c.name,
             timestamp:stamp(), category:$('dtCat').value, workType:workMode(),
             minutes:Number($('dtMin').value.trim()), workOrderId:$('dtWo').value.trim(),
             note:$('dtNote').value.trim() });
@@ -659,7 +659,7 @@ function makeStopCard(s, onSaved, opts){
     const reasonPick = g('utiReason');
     const utiReason = reasonPick === 'Other' ? ('Other: ' + g('utiOther')) : reasonPick;
     const payload = {
-      token:c.token, action:'updateStop', id:s.id,
+      action:'updateStop', id:s.id,
       workOrderId:g('wo'), unit:g('unit'), address:g('addr'),
       // A UTI can't carry a New J# — enforce it even if the field wasn't cleared.
       status:statusVal, newJNumber: statusVal==='UTI' ? '' : g('newJ'), oldJNumber:g('oldJ'),
@@ -692,7 +692,7 @@ function makeStopCard(s, onSaved, opts){
     const reason = prompt('Reason for removal (optional — leave blank to skip):', '');
     if(reason === null) return;                     // Cancel on the prompt aborts too
     // Awaited so the dayCache drop + tombstone are in place before onRemoved re-renders.
-    await enqueue({ token:c.token, action:'archiveStop', id:s.id,
+    await enqueue({ action:'archiveStop', id:s.id,
                     installerId:c.hNumber, removedBy:c.name, reason:reason.trim() });
     toast(navigator.onLine ? 'Removing…' : 'Removed — will sync when online');
     if(opts && typeof opts.onRemoved === 'function') opts.onRemoved();
@@ -709,7 +709,7 @@ function makeStopCard(s, onSaved, opts){
     const label = `WO ${s.workOrderId || '—'} (${clockOf(s.timestamp) || '--:--'})`;
     if(!confirm(`Start this order over?\n\n${label}\n\nThe logged meter is removed (archived — the office can restore it) and the order goes back on your list to redo.`)) return;
     // Awaited so the dayCache drop + tombstone are in place before onRemoved re-renders.
-    await enqueue({ token:c.token, action:'archiveStop', id:s.id,
+    await enqueue({ action:'archiveStop', id:s.id,
                     installerId:c.hNumber, removedBy:c.name, reason:'reset order' });
     await resetWorklistOrder(s.workOrderId);   // keeps the typed details; re-adds to today
     syncWorklist();
@@ -990,6 +990,8 @@ function mergePending(serverArr, cachedArr, removedIds){
 // Offline → shows cached data (or a "nothing cached" message).
 async function loadDay(mode){
   const c = cfg(); if(!c.name) return;
+  lastPull = Date.now();   // feeds resync()'s throttle, so a button press and a
+                           // foreground event don't pull the same day twice
   const key = `${c.name}|${localDate()}`;
   const cached = await idb.get('dayCache', key);
   let renderedFromCache = false;
@@ -1091,12 +1093,12 @@ let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 // instead of the close being silently dropped. Used by the offline Finish path
 // and by the online path when a live close throws or returns not-ok.
 function queueClose(c, weather){
-  enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
+  enqueue({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
             allocations: collectGapAllocations(eodGaps) });
   if($('eodDeparture').value || $('eodReturned').value)
-    enqueue({ token:c.token, action:'saveDay', installer:c.name,
+    enqueue({ action:'saveDay', installer:c.name,
               departure:$('eodDeparture').value, returned:$('eodReturned').value });
-  enqueue({ token:c.token, action:'endOfDay', installer:c.name, installerId:c.hNumber,
+  enqueue({ action:'endOfDay', installer:c.name, installerId:c.hNumber,
             notes:$('eodNotes').value.trim(), includeDelays:$('eodIncludeDelays').checked,
             workType:workMode(), weather:weather||'',
             departure:$('eodDeparture').value, returned:$('eodReturned').value });
@@ -1590,7 +1592,7 @@ $('saveSettings').onclick = () => {
   // Register (or refresh) this person in the crew so an admin can add them to a
   // boat team. Routed through the offline queue, so a first run with no signal
   // still saves the identity locally now and registers when back online.
-  const payload = { token:c.token, action:'saveEmployee', hNumber:h, firstName:first, lastName:last };
+  const payload = { action:'saveEmployee', hNumber:h, firstName:first, lastName:last };
   // Only ride subName when the pick was actually editable — a locked (team) or
   // never-loaded select must not clobber the server's copy.
   if (subEditable) {
@@ -1628,12 +1630,44 @@ $('saveSettings').onclick = () => {
 
 // When signal returns: flush the queue, backfill any addresses captured offline,
 // and refresh the recent-days cache.
-function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); }
+function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); resync(); }
 window.addEventListener('online', onReconnect);
 window.addEventListener('offline', paint);
-// also try to sync whenever the app comes back to the foreground
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
-window.addEventListener('focus', flush);
+
+// ── coming back to the foreground: sync BOTH directions ────────────────────
+// This used to call flush() alone, which drains the OUTBOUND queue and pulls
+// nothing. A phone backgrounded and foregrounded all day on good signal therefore
+// re-read the server zero times, and the only inbound refreshes were the `online`
+// event, a cold boot, and three button presses. That is what made a second device
+// look stale: an installer finishing an order on their work phone saw nothing on
+// their other phone until they re-opened the list by hand.
+//
+// resync() now also re-pulls the open day. Two guards keep it cheap:
+//   · only when a day sheet is actually on screen — a foreground with nothing open
+//     costs no spine call, it just flushes as before;
+//   · a throttle floor, so tab-switching in quick succession can't hammer the
+//     spine. iOS in particular fires visibilitychange + focus back to back.
+const RESYNC_MIN_MS = 30_000;
+let lastPull = 0;
+// Which day sheet, if any, is currently on screen. A `.sheet` is open when it does
+// not carry `.hide` (see openSheet/closeSheets).
+function openDayMode(){
+  const vis = id => { const el = $(id); return el && !el.classList.contains('hide'); };
+  if(vis('eodSheet'))   return 'eod';
+  if(vis('todaySheet')) return 'today';
+  return null;
+}
+function resync(){
+  flush();
+  const mode = openDayMode();
+  if(!mode) return;                                    // nothing on screen to refresh
+  if(Date.now() - lastPull < RESYNC_MIN_MS) return;    // throttle floor (loadDay stamps it)
+  loadDay(mode);                                       // cache-first, then merges the server copy
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resync();
+});
+window.addEventListener('focus', resync);
 // Drain any pre-IDB localStorage queue into the durable store, then paint + sync,
 // prune cache to ~a week, and (when online with a name set) backfill offline
 // addresses + pre-cache the recent days so they're viewable with no signal.

@@ -10,11 +10,21 @@ import { $, activeActivity, onActivityChange } from './dom.js';
 import { applyOptimisticCache, reconcileCache } from './daycache.js';
 import { classifyFlush } from './queue-policy.js';
 
+// The credential a queued write is sent with is resolved HERE, at send time — it is
+// deliberately NOT stored on the item. Queued writes can sit in IndexedDB for days
+// (a phone offline on the water, a parked item awaiting review), and a credential
+// that was current at enqueue() time may well have been rotated, expired or
+// replaced by then. Baking it in at enqueue was how a token rotation used to strand
+// a whole day of work. Keep this the single place that knows what a request is
+// authenticated with, so swapping the shared token for a per-user session touches
+// one function.
+const authFields = () => { const c = cfg(); return c.token ? { token: c.token } : {}; };
+
 const queueAll = async () => (await idb.all('queue')) || [];
 
 // A page registers UI side-effects here (e.g. the duplicate/conflict notice).
 // Keeps the queue page-agnostic — no import back into a specific page.
-let _hooks = { onResult: null };
+let _hooks = { onResult: null, onAuthRequired: null };
 export function setQueueHooks(h){ Object.assign(_hooks, h); }
 
 // Client-generated id so a write is idempotent: the same queued item keeps its
@@ -50,8 +60,13 @@ let flushing = false;
 // used to wedge the whole queue. We now always attempt the send and let the real
 // fetch outcome decide.
 let lastFlushFailed = false;
+// Whether the last flush stopped because the spine rejected our credential. Drives
+// the pill's "sign in to sync" wording, and is cleared by the next delivered write.
+let needsAuth = false;
+export const authBlocked = () => needsAuth;
 export async function flush(){
   if(flushing) return;
+  needsAuth = false;   // re-evaluated by this run; a fresh credential clears it
   const c = cfg(); if(!c.url) { paint(); return; }
   flushing = true;
   try{
@@ -61,7 +76,11 @@ export async function flush(){
       // times and are set aside so they can't wedge the writes queued behind them.
       const item = q.find(it => !it._parked);
       if(!item) break;
-      const {_seq, _tries, _parked, _error, ...body} = item; // internal keys — don't send them
+      // Drop the internal keys AND any credential the item was stored with — items
+      // enqueued by an older build carry a `token` that may be long rotated. The
+      // current one is spread in below, so a stale snapshot can never be sent.
+      const {_seq, _tries, _parked, _error, token:_staleToken, ...stored} = item;
+      const body = { ...stored, ...authFields() };
       let resp;
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
@@ -79,6 +98,16 @@ export async function flush(){
         reconcileCache(respBody, body);          // swap temp ids, mirror dispatch side-effect
         if(_hooks.onResult) _hooks.onResult(respBody, body);
         continue;
+      }
+      if(verdict === 'auth'){
+        // The credential was rejected. The write is fine — it will go through
+        // verbatim once the device has a good credential again — so the item keeps
+        // its place and its strike count. Stop draining (every item behind it would
+        // fail identically) and surface it so the UI can prompt a sign-in.
+        lastFlushFailed = false;        // we reached the spine; this isn't an offline state
+        needsAuth = true;
+        if(_hooks.onAuthRequired) _hooks.onAuthRequired(respBody);
+        break;
       }
       if(verdict === 'park'){
         // The spine keeps rejecting this item — a poison payload. Set it aside so it
@@ -144,7 +173,14 @@ export async function paint(){
   // lived and reverts on its own) and shows online OR offline — local work like
   // PDF generation is worth surfacing even with no signal.
   if(act){ p.classList.add('busy'); t.textContent = act; return; }
-  if(pending && lastFlushFailed){
+  if(pending && needsAuth){
+    // Nothing is lost and nothing is stuck — the writes are queued and will drain
+    // as soon as the device has a good credential. Say that, rather than showing a
+    // failure the crew can't act on.
+    p.classList.add('off');
+    t.textContent = pending + ' waiting — sign in to sync';
+  }
+  else if(pending && lastFlushFailed){
     // A transport failure (fetch threw or an HTTP/offline page came back), NOT a
     // server rejection — those clear lastFlushFailed. Distinguish a truly-offline
     // phone from a spine that isn't answering: navigator.onLine is reliable when

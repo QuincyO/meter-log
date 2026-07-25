@@ -64,7 +64,7 @@ export async function backfillAddresses(enqueue, days = 7, cap = 12){
       if(!addr) continue;
       s.address = addr; changed = true; done++;
       // Persist to the Sheet (address-only correction), idempotent via the stop id.
-      enqueue({ token:c.token, action:'updateStop', id:s.id, address:addr });
+      enqueue({ action:'updateStop', id:s.id, address:addr });
     }
     if(changed) await idb.put('dayCache', cached, key);
   }

@@ -213,7 +213,7 @@ async function recoverStale(){
     if(row.date && row.date < today && !row.queued && (row.pointCount || 0) >= 2){
       const c = cfg();
       const { active, queued, raw, ...leg } = row;   // raw is phone-only, never ships
-      await enqueue({ token: c.token, action: 'saveDriveTrack', ...leg });
+      await enqueue({ action: 'saveDriveTrack', ...leg });
       await idb.put('driveTracks', { ...row, active: false, queued: true, raw: undefined });
     } else if(row.date && row.date < cutoff){
       await idb.del('driveTracks', row.id);
@@ -279,7 +279,7 @@ export async function finishAndUpload(){
   for(const r of all){
     if(r.date === today && !r.queued && (r.pointCount || 0) >= 2){
       const { active, queued, raw, ...leg } = r;   // raw is phone-only, never ships
-      await enqueue({ token: c.token, action: 'saveDriveTrack', ...leg });
+      await enqueue({ action: 'saveDriveTrack', ...leg });
       await idb.put('driveTracks', { ...r, active: false, queued: true, raw: undefined });
     }
   }

@@ -23,7 +23,15 @@ test('a fresh definitive rejection counts a strike, not a park', () => {
 test('a definitive rejection parks once it has burned through its tries', () => {
   // The item that has already failed MAX-1 times parks on this attempt.
   assert.equal(classifyFlush(true, { ok: false, error: 'unknown action' }, MAX_FLUSH_TRIES - 1), 'park');
-  assert.equal(classifyFlush(true, { ok: false, error: 'bad token' }, MAX_FLUSH_TRIES + 3), 'park');
+  assert.equal(classifyFlush(true, { ok: false, error: 'malformed body' }, MAX_FLUSH_TRIES + 3), 'park');
+});
+
+test("'bad token' is an auth problem, not a poison payload — it must never park", () => {
+  // This case used to assert 'park', which is the bug: the payload is perfectly
+  // valid and the ONLY thing wrong is the credential. Parking it meant a token
+  // rotation set aside every un-synced write on every phone after six attempts.
+  // See js/queue-policy.js AUTH_REJECT_RE and tests/queue-auth.test.mjs.
+  assert.equal(classifyFlush(true, { ok: false, error: 'bad token' }, MAX_FLUSH_TRIES + 3), 'auth');
 });
 
 test("lock contention ('busy, retry') is transient — it never parks", () => {
