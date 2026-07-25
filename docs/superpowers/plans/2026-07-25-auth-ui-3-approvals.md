@@ -573,6 +573,17 @@ git push origin claude/security-scalability-architecture-t142cu
 
 ---
 
+## One thing to settle before the rollout flip
+
+Not part of this plan's tasks, but it belongs to whoever does the rollout. Once
+`REQUIRE_AUTH` is `'true'`, the sync pill reads **"N waiting — sign in to sync"** —
+but tapping the pill flushes the queue or opens the Stuck-uploads sheet
+(`js/pages/capture.js`), it does not open the sign-in sheet. Plan 1 made sign-in
+reachable from the ☰ menu, so this is no longer a dead end, but the pill still names
+an action and then does something else. Routing the pill to `openAuthSheet()` when the
+queue's `authBlocked()` is true is a few lines and removes the mismatch. Nothing is
+lost either way — capture keeps working and writes keep queuing.
+
 ## What remains after this plan
 
 Only the rollout, which is `DEPLOY.md`'s: run `setupSheets()`, set the three Script

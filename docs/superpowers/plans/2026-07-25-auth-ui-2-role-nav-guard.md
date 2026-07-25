@@ -23,6 +23,30 @@ Depends on: plan 1 (`2026-07-25-auth-ui-1-banner-and-sheet.md`) being complete.
 
 ---
 
+## Carried forward from plan 1
+
+Plan 1 landed and was reviewed; these came out of it and land here rather than there.
+
+- **The nav entry needs a `.bar` style.** `initAuthUI()` injects a `#navSignIn`
+  button — into `#navMenu` when the page has one, else appended to `.bar`. Only
+  `index.html` has `#navMenu`, so the six pages this plan mounts will all take the
+  `.bar` branch, and `css/auth.css` currently has no rule for a button in that
+  context. Add one, or it renders unstyled on every back-office page.
+- **`initAuthUI()`'s idempotence guard contradicts its own retry comment.** The guard
+  returns early if `#authBanner` already exists, but `mounted` is deliberately set
+  *after* wiring so a partial failure can retry. So a mount that injects the banner
+  then throws can never re-wire: `mounted` stays false, `openAuthSheet()` no-ops
+  forever, and the injected nav button does nothing. Not reachable today (one call
+  per page, and no throw is known on the path). Worth making the guard
+  `#authSheet`-aware, or re-entering the wiring block, while you are in this file.
+- **Deferred, still open:** the module's sheet copy (titles, ledes, button labels)
+  lives in the DOM half and is the one class of decision with no pure-function test;
+  and there are no behavioural DOM tests at all — every `auth-ui` assertion is a grep
+  over source text. `js/auth-ui.js` imports cleanly under `node --test` (nothing it
+  pulls in touches `document`/`localStorage` at module scope), so a small fake-`document`
+  shim would make dismissal, mode-switching and button re-enabling directly testable.
+  Neither is required by this plan; do them if you are already in the area.
+
 ## File Structure
 
 | File | Responsibility |
