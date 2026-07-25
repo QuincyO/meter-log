@@ -6,6 +6,14 @@
  * `code` — keep USER-GUIDE.md inside that subset. */
 
 import { $, esc } from '../dom.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
+import { landingPage } from '../auth.js';
+
+// help.html is open to every role, so this never redirects — it mounts the
+// sign-in sheet, which matters because Back can strand someone here.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 // **bold** and `code`, applied after escaping
 function inline(s){
@@ -61,5 +69,7 @@ load();
 
 $('backBtn').onclick = () => {
   if(document.referrer && history.length > 1) history.back();
-  else window.location.href = 'index.html';
+  // No referrer (opened cold, or from the app shell) — go where this role can
+  // actually work, not to index.html, which a Foreman would just be bounced off.
+  else window.location.href = landingPage();
 };

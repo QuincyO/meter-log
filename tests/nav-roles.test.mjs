@@ -336,3 +336,11 @@ test('the capture page guards itself too', () => {
   assert.match(src, /guardPage\s*\(\s*\)/);
   assert.match(src, /applyRoleNav\s*\(\s*\)/);
 });
+
+test('help Back falls back to a page the role can actually open', () => {
+  // It hardcoded index.html, which a Foreman cannot open — the guard would
+  // bounce them onward, but that is a redirect to nowhere with extra steps.
+  const src = read('js/pages/help.js');
+  assert.match(src, /landingPage\s*\(\s*\)/);
+  assert.doesNotMatch(src, /window\.location\.href\s*=\s*'index\.html'/);
+});
