@@ -51,6 +51,7 @@ const SHEET_HTML = `
 </div>`;
 
 let mounted = false;
+let loading = false;
 let grantable = [];
 
 /** Mount the sheet and a nav entry. The entry is shown only to R_ONBOARD — and a
@@ -73,7 +74,7 @@ export function initApprovals(){
 export function openApprovals(){
   if(!mounted) return;
   $('approvalsSheet').classList.remove('hide');
-  load();
+  return load();
 }
 
 // ── the nav entry ──────────────────────────────────────────────────────────
@@ -113,26 +114,49 @@ function say(text, tone){
 }
 
 async function load(){
-  say('Loading…', '');
-  const d = await pendingSignups();
-  if(!d || !d.ok){
-    const err = (d && d.error) || 'could not load';
-    // This screen never queues — it is online-only by nature, and says so.
-    say(err === 'offline'
-      ? 'No signal — approvals need a connection. Everything else still works offline.'
-      : err, 'error');
-    return;
-  }
-  say('', '');
-  grantable = d.grantable || [];
-  const pending = d.pending || [];
-  $('apprPending').innerHTML = pending.length
-    ? pending.map(rowHTML).join('')
-    : '<p class="appr-empty">Nobody is waiting.</p>';
-  $('apprUsers').innerHTML = (d.users || []).map(rowHTML).join('')
-    || '<p class="appr-empty">No accounts yet.</p>';
-  for(const btn of document.querySelectorAll('#approvalsSheet [data-act]')){
-    btn.onclick = () => act(btn.dataset.act, btn.dataset.h, btn);
+  // apprRefresh, openApprovals() and act()'s trailing reload can all trigger a
+  // load() while one is already in flight; without this a slower, staler
+  // pendingSignups() response can resolve last and paint over a fresher one.
+  // Only one fetch is ever in flight — a caller that arrives mid-load just
+  // no-ops rather than racing it.
+  if(loading) return;
+  loading = true;
+  try {
+    say('Loading…', '');
+    const d = await pendingSignups();
+    if(!d || !d.ok){
+      const err = (d && d.error) || 'could not load';
+      // This screen never queues — it is online-only by nature, and says so.
+      say(err === 'offline'
+        ? 'No signal — approvals need a connection. Everything else still works offline.'
+        : err, 'error');
+      return;
+    }
+    say('', '');
+    grantable = d.grantable || [];
+    const pending = d.pending || [];
+    $('apprPending').innerHTML = pending.length
+      ? pending.map(rowHTML).join('')
+      : '<p class="appr-empty">Nobody is waiting.</p>';
+    // pendingAuthRead's `pending` is a filter OVER `users`, not a disjoint set —
+    // every pending account is already in `users` too. Drop it here so "All
+    // accounts" doesn't render it a second time; the row-scoped lookup in act()
+    // (below) is the real fix for the click-the-wrong-copy bug this caused, but
+    // there is no reason for the screen to show the same person twice anyway.
+    const others = (d.users || []).filter(u => u.status !== 'pending');
+    $('apprUsers').innerHTML = others.map(rowHTML).join('')
+      || '<p class="appr-empty">No accounts yet.</p>';
+    for(const btn of document.querySelectorAll('#approvalsSheet [data-act]')){
+      // .catch, not a bare call: act() can reject (a defensive try/finally lives
+      // inside it too, but an onclick that drops a rejection on the floor is an
+      // unhandled-rejection warning waiting to happen the next time someone
+      // touches this function). The arrow has no braces so the promise chain
+      // itself is what onclick() returns — tests await it directly.
+      btn.onclick = () => act(btn.dataset.act, btn.dataset.h, btn)
+        .catch(err => console.warn('approval action failed', err));
+    }
+  } finally {
+    loading = false;
   }
 }
 
@@ -143,17 +167,39 @@ async function load(){
 // when it's actually a reset-and-reopen. Same action, label matches the effect.
 const REJECT_LABEL = { pending: 'Reject', reset: 'Free H#', disabled: 'Free H#' };
 
+// Revoke and Reset PIN get a confirm() and nothing else here does. Both render
+// as identically-styled .auth-mini buttons in a flex-wrap row, so on a narrow
+// phone Reset PIN can reflow into the spot next to the harmless Unlock — a
+// mis-tap locks a working installer out mid-shift until they re-signup AND get
+// re-approved. This screen is not the first place in the app to guard a
+// destructive tap this way: removing a stop (js/pages/capture.js), restoring
+// one (js/pages/edit.js) and closing a day (js/pages/reports.js) all confirm()
+// first. Approve/Reject/Unlock/Set role stay unguarded on purpose — they are
+// each reversible from this same screen (see the REJECT_LABEL comment above).
+const CONFIRM_ACTION = {
+  authRevoke:   name => `Revoke ${name}'s account? They will be signed out immediately `
+    + 'and will have to sign up again from scratch to regain access.',
+  authResetPin: name => `Reset ${name}'s PIN? Their current PIN stops working immediately `
+    + '— they will need to set a new one before they can sign in again.',
+};
+
 function rowHTML(u){
   const c = rowControls(u, grantable);
   const h = attr(u.hNumber);
+  const name = attr(u.name || u.hNumber);
   const bits = [];
   if(c.setRole){
-    bits.push(`<select class="auth-field appr-role" data-role-for="${h}">`
+    // data-current is the row's role AT LOAD TIME — act() compares the picker's
+    // live value against this to decide whether the operator actually changed
+    // anything (see the comment on that check, below).
+    bits.push(`<select class="auth-field appr-role" data-current="${attr(u.role || '')}">`
       + c.roles.map(r =>
           `<option value="${attr(r)}"${r === u.role ? ' selected' : ''}>${esc(r)}</option>`).join('')
       + '</select>');
   }
-  const btn = (act, label) => `<button class="auth-mini" data-act="${act}" data-h="${h}">${label}</button>`;
+  // data-name rides along on every action button so act() can name the person
+  // in a confirm() prompt without re-walking the row for it.
+  const btn = (act, label) => `<button class="auth-mini" data-act="${act}" data-h="${h}" data-name="${name}">${label}</button>`;
   if(c.approve)  bits.push(btn('authApprove',  'Approve'));
   if(c.reject)   bits.push(btn('authReject',   REJECT_LABEL[String(u.status || '').trim()] || 'Reject'));
   if(c.setRole)  bits.push(btn('authSetRole',  'Set role'));
@@ -178,20 +224,50 @@ function rowHTML(u){
 }
 
 async function act(action, hNumber, btn){
+  // Revoke and Reset PIN only: see the comment on CONFIRM_ACTION above for why
+  // just these two. Asked BEFORE btn.disabled — a cancelled confirm must leave
+  // the row exactly as it was, not touch the button at all.
+  const confirmMsg = CONFIRM_ACTION[action];
+  if(confirmMsg && !confirm(confirmMsg(btn.dataset.name || hNumber))) return;
+
   btn.disabled = true;
-  const extra = {};
-  // A role picker on the row rides along: authApprove treats an unchanged role as
-  // no grant at all, which is what lets Back-Office approve without granting.
-  const sel = document.querySelector(`[data-role-for="${CSS.escape(hNumber)}"]`);
-  if(sel && (action === 'authApprove' || action === 'authSetRole')) extra.role = sel.value;
-  const resp = await authAction(action, hNumber, extra);
-  btn.disabled = false;
-  if(!resp || !resp.ok){
-    const err = (resp && resp.error) || 'that did not work';
-    // Shown verbatim: the spine is the authority, and its refusal is the reason.
-    toast(err === 'offline' ? 'No signal — approvals need a connection' : err);
-    return;
+  try {
+    const extra = {};
+    // Scoped to the row this button lives in, NOT a document-wide lookup by H
+    // number: pendingAuthRead's `pending` is a filter OVER `users`, so before
+    // load() started excluding pending rows from #apprUsers (see above), the
+    // same H number could render in BOTH sections at once, and a document-wide
+    // `querySelector` always finds the first (Waiting-for-approval) copy — so
+    // editing the All-accounts picker and tapping Set role there silently
+    // posted whatever the OTHER row's picker showed. Scoping to the clicked
+    // row's own ancestor is correct regardless of whether the two sections
+    // ever overlap again.
+    const sel = btn.closest('.appr-row').querySelector('.appr-role');
+    // Post a role only when the operator actually changed it. rowHTML()
+    // pre-selects the row's current role, so posting sel.value unconditionally
+    // is safe only as long as manageableRoles/grantableRoles (Code.gs) happen
+    // to keep the current role inside the option list, which is what keeps it
+    // pre-selected. If those tables ever diverge, the picker would fall back to
+    // its first option and a plain Approve would silently become a role change.
+    // This isn't enforcing a spine rule — it's declining to post a value the
+    // operator never touched.
+    if(sel && (action === 'authApprove' || action === 'authSetRole')
+       && sel.value !== (sel.dataset.current || '')) extra.role = sel.value;
+    const resp = await authAction(action, hNumber, extra);
+    if(!resp || !resp.ok){
+      const err = (resp && resp.error) || 'that did not work';
+      // Shown verbatim: the spine is the authority, and its refusal is the reason.
+      toast(err === 'offline' ? 'No signal — approvals need a connection' : err);
+      return;
+    }
+    toast('Done ✓');
+    await load();
+  } finally {
+    // Always, not just on the two returns above: the one throw path this used
+    // to have (CSS.escape, absent in some legacy WebViews) is gone now that the
+    // lookup above no longer needs it, but a bare assignment with no
+    // try/finally is one future edit away from leaving a tapped button
+    // disabled forever with nothing on screen explaining why.
+    btn.disabled = false;
   }
-  toast('Done ✓');
-  await load();
 }
