@@ -5,6 +5,16 @@
 // posts raw queued bodies directly so it can own retry semantics.
 import { cfg } from './store.js';
 import { enc } from './dom.js';
+import { CONFIG_READY } from './config.js';
+
+// A copy of this repo that was never pointed at its own deployment must not
+// reach ANY spine — silently writing into whichever /exec URL happened to be
+// committed is the failure this guards. Throwing here surfaces as the caller's
+// existing "couldn't load" handling, with an error that says what to fix.
+// queue.js posts raw bodies and deliberately bypasses apiPost, so it carries its
+// own copy of this check — a guard here alone would leave the write path open.
+const UNCONFIGURED = 'js/config.js is unconfigured (still on placeholders) — see ONBOARDING.md';
+function assertConfigured(){ if(!CONFIG_READY) throw new Error(UNCONFIGURED); }
 
 // Fetch once, retry a single time on a network-layer throw. Mobile browsers
 // routinely drop the first fetch right after a WiFi sleep/wake (the same event
@@ -20,6 +30,7 @@ async function fetchRetry(url, opts){
 
 // GET ?token=…&action=…&<params>. `params` values are URL-encoded.
 export async function apiGet(action, params = {}){
+  assertConfigured();
   const c = cfg();
   let u = `${c.url}?token=${enc(c.token)}&action=${enc(action)}`;
   for(const k in params){
@@ -31,6 +42,7 @@ export async function apiGet(action, params = {}){
 
 // POST {token, ...body}. text/plain dodges the CORS preflight.
 export async function apiPost(body){
+  assertConfigured();
   const c = cfg();
   const resp = await fetchRetry(c.url, {
     method:'POST', headers:{'Content-Type':'text/plain'},

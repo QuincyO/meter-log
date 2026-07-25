@@ -9,6 +9,7 @@ import { cfg } from './store.js';
 import { $, activeActivity, onActivityChange } from './dom.js';
 import { applyOptimisticCache, reconcileCache } from './daycache.js';
 import { classifyFlush } from './queue-policy.js';
+import { CONFIG_READY } from './config.js';
 
 const queueAll = async () => (await idb.all('queue')) || [];
 
@@ -52,7 +53,11 @@ let flushing = false;
 let lastFlushFailed = false;
 export async function flush(){
   if(flushing) return;
-  const c = cfg(); if(!c.url) { paint(); return; }
+  // No URL, or js/config.js still on its placeholders: hold everything. The items
+  // stay queued and un-parked — an unconfigured copy is a transient state, not a
+  // poison payload, so nothing is dropped and nothing counts a strike toward
+  // parking. Configure config.js and the next trigger drains the queue normally.
+  const c = cfg(); if(!c.url || !CONFIG_READY) { paint(); return; }
   flushing = true;
   try{
     while(true){

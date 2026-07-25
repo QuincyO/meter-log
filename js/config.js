@@ -1,4 +1,11 @@
 // ── Frontend config — the single source of truth for the web app ────────────
+// TENANT-SPECIFIC. This file is committed (GitHub Pages serves the repo root,
+// so the deployed site needs it in git) and therefore differs permanently
+// between tenants — never carry it across in a patch. `js/config.example.js` is
+// the credential-free template a second developer starts from; keep the two in
+// sync when adding a constant (tests/config-template.test.mjs enforces that).
+// See ONBOARDING.md and AGENTS.md §"Working with a second tenant".
+//
 // Paste your deployed Web App /exec URL here once. SHARED_TOKEN must match
 // Code.gs. This module is imported by every page, so the URL + token live in
 // ONE place on the frontend (Code.gs keeps its own copy — two places total,
@@ -33,3 +40,14 @@ export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6
 // real drive out to it. Change it with a commit — GitHub Pages ships it. The
 // desktop planner still clamps it into its [08:00, 08:30] muster window.
 export const ROUTE_DEPART_TIME = '08:15';
+
+// ── Preflight guard ─────────────────────────────────────────────────────────
+// False while the two required values above are still the placeholders carried
+// by js/config.example.js (or blank). js/api.js refuses to call the spine and
+// js/queue.js refuses to flush while this is false — so a copy of this repo
+// that was never pointed at its own deployment fails loudly instead of quietly
+// writing into someone else's Sheet. Queued writes are KEPT, not dropped: an
+// unconfigured device is a transient state, and the queue's durability contract
+// (AGENTS.md §"Offline queue mechanics") says a write is never lost.
+const filled = v => !!v && !/^PASTE_YOUR_/.test(v);
+export const CONFIG_READY = filled(WEB_APP_URL) && filled(SHARED_TOKEN);

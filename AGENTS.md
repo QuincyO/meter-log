@@ -165,6 +165,41 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 `SHARED_TOKEN` and the Web App URL sit in client-side source on a public-capable GitHub Pages site — this is a deliberate, documented trade-off (open-the-link-and-it-works), mitigated by keeping the repo private. Do not treat the token as a real secret, but also do not introduce anything that assumes per-user auth exists.
 
+## Working with a second tenant
+
+A second developer runs their own **isolated copy** — their own Sheet, Apps Script
+deployment, API keys, GitHub repo and Pages site. `ONBOARDING.md` is their stand-up
+runbook; `scripts/make-handoff.mjs` builds the credential-free bundle they start from.
+What matters when you are editing this repo:
+
+- **Three places are tenant-specific and must never travel in a cross-repo patch:**
+  `js/config.js` (whole file), `Code.gs:42` (`SHARED_TOKEN`), and
+  `.github/workflows/deploy-appsscript.yml:31` (`DEPLOYMENT_ID`). Everything else in the
+  tree is tenant-neutral: no Sheet ID exists anywhere (the script is container-bound via
+  `getActiveSpreadsheet()`), every asset path is relative, and there is no `CNAME` — so
+  the app runs unchanged under any account, repo name or subpath.
+- **`js/config.js` cannot be gitignored.** GitHub Pages serves the repo root as-is, so
+  each tenant must commit its own copy. That is why it diverges rather than being a local
+  override. In a second developer's clone, `git update-index --skip-worktree js/config.js`
+  keeps their values out of `git status`.
+- **`js/config.example.js` is the credential-free template** and must stay in step with
+  `js/config.js` — a constant added to one and not the other leaves a copied template
+  missing an export, and every page that imports it dies on load.
+  `tests/config-template.test.mjs` enforces this, and also that no live key ever lands in
+  the template.
+- **`CONFIG_READY` (`js/config.js`) is the preflight guard.** While `WEB_APP_URL`/
+  `SHARED_TOKEN` are still `PASTE_YOUR_…` placeholders, `js/api.js` throws and
+  `js/queue.js` `flush()` holds. **Holding is not parking** — queued writes keep their
+  strike count and are never dropped, because an unconfigured device is a transient state
+  (see §"Offline queue mechanics"). Both choke points need the check: `queue.js` posts raw
+  bodies and deliberately bypasses `apiPost`, so a guard in `api.js` alone would leave the
+  write path open.
+- **The handoff ships files, never a clone.** `js/config.js` has four live credentials
+  committed, so git history hands them over permanently even when the working tree is
+  blanked. `make-handoff.mjs` exports via `git archive` (tracked files only, no `.git`),
+  swaps in the template, blanks the other two tenant values, and then greps its own output
+  for surviving credentials and refuses to finish if it finds any.
+
 ## Tool-specific notes
 
 Everything above applies to every agent. Only these lines don't:

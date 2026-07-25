@@ -11,3 +11,7 @@ vault/
 # The vault's portable bootstrap spec — a local input to vault/, already applied.
 # Ignored so it stops reading as a pending instruction to the next agent.
 VAULT_BOOTSTRAP.md
+
+# Edge DevTools log from a headless verification run (VERIFY.md §3) — a local
+# debug artifact carrying a machine-specific WebSocket URL, not project source.
+edge.log
