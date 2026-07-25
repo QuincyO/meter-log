@@ -70,3 +70,20 @@
 .bar > #navSignIn{flex:none;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;
   border:1.5px solid #C6CCD3;border-radius:8px;background:rgba(255,255,255,.65);
   color:inherit;cursor:pointer}
+/* Same reasoning as .bar > #navSignIn above: on a page with no #navMenu the
+   Approvals button lands straight in .bar and needs the same compact chrome. */
+.bar > #navApprovals{flex:none;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;
+  border:1.5px solid #C6CCD3;border-radius:8px;background:rgba(255,255,255,.65);
+  color:inherit;cursor:pointer}
+
+/* Approvals list */
+.appr-head{margin:20px 0 6px;font-size:15px;font-weight:700}
+.appr-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  justify-content:space-between;padding:10px 0;border-top:1px solid #E3E7EB}
+.appr-who{min-width:0;flex:1 1 55%}
+.appr-who strong{display:block;font-size:15px}
+.appr-meta{font-size:13px;color:#5A626B}
+.appr-actions{display:flex;flex-wrap:wrap;gap:6px;flex:0 1 auto}
+.appr-actions .auth-mini{border-color:#C6CCD3;background:#F4F6F8;color:#13171C}
+.appr-role{width:auto;padding:6px 8px;font-size:14px}
+.appr-empty{margin:6px 0;font-size:14px;color:#5A626B}

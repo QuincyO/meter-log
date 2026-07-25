@@ -11,6 +11,7 @@ import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { guardPage, applyRoleNav } from '../nav-roles.js';
 import { initAuthUI } from '../auth-ui.js';
+import { initApprovals } from '../approvals.js';
 import { PRINTABLE } from '../compute/tally.js';
 import { BREAK_CATS, TRAVEL_ADJ_CATS } from '../compute/categories.js';
 
@@ -19,7 +20,7 @@ import { BREAK_CATS, TRAVEL_ADJ_CATS } from '../compute/categories.js';
 // module — nav wiring, fetches, etc. — still runs to completion before the
 // browser navigates away, which is harmless: the destination re-fetches
 // cleanly. Inert during the migration window, when every role is blank.
-try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); initApprovals(); } }
 catch(e){ console.warn('auth UI failed to mount', e); }
 
 let roster = { employees: [], teams: [] };

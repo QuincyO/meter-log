@@ -24,6 +24,7 @@ import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 import { initAuthUI } from '../auth-ui.js';
 import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initApprovals } from '../approvals.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -1682,7 +1683,7 @@ migrateLegacyQueue().then(() => {
 // role. Wrapped: nothing about a sign-in banner or role gate may cost a phone
 // its offline shell, and an uncaught throw here would abort module evaluation
 // before the service-worker registration below ever runs.
-try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); initApprovals(); } }
 catch(e){ console.warn('auth UI failed to mount', e); }
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 

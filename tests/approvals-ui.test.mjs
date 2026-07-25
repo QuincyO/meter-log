@@ -111,3 +111,67 @@ test('a missing user or a missing grantable list is handled, not thrown on', () 
   assert.equal(rowControls(null, null).approve, false);
   assert.deepEqual(rowControls(row({}), null).roles, []);
 });
+
+// ── the DOM half ───────────────────────────────────────────────────────────
+
+const src = read('js/approvals.js');
+
+test('it reads the queue and posts the six approver actions', () => {
+  assert.match(src, /pendingSignups\s*\(/);
+  for (const a of ['authApprove', 'authReject', 'authSetRole',
+                   'authResetPin', 'authUnlock', 'authRevoke']) {
+    assert.ok(src.includes(a), `should offer ${a}`);
+  }
+});
+
+test('the entry is gated on R_ONBOARD, and a blank role passes', () => {
+  // The migration window must reach this screen — it is how the first people are
+  // approved. roleAllows lets a blank role through; do not add a check that does not.
+  assert.match(src, /R_ONBOARD/);
+  assert.match(src, /roleAllows\s*\(/);
+});
+
+test('it escapes what it renders, because names come off a sheet', () => {
+  assert.match(src, /\besc\b/);
+});
+
+test('it re-reads after every action rather than patching its own list', () => {
+  // The spine may refuse or partially apply; the list it returns is the truth.
+  assert.match(src, /await\s+load\s*\(|load\s*\(\s*\)/);
+});
+
+test('it never renders credential material', () => {
+  assert.doesNotMatch(src, /pinHash|pinSalt|pinIters/);
+});
+
+test('offline is surfaced, not swallowed', () => {
+  assert.match(src, /offline/i);
+});
+
+test('reject carries a status-dependent label, because the same action means two different things', () => {
+  // 'Reject' reads right on a pending signup; on a reset/disabled row the same
+  // authReject call wipes the PIN and frees the H number, which 'Reject' alone
+  // would not convey.
+  assert.match(src, /pending['"]?\s*:\s*['"]Reject['"]/);
+  assert.match(src, /reset['"]?\s*:\s*['"][^'"]+['"]/);
+  assert.match(src, /disabled['"]?\s*:\s*['"][^'"]+['"]/);
+});
+
+test('the service worker ships it and the cache was bumped', () => {
+  // Not pinned to an exact version, for the same reason as the other two suites:
+  // a version-pinned assertion breaks whenever the next change bumps the shell.
+  const sw = read('sw.js');
+  assert.match(sw, /'\.\/js\/approvals\.js'/);
+  assert.doesNotMatch(sw, /const CACHE = 'meterlog-v3[456]'/);
+});
+
+test('both mount points initialise it', () => {
+  // index.html for owner/admin on a phone; reports.html because Back-Office holds
+  // R_ONBOARD but cannot open the capture page at all.
+  for (const p of ['capture', 'reports']) {
+    const page = read(`js/pages/${p}.js`);
+    assert.match(page, /import\s*\{[^}]*initApprovals[^}]*\}\s*from\s*'\.\.\/approvals\.js'/,
+      `js/pages/${p}.js should import initApprovals`);
+    assert.match(page, /initApprovals\s*\(\s*\)/, `js/pages/${p}.js should call initApprovals`);
+  }
+});
