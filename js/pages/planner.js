@@ -15,6 +15,8 @@
 // phone's Upload/Download, planner sync is explicit and fails loudly.
 import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
@@ -30,6 +32,11 @@ import {
   createLastRunRecord, createLatestProbeRunner, formatLastRunSummary, parsePlannerLastRunRecord,
   probeNominatim, probeOsrm,
 } from '../planner-services.js';
+
+// Role gate first: a redirect here should happen before this page fetches
+// anything. Inert during the migration window, when every role is blank.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order

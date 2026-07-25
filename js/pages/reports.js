@@ -9,8 +9,15 @@
 // switching subs just re-renders — no refetch.
 import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
 import { PRINTABLE } from '../compute/tally.js';
 import { BREAK_CATS, TRAVEL_ADJ_CATS } from '../compute/categories.js';
+
+// Role gate first: a redirect here should happen before this page fetches
+// anything. Inert during the migration window, when every role is blank.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 let roster = { employees: [], teams: [] };
 let rows = [];        // the loaded date's report lines

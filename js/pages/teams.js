@@ -3,7 +3,14 @@
 // the save*/delete* writes. Read-mostly admin page — no offline queue.
 import { $, enc, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
 import { store } from '../store.js';
+
+// Role gate first: a redirect here should happen before this page fetches
+// anything. Inert during the migration window, when every role is blank.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 let state = { employees:[], teams:[], captains:[], subs:[] };
 

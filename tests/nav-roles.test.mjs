@@ -308,3 +308,31 @@ function teardownDomTest() {
   delete globalThis.testToastMsg;
   delete globalThis.sessionStorageData;
 }
+
+// ── every page mounts it ───────────────────────────────────────────────────
+// A Foreman's session expires Monday 04:00 and their remembered role redirects
+// them off the capture page. If the sheet is not mounted where they land, they
+// have no way to sign in at all.
+
+const PAGES = ['map', 'edit', 'teams', 'reports', 'planner', 'help'];
+
+for (const p of PAGES) {
+  test(`${p}.html loads the auth stylesheet`, () => {
+    assert.match(read(`${p}.html`), /<link rel="stylesheet" href="css\/auth\.css">/);
+  });
+
+  test(`js/pages/${p}.js guards the page and mounts the sign-in sheet`, () => {
+    const src = read(`js/pages/${p}.js`);
+    assert.match(src, /import\s*\{[^}]*guardPage[^}]*\}\s*from\s*'\.\.\/nav-roles\.js'/);
+    assert.match(src, /guardPage\s*\(\s*\)/);
+    assert.match(src, /initAuthUI\s*\(\s*\)/);
+    assert.match(src, /applyRoleNav\s*\(\s*\)/);
+  });
+}
+
+test('the capture page guards itself too', () => {
+  // index.html is hidden from foreman/backoffice, so it needs the same guard.
+  const src = read('js/pages/capture.js');
+  assert.match(src, /guardPage\s*\(\s*\)/);
+  assert.match(src, /applyRoleNav\s*\(\s*\)/);
+});

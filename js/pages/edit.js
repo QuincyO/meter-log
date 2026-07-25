@@ -4,10 +4,17 @@
 // (previewDailyLog) or close the day (endOfDay). Read-mostly — no offline queue.
 import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
 import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
+
+// Role gate first: a redirect here should happen before this page fetches
+// anything. Inert during the migration window, when every role is blank.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[] };
 

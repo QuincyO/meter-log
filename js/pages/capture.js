@@ -23,6 +23,7 @@ import {
 import { geocodeOne } from '../route.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 import { initAuthUI } from '../auth-ui.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -1676,11 +1677,13 @@ migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
   if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
 });
-// The sign-in banner, mounted late so it paints over a page that is already
-// working. Wrapped: nothing about a sign-in banner may cost a phone its
-// offline shell, and an uncaught throw here would abort module evaluation
+// The sign-in banner and the role gate, mounted late so they paint over a page
+// that is already working — it never gates capture for a blank or installer
+// role. Wrapped: nothing about a sign-in banner or role gate may cost a phone
+// its offline shell, and an uncaught throw here would abort module evaluation
 // before the service-worker registration below ever runs.
-try { initAuthUI(); } catch(e){ console.warn('auth UI failed to mount', e); }
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.

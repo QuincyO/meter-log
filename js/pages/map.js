@@ -5,7 +5,14 @@
 // module (js/vendor/leaflet.js, js/vendor/chart.umd.min.js).
 import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
+import { guardPage, applyRoleNav } from '../nav-roles.js';
+import { initAuthUI } from '../auth-ui.js';
 import { decodeTrack } from '../drive-track.js';
+
+// Role gate first: a redirect here should happen before this page fetches
+// anything. Inert during the migration window, when every role is blank.
+try { if (guardPage()) { initAuthUI(); applyRoleNav(); } }
+catch(e){ console.warn('auth UI failed to mount', e); }
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
