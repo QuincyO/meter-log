@@ -1539,7 +1539,32 @@ consistent with the rest of the app.
 ## Known limits & next phase (the path past a small crew)
 
 The current Sheets + Apps Script design is great for a handful of installers. It
-is not built for ~200, and the gaps are worth recording before they bite:
+is not built for ~200, and the gaps are worth recording before they bite.
+
+**Work has started on this.** The target is per-user auth (H number + PIN,
+self-signup with owner approval, roles, server-derived identity), a routing +
+realtime edge box on the owner's own hardware behind a Cloudflare Tunnel (which
+takes the Maps/OSRM bill to roughly zero and gives near-instant cross-device
+sync), and enough spine work that Sheets stays viable while a database migration
+stays optional. Landed so far:
+
+- **Queue credentials resolve at send time** (`js/queue.js` `authFields()`) rather
+  than being stored on each item, and a rejected credential is classified `'auth'`
+  instead of parking the write. Together these make any credential rotation safe;
+  see AGENTS.md §"Security note". Prerequisite for everything else.
+- **Inbound refresh on foreground** (`js/pages/capture.js` `resync()`). Previously
+  `visibilitychange`/`focus` drained the queue outbound and pulled nothing, so a
+  phone left open all day never re-read the server — the reason a second device
+  looked stale. Still pull-based; the push layer comes with the edge box.
+- **Two hot paths de-quadratic'd**: `deleteDayRows` batches into consecutive runs
+  (one `deleteRows` call instead of one round-trip per row, inside the write lock
+  on every close), and `avgDispatchTime` indexes installs by `oldJ` instead of
+  scanning every install per request. Pairing semantics are unchanged — the
+  candidate lists are time-sorted, so the first unused hit is the earliest, which
+  is what the old min-scan picked. Deliberately *not* windowed to recent days:
+  that would change which pairs match.
+
+Still open:
 
 - **Apps Script ceilings.** Web apps have per-script concurrent-execution and
   daily-quota limits. Predictable busy windows — everyone logging around the
@@ -1558,8 +1583,15 @@ is not built for ~200, and the gaps are worth recording before they bite:
   collisions remain possible in the `Stops`/`Tracker` tallies until those rows
   also carry `installerId`.
 - **One shared token, in public files.** No way to revoke one person without
-  rotating everyone's. **Planned fix:** per-installer credentials tied to the
-  employee number.
+  rotating everyone's — and it authorizes `deleteEmployee`/`deleteTeam` exactly as
+  readily as `addStop`, since the spine never validates the caller-supplied
+  `installer`/`installerId`. `GMAPS_API_KEY` and `ORS_API_KEY` ship in the same
+  file. **Planned fix:** per-installer credentials tied to the employee number
+  (H number + PIN, owner-approved), a server-side action→role table, and
+  identity derived from the session rather than the payload. **Rotation is now
+  safe to perform** — the queue no longer stores credentials and no longer parks
+  on a rejected one — but the keys have not been rotated yet, so treat all three
+  as compromised until they are.
 - **Write de-duplication (queued appends).** `addStop`/`addDowntime` now carry a
   client-generated `id`; the spine's `idExists()` skips a row already written under
   that id, so a request that times out client-side *after* the server wrote the row no

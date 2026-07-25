@@ -1096,13 +1096,34 @@ function upsertDayRow(tab, date, installer, out) {
 }
 
 /** Delete every row matching (date, installer) from a date+installer-keyed tab,
- *  bottom-up so indices stay valid. */
+ *  bottom-up so indices stay valid.
+ *
+ *  Deletes in CONSECUTIVE RUNS, not one row at a time. Each deleteRow() is a
+ *  separate round-trip to the Sheets backend, and this runs inside the global
+ *  write lock on every endOfDay and every regenerate — a day's ~10 Timing rows
+ *  meant ~10 serialized round-trips while the whole crew was closing out.
+ *  Rows for one installer-day are written in one batch by writeTrackerAndTiming,
+ *  so in practice they are contiguous and this collapses to a single call.
+ *  saveWorklist already avoids the same pattern for the same reason. */
 function deleteDayRows(tab, date, installer) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
   const data = sh.getDataRange().getValues();
   const H = data[0]; const dCol = H.indexOf('date'), iCol = H.indexOf('installer');
+
+  // 1-based sheet row numbers, descending, so deleting never shifts a row we
+  // have not visited yet.
+  const doomed = [];
   for (let r = data.length - 1; r >= 1; r--) {
-    if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) sh.deleteRow(r + 1);
+    if (dateOf(data[r][dCol]) === date && sameName(data[r][iCol], installer)) doomed.push(r + 1);
+  }
+  if (!doomed.length) return;   // nothing matched — don't bust the memo for no reason
+
+  // Walk the descending list, extending a run while rows stay adjacent.
+  let runEnd = doomed[0], runLen = 1;
+  for (let i = 1; i <= doomed.length; i++) {
+    if (i < doomed.length && doomed[i] === doomed[i - 1] - 1) { runLen++; continue; }
+    sh.deleteRows(runEnd - runLen + 1, runLen);   // deleteRows(startRow, howMany)
+    if (i < doomed.length) { runEnd = doomed[i]; runLen = 1; }
   }
   bustRows(tab);
 }
@@ -2255,6 +2276,17 @@ function avgDispatchTime() {
                  ts: localStamp(r.timestamp), installer: r.installer || '', used: false }))
     .filter(r => r.oldJ && r.t != null);
 
+  // Index the installs by oldJ, each list sorted earliest-first. The pairing loop
+  // below used to scan EVERY install for EVERY request — O(Dispatch × Stops) over
+  // the whole lifetime of both tabs, re-run hourly by avgDispatchTimeJob while
+  // holding the script lock. A request now only looks at installs sharing its
+  // oldJ, which is normally one. Matching is unchanged: each list is ascending by
+  // time, so the first unused candidate at/after the request time IS the earliest
+  // one — exactly what the old full min-scan picked.
+  const byOldJ = {};
+  installs.forEach(inst => { (byOldJ[inst.oldJ] || (byOldJ[inst.oldJ] = [])).push(inst); });
+  Object.keys(byOldJ).forEach(k => byOldJ[k].sort((a, b) => a.t - b.t));
+
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dispatch');
   const data = sh.getDataRange().getValues();
   const H = data[0]; const c = n => H.indexOf(n);
@@ -2274,11 +2306,14 @@ function avgDispatchTime() {
   const pairs = [];
   reqIdx.forEach(({ r, t, reqDate }) => {
     const oldJ = norm(data[r][c('oldJNumber')]);
+    const cands = byOldJ[oldJ];
+    if (!cands) return;
     let best = null;
-    installs.forEach(inst => {
-      if (inst.used || inst.oldJ !== oldJ || inst.t < t) return;
-      if (!best || inst.t < best.t) best = inst;
-    });
+    for (let i = 0; i < cands.length; i++) {
+      const inst = cands[i];
+      if (inst.used || inst.t < t) continue;
+      best = inst; break;      // ascending by time — the first hit is the earliest
+    }
     if (!best) return;
     best.used = true;
     pairs.push({ r: r, best: best, rawMin: Math.max(0, Math.round((best.t - t) / 60000)),
