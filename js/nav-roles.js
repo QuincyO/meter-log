@@ -67,8 +67,11 @@ export function guardPage() {
 /** Drop the nav entries this role cannot use, and deliver any redirect notice. */
 export function applyRoleNav() {
   const r = role();
-  const sel = document.getElementById('navSel');
-  if (sel) {
+  // Map.html predates the shared jump menu and calls its control a view selector
+  // (#viewSel); the other back-office pages use #navSel. Query both so filtering
+  // works regardless of which page called this, and so a third variant is a
+  // one-token change rather than a new branch.
+  for (const sel of document.querySelectorAll('#navSel, #viewSel')) {
     for (const opt of [...sel.options]) {
       const page = NAV_PAGES[opt.value];
       if (page && !canSeePage(page, r)) opt.remove();

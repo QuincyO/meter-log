@@ -194,8 +194,11 @@ test('applyRoleNav() removes forbidden options and leaves allowed ones', async (
     }
   }));
 
+  globalThis.document.querySelectorAll = (selector) => {
+    if (selector === '#navSel, #viewSel') return [{ options }];
+    return [];
+  };
   globalThis.document.getElementById = (id) => {
-    if (id === 'navSel') return { options };
     if (id === 'navHelp') return { classList: { add: () => {} } };
     return null;
   };
@@ -228,8 +231,11 @@ test('applyRoleNav() leaves the full menu untouched during the migration window'
     }
   }));
 
+  globalThis.document.querySelectorAll = (selector) => {
+    if (selector === '#navSel, #viewSel') return [{ options }];
+    return [];
+  };
   globalThis.document.getElementById = (id) => {
-    if (id === 'navSel') return { options };
     if (id === 'navHelp') return { classList: { add: () => {} } };
     return null;
   };
@@ -240,6 +246,88 @@ test('applyRoleNav() leaves the full menu untouched during the migration window'
   assert.deepEqual(options.map(o => o.value), ALL, 'options remain in original order');
 
   teardownDomTest();
+});
+
+test('applyRoleNav() filters map.html\'s #viewSel for the backoffice role', async () => {
+  // Map.html predates the shared jump menu and uses #viewSel instead of #navSel.
+  // The filtering logic must work on both, or map.html's nav won't be filtered.
+  const { applyRoleNav } = await setupDomTest();
+
+  store.set('authRole', 'backoffice');
+
+  // Map.html's real option list
+  const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
+  const removedOptions = [];
+  const options = mapOptions.map(v => ({
+    value: v,
+    remove: function() {
+      removedOptions.push(this.value);
+    }
+  }));
+
+  globalThis.document.querySelectorAll = (selector) => {
+    if (selector === '#navSel, #viewSel') return [{ options }];
+    return [];
+  };
+  globalThis.document.getElementById = (id) => {
+    if (id === 'navHelp') return { classList: { add: () => {} } };
+    return null;
+  };
+
+  applyRoleNav();
+
+  assert.ok(removedOptions.includes('teams'), 'backoffice should not see teams option on map.html');
+  assert.ok(removedOptions.includes('edit'), 'backoffice should not see edit option on map.html');
+  assert.ok(!removedOptions.includes('map'), 'map should remain for backoffice');
+  assert.ok(!removedOptions.includes('analytics'), 'analytics should remain for backoffice');
+  assert.ok(!removedOptions.includes('reports'), 'reports should remain for backoffice');
+  assert.ok(!removedOptions.includes('help'), 'help should remain for backoffice');
+
+  teardownDomTest();
+});
+
+test('applyRoleNav() leaves #viewSel untouched for a blank role', async () => {
+  // Blank role is the migration window and must see everything, including on map.html.
+  const { applyRoleNav } = await setupDomTest();
+
+  store.set('authRole', '');
+
+  const mapOptions = ['map', 'analytics', 'teams', 'edit', 'reports', 'help'];
+  const removedOptions = [];
+  const options = mapOptions.map(v => ({
+    value: v,
+    remove: function() {
+      removedOptions.push(this.value);
+    }
+  }));
+
+  globalThis.document.querySelectorAll = (selector) => {
+    if (selector === '#navSel, #viewSel') return [{ options }];
+    return [];
+  };
+  globalThis.document.getElementById = (id) => {
+    if (id === 'navHelp') return { classList: { add: () => {} } };
+    return null;
+  };
+
+  applyRoleNav();
+
+  assert.deepEqual(removedOptions, [], 'blank role should remove zero options from #viewSel');
+
+  teardownDomTest();
+});
+
+test('map.html and other back-office pages use different select ids', () => {
+  // Map.html's #viewSel and the other pages' #navSel must not drift apart, or
+  // filtering will silently stop working. Assert they exist and are correct.
+  const mapHtml = read('map.html');
+  assert.match(mapHtml, /id="viewSel"/, 'map.html should carry id="viewSel" for its jump menu');
+
+  const backOfficePages = ['edit.html', 'teams.html', 'reports.html', 'planner.html'];
+  for (const page of backOfficePages) {
+    const content = read(page);
+    assert.match(content, /id="navSel"/, `${page} should carry id="navSel" for its jump menu`);
+  }
 });
 
 test('the redirect notice is delivered once, then cleared from sessionStorage', async () => {
@@ -284,6 +372,7 @@ async function setupDomTest() {
       if (id === 'navHelp') return null;
       return null;
     },
+    querySelectorAll: (selector) => [],
     hidden: false,
     addEventListener: () => {},
   };
