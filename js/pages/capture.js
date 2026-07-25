@@ -1680,7 +1680,7 @@ migrateLegacyQueue().then(() => {
 // working. Wrapped: nothing about a sign-in banner may cost a phone its
 // offline shell, and an uncaught throw here would abort module evaluation
 // before the service-worker registration below ever runs.
-try { initAuthUI(); } catch {}
+try { initAuthUI(); } catch(e){ console.warn('auth UI failed to mount', e); }
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 
 // Register the service worker so the app opens even with no signal.

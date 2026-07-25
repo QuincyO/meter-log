@@ -24,7 +24,7 @@ const BANNER_HTML = `
 </div>`;
 
 const SHEET_HTML = `
-<div class="auth-sheet hide" id="authSheet" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+<div class="auth-sheet hide" id="authSheet" role="dialog" aria-labelledby="authTitle">
   <div class="auth-card">
     <h2 id="authTitle">Sign in</h2>
     <p class="auth-lede" id="authLede">Your employee number and your 6-digit PIN.</p>
@@ -54,12 +54,25 @@ const SHEET_HTML = `
   </div>
 </div>`;
 
+// The banner's Sign-in CTA hides itself the moment a session exists
+// (bannerFor('ok', …) => {show:false}), so it can never be the route to
+// Sign out. This nav entry is the module's own, permanent way in — it is
+// never hidden in either auth state, matching the other plain-button
+// entries already in #navMenu (the capture page's ☰ dropdown).
+const NAV_HTML = `<button id="navSignIn" type="button">🔑 Sign in</button>`;
+
 let mounted = false;
 let mode = 'signin';          // 'signin' | 'signup'
 
 /** Mount once, paint, and subscribe. Safe to call on any page and twice. */
 export function initAuthUI(){
   if(mounted || typeof document === 'undefined') return;
+  // Guard against a retried mount after a partial failure: `mounted` only
+  // latches once wiring below succeeds (see the comment at the bottom of this
+  // function), so a caller may legitimately call initAuthUI() again after an
+  // exception. Without this check that retry would insertAdjacentHTML a
+  // second banner + sheet on top of the first.
+  if(document.getElementById('authBanner')) return;
 
   // The banner sits directly under the page's top bar on every page that has
   // one, so it reads as chrome rather than as part of the form beneath it.
@@ -68,15 +81,32 @@ export function initAuthUI(){
   else document.body.insertAdjacentHTML('afterbegin', BANNER_HTML);
   document.body.insertAdjacentHTML('beforeend', SHEET_HTML);
 
+  // The nav entry: #navMenu is the capture page's ☰ dropdown (a page-owned
+  // list of plain <button id="…"> children); a page without one (map/teams/…)
+  // gets the button appended to its top bar instead.
+  const navMenu = document.getElementById('navMenu');
+  if(navMenu) navMenu.insertAdjacentHTML('beforeend', NAV_HTML);
+  else if(bar) bar.insertAdjacentHTML('beforeend', NAV_HTML);
+
   $('authBannerCta').onclick = () => openAuthSheet();
   $('authBannerX').onclick   = dismissBanner;
   $('authClose').onclick     = closeAuthSheet;
   $('authSwitch').onclick    = () => setMode(mode === 'signin' ? 'signup' : 'signin');
   $('authSubmit').onclick    = submit;
   $('authSignOut').onclick   = () => { signOut(); setMode('signin'); closeAuthSheet(); toast('Signed out'); };
+  if($('navSignIn')) $('navSignIn').onclick = () => {
+    // Matches the other #navMenu buttons' own onclick handlers, which close
+    // the dropdown before acting.
+    const menu = document.getElementById('navMenu');
+    if(menu) menu.classList.add('hide');
+    openAuthSheet();
+  };
 
   // Backdrop tap closes. It is dismissible by design.
   $('authSheet').addEventListener('click', e => { if(e.target === $('authSheet')) closeAuthSheet(); });
+  // Escape closes too — there is no focus trap and nothing is `inert`, so
+  // this is a courtesy dismissal, not a modal behaviour.
+  $('authSheet').addEventListener('keydown', e => { if(e.key === 'Escape') closeAuthSheet(); });
   // Enter submits from either PIN field.
   for(const id of ['authPin', 'authPin2']){
     $(id).addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
@@ -87,13 +117,20 @@ export function initAuthUI(){
   // call retry instead of permanently no-op-ing openAuthSheet() for the page.
   mounted = true;
   onAuthChange(paintBanner);
+  onAuthChange(paintNav);
   paintBanner();
+  paintNav();
 }
 
 export function openAuthSheet(next){
   if(!mounted) return;
   setMode(next || (auth().state === 'ok' ? 'signin' : mode));
   $('authSheet').classList.remove('hide');
+  // Land focus on whatever still needs input: signed in, that's Sign out;
+  // otherwise the PIN when the H number is already known (a remembered
+  // session or Settings), else the H-number field itself.
+  if(auth().state === 'ok') $('authSignOut').focus();
+  else ($('authH').value ? $('authPin') : $('authH')).focus();
 }
 
 export function closeAuthSheet(){ if(mounted) $('authSheet').classList.add('hide'); }
@@ -113,6 +150,14 @@ function paintBanner(){
 function dismissBanner(){
   store.set('authBannerDay', localDate());
   paintBanner();
+}
+
+// ── nav entry ──────────────────────────────────────────────────────────────
+// Never hidden — it is the only route to openAuthSheet() once the banner is
+// dismissed for the day (or, once signed in, the only route to Sign out).
+function paintNav(){
+  const el = $('navSignIn'); if(!el) return;
+  el.textContent = auth().state === 'ok' ? '👤 Account' : '🔑 Sign in';
 }
 
 // ── the sheet ──────────────────────────────────────────────────────────────
@@ -160,9 +205,19 @@ function say(text, tone){
 }
 
 async function submit(){
+  // Enter on #authPin/#authPin2 calls submit() directly (see the keydown
+  // wiring above), bypassing the click path's `btn.disabled` guard. Two
+  // concurrent Enters on a slow link would each post authLogin and each count
+  // a strike on the server's wrong-PIN lockout ladder (5 fails -> 15 min,
+  // 10 -> 60 min, 15 -> locked until an administrator unlocks it) — a rung a
+  // field installer with no signal cannot reach anyone to clear.
+  if($('authSubmit').disabled) return;
+
   const h   = $('authH').value.trim();
   const pin = $('authPin').value.trim();
   if(!h){ say('Enter your employee number', 'error'); return; }
+  // Mirrors Code.gs PIN_LENGTH (6); the weak-PIN rules (no repeats/runs/years)
+  // stay server-side and are surfaced verbatim, not duplicated here.
   if(!/^\d{6}$/.test(pin)){ say('Your PIN is 6 digits', 'error'); return; }
   if(mode === 'signup' && $('authPin2').value.trim() !== pin){
     say('The two PINs do not match', 'error'); return;

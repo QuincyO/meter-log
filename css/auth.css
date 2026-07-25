@@ -17,15 +17,21 @@
 
 /* The sheet: a fixed, scrollable overlay. Tapping the backdrop closes it —
    it is dismissible by design, never a gate. */
-.auth-sheet{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;
+/* align-items:stretch (not flex-end) + margin-top:auto on the card is the
+   standard fix for a bottom-sheet that can exceed the viewport: flex-end
+   alignment pushes overflow above the scroll origin, stranding the top of a
+   tall card (landscape, or portrait with the numeric keyboard raised).
+   margin-top:auto keeps the same bottom-anchored look when the card fits. */
+.auth-sheet{position:fixed;inset:0;z-index:60;display:flex;align-items:stretch;
   justify-content:center;background:rgba(0,0,0,.45);overflow-y:auto;padding:0}
 .auth-sheet.hide{display:none}
 .auth-card{width:100%;max-width:520px;background:#fff;color:#13171C;
-  border-radius:16px 16px 0 0;padding:20px 18px 28px;
+  border-radius:16px 16px 0 0;padding:20px 18px 28px;margin-top:auto;
   font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
 @media (min-width:560px){
-  .auth-sheet{align-items:center}
-  .auth-card{border-radius:16px}
+  /* margin-bottom:auto alongside margin-top:auto centres the card instead of
+     relying on align-items:center, so the same overflow-safe scrolling holds. */
+  .auth-card{margin-bottom:auto;border-radius:16px}
 }
 .auth-card h2{margin:0 0 6px;font-size:20px}
 .auth-lede{margin:0 0 14px;font-size:14px;color:#5A626B}
@@ -48,4 +54,8 @@
 .auth-note{margin:14px 0 0;font-size:13px;color:#5A626B}
 .auth-me{font-size:15px}
 .auth-me strong{display:block;font-size:17px;margin-bottom:2px}
-.hide{display:none}
+/* Scoped, not a bare .hide: this file mounts on six other pages, and an
+   unscoped rule would be the only selector outside the auth-* namespace.
+   These three cover every element the module toggles — #authForm, #authMe,
+   #authConfirmWrap and #authMsg all live inside .auth-card. */
+.auth-banner.hide, .auth-sheet.hide, .auth-card .hide{display:none}

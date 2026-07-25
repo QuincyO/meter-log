@@ -163,16 +163,16 @@ test('it re-paints on auth change, which is what surfaces a weekend expiry', () 
 });
 
 test('it routes outcomes through the tested policy instead of re-deciding', () => {
-  assert.match(ui, /signInFeedback/);
-  assert.match(ui, /signUpFeedback/);
-  assert.match(ui, /bannerFor/);
-  assert.match(ui, /bannerDismissed/);
+  assert.match(ui, /signInFeedback\s*\(/);
+  assert.match(ui, /signUpFeedback\s*\(/);
+  assert.match(ui, /bannerFor\s*\(/);
+  assert.match(ui, /bannerDismissed\s*\(/);
 });
 
 test('signing out is offered, and goes through auth.js signOut', () => {
   // signOut() touches only the session keys — the queue, day cache and worklist
   // must survive it, so this must never grow its own storage clearing.
-  assert.match(ui, /\bsignOut\b/);
+  assert.match(ui, /\bsignOut\s*\(/);
   assert.doesNotMatch(ui, /localStorage\.clear|deleteDatabase|caches\.delete/);
 });
 
@@ -191,11 +191,15 @@ test('the service worker ships the new module and stylesheet', () => {
 });
 
 test('the cache version was bumped, or phones keep the old shell', () => {
-  // Deliberately "not v34" rather than "is v35": plans 2 and 3 each add a module
-  // and bump again, and a test pinned to an exact version would fail the moment
+  // A numeric floor, not an exact pin: plans 2 and 3 each add a module and
+  // bump again, and a test pinned to an exact version would fail the moment
   // the next plan lands. What matters is that the shell moved past the last
-  // release that lacked these files.
-  assert.doesNotMatch(read('sw.js'), /const CACHE = 'meterlog-v34'/);
+  // release that lacked these files — v34 or v33 would equally satisfy a bare
+  // "doesNotMatch v34", so this parses the number and requires it to have
+  // actually advanced.
+  const m = read('sw.js').match(/meterlog-v(\d+)/);
+  assert.ok(m, 'sw.js should define a versioned CACHE name');
+  assert.ok(Number(m[1]) >= 35, `expected CACHE version >= 35, got v${m[1]}`);
 });
 
 test('the capture page loads the stylesheet and initialises the module', () => {
