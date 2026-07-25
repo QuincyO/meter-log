@@ -3,9 +3,8 @@
 // not offer a button that is guaranteed to be refused, which is a UI concern, not
 // a security one.
 
-/** Which controls a row gets. Pure. Mirrors what the spine will actually accept,
- *  so the screen never offers a button that is guaranteed to be refused —
- *  which is a UI concern, not a security one. */
+/** Which action buttons a row gets, based on status, lock state, and role
+ *  grantability. Pure and testable. */
 export function rowControls(user, grantable) {
   const roles = Array.isArray(grantable) ? grantable : [];
   if (!user || !user.manageable)
@@ -13,7 +12,11 @@ export function rowControls(user, grantable) {
              revoke: false, setRole: false, roles: [] };
   const status = String(user.status || '').trim();
   return {
-    approve:  status === 'pending',  // deliberately not wider; see comment in Code.gs authApprove
+    // The spine would accept approving a disabled row with its old PIN intact
+    // (authApprove only short-circuits on 'active'). This screen does not offer that —
+    // Reject wipes the PIN and frees the H number for fresh signup, preventing silent
+    // credential resurrection. Product decision, not an oversight; do not widen.
+    approve:  status === 'pending',
     // Reject frees the H number in three cases: typo'd signup (pending), stalled reset
     // (reset), or revoked account (disabled). authReject refuses an active row.
     reject:   status === 'pending' || status === 'reset' || status === 'disabled',
