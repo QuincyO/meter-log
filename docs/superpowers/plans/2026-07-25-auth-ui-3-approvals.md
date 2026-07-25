@@ -573,6 +573,34 @@ git push origin claude/security-scalability-architecture-t142cu
 
 ---
 
+## Carried forward from plans 1 and 2
+
+Both landed and were reviewed; these came out of them and are cheapest to do here,
+since this plan edits `js/auth-ui.js` anyway to add the approvals nav entry.
+
+- **`initAuthUI()`'s idempotence guard still contradicts its own retry comment.** It
+  returns early when `#authBanner` exists, but `mounted` is set only after wiring — so
+  a mount that injects the banner then throws can never re-wire, and `openAuthSheet()`
+  no-ops for the life of the page. Not reachable today (one call per page, no known
+  throw), but plan 2 wrapped every mount in `try/catch`, so such a failure now presents
+  as a silently dead "🔑 Sign in" button instead of a console error. Make the guard
+  `#authSheet`-aware, or re-enter the wiring block. One line, and you are in this file.
+- **An unrecognised role is denied everything, which is backwards for UI hiding.**
+  `roleAllows` returns false for any role string outside `ROLES`; `homePageFor` then
+  falls back to `help.html`, which that role also cannot "see", and help's Back button
+  returns `landingPage()` → `help.html` again. The guard does not loop (`dest === page`
+  stops it), but the user is confined to the help page. This cannot happen today —
+  `Code.gs`'s `ALL_ROLES` is drift-tested against `ROLES` — but `Code.gs` deploys
+  separately from the static pages, so a spine shipped with a new role before Pages
+  catches up would strand those people. Since this layer is explicitly UI hiding and
+  never a security boundary, treating an *unrecognised* role like a blank one (allow
+  everything, let the spine refuse) is strictly safer. Changing `roleAllows` touches
+  the `Code.gs` mirror, so update `tests/auth-client.test.mjs` in the same commit.
+- **Deferred, still open:** the sheet's copy (titles, ledes, button labels) lives in
+  the DOM half with no pure-function test; the seven mount assertions are regexes over
+  source text and would pass on a call placed in unreachable code; and `toast()`
+  actually firing the redirect notice is untested.
+
 ## One thing to settle before the rollout flip
 
 Not part of this plan's tasks, but it belongs to whoever does the rollout. Once
