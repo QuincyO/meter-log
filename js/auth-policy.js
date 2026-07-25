@@ -87,3 +87,63 @@ export function loginOutcome(resp) {
   if (resp.needsPin) return { kind: 'needsPin', message: resp.error || 'choose a new PIN' };
   return { kind: 'failed', message: resp.error || 'wrong H number or PIN' };
 }
+
+// ── What the sign-in UI shows ──────────────────────────────────────────────
+// Pure, so the copy and the state machine can be tested without a DOM. The
+// rule these serve: login is a banner, never a wall. Every branch below either
+// closes the sheet or explains itself — none of them stops anyone working.
+
+/** The banner for a session state. `ok` shows nothing; the other two differ in
+ *  that 'expired' still knows who you are, so it can be personal. */
+export function bannerFor(state, name) {
+  const who = String(name || '').trim();
+  if (state === 'ok') return { show: false, tone: '', text: '', cta: '' };
+  if (state === 'expired')
+    return { show: true, tone: 'warn', cta: 'Sign in',
+             text: who ? `New week — sign in again, ${who}` : 'New week — sign in again' };
+  return { show: true, tone: 'info', cta: 'Sign in', text: 'Not signed in' };
+}
+
+/** Dismissal lasts the calendar day. Same shape as the driveRecord date guard:
+ *  a stale or absent date reads as "not dismissed", so this fails toward showing
+ *  the banner rather than toward hiding it forever. */
+export function bannerDismissed(storedDay, today) {
+  return !!storedDay && String(storedDay) === String(today);
+}
+
+/** How the sheet reacts to a signIn() result. Switches on the `kind` auth.js
+ *  already returns — never on the error prose, which is why loginOutcome exists. */
+export function signInFeedback(out) {
+  const kind = out && out.kind;
+  const msg = (out && out.message) || '';
+  if (kind === 'ok')
+    return { close: true, mode: null, tone: 'ok', text: '' };
+  if (kind === 'needsPin')
+    return { close: false, mode: 'signup', tone: 'info',
+             text: 'Your PIN was reset — choose a new one' };
+  if (kind === 'pending')
+    return { close: false, mode: 'signin', tone: 'info',
+             text: 'Waiting for approval — you can keep logging meanwhile' };
+  if (kind === 'locked')
+    return { close: false, mode: 'signin', tone: 'error', text: msg || 'Too many tries — locked for now' };
+  if (kind === 'offline')
+    return { close: false, mode: 'signin', tone: 'info',
+             text: 'No signal — keep logging, your work is saved and will sync' };
+  return { close: false, mode: 'signin', tone: 'error', text: msg || 'Wrong H number or PIN' };
+}
+
+/** How the sheet reacts to a signUp() result. 'active' means the row had been
+ *  approved already (a PIN reset), so the PIN just set works immediately. */
+export function signUpFeedback(out) {
+  const kind = out && out.kind;
+  const msg = (out && out.message) || '';
+  if (kind === 'active')
+    return { close: false, mode: 'signin', tone: 'ok', text: 'PIN set — sign in now' };
+  if (kind === 'pending')
+    return { close: false, mode: 'signin', tone: 'info',
+             text: 'Signed up — an administrator has to approve you. You can keep logging meanwhile.' };
+  if (kind === 'offline')
+    return { close: false, mode: 'signup', tone: 'info',
+             text: 'No signal — keep logging, your work is saved and will sync' };
+  return { close: false, mode: 'signup', tone: 'error', text: msg || 'Could not sign up' };
+}
