@@ -77,9 +77,13 @@ const R_VIEW    = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_BACKOFFICE]; // ma
 const R_ONBOARD = [ROLE_OWNER, ROLE_ADMIN, ROLE_BACKOFFICE];              // approvals, PIN resets
 const R_MANAGE  = [ROLE_OWNER, ROLE_ADMIN];                                // roster/teams/deletes
 
-// Which roles may act on OTHER people's data. Everyone else is pinned to their own
-// H number regardless of what the request claims (see scopeToSession).
-const R_ACT_FOR_OTHERS = R_OPS;
+// Acting for someone else splits in two, and conflating them would be a real hole.
+// Back-Office must READ the whole crew (map.html and the analytics tiles are their
+// whole job) but must never WRITE for anyone. Foreman does both, for all crew.
+// Everyone else is pinned to their own H number regardless of what the request
+// claims — see scopeToSession.
+const R_READ_ANY       = R_VIEW;   // may read other people's rows
+const R_ACT_FOR_OTHERS = R_OPS;    // may write on other people's behalf
 
 // A 6-digit PIN. Length is fixed by policy; see rejectWeakPin for the rest.
 const PIN_LENGTH = 6;
@@ -558,14 +562,17 @@ function authIndex() {
  *  an older client that still sends them keeps working while the server ignores
  *  what it claimed. This is the line that turns identity from caller-asserted into
  *  server-derived. */
-function scopeToSession(sess, obj) {
-  if (!sess || R_ACT_FOR_OTHERS.indexOf(sess.role) !== -1) return obj;
+function scopeToSession(sess, obj, allowSet) {
+  if (!sess) return obj;
+  if ((allowSet || R_ACT_FOR_OTHERS).indexOf(sess.role) !== -1) return obj;
+  // Stamped UNCONDITIONALLY, not only when the key is already present. Doing it
+  // conditionally would make the result depend on what the client chose to send,
+  // which is exactly the thing this function exists to stop trusting. A handler
+  // that doesn't read these keys simply ignores them.
   const name = nameOfH(sess.h);
-  if ('installerId' in obj || 'installer' in obj || 'hNumber' in obj) {
-    if ('installerId' in obj) obj.installerId = sess.h;
-    if ('hNumber' in obj)     obj.hNumber     = sess.h;
-    if ('installer' in obj)   obj.installer   = name || obj.installer;
-  }
+  obj.installerId = sess.h;
+  obj.hNumber     = sess.h;
+  if (name) obj.installer = name;
   return obj;
 }
 
@@ -603,6 +610,126 @@ function makeOwner(hNumber) {
   return 'Owner: ' + h + (existing && existing.pinHash ? '' : ' — they still need to set a PIN via signup');
 }
 
+// ── Action → role policy ───────────────────────────────────────────────────
+// Every action gets an entry. An action MISSING from these tables is DENIED, so a
+// new endpoint is closed until someone decides who may call it — the safe default,
+// and tests/auth-policy.test.mjs fails the build if a doPost/doGet case has no
+// entry. `scope:'self'` means the caller's identity is stamped onto the request
+// (see scopeToSession) unless their role is allowed to act for others.
+const POST_POLICY = {
+  // Field capture — the caller's own work.
+  addStop:         { roles: R_FIELD, scope: 'self' },
+  addDowntime:     { roles: R_FIELD, scope: 'self' },
+  saveDriveTrack:  { roles: R_FIELD, scope: 'self' },
+  endOfDay:        { roles: R_FIELD, scope: 'self' },
+  saveTravel:      { roles: R_FIELD, scope: 'self' },
+  saveDay:         { roles: R_FIELD, scope: 'self' },
+  previewDailyLog: { roles: R_FIELD, scope: 'self' },
+  savePlan:        { roles: R_FIELD, scope: 'self' },
+  // Corrections. An installer may fix their own stop; OPS may fix anyone's.
+  updateStop:      { roles: R_FIELD, scope: 'self' },
+  archiveStop:     { roles: R_FIELD, scope: 'self' },
+  restoreStop:     { roles: R_OPS },
+  // Whole-list replace of an installer's planned orders — destructive, so OPS only.
+  saveWorklist:    { roles: R_OPS },
+  // Self-service settings for your own row; changing someone ELSE's is R_MANAGE.
+  // saveEmployee enforces the field subset itself (see the handler).
+  saveEmployee:    { roles: R_FIELD, scope: 'self' },
+  // Roster and list management.
+  saveTeam:        { roles: R_MANAGE },
+  saveCaptain:     { roles: R_MANAGE },
+  saveSub:         { roles: R_MANAGE },
+  deleteEmployee:  { roles: R_MANAGE },
+  deleteTeam:      { roles: R_MANAGE },
+  deleteCaptain:   { roles: R_MANAGE },
+  deleteSub:       { roles: R_MANAGE },
+  // Onboarding.
+  authApprove:     { roles: R_ONBOARD },
+  authReject:      { roles: R_ONBOARD },
+  authResetPin:    { roles: R_ONBOARD },
+  authUnlock:      { roles: R_ONBOARD },
+  authSetRole:     { roles: R_MANAGE },
+  authRevoke:      { roles: R_MANAGE },
+  // Unauthenticated by nature — they are how you GET a session. Rate-limited
+  // separately; they still carry the shared token as a coarse deploy gate.
+  authSignup:      { anon: true },
+  authLogin:       { anon: true },
+  // The Apple Shortcut cannot hold a session; it carries SHORTCUT_KEY instead.
+  dispatchRequest: { shortcut: true }
+};
+
+const GET_POLICY = {
+  // A person's own working data. R_READ_ANY may pass someone else's identity.
+  day:              { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  range:            { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  idle:             { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  archived:         { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  worklist:         { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  installerMetrics: { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  driveTracks:      { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  // Harmless to any signed-in user, and needed by the capture page.
+  lookup:           { roles: ALL_ROLES },
+  nearby:           { roles: ALL_ROLES },
+  geocode:          { roles: ALL_ROLES },
+  avgDispatchTime:  { roles: ALL_ROLES },
+  roster:           { roles: ALL_ROLES },   // projected per role — see roster()
+  // Crew-wide analytics: the map and reports pages.
+  pins:             { roles: R_VIEW },
+  tracker:          { roles: R_VIEW },
+  downtime:         { roles: R_VIEW },
+  timing:           { roles: R_VIEW },
+  boatdays:         { roles: R_VIEW },
+  dispatch:         { roles: R_VIEW },
+  // Onboarding queue.
+  pendingAuth:      { roles: R_ONBOARD }
+};
+
+/** Resolve the caller. Returns {ok:true, sess} — sess null when the legacy shared
+ *  token carried the request during the migration window — or {ok:false, ...} with
+ *  an `authError` flag the client's queue treats as "retry after signing in" rather
+ *  than as a poison payload (see js/queue-policy.js isAuthReject).
+ *
+ *  While REQUIRE_AUTH is false the spine accepts EITHER a valid session OR the old
+ *  shared token, so the crew can sign up and drain queued work before the switch.
+ *  Flipping the property back is the rollback; no redeploy needed. */
+function authenticate(action, carrier) {
+  const policy = carrier.isGet ? GET_POLICY[action] : POST_POLICY[action];
+  if (!policy) return { ok: false, error: 'unknown action' };
+
+  const legacyOk = carrier.token === SHARED_TOKEN;
+  const sess = carrier.auth ? verifySession(carrier.auth) : null;
+
+  if (policy.anon) {
+    // Signup/login can't have a session yet. Keep the shared token as a coarse gate
+    // so the endpoints aren't wide open to the internet.
+    if (!legacyOk) return { ok: false, error: 'bad token' };
+    return { ok: true, sess: null };
+  }
+  if (policy.shortcut) {
+    const key = scriptProp('SHORTCUT_KEY');
+    if (key && safeEquals(carrier.shortcutKey || '', key)) return { ok: true, sess: null };
+    if (!requireAuth() && legacyOk) return { ok: true, sess: null };
+    return { ok: false, error: 'bad token' };
+  }
+
+  if (sess) {
+    if ((policy.roles || []).indexOf(sess.role) === -1) {
+      return { ok: false, error: 'not allowed for your role', forbidden: true };
+    }
+    return { ok: true, sess: sess };
+  }
+  // No usable session.
+  if (!requireAuth() && legacyOk) return { ok: true, sess: null };   // migration window
+  if (carrier.auth) return { ok: false, error: 'session expired', authError: 'expired' };
+  return { ok: false, error: 'bad token', authError: 'required' };
+}
+
+/** Apply a policy's scoping to the request object, in place. */
+function applyScope(policy, sess, obj) {
+  if (!policy || policy.scope !== 'self' || !sess) return obj;
+  return scopeToSession(sess, obj, policy.read ? R_READ_ANY : R_ACT_FOR_OTHERS);
+}
+
 /** Editor-run. Times the PIN hash so the iteration count can be tuned to the real
  *  project rather than guessed: pick the largest count that keeps a login well
  *  under ~400ms, since this runs on the login path. */
@@ -632,7 +759,15 @@ function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return json({ ok: false, error: String(err) }); }
-  if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+  // Identity is resolved here and stamped onto the body, so no handler below has to
+  // trust the caller's `installer`/`installerId`. See §"Auth" at the top of the file.
+  const gate = authenticate(body.action, { token: body.token, auth: body.auth,
+                                           shortcutKey: body.shortcutKey, isGet: false });
+  if (!gate.ok) return json(gate.forbidden
+    ? { ok: false, error: gate.error }
+    : { ok: false, error: gate.error, authError: gate.authError });
+  applyScope(POST_POLICY[body.action], gate.sess, body);
+
   if (body.action === 'previewDailyLog') {
     try { return json(previewDailyLog(body)); }
     catch (err) { return json({ ok: false, error: String(err) }); }
@@ -676,7 +811,19 @@ function doPost(e) {
 // ── GET: read-side for the map / lookup / "is this done?" check ───────────
 function doGet(e) {
   const p = e.parameter || {};
-  if (p.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+  // Health check: no action at all. Kept ahead of the gate so "is the spine up?"
+  // stays answerable without a session, exactly as before.
+  if (!p.action) {
+    return json(p.token === SHARED_TOKEN || verifySession(p.auth)
+      ? { ok: true, message: 'Meter Log spine is up.' }
+      : { ok: false, error: 'bad token' });
+  }
+  const gate = authenticate(p.action, { token: p.token, auth: p.auth, isGet: true });
+  if (!gate.ok) return json(gate.forbidden
+    ? { ok: false, error: gate.error }
+    : { ok: false, error: gate.error, authError: gate.authError });
+  applyScope(GET_POLICY[p.action], gate.sess, p);
+  const SESSION = gate.sess;   // available to the read handlers below for projection
 
   if (p.action === 'nearby') {
     return json(nearby(parseFloat(p.lat), parseFloat(p.lng),
@@ -730,7 +877,7 @@ function doGet(e) {
   if (p.action === 'driveTracks') return json(driveTracksRead(p.installer, p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
-  if (p.action === 'roster')  return json(roster());
+  if (p.action === 'roster')  return json(roster(SESSION));
   if (p.action === 'idle') {
     const date = p.date || today();
     const id   = String(p.installerId == null ? '' : p.installerId).trim();
@@ -1912,8 +2059,23 @@ function computeIdle(teamStops, departure, returned) {
 // ── Crew + boat teams ──────────────────────────────────────────────────────
 /** The whole crew + every team, in one call. teams.html and the installer's
  *  name picker both read this. */
-function roster() {
-  return { ok: true, employees: employeesList(), teams: teamsList(),
+/** The crew + teams + quick-pick name lists.
+ *
+ *  PROJECTED BY ROLE. Every caller needs the roster (name pickers, team joins, the
+ *  sub lookup), but `employeesList()` carries each person's home address and pin —
+ *  the end-of-day route anchor. Shipping 200 installers' home addresses to all 200
+ *  of them is not something the app needs in order to work, so an installer gets the
+ *  identity fields for everyone plus the address for themselves only. R_VIEW roles
+ *  (map/analytics/planner, who route against those anchors) get the full rows. */
+function roster(sess) {
+  const full = employeesList();
+  const canSeeAll = !sess || R_READ_ANY.indexOf(sess.role) !== -1;
+  const employees = canSeeAll ? full : full.map(function (e) {
+    const mine = String(e.hNumber).trim() === String(sess.h).trim();
+    return mine ? e : { hNumber: e.hNumber, firstName: e.firstName, lastName: e.lastName,
+                        active: e.active, subName: e.subName };
+  });
+  return { ok: true, employees: employees, teams: teamsList(),
            captains: namesList('Captains'), subs: namesList('Subs') };
 }
 

@@ -303,6 +303,78 @@ quota even on a heavy day — it's only hit when Google/OSRM already failed. Sam
 public-client-key tradeoff as the keys above (client source on a public-capable
 Pages site, mitigated by keeping the repo private).
 
+## Per-user auth (H number + PIN) — setup and rollout
+
+The spine is moving off the single `SHARED_TOKEN` onto per-user credentials with
+owner approval. The server side ships **disabled by default**: until
+`REQUIRE_AUTH` is set to `true`, every request is accepted on either a valid
+session *or* the old shared token, so nothing changes for the crew until you
+choose to flip it.
+
+### 1. Three Script Properties (Apps Script ▸ Project Settings ▸ Script Properties)
+
+| Property | Value | Notes |
+|---|---|---|
+| `PIN_PEPPER` | a long random string | Mixed into every PIN hash. **The single most valuable control here** — a 6-digit PIN is only a million candidates, so if the Sheet ever leaks, this is what stops the whole crew's PINs falling out of it. Never put it in the Sheet or in `Code.gs`. |
+| `SESSION_SECRET` | a long random string | Signs session tokens. Rotating it signs everyone out — that's the global kill switch. |
+| `SHORTCUT_KEY` | a long random string | The Apple Shortcut's own credential; it can't do a PIN login. Put the same value in the Shortcut's request body as `shortcutKey`. |
+
+Generate each with something like `openssl rand -base64 32`. They are real
+secrets and live only in Script Properties.
+
+`REQUIRE_AUTH` is the fourth property, and you add it **last** — see step 4.
+
+### 2. Create the tab and the first Owner
+
+1. Run `setupSheets()` once from the editor — it creates the `Auth` tab.
+2. Run `makeOwner('H629528')` (your own H number) from the editor. Only the Google
+   account that owns the script can run it, so running it *is* the proof of
+   ownership. **Keep this function forever** — it's the escape hatch if every Owner
+   account is ever locked out.
+3. Run `benchmarkPinHash()` once and read the log. Pick the largest iteration count
+   that stays comfortably under ~400 ms, since it runs on every login, and use it
+   for the `pinIters` written at signup.
+
+> The `Auth` tab is deliberately **not** in `EXPORT_TABS`. `exportSheetToGithub()`
+> commits every listed tab to `data/*.md` and pushes it, so adding `Auth` would
+> publish PIN salts and hashes into git history. `tests/auth-foundation.test.mjs`
+> fails the build if that ever changes.
+
+### 3. Migration window (shared token still accepted)
+
+Deploy, then have each installer sign up and approve them. Watch `Auth.lastSeenAt`
+fill in, and confirm every phone's status pill reads "All synced" — that means no
+device is still holding un-synced work.
+
+### 4. The flip
+
+Add `REQUIRE_AUTH` = `true`. From that moment the shared token no longer authorizes
+anything except signup/login. **Setting it back to `false` is the rollback and needs
+no redeploy.**
+
+Only after the flip has held: rotate `SHARED_TOKEN` (`Code.gs` + `js/config.js`).
+Rotating is safe — the offline queue resolves credentials at send time and treats a
+rejected one as "wait for sign-in" rather than as a bad payload, so queued writes
+survive it (see AGENTS.md §"Security note").
+
+### Roles
+
+Five, and they are **capability sets, not a ladder** — Foreman has edit/planner that
+Back-Office doesn't, Back-Office has onboarding that Foreman doesn't.
+
+| | Owner | Admin | Foreman | Back-Office | Installer |
+|---|---|---|---|---|---|
+| Capture app | ✅ | ✅ | ✅ | ❌ never | ✅ |
+| Map + analytics | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Stop editor + planner (all crew) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Approve signups, reset PIN | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Crew/teams, deletes | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Assign roles | ✅ any | ✅ except Admin/Owner | ❌ | ❌ | ❌ |
+
+Sessions run the working week and re-prompt every **Monday** (expiry is the next
+Monday 04:00 Toronto, at least 24 h out). A phone with no signal on a Monday can
+still capture and queue normally — the login is a banner, never a wall.
+
 ## After a schema change
 
 When tabs/columns change you still need to run `setupSheets()` once from the

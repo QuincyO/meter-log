@@ -67,8 +67,10 @@ test('an Admin cannot mint another Admin or an Owner', () => {
 
 test('identity is server-derived — a spoofed installerId is overwritten, not trusted', () => {
   const src = fn('scopeToSession');
-  assert.match(src, /R_ACT_FOR_OTHERS\.indexOf\(sess\.role\)/,
-    'only an explicit role set may act for others');
+  // The allow-set is passed in (reads and writes use different ones — see
+  // tests/auth-policy.test.mjs), defaulting to the stricter write set.
+  assert.match(src, /\(allowSet \|\| R_ACT_FOR_OTHERS\)\.indexOf\(sess\.role\)/,
+    'only an explicit role set may act for others, and the default must be the write set');
   assert.match(src, /obj\.installerId = sess\.h/,
     'installerId must be overwritten from the session');
   assert.match(src, /obj\.hNumber\s*=\s*sess\.h/,
