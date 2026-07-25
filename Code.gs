@@ -71,8 +71,16 @@ const ALL_ROLES = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_BACKOFFICE, ROLE_I
 // onboarding actions that Foreman does not. Neither contains the other, so there
 // is no correct ordering and any `level >= level` comparison would silently grant
 // one of them the other's actions. Always compare with indexOf on an explicit set.
-const R_FIELD   = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_INSTALLER];  // capture app
+// Using the phone and managing a day are different things, and the roles split on
+// exactly that line. Foremen work from laptops — they run edit.html over the crew's
+// days but almost never install a meter (and write it on paper if they do), so they
+// manage days without ever capturing one. Back-Office never captures either, but
+// reports.html's quick close posts endOfDay for another installer, so they need that
+// one action and nothing else from this group.
+const R_CAPTURE = [ROLE_OWNER, ROLE_ADMIN, ROLE_INSTALLER];                // phone capture
 const R_OPS     = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN];                  // edit + planner, all crew
+const R_DAY     = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_INSTALLER];  // may touch a day at all
+const R_CLOSE   = R_DAY.concat([ROLE_BACKOFFICE]);                         // + reports' quick close
 const R_VIEW    = [ROLE_OWNER, ROLE_ADMIN, ROLE_FOREMAN, ROLE_BACKOFFICE]; // map + analytics
 const R_ONBOARD = [ROLE_OWNER, ROLE_ADMIN, ROLE_BACKOFFICE];              // approvals, PIN resets
 const R_MANAGE  = [ROLE_OWNER, ROLE_ADMIN];                                // roster/teams/deletes
@@ -83,7 +91,11 @@ const R_MANAGE  = [ROLE_OWNER, ROLE_ADMIN];                                // ro
 // Everyone else is pinned to their own H number regardless of what the request
 // claims — see scopeToSession.
 const R_READ_ANY       = R_VIEW;   // may read other people's rows
-const R_ACT_FOR_OTHERS = R_OPS;    // may write on other people's behalf
+const R_ACT_FOR_OTHERS = R_OPS;    // may write on other people's behalf (default)
+// Per-action override of the above. Back-Office closing a day for someone else is
+// the whole point of the reports quick close, but it must NOT generalise into
+// "Back-Office may write anything for anyone".
+const R_CLOSE_FOR_OTHERS = R_OPS.concat([ROLE_BACKOFFICE]);
 
 // A 6-digit PIN. Length is fixed by policy; see rejectWeakPin for the rest.
 const PIN_LENGTH = 6;
@@ -617,24 +629,28 @@ function makeOwner(hNumber) {
 // entry. `scope:'self'` means the caller's identity is stamped onto the request
 // (see scopeToSession) unless their role is allowed to act for others.
 const POST_POLICY = {
-  // Field capture — the caller's own work.
-  addStop:         { roles: R_FIELD, scope: 'self' },
-  addDowntime:     { roles: R_FIELD, scope: 'self' },
-  saveDriveTrack:  { roles: R_FIELD, scope: 'self' },
-  endOfDay:        { roles: R_FIELD, scope: 'self' },
-  saveTravel:      { roles: R_FIELD, scope: 'self' },
-  saveDay:         { roles: R_FIELD, scope: 'self' },
-  previewDailyLog: { roles: R_FIELD, scope: 'self' },
-  savePlan:        { roles: R_FIELD, scope: 'self' },
+  // Phone capture — only roles that actually carry a phone.
+  addStop:         { roles: R_CAPTURE, scope: 'self' },
+  addDowntime:     { roles: R_CAPTURE, scope: 'self' },
+  saveDriveTrack:  { roles: R_CAPTURE, scope: 'self' },
+  savePlan:        { roles: R_CAPTURE, scope: 'self' },
+  // Day management. An installer does their own from the phone; a Foreman does the
+  // crew's from edit.html. Back-Office gets endOfDay ONLY, for the reports quick
+  // close — hence the actFor override rather than adding them to the default set.
+  endOfDay:        { roles: R_CLOSE, scope: 'self', actFor: R_CLOSE_FOR_OTHERS },
+  saveTravel:      { roles: R_DAY,   scope: 'self' },
+  saveDay:         { roles: R_DAY,   scope: 'self' },
+  previewDailyLog: { roles: R_DAY,   scope: 'self' },
   // Corrections. An installer may fix their own stop; OPS may fix anyone's.
-  updateStop:      { roles: R_FIELD, scope: 'self' },
-  archiveStop:     { roles: R_FIELD, scope: 'self' },
+  updateStop:      { roles: R_DAY, scope: 'self' },
+  archiveStop:     { roles: R_DAY, scope: 'self' },
   restoreStop:     { roles: R_OPS },
   // Whole-list replace of an installer's planned orders — destructive, so OPS only.
   saveWorklist:    { roles: R_OPS },
   // Self-service settings for your own row; changing someone ELSE's is R_MANAGE.
-  // saveEmployee enforces the field subset itself (see the handler).
-  saveEmployee:    { roles: R_FIELD, scope: 'self' },
+  // saveEmployee enforces the field subset itself (see the handler). Every role has
+  // a row of their own to maintain, including Back-Office.
+  saveEmployee:    { roles: ALL_ROLES, scope: 'self' },
   // Roster and list management.
   saveTeam:        { roles: R_MANAGE },
   saveCaptain:     { roles: R_MANAGE },
@@ -660,13 +676,15 @@ const POST_POLICY = {
 
 const GET_POLICY = {
   // A person's own working data. R_READ_ANY may pass someone else's identity.
-  day:              { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  range:            { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  idle:             { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  archived:         { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  worklist:         { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  installerMetrics: { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
-  driveTracks:      { roles: R_FIELD.concat(R_VIEW), scope: 'self', read: true },
+  // Any signed-in user may read THEIR OWN; R_READ_ANY may pass someone else's
+  // identity through (applyScope decides, via the `read` flag).
+  day:              { roles: ALL_ROLES, scope: 'self', read: true },
+  range:            { roles: ALL_ROLES, scope: 'self', read: true },
+  idle:             { roles: ALL_ROLES, scope: 'self', read: true },
+  archived:         { roles: ALL_ROLES, scope: 'self', read: true },
+  worklist:         { roles: ALL_ROLES, scope: 'self', read: true },
+  installerMetrics: { roles: ALL_ROLES, scope: 'self', read: true },
+  driveTracks:      { roles: ALL_ROLES, scope: 'self', read: true },
   // Harmless to any signed-in user, and needed by the capture page.
   lookup:           { roles: ALL_ROLES },
   nearby:           { roles: ALL_ROLES },
@@ -727,7 +745,11 @@ function authenticate(action, carrier) {
 /** Apply a policy's scoping to the request object, in place. */
 function applyScope(policy, sess, obj) {
   if (!policy || policy.scope !== 'self' || !sess) return obj;
-  return scopeToSession(sess, obj, policy.read ? R_READ_ANY : R_ACT_FOR_OTHERS);
+  // `actFor` is a per-action widening of who may act on someone else's behalf. It
+  // exists for exactly one case — Back-Office closing a day via the reports quick
+  // close — and must stay narrow: the default write set does NOT include them.
+  const allow = policy.actFor || (policy.read ? R_READ_ANY : R_ACT_FOR_OTHERS);
+  return scopeToSession(sess, obj, allow);
 }
 
 /** Editor-run. Times the PIN hash so the iteration count can be tuned to the real

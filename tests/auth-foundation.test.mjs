@@ -37,16 +37,19 @@ test('roles are capability SETS, not a ladder', () => {
   // Foreman has edit+planner that Back-Office lacks; Back-Office has onboarding that
   // Foreman lacks. Neither contains the other, so any ordering is wrong and a
   // `level >= level` check would silently grant one the other's actions.
-  for (const set of ['R_FIELD', 'R_OPS', 'R_VIEW', 'R_ONBOARD', 'R_MANAGE']) {
+  for (const set of ['R_CAPTURE', 'R_OPS', 'R_DAY', 'R_VIEW', 'R_ONBOARD', 'R_MANAGE']) {
     assert.match(CODE, new RegExp(`const ${set}\\s*=\\s*\\[`), `${set} should be an array`);
   }
   assert.ok(!/ROLE_LEVEL|roleLevel|ROLE_RANK/.test(CODE),
     'no numeric role level may exist — roles are sets, see the capability table');
 
-  // Back-Office must not be in the field/ops sets, and must be in the view/onboard ones.
   const setOf = name => CODE.match(new RegExp(`const ${name}\\s*=\\s*\\[([^\\]]*)\\]`))[1];
-  assert.ok(!/ROLE_BACKOFFICE/.test(setOf('R_FIELD')), 'Back-Office never captures');
-  assert.ok(!/ROLE_BACKOFFICE/.test(setOf('R_OPS')),   'Back-Office gets no edit/planner');
+  // Neither Foreman nor Back-Office carries a phone: Foremen work from laptops and
+  // write the rare install on paper; Back-Office never installs at all.
+  assert.ok(!/ROLE_BACKOFFICE/.test(setOf('R_CAPTURE')), 'Back-Office never captures');
+  assert.ok(!/ROLE_FOREMAN/.test(setOf('R_CAPTURE')),    'Foreman never captures');
+  assert.ok(!/ROLE_BACKOFFICE/.test(setOf('R_OPS')),     'Back-Office gets no edit/planner');
+  assert.match(setOf('R_DAY'),     /ROLE_FOREMAN/,    'Foreman manages crew days from edit.html');
   assert.match(setOf('R_VIEW'),    /ROLE_BACKOFFICE/, 'Back-Office sees map + analytics');
   assert.match(setOf('R_ONBOARD'), /ROLE_BACKOFFICE/, 'Back-Office helps with onboarding');
   assert.ok(!/ROLE_FOREMAN/.test(setOf('R_ONBOARD')), 'Foreman does not onboard');

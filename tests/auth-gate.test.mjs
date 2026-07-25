@@ -25,8 +25,8 @@ function grab(re, label) {
 const SRC = [
   grab(/const SHARED_TOKEN = [^\n]*/, 'SHARED_TOKEN'),
   grab(/const ROLE_OWNER = [\s\S]*?const ALL_ROLES = [^\n]*/, 'role names'),
-  grab(/const R_FIELD[\s\S]*?const R_MANAGE\s*=\s*\[[^\]]*\];/, 'capability sets'),
-  grab(/const R_READ_ANY[\s\S]*?const R_ACT_FOR_OTHERS\s*=\s*R_OPS;/, 'actor sets'),
+  grab(/const R_CAPTURE[\s\S]*?const R_MANAGE\s*=\s*\[[^\]]*\];/, 'capability sets'),
+  grab(/const R_READ_ANY[\s\S]*?const R_CLOSE_FOR_OTHERS\s*=[^\n]*/, 'actor sets'),
   grab(/const POST_POLICY = \{[\s\S]*?\n\};/, 'POST_POLICY'),
   grab(/const GET_POLICY = \{[\s\S]*?\n\};/, 'GET_POLICY'),
   grab(/function safeEquals\([\s\S]*?\n\}/, 'safeEquals'),
@@ -92,25 +92,54 @@ test('an installer is held to their own work', () => {
   assert.ok(!get(api, 'timing', { auth: 'tok' }).ok);
 });
 
-test('back-office views everything and writes nothing', () => {
+test('back-office views everything, and closes days but writes nothing else', () => {
   const api = spine({}, { h: 'H2', role: 'backoffice' });
   for (const allowed of ['pins', 'tracker', 'timing', 'boatdays', 'dispatch', 'downtime']) {
     assert.ok(get(api, allowed, { auth: 'tok' }).ok, `back-office needs ${allowed} for the map`);
   }
   assert.ok(post(api, 'authApprove', { auth: 'tok' }).ok, 'onboarding is their job');
   assert.ok(post(api, 'authResetPin', { auth: 'tok' }).ok);
-  // Never captures, never edits, never plans — the user was explicit about this.
-  for (const denied of ['addStop', 'endOfDay', 'saveWorklist', 'restoreStop', 'deleteEmployee']) {
+
+  // reports.html's quick close posts endOfDay for another installer, so this one
+  // action is theirs by design.
+  assert.ok(post(api, 'endOfDay', { auth: 'tok' }).ok, 'the reports quick close');
+
+  // It must not generalise. Back-Office carries no phone and edits nothing.
+  for (const denied of ['addStop', 'addDowntime', 'saveDriveTrack', 'saveWorklist',
+                        'restoreStop', 'updateStop', 'deleteEmployee']) {
     assert.ok(!post(api, denied, { auth: 'tok' }).ok, `back-office must not call ${denied}`);
   }
 });
 
-test('foreman runs operations for all crew but does no onboarding', () => {
+test('back-office may close ANOTHER installer\'s day, but not write anything else for them', () => {
+  const api = spine();
+  const sess = { h: 'H2', role: 'backoffice' };
+
+  // The quick close names the installer being closed — that must survive scoping.
+  const close = { action: 'endOfDay', installer: 'Someone Else', installerId: 'H999' };
+  api.applyScope(api.POST_POLICY.endOfDay, sess, close);
+  assert.equal(close.installerId, 'H999', 'quick close acts for the named installer');
+
+  // But the widening is per-action. Any other write is still pinned to themselves.
+  const other = { action: 'saveDay', installerId: 'H999' };
+  api.applyScope(api.POST_POLICY.saveDay, sess, other);
+  assert.equal(other.installerId, 'H2',
+    'the endOfDay override must not leak into other day actions');
+});
+
+test('foreman manages the crew\'s days from a laptop but carries no phone', () => {
   const api = spine({}, { h: 'H3', role: 'foreman' });
   assert.ok(post(api, 'saveWorklist', { auth: 'tok' }).ok, 'plans routes for all crew');
-  assert.ok(post(api, 'restoreStop', { auth: 'tok' }).ok);
-  assert.ok(post(api, 'addStop', { auth: 'tok' }).ok, 'still a field role');
+  assert.ok(post(api, 'restoreStop', { auth: 'tok' }).ok, 'runs edit.html');
+  assert.ok(post(api, 'updateStop', { auth: 'tok' }).ok);
+  assert.ok(post(api, 'endOfDay', { auth: 'tok' }).ok, 'closes crew days from edit.html');
   assert.ok(get(api, 'pins', { auth: 'tok' }).ok);
+
+  // Foremen work from laptops and almost never install a meter — and write it on
+  // paper when they do. The phone-capture actions are not theirs.
+  for (const denied of ['addStop', 'addDowntime', 'saveDriveTrack']) {
+    assert.ok(!post(api, denied, { auth: 'tok' }).ok, `foreman must not call ${denied}`);
+  }
   assert.ok(!post(api, 'authApprove', { auth: 'tok' }).ok, 'onboarding is not theirs');
   assert.ok(!post(api, 'deleteTeam', { auth: 'tok' }).ok, 'roster management is not theirs');
   assert.ok(!post(api, 'authSetRole', { auth: 'tok' }).ok);
@@ -150,9 +179,11 @@ test('reads and writes scope differently for the same role', () => {
   api.applyScope(api.GET_POLICY.day, { h: 'H2', role: 'backoffice' }, q);
   assert.equal(q.installerId, 'H999', 'back-office reads anyone');
 
-  const w = { action: 'endOfDay', installerId: 'H999' };
-  api.applyScope(api.POST_POLICY.endOfDay, { h: 'H2', role: 'backoffice' }, w);
-  assert.equal(w.installerId, 'H2', 'back-office writes only as itself');
+  // saveDay, not endOfDay — endOfDay carries the deliberate quick-close override,
+  // so it is the wrong action to test the DEFAULT write rule with.
+  const w = { action: 'saveDay', installerId: 'H999' };
+  api.applyScope(api.POST_POLICY.saveDay, { h: 'H2', role: 'backoffice' }, w);
+  assert.equal(w.installerId, 'H2', 'back-office writes only as itself by default');
 
   const r = { action: 'day', installerId: 'H999' };
   api.applyScope(api.GET_POLICY.day, { h: 'H1', role: 'installer' }, r);

@@ -364,12 +364,22 @@ Back-Office doesn't, Back-Office has onboarding that Foreman doesn't.
 
 | | Owner | Admin | Foreman | Back-Office | Installer |
 |---|---|---|---|---|---|
-| Capture app | ✅ | ✅ | ✅ | ❌ never | ✅ |
+| Phone capture (log stops, downtime, drive tracks) | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Map + analytics | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Stop editor + planner (all crew) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Close a day | ✅ | ✅ | ✅ all crew | ✅ quick close only | ✅ own |
 | Approve signups, reset PIN | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Crew/teams, deletes | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Assign roles | ✅ any | ✅ except Admin/Owner | ❌ | ❌ | ❌ |
+
+**Using a phone and managing a day are separate privileges**, which is why the
+first and fourth rows differ. Foremen work from laptops — they run `edit.html`
+over the whole crew's days but almost never install a meter, and write it on
+paper when they do, so they manage days without capturing any. Back-Office
+never installs either, but `reports.html`'s quick close posts `endOfDay` for
+another installer, so they hold that one action and nothing else from that
+group (a per-action `actFor` override, deliberately narrow — it must not
+generalise into "Back-Office may write anything for anyone").
 
 Sessions run the working week and re-prompt every **Monday** (expiry is the next
 Monday 04:00 Toronto, at least 24 h out). A phone with no signal on a Monday can
