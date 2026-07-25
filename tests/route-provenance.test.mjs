@@ -1,8 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { optimizeRoute } from '../js/route.js';
+import { ORS_API_KEY } from '../js/config.js';
 
-test('an unavailable desktop OSRM skips its fetch and uses ORS without Google Routes', async () => {
+// This one asserts the ORS *fallback path*, so it needs js/config.js to actually
+// carry an ORS key — a blank one disables the fallback outright (config.js: "leave
+// '' to disable the fallback entirely"), and optimizeRoute correctly makes no call
+// at all. A tenant running without an ORS key (the js/config.example.js default —
+// see ONBOARDING.md §6) would otherwise see this fail for a reason that has nothing
+// to do with their change. Skip loudly rather than silently: the runner prints the
+// reason, so the lost coverage is visible and not mistaken for a pass.
+test('an unavailable desktop OSRM skips its fetch and uses ORS without Google Routes', {
+  skip: ORS_API_KEY ? false : 'js/config.js has no ORS_API_KEY — ORS fallback is disabled',
+}, async () => {
   const priorFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, options={}) => {
