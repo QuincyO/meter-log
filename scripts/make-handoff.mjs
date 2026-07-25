@@ -101,13 +101,15 @@ if(flag('--scrub-data')){
 // ── 6. verify the bundle carries no credential ──────────────────────────────
 // The bundle checks itself. If any of these survive, the handoff is unsafe and
 // this script must fail rather than hand over a file that looks sanitized.
-// data/ is exempt when it is deliberately included — it is data, not a credential.
+// Everything is scanned except the vendored libraries (large minified blobs that
+// carry no project credential) — including data/ and docs/, which are shipped
+// verbatim and are exactly where a stray key would go unnoticed.
 const FORBIDDEN = [
   [/AKfycb\w+/g,   'an Apps Script deployment id'],
   [/AIza[\w-]{10,}/g, 'a Google API key'],
   [/eyJvcmci[\w=]+/g, 'an OpenRouteService token'],
 ];
-const SKIP_DIRS = new Set(['js/vendor', 'css/vendor', 'data', 'docs']);
+const SKIP_DIRS = new Set(['js/vendor', 'css/vendor']);
 const walk = dir => readdirSync(dir).flatMap(name => {
   const full = join(dir, name);
   const rel = relative(OUT, full).replaceAll('\\', '/');

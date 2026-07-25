@@ -218,7 +218,7 @@ Do all four. This is the check the whole document exists for.
 1. **No foreign credentials in the tree.** From the repo root:
 
    ```
-   grep -rn 'AKfycb\|AIza\|eyJvcmci' --exclude-dir=.git --exclude-dir=data --exclude-dir=vendor .
+   grep -rn 'AKfycb\|AIza\|eyJvcmci' --exclude-dir=.git --exclude-dir=vendor .
    ```
 
    Every hit must be a value **you** created in §4 or §6. Anything else means a credential
