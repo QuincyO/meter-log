@@ -143,7 +143,11 @@ Both are in `sw.js` `SHELL`, `CACHE` bumped to v34. Shapes and rules are in
    **Still open:** the module is written to mount on every page (that's why it's
    self-contained) but is only wired into `capture.js` so far — the other six pages
    don't show it yet.
-2. **Per-role nav hiding**, via `can(page)` / `landingPage()` from `js/auth.js`.
+2. **Per-role nav hiding — done.** `js/nav-roles.js` (`applyRoleNav`/`guardPage`, over
+   `canSeePage`/`homePageFor`) is mounted on all seven pages alongside the sign-in
+   sheet. Inert while a role is blank, so the migration window still shows everything;
+   reads the remembered role, never session validity. It is UI hiding only — the spine
+   still re-checks every request. Details in `AGENTS.md` §"Frontend module layout".
 3. **An approvals screen** for the `pendingAuth` read — whoever is on shift approves
    from a phone, so it belongs in the capture app's nav for R_ONBOARD roles, not only
    in a back-office page. `authAction(action, hNumber, extra)` is the one call it
