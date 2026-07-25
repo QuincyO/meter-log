@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { NAV_PAGES, visibleNavValues } from '../js/nav-roles.js';
-import { homePageFor, ROLES, canSeePage } from '../js/auth-policy.js';
+import { homePageFor, ROLES } from '../js/auth-policy.js';
 import { store } from '../js/store.js';
 
 const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -210,6 +210,38 @@ test('applyRoleNav() removes forbidden options and leaves allowed ones', async (
   teardownDomTest();
 });
 
+test('applyRoleNav() leaves the full menu untouched during the migration window', async () => {
+  // The blank role is the migration window — until people sign in that is the
+  // entire crew. If applyRoleNav ever removed options for a blank role, it would
+  // hide most of the app from all 200 installers at once. This test ensures that
+  // path stays inert during the transition.
+  const { applyRoleNav } = await setupDomTest();
+
+  store.set('authRole', '');
+
+  // Create a nav select with all options that can be removed
+  const removedOptions = [];
+  const options = ALL.map(v => ({
+    value: v,
+    remove: function() {
+      removedOptions.push(this.value);
+    }
+  }));
+
+  globalThis.document.getElementById = (id) => {
+    if (id === 'navSel') return { options };
+    if (id === 'navHelp') return { classList: { add: () => {} } };
+    return null;
+  };
+
+  applyRoleNav();
+
+  assert.deepEqual(removedOptions, [], 'blank role should remove zero nav options (full menu survives)');
+  assert.deepEqual(options.map(o => o.value), ALL, 'options remain in original order');
+
+  teardownDomTest();
+});
+
 test('the redirect notice is delivered once, then cleared from sessionStorage', async () => {
   const { guardPage, applyRoleNav } = await setupDomTest();
 
@@ -263,16 +295,6 @@ async function setupDomTest() {
     removeItem: (k) => { delete globalThis.sessionStorageData[k]; },
   };
 
-  // localStorage falls back to in-memory in store.js if it fails
-  globalThis.localStorage = {
-    getItem: (k) => globalThis.__localStorage?.[k] ?? null,
-    setItem: (k, v) => {
-      if (!globalThis.__localStorage) globalThis.__localStorage = {};
-      globalThis.__localStorage[k] = v;
-    },
-    removeItem: (k) => { if (globalThis.__localStorage) delete globalThis.__localStorage[k]; },
-  };
-
   // Import nav-roles with the fake globals in place
   return import('../js/nav-roles.js');
 }
@@ -282,14 +304,7 @@ function teardownDomTest() {
   delete globalThis.location;
   delete globalThis.document;
   delete globalThis.sessionStorage;
-  delete globalThis.localStorage;
-  delete globalThis.__localStorage;
   delete globalThis.testNavOptions;
   delete globalThis.testToastMsg;
   delete globalThis.sessionStorageData;
-}
-
-function setSessionRole(roleName) {
-  if (!globalThis.__localStorage) globalThis.__localStorage = {};
-  globalThis.__localStorage.authRole = roleName;
 }
