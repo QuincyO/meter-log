@@ -1,6 +1,6 @@
 # Stops
 
-_457 rows · exported 2026-07-25 03:52 America/Toronto_
+_457 rows · exported 2026-07-26 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -442,7 +442,7 @@ _457 rows · exported 2026-07-25 03:52 America/Toronto_
 | 1784833050142-zfeodw | 2026-07-23 14:57:30 | Quincy Orta | 693981 |  | 832 East Waseosa Lake Rd, Chaffey | 45.397235 | -79.264462 | J4646700 | J3453647 | 8309 | INSTALLED |  |  |  |  |  | land |
 | 1784834013997-hwt3e2 | 2026-07-23 15:13:33 | Quincy Orta | 693979 |  | Town of, 770 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.399255 | -79.267966 | J4646699 | J3080987 | 10141 | INSTALLED |  |  |  |  |  | land |
 | 1784835035361-smd2vv | 2026-07-23 15:30:35 | Quincy Orta | 693819 | 79 | Ceramic Mine Rd N, Huntsville, ON P1H 2J4, Canada | 45.413483 | -79.237034 | J4646724 | J3385466 | 42493 | INSTALLED |  |  |  |  |  | land |
-| 1784899602756-k5n8r0 | 2026-07-24 09:26:42 | Quincy Orta | 693802 |  | 18 Esther St, Kearney, ON P0A 0B1, Canada | 45.558704 | -79.226604 | J4647972 | J3252943 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1784899602756-k5n8r0 | 2026-07-24 9:26:42 | Quincy Orta | 693802 |  | 18 Esther St, Kearney, ON P0A 0B1, Canada | 45.558704 | -79.226604 | J4647972 | J3252943 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1784901831296-ry6c7w | 2026-07-24 10:03:51 | Quincy Orta | 693900 | 206 | Locke Rd, Perry, ON P1H 2J6, Canada | 45.472097 | -79.230209 | J4647970 | J3996347 | 20172 | INSTALLED |  |  |  |  |  | land |
 | 1784903821136-hqolgt | 2026-07-24 10:37:01 | Quincy Orta | 693781 |  | 60 Lakeview Dr, Perry, ON P1H 2J6, Canada | 45.47199 | -79.212652 | J4647969 | J3129199 | 40577 | INSTALLED |  |  |  |  |  | land |
 | 1784905069120-94wq36 | 2026-07-24 10:57:49 | Quincy Orta | 693821 |  | 366 Sherwood Dr, Kearney, ON P1H 2J6, Canada | 45.470809 | -79.175779 | J4647948 | J3976049 | 26643 | INSTALLED |  |  |  |  |  | land |
