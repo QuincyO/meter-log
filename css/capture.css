@@ -267,6 +267,15 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
         font-size:15px;font-weight:600;cursor:pointer}
 .ac-opt:active{border-color:var(--accent)}
 
+/* Big tappable choices inside a .sheet card (the start-location question). Same
+   two-line shape as the add-order chooser below, sized for a gloved thumb. */
+.wl-ask-opt{display:block;width:100%;min-height:56px;margin-top:10px;padding:12px 14px;text-align:left;
+            border:2px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);
+            font-size:16px;font-weight:700;cursor:pointer}
+.wl-ask-opt:active{border-color:var(--accent);background:var(--accent-soft)}
+.wl-ask-opt:focus-visible{outline:3px solid var(--accent-ring);outline-offset:2px}
+.wl-ask-opt .wl-ask-sub{display:block;margin-top:3px;font-size:13px;font-weight:500;color:var(--ink-soft)}
+
 /* "where does this new order go?" chooser — same shape as .addr-conflict above,
    with a second line per option for the consequence (day runs later / what rolls). */
 .wl-addto{background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:var(--r);

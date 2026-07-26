@@ -18,6 +18,21 @@ test('the start-location chooser offers muster, here-now and cancel', () => {
   assert.match(html, /id="wlStartCancel"/);
 });
 
+test('it is a popup sheet over the page, not an inline list', () => {
+  // Optimize blocks on the answer, so the question belongs over the page the way
+  // the confirm() it replaced did. `.sheet` is the app's existing modal idiom.
+  assert.match(html, /<div class="sheet hide" id="wlStartAsk">/);
+  assert.match(html, /id="wlStartAsk">\s*<div class="card">/);
+});
+
+test('a backdrop tap cancels instead of hanging Optimize', () => {
+  // capture.js hides ANY .sheet on a backdrop click; without this the promise
+  // would stay pending behind a hidden sheet and Optimize would never continue.
+  assert.match(js, /const onBackdrop = e => \{ if\(e\.target === box\) done\(null\); \};/);
+  assert.match(js, /box\.addEventListener\('click', onBackdrop\)/);
+  assert.match(js, /box\.removeEventListener\('click', onBackdrop\)/);
+});
+
 test('the old always-on Start from here pill is gone', () => {
   assert.doesNotMatch(html, /id="wlStartHere"/);
   assert.doesNotMatch(js, /startHereArmed|setStartHere/);

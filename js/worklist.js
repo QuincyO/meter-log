@@ -51,21 +51,29 @@ let driveView = null;           // the #drive driving screen (same)
 // Where is the crew standing when they hit Optimize? The answer changes the whole
 // shape of the route, so it is asked every run rather than armed ahead of time (the
 // old "Start from here" pill was a mode you had to remember, and nobody did).
-// Resolves 'muster' | 'here' | null (cancelled). Inline rather than a native
-// confirm(): three answers don't fit one, and an accidental Cancel must abort the
-// run, not silently re-shape the route.
-let _startAskCancel = null;   // resolver of an open chooser, so a re-tap can't orphan it
+// Resolves 'muster' | 'here' | null (cancelled).
+//
+// A `.sheet` popup rather than an inline list: Optimize blocks on the answer, so the
+// question belongs over the page the way the confirm() it replaced did. It is not a
+// native confirm() because three answers don't fit one, and an accidental Cancel has
+// to abort the run rather than silently re-shape the route.
+let _startAskCancel = null;   // resolver of an open sheet, so a re-tap can't orphan it
 function askStartLocation(count, algorithm){
-  // A second tap on Optimize while the chooser is open cancels the first run rather
+  // A second tap on Optimize while the sheet is open cancels the first run rather
   // than leaving its promise pending forever behind a rebound handler.
   if(_startAskCancel){ const c = _startAskCancel; _startAskCancel = null; c(null); }
   return new Promise(resolve => {
     const box = $('wlStartAsk');
     $('wlStartAskTitle').innerHTML =
-      `<b>Optimize ${count} orders</b> — ${esc(algorithm)}.<br>Are you starting from the morning meeting location?`;
+      `Optimizing <b>${count} orders</b> — ${esc(algorithm)}.`;
+    // capture.js closes ANY .sheet on a backdrop tap (and closeSheets() can fire from
+    // elsewhere), which would hide this one with the promise still pending and hang
+    // Optimize behind it. Treat that same click as a cancel.
+    const onBackdrop = e => { if(e.target === box) done(null); };
     const done = v => {
       _startAskCancel = null;
       box.classList.add('hide');
+      box.removeEventListener('click', onBackdrop);
       $('wlStartMuster').onclick = $('wlStartHereNow').onclick = $('wlStartCancel').onclick = null;
       resolve(v);
     };
@@ -73,8 +81,8 @@ function askStartLocation(count, algorithm){
     $('wlStartMuster').onclick  = () => done('muster');
     $('wlStartHereNow').onclick = () => done('here');
     $('wlStartCancel').onclick  = () => done(null);
+    box.addEventListener('click', onBackdrop);
     box.classList.remove('hide');
-    box.scrollIntoView({ block:'nearest' });
   });
 }
 

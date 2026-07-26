@@ -191,18 +191,6 @@
     </div>
     <div class="muted" id="wlPaceHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
-    <!-- Asked on every Optimize, because the answer changes the whole shape of the
-         route. At the muster point the day runs furthest-meter-first back toward
-         home; anywhere else (a mid-day re-optimize) that would send the crew across
-         the map, so the route anchors on the phone's own fix and takes the nearest
-         meter next. Replaces the old persistent "Start from here" pill — a mode you
-         had to remember to arm was the wrong shape for a per-run decision. -->
-    <div class="wl-addto hide" id="wlStartAsk">
-      <div class="wl-addto-title" id="wlStartAskTitle"></div>
-      <button class="wl-addto-opt" id="wlStartMuster" type="button">Yes — the morning meeting location<span class="wl-addto-sub">Plans the usual way: furthest meter first, working back toward home</span></button>
-      <button class="wl-addto-opt" id="wlStartHereNow" type="button">No — start from where I am now<span class="wl-addto-sub">Takes the nearest meter next and works toward home · uses one GPS fix</span></button>
-      <button class="wl-addto-opt" id="wlStartCancel" type="button">Cancel<span class="wl-addto-sub">Leave the route as it is</span></button>
-    </div>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <!-- Which saved route is live. A road-matrix optimize works out both a road
          and a straight-line order for the same stops and prices both on real
@@ -493,6 +481,24 @@
   </div>
 
   <!-- Look up sheet -->
+  <!-- Asked on every Optimize, because the answer changes the whole shape of the
+       route. At the muster point the day runs furthest-meter-first back toward home;
+       anywhere else (a mid-day re-optimize) that would send the crew across the map,
+       so the route anchors on the phone's own fix and takes the nearest meter next.
+       Replaces the old persistent "Start from here" pill — a mode you had to remember
+       to arm was the wrong shape for a per-run decision. It is a sheet, not an inline
+       list: Optimize blocks on the answer, so it should sit over the page the way the
+       confirm() it replaced did. -->
+  <div class="sheet hide" id="wlStartAsk">
+    <div class="card">
+      <h2>Where are you starting from?</h2>
+      <p id="wlStartAskTitle"></p>
+      <button class="wl-ask-opt" id="wlStartMuster" type="button">Yes — the morning meeting location<span class="wl-ask-sub">Plans the usual way: furthest meter first, working back toward home</span></button>
+      <button class="wl-ask-opt" id="wlStartHereNow" type="button">No — start from where I am now<span class="wl-ask-sub">Takes the nearest meter next and works toward home · uses one GPS fix</span></button>
+      <button class="ghost" id="wlStartCancel" type="button" style="width:100%;margin-top:12px">Cancel</button>
+    </div>
+  </div>
+
   <div class="sheet hide" id="lookupSheet">
     <div class="card">
       <h2>Look up a stop</h2>

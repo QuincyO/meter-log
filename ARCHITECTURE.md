@@ -692,13 +692,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   **Which start is used is asked on every Optimize, not armed ahead of time.**
   The old persistent "Start from here" pill is gone: it was a mode the crew had to
   remember to set, and the answer changes with every mid-day re-optimize. The phone's
-  Optimize now opens an inline chooser (`askStartLocation`, `#wlStartAsk`) — *are you
+  Optimize now opens a **`.sheet` popup** (`askStartLocation`, `#wlStartAsk`) — the
+  app's existing modal idiom, since Optimize blocks on the answer the way the
+  `confirm()` it replaced did — asking *are you
   starting from the morning meeting location?* **Yes** routes the usual way
   (furthest-meter-first, working back toward home). **No** takes one GPS fix as the
   ordering anchor, so `solveVariant` runs `orderChunkStartHome` and the **nearest**
   meter is next — the answer to "I hit my target and want to keep going, but the next
-  day's first stop is across the map". Cancel aborts. With no home pin on file either
-  answer degrades to the plain most-efficient solve, as before.
+  day's first stop is across the map". Cancel aborts, and so does a **backdrop tap**:
+  `capture.js` closes any `.sheet` that way, so `askStartLocation` listens for the same
+  click and resolves null — without it the promise would sit pending behind a hidden
+  sheet and Optimize would never continue. With no home pin on file either answer
+  degrades to the plain most-efficient solve, as before.
   **A live GPS start is priced straight-line, always.** `straightLineNode` rewrites
   that node's row/column of `D` (and of `T`, scaled by `CROW_MIN_PER_METRE`) with
   crow-flies values while every **between-stop** distance keeps whatever the run
