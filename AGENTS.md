@@ -31,6 +31,11 @@ another. Two consequences that matter more than they sound:
   Commit directly to `main` unless told otherwise; on a feature branch, push that
   branch. **Run the tests before pushing** — a push to `main` here is a production
   deploy, so "evidence before assertions" matters more, not less.
+- **Add the `CHANGELOG.md` entry in the same commit as the change.** Not as a later sweep —
+  reconstructing *why* a change was made from a diff, weeks on, is exactly the work the file
+  exists to prevent. Newest first, one `##` section per date (no version numbers; a merge to
+  `main` is the release). One or two sentences: what shipped, and the problem it solves.
+  Skip it for a pure docs edit or a nightly-export commit.
 - **Never proceed on defaults when a question goes unanswered.** If you ask the user
   something and get no reply, stop and wait. Do not pick the recommended option and
   carry on. Restate the open question in plain text and end the turn.
