@@ -64,7 +64,21 @@ function spine(opts = {}) {
       getSheetByName: n => (STORE[n] ? { name: n } : null),
     }) };
     const Utilities = {
-      computeHmacSha256Signature: (data, key) => HMAC(data, key),
+      // Apps Script exposes exactly TWO overloads — (String, String) and
+      // (Byte[], Byte[]) — and mixing them throws. This stub used to accept any
+      // pair, which is how pinHashOf shipped calling (Byte[], String): every test
+      // here passed while the real spine threw "The parameters (number[],String)
+      // don't match the method signature" on the first login. Keep it strict; a
+      // stub looser than the API it stands in for cannot catch a misuse of it.
+      computeHmacSha256Signature: (data, key) => {
+        const dv = Array.isArray(data), kv = Array.isArray(key);
+        if (dv !== kv) {
+          throw new Error('The parameters (' + (dv ? 'number[]' : 'String') + ',' +
+            (kv ? 'number[]' : 'String') + ") don't match the method signature for " +
+            'Utilities.computeHmacSha256Signature.');
+        }
+        return HMAC(data, key);
+      },
       base64Encode: b => Buffer.from(b).toString('base64'),
       base64EncodeWebSafe: b => Buffer.from(b).toString('base64url'),
       base64DecodeWebSafe: s => Array.from(Buffer.from(String(s), 'base64url')),
@@ -117,10 +131,12 @@ function spine(opts = {}) {
   return factory(props, store, hmac, formatDate);
 }
 
-const hmac = (data, key) => {
-  const buf = Array.isArray(data) ? Buffer.from(data) : Buffer.from(String(data), 'utf8');
-  return Array.from(createHmac('sha256', Buffer.from(String(key), 'utf8')).update(buf).digest());
-};
+// Byte[] stays bytes; a String is taken as utf8 — the same two readings the real
+// Utilities gives its two overloads, so a Byte[] pepper and the String it came from
+// hash identically here just as they do in Apps Script.
+const bytes = v => (Array.isArray(v) ? Buffer.from(v) : Buffer.from(String(v), 'utf8'));
+const hmac = (data, key) =>
+  Array.from(createHmac('sha256', bytes(key)).update(bytes(data)).digest());
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function formatDate(d, tz, fmt) {

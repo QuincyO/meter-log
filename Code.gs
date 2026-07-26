@@ -465,8 +465,14 @@ function pinHashOf(pin, salt, iters) {
   // is deliberately a NUL rather than a printable separator that a future salt or PIN
   // format could someday contain.
   let acc = Utilities.newBlob(String(salt) + '\0' + String(pin)).getBytes();
+  // The key must be Byte[] too: computeHmacSha256Signature has exactly two overloads,
+  // (String, String) and (Byte[], Byte[]), and a Byte[] value with a String key matches
+  // neither — it throws "The parameters (number[],String) don't match the method
+  // signature". Converted once here rather than inside the loop, which runs PIN_ITERS
+  // times on every login.
+  const pepperBytes = Utilities.newBlob(String(pepper)).getBytes();
   const n = Math.max(1, Number(iters) || 1);
-  for (let i = 0; i < n; i++) acc = Utilities.computeHmacSha256Signature(acc, pepper);
+  for (let i = 0; i < n; i++) acc = Utilities.computeHmacSha256Signature(acc, pepperBytes);
   return Utilities.base64Encode(acc);
 }
 function newSalt() {
