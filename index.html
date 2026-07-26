@@ -189,9 +189,20 @@
     <div class="wl-schedule-settings">
       <label>Pace (min/stop)<input id="wlPace" type="number" min="1" step="1" inputmode="numeric"></label>
     </div>
-    <button class="wl-start-here" id="wlStartHere" type="button" aria-pressed="false">Start from here</button>
     <div class="muted" id="wlPaceHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
+    <!-- Asked on every Optimize, because the answer changes the whole shape of the
+         route. At the muster point the day runs furthest-meter-first back toward
+         home; anywhere else (a mid-day re-optimize) that would send the crew across
+         the map, so the route anchors on the phone's own fix and takes the nearest
+         meter next. Replaces the old persistent "Start from here" pill — a mode you
+         had to remember to arm was the wrong shape for a per-run decision. -->
+    <div class="wl-addto hide" id="wlStartAsk">
+      <div class="wl-addto-title" id="wlStartAskTitle"></div>
+      <button class="wl-addto-opt" id="wlStartMuster" type="button">Yes — the morning meeting location<span class="wl-addto-sub">Plans the usual way: furthest meter first, working back toward home</span></button>
+      <button class="wl-addto-opt" id="wlStartHereNow" type="button">No — start from where I am now<span class="wl-addto-sub">Takes the nearest meter next and works toward home · uses one GPS fix</span></button>
+      <button class="wl-addto-opt" id="wlStartCancel" type="button">Cancel<span class="wl-addto-sub">Leave the route as it is</span></button>
+    </div>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <!-- Which saved route is live. A road-matrix optimize works out both a road
          and a straight-line order for the same stops and prices both on real
@@ -229,6 +240,16 @@
         <button class="ghost" id="wlFormCancel" style="flex:1">Done</button>
         <button class="primary" id="wlFormSave" style="flex:2;margin-top:0;height:56px;font-size:16px">Save order</button>
       </div>
+    </div>
+    <!-- Shown after an order is added while today's route is already established:
+         the installer decides whether it joins today's work and what that costs.
+         Today's set is otherwise frozen, so without this the new order would sink
+         to the bottom of the last day. -->
+    <div class="wl-addto hide" id="wlAddTo">
+      <div class="wl-addto-title" id="wlAddToTitle"></div>
+      <button class="wl-addto-opt" id="wlAddToExtend" type="button"></button>
+      <button class="wl-addto-opt" id="wlAddToSwap" type="button"></button>
+      <button class="wl-addto-opt" id="wlAddToLater" type="button"></button>
     </div>
     <!-- Shown only when something on the list still needs an address. -->
     <button class="ghost wl-fill-addr hide" id="wlFillAddr" type="button">📝 Fill in missing addresses</button>

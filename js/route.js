@@ -622,7 +622,25 @@ function haversineMatrix(coords){
     }
   return D;
 }
-function haversine(a, b){
+// Rewrite one node's row and column of a matrix with straight-line values, leaving
+// every other cell exactly as fetched. This is how a live "start from here" GPS fix
+// is priced: the installer only needs to know which meter is NEAREST them, and
+// crow-flies answers that well enough, while the distances BETWEEN stops keep
+// whatever the run actually got — the road matrix on a two-second hold, straight-line
+// on a normal tap. It also means the live fix never has to be in the fetched matrix,
+// so anchoring the route where you stand costs no matrix elements.
+// `perMetre` scales metres into the matrix's unit (1 for D, minutes/metre for T).
+function straightLineNode(M, coords, idx, perMetre = 1){
+  if(!M || !M[idx]) return;
+  for(let j = 0; j < coords.length; j++){
+    const v = j === idx ? 0 : haversine(coords[idx], coords[j]) * perMetre;
+    M[idx][j] = v; M[j][idx] = v;
+  }
+}
+
+// Exported for the on-device paths that price ONE pair rather than a whole matrix
+// (worklist.js slotting a newly added order into today by cheapest insertion).
+export function haversine(a, b){
   const R = 6371000, toRad = x => x * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
   const s = Math.sin(dLat/2)**2
@@ -639,8 +657,11 @@ function haversine(a, b){
 // distance matrix (Google/ORS) passes crowFlies:false. Both constants are tunable.
 export const ESTIMATE_SPEED_KMH = 50;
 const ROAD_DETOUR_FACTOR = 1.3;
+// Minutes per metre of crow-flies distance. One definition, shared by the whole-matrix
+// estimate below and the single-node rewrite in straightLineNode.
+const CROW_MIN_PER_METRE = ROAD_DETOUR_FACTOR / 1000 / ESTIMATE_SPEED_KMH * 60;
 export function estimateDurations(D, { crowFlies = true } = {}){
-  const perMetreMin = (crowFlies ? ROAD_DETOUR_FACTOR : 1) / 1000 / ESTIMATE_SPEED_KMH * 60;
+  const perMetreMin = crowFlies ? CROW_MIN_PER_METRE : (1 / 1000 / ESTIMATE_SPEED_KMH * 60);
   return (D || []).map(row =>
     Float64Array.from(row, v => isFinite(v) ? v * perMetreMin : Infinity));
 }
@@ -1247,6 +1268,16 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
       routingProvenance = { method:'matrix', provider:primary,
         fallbackReason:primary === 'ors' ? primaryReason : '' };
     }
+  }
+
+  // A live "start from here" fix is priced straight-line, always — its row/column
+  // only, so every between-stop distance keeps whatever this run fetched. The point
+  // is which meter is NEAREST the installer, not the exact drive to it. A team muster
+  // start is deliberately excluded: its drive-out IS shown, priced and drawn, so that
+  // one keeps real road distance.
+  if(startC && !usingTeamStart){
+    straightLineNode(D, coords, 0);
+    if(T) straightLineNode(T, coords, 0, CROW_MIN_PER_METRE);
   }
 
   // No road durations (the phone's free straight-line default, or a fallback run) →

@@ -172,10 +172,15 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const target = Math.max(1, Math.floor(Number(opts.target) || 1));
   // The today anchor (js/route-today.js): when set, Day 1 holds EXACTLY this many
   // stops instead of a full `target` — the frozen "today's orders" set that shrinks
-  // as they're finished. Days 2+ still fill by `target`. Unset (0) ⇒ unchanged
+  // as they're finished. Days 2+ still fill by `target`. Omitted ⇒ unchanged
   // behaviour: every day sizes to `target`. Never larger than the pending count.
-  const day1Count = Math.max(0, Math.floor(Number(opts.day1Count) || 0));
-  const capFor = i => (i === 0 && day1Count) ? day1Count : target;
+  // ZERO IS A REAL VALUE, not "unset": it means today's meters/day target is already
+  // met, so Day 1 takes no stops and everything falls to Day 2. Test against null,
+  // never truthiness, or a full day silently refills to a whole fresh target.
+  const rawDay1 = Number(opts.day1Count);
+  const day1Count = (opts.day1Count == null || !isFinite(rawDay1))
+    ? null : Math.max(0, Math.floor(rawDay1));
+  const capFor = i => (i === 0 && day1Count != null) ? day1Count : target;
   // Real road-travel lookup (js/route.js travelLookup), or null on a straight-line
   // run — passed straight through to the day simulation so ETAs reflect actual drive
   // times when we have them and fall back to flat pace when we don't.

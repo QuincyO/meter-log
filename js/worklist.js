@@ -14,9 +14,9 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH } from './route.js';
 import { liveMetrics } from './drive-recorder.js';
-import { PRINTABLE } from './compute/tally.js';
+import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
@@ -36,7 +36,10 @@ import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
-import { anchorDay1Ids, needsCommit, freshAnchorIds, orderAnchorFirst } from './route-today.js';
+import {
+  anchorDay1Ids, anchorExtend, day1Count, dayCapacity, freshAnchorIds,
+  insertByProximity, needsCommit, orderAnchorFirst,
+} from './route-today.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -45,8 +48,35 @@ let addrFill = null;            // the address fill-in walkthrough (same)
 let tuning = null;              // the #tuning route-dials screen (same)
 let driveView = null;           // the #drive driving screen (same)
 
-function startHereArmed(){ return $('wlStartHere').getAttribute('aria-pressed') === 'true'; }
-function setStartHere(on){ $('wlStartHere').setAttribute('aria-pressed', on ? 'true' : 'false'); }
+// Where is the crew standing when they hit Optimize? The answer changes the whole
+// shape of the route, so it is asked every run rather than armed ahead of time (the
+// old "Start from here" pill was a mode you had to remember, and nobody did).
+// Resolves 'muster' | 'here' | null (cancelled). Inline rather than a native
+// confirm(): three answers don't fit one, and an accidental Cancel must abort the
+// run, not silently re-shape the route.
+let _startAskCancel = null;   // resolver of an open chooser, so a re-tap can't orphan it
+function askStartLocation(count, algorithm){
+  // A second tap on Optimize while the chooser is open cancels the first run rather
+  // than leaving its promise pending forever behind a rebound handler.
+  if(_startAskCancel){ const c = _startAskCancel; _startAskCancel = null; c(null); }
+  return new Promise(resolve => {
+    const box = $('wlStartAsk');
+    $('wlStartAskTitle').innerHTML =
+      `<b>Optimize ${count} orders</b> — ${esc(algorithm)}.<br>Are you starting from the morning meeting location?`;
+    const done = v => {
+      _startAskCancel = null;
+      box.classList.add('hide');
+      $('wlStartMuster').onclick = $('wlStartHereNow').onclick = $('wlStartCancel').onclick = null;
+      resolve(v);
+    };
+    _startAskCancel = done;
+    $('wlStartMuster').onclick  = () => done('muster');
+    $('wlStartHereNow').onclick = () => done('here');
+    $('wlStartCancel').onclick  = () => done(null);
+    box.classList.remove('hide');
+    box.scrollIntoView({ block:'nearest' });
+  });
+}
 
 function nextWeekday(date){
   const d = new Date(`${date}T12:00:00`);
@@ -294,6 +324,9 @@ async function wlDownload(){
     // Re-freeze today: a route the office optimized was day-chunked by target with
     // no memory of what's already done, so honour this phone's today anchor over
     // whatever `day` came down — Download can no longer roll tomorrow's into today.
+    // The one exception is a plan that STARTS today: there the office deliberately
+    // decided what today holds, and the phone obeys it (adoptPlannerDay1).
+    await adoptPlannerDay1(r.plan);
     await applyTodayAnchor();
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
@@ -365,9 +398,11 @@ async function optimizeRouteHandler(straightLine){
   const algorithm = straightLine
     ? 'straight-line algorithm'
     : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
-  const startFromCurrent = startHereArmed();
-  const startNote = startFromCurrent ? ' The route will start from your phone location.' : '';
-  if(!confirm(`Optimize the route for ${pending.length} pending orders using the ${algorithm}?${startNote} This looks up each address and may take a minute the first time.`)) return;
+  // One gate, and it carries the decision that matters: a mid-day re-optimize from
+  // out in the field must not re-plan as if the crew were back at the muster point.
+  const startChoice = await askStartLocation(pending.length, algorithm);
+  if(!startChoice) return;
+  const startFromCurrent = startChoice === 'here';
 
   const target = targetVal();
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
@@ -507,7 +542,6 @@ async function optimizeRouteHandler(straightLine){
   } catch (err) {
     toast((err && err.message) || 'Route optimization failed — try again');
   } finally {
-    setStartHere(false);
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
 }
@@ -586,6 +620,7 @@ export async function openWorklist(){
   _wlEditId = null;
   $('wlForm').classList.add('hide');
   $('wlAddBtn').textContent = '＋ Add order';
+  hideAddTo();   // an undecided add from a previous visit reverts to "leave for later"
   $('captureMain').classList.add('hide');
   if(routeView) routeView.close();
   if(addrFill) await addrFill.close();
@@ -1269,6 +1304,9 @@ async function wlSave(){
   }
   await idb.put('worklist', item);
   toast(_wlEditId ? 'Order updated ✓' : 'Order saved ✓');
+  // A brand-new order (never an edit of one already placed) may want to join
+  // today's frozen set — queue it for the chooser below.
+  if(!_wlEditId) addToQueue.push(String(item.id));
   if(_wlEditId){
     _wlEditId = null;
     $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
@@ -1282,6 +1320,109 @@ async function wlSave(){
   }
   await renderWorklist();
   await planAdvance();
+  await offerAddTo();
+}
+
+// ── "where does this new order go?" — the add-to-today chooser ──────────────
+// Today's set is frozen (route-today.js), so an order added after the day's route
+// is established used to sink to the bottom of the LAST day — the thing installers
+// actually complained about. Rather than guess, ask. The three answers map onto the
+// anchor directly: join today and work past the target (`extend`), join today at the
+// day's real capacity so its tail rolls to tomorrow, or stay out of today entirely.
+// Ids accumulate while the installer keeps adding — the form's copy-street-forward
+// flow makes a burst of adds the normal case — so one answer covers the whole burst.
+let addToQueue = [];
+
+function hideAddTo(){ addToQueue = []; $('wlAddTo').classList.add('hide'); }
+
+// The ids of orders that would fall out of today at a given day-1 size, as WO
+// labels. Used to say WHICH work rolls rather than just how many.
+function woLabels(ids, byId){
+  return ids.map(id => {
+    const it = byId[id];
+    return (it && it.workOrderId) ? `WO ${it.workOrderId}` : 'an order';
+  });
+}
+function andList(labels, max=2){
+  if(labels.length <= max) return labels.join(' and ');
+  return `${labels.slice(0, max).join(', ')} +${labels.length - max} more`;
+}
+
+// Slot the queued orders into today's sequence at their cheapest position (pure
+// insertByProximity over saved pins — no matrix, no network) and return the
+// resulting today sequence. Straight-line, like every other matrix-less path here.
+async function todayWithQueued(anchor, pending, byId){
+  const dist = (p, q) => {
+    const a = coordsOf(byId[p]), b = coordsOf(byId[q]);
+    return (a && b) ? haversine(a, b) : null;
+  };
+  let day1 = anchorDay1Ids(anchor, pending);
+  for(const id of addToQueue) day1 = insertByProximity(day1, id, dist);
+  return day1;
+}
+
+// Offer the choice — but only when it is a real one: today's route must already be
+// established (an anchor committed for today, still holding work). A never-routed
+// list, or one whose today is finished, just takes the order the normal way.
+async function offerAddTo(){
+  if(!addToQueue.length) return;
+  const anchor = loadAnchor();
+  const items = await allSorted();
+  const pending = pendingOf(items);
+  const byId = {}; items.forEach(x => { byId[x.id] = x; });
+  const day1 = (anchor && anchor.date === localDate()) ? anchorDay1Ids(anchor, pending) : [];
+  if(!day1.length){ hideAddTo(); return; }
+
+  const capacity = dayCapacity(targetVal(), await installedToday());
+  const next = await todayWithQueued(anchor, pending, byId);
+  const n = addToQueue.length;
+  // Under "swap" the day keeps its capacity, so whatever sits past it rolls.
+  const rolling = next.slice(Math.max(0, capacity));
+  const extraMin = n * Math.max(1, Math.round(Number($('wlPace').value) || 30));
+
+  $('wlAddToTitle').innerHTML =
+    `<b>${n === 1 ? 'Order added' : n + ' orders added'}</b> — today’s route is already set. Where does `
+    + `${n === 1 ? 'it' : 'this work'} go?`;
+  $('wlAddToExtend').innerHTML = `Add to today`
+    + `<span class="wl-addto-sub">Day runs about ${extraMin} min longer · ${next.length} stops left today</span>`;
+  $('wlAddToSwap').innerHTML = `Add to today, keep the day’s size`
+    + `<span class="wl-addto-sub">${rolling.length
+        ? andList(woLabels(rolling, byId)) + ' roll' + (rolling.length === 1 ? 's' : '') + ' to tomorrow'
+        : 'nothing has to roll — there is room already'}</span>`;
+  $('wlAddToLater').innerHTML = `Leave for later`
+    + `<span class="wl-addto-sub">Stays on the list, after today’s work</span>`;
+  $('wlAddTo').classList.remove('hide');
+}
+
+// Fold the queued orders into today's committed set. `extend` = the installer
+// agreed to work past the day's target, so the day grows instead of its tail
+// rolling. Then re-sequence: the new orders land beside their nearest neighbours
+// rather than at the end of the day.
+async function acceptAddTo(extend){
+  const anchor = loadAnchor();
+  const queued = addToQueue.slice();
+  if(!anchor || !queued.length){ hideAddTo(); return; }
+  const items = await allSorted();
+  const pending = pendingOf(items);
+  const byId = {}; items.forEach(x => { byId[x.id] = x; });
+
+  const have = new Set(anchor.ids.map(String));
+  const added = queued.filter(id => !have.has(String(id)));
+  const day1 = await todayWithQueued(anchor, pending, byId);
+  saveAnchor({
+    date: anchor.date,
+    ids: [...anchor.ids.map(String), ...added],
+    extend: anchorExtend(anchor) + (extend ? added.length : 0),
+  });
+  hideAddTo();
+
+  // Write the whole sequence back through the same choke point the drag uses, so
+  // locks and appointments still get their say; it re-renders and re-anchors.
+  const inDay1 = new Set(day1);
+  const rest = pending.map(p => String(p.id)).filter(id => !inDay1.has(id));
+  const notPending = items.filter(x => !isPending(x)).map(x => String(x.id));
+  await persistOrderIds([...day1, ...rest, ...notPending]);
+  toast(extend ? 'Added to today — the day runs longer' : 'Added to today');
 }
 
 // ── completing a planned order when its WO is actually logged ───────────────
@@ -1336,10 +1477,57 @@ function loadAnchor(){
 }
 function saveAnchor(a){ store.set('wlTodayAnchor', a ? JSON.stringify(a) : ''); }
 
+// Meters actually installed today, from ANY source — planned orders and the walk-ups
+// a crew finds in the field alike. Read from the same storage-first dayCache the pace
+// projection uses (paceContext), so it is exact offline and correct the instant a stop
+// is logged: applyOptimisticCache writes the cache before the queue ever drains.
+// Counts INSTALLED only — the target is meters/day, so a planned order closed as a UTI
+// leaves the pending list without spending a slot. countDay is the shared tally used by
+// the Today sheet and the daily log, so this number always matches what the crew sees.
+async function installedToday(){
+  const c = cfg();
+  if(!c.name) return 0;
+  const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
+  return countDay((cached && cached.stops) || [], []).installed;
+}
+
+// Fold the office's day 1 into today's committed set — the "planner decides, phone
+// obeys" rule. Only fires when the downloaded plan actually STARTS today; a plan for
+// tomorrow (the normal case) leaves the anchor alone and its orders queue behind
+// today's, as before. Unlike an order typed on the phone this asks nothing: the
+// office weighed the day deliberately, so `extend` is raised as far as it takes to
+// hold their whole day 1 rather than trimming it against this phone's capacity.
+// The installer can still set an order aside or drag it out afterwards.
+async function adoptPlannerDay1(plan){
+  const today = localDate();
+  if(String((plan && plan.routeStartDate) || '') !== today) return;
+  const pending = pendingOf(await allSorted());
+  const officeDay1 = pending.filter(p => Number(p.day) === 1).map(p => String(p.id));
+  if(!officeDay1.length) return;
+  const anchor = loadAnchor();
+  // No anchor committed for today yet ⇒ applyTodayAnchor is about to commit the
+  // office's day-1 group by itself (freshAnchorIds prefers the tagged group).
+  if(!anchor || anchor.date !== today) return;
+  const have = new Set(anchor.ids.map(String));
+  const added = officeDay1.filter(id => !have.has(id));
+  if(!added.length) return;
+  const ids = [...anchor.ids.map(String), ...added];
+  const stillPending = new Set(pending.map(p => String(p.id)));
+  const held = ids.filter(id => stillPending.has(id)).length;
+  const capacity = dayCapacity(targetVal(), await installedToday());
+  saveAnchor({ date: today, ids,
+    extend: Math.max(anchorExtend(anchor), Math.max(0, held - capacity)) });
+}
+
 // The single choke point that keeps "today" frozen. Commits today's set on the
 // first route of the day (and re-commits when it's exhausted), then reassigns the
 // live order/day so today's committed orders lead and later work fills days 2+ by
 // target — overriding the plain target-chunking that optimize/download stamp.
+// Day 1 is sized by the day's REAL remaining capacity (dayCapacity: the meters/day
+// target minus every meter installed today, walk-ups included) plus whatever the
+// installer chose to work past it (anchor.extend), so the count on screen always
+// matches the room actually left. Must therefore run after every logged stop, not
+// just after a planned one — planAdvance is that call site.
 // Writes only when a pending order's order/day actually changes (keyed off those,
 // not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
 // opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
@@ -1360,11 +1548,17 @@ async function applyTodayAnchor(opts){
   const day1 = anchorDay1Ids(anchor, pending);
   const seq = orderAnchorFirst(pendingSeq, day1);
 
+  // How many of today's set still FIT. The frozen ids say which orders are today;
+  // the day's real capacity says how many of them there is room for, so meters the
+  // crew installed off-plan push today's tail out to tomorrow on their own.
+  const capacity = dayCapacity(target, await installedToday());
+  const fits = day1Count(anchor, day1, capacity);
+
   const travel = (opts && opts.travel) || estimateTravel(pending);
   let schedule;
   try {
     schedule = scheduleRouteConstraints(pending, seq,
-      { ...planShape(), target, day1Count: day1.length, travel });
+      { ...planShape(), target, day1Count: fits, travel });
   } catch { return; }   // locks/appointments make it impossible — leave days as they are
 
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
@@ -1486,6 +1680,12 @@ async function setPlan(on){
 // Called on page load, after every logged stop, and whenever the list changes.
 // A no-op while plan mode is off.
 export async function planAdvance(){
+  // Every logged meter spends some of the day's capacity — including a walk-up that
+  // matches no planned order, which markWorklistDone returns early on and never
+  // anchors. capture.js calls planAdvance after EVERY stop, so this is the hook that
+  // re-sizes today; it sits above the plan-mode guard because the day's shape is just
+  // as real when the installer is logging without plan mode on.
+  await applyTodayAnchor();
   if(!planActive()){ $('planBanner').classList.add('hide'); return; }
   const items = await allSorted();
   const pending = pendingOf(items);
@@ -1592,7 +1792,9 @@ export function initWorklist(opts){
   bindOptimizeGesture($('wlOptimize'),
     () => optimizeRouteHandler(true),
     () => optimizeRouteHandler(false));
-  $('wlStartHere').onclick = () => setStartHere(!startHereArmed());
+  $('wlAddToExtend').onclick = () => acceptAddTo(true);
+  $('wlAddToSwap').onclick   = () => acceptAddTo(false);
+  $('wlAddToLater').onclick  = () => { hideAddTo(); toast('Left for later'); };
   $('wlVariantRoad').onclick = () => switchVariant('road');
   $('wlVariantStraight').onclick = () => switchVariant('straight');
   // Meters/day target: restore the saved value (default 24) and persist edits.

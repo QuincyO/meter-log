@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { anchorDay1Ids, needsCommit, freshAnchorIds, orderAnchorFirst } from '../js/route-today.js';
+import {
+  anchorDay1Ids, anchorExtend, day1Count, dayCapacity, freshAnchorIds,
+  insertByProximity, needsCommit, orderAnchorFirst,
+} from '../js/route-today.js';
 
 const items = ids => ids.map(id => ({ id }));
 
@@ -67,4 +70,107 @@ test('orderAnchorFirst leads with today, preserving each group’s order', () =>
 
 test('orderAnchorFirst is a no-op when today already leads', () => {
   assert.deepEqual(orderAnchorFirst(['a', 'b', 'c'], ['a', 'b']), ['a', 'b', 'c']);
+});
+
+// ── day capacity (target − meters actually installed today) ─────────────────
+
+test('dayCapacity is the target less every meter installed today', () => {
+  assert.equal(dayCapacity(20, 0), 20);
+  assert.equal(dayCapacity(20, 5), 15);
+  // The brief's case: 5 planned + 5 walk-ups both spend the day's room.
+  assert.equal(dayCapacity(20, 10), 10);
+});
+
+test('dayCapacity floors at zero and never goes negative past the target', () => {
+  assert.equal(dayCapacity(20, 20), 0);
+  assert.equal(dayCapacity(20, 26), 0);
+});
+
+test('dayCapacity coerces junk: target floors at 1, installs at 0', () => {
+  assert.equal(dayCapacity(0, 0), 1);
+  assert.equal(dayCapacity(null, null), 1);
+  assert.equal(dayCapacity(20, -4), 20);
+  assert.equal(dayCapacity(20.7, 5.9), 15);
+});
+
+test('anchorExtend reads 0 for a legacy {date, ids} anchor or junk', () => {
+  assert.equal(anchorExtend(null), 0);
+  assert.equal(anchorExtend({ date:'d', ids:['a'] }), 0);
+  assert.equal(anchorExtend({ extend:-3 }), 0);
+  assert.equal(anchorExtend({ extend:'x' }), 0);
+  assert.equal(anchorExtend({ extend:2 }), 2);
+});
+
+test('day1Count sizes today to the room left, not to the frozen count', () => {
+  const anchor = { date:'d', ids:['a','b','c','d','e'] };
+  // 5 orders still frozen for today, but only 3 meters of room left → 2 roll over.
+  assert.equal(day1Count(anchor, ['a','b','c','d','e'], 3), 3);
+});
+
+test('day1Count never exceeds the orders today actually holds', () => {
+  const anchor = { date:'d', ids:['a','b'] };
+  assert.equal(day1Count(anchor, ['a','b'], 20), 2);
+});
+
+test('day1Count adds the installer’s explicit extend on top of capacity', () => {
+  const anchor = { date:'d', ids:['a','b','c','d'], extend:2 };
+  // 1 meter of room + 2 the installer agreed to work past it = 3.
+  assert.equal(day1Count(anchor, ['a','b','c','d'], 1), 3);
+});
+
+test('day1Count returns 0 once the target is met with no extend', () => {
+  // A full day: today keeps its identity, but no order fits — all roll to Day 2.
+  assert.equal(day1Count({ date:'d', ids:['a','b'] }, ['a','b'], 0), 0);
+});
+
+// ── cheapest-insertion of a new order into a solved day ────────────────────
+
+// Stops on a line at x = 0,10,20,30; `n` is the new order. dist() is |Δx|.
+const LINE = { a:0, b:10, c:20, d:30 };
+const lineDist = pos => (p, q) => {
+  const A = { ...LINE, n:pos };
+  return (A[p] == null || A[q] == null) ? null : Math.abs(A[p] - A[q]);
+};
+
+test('insertByProximity slots a new order beside its nearest neighbours', () => {
+  // n sits at 12 — between b (10) and c (20).
+  assert.deepEqual(
+    insertByProximity(['a','b','c','d'], 'n', lineDist(12)),
+    ['a','b','n','c','d']);
+});
+
+test('insertByProximity puts a new order at the front when that is cheapest', () => {
+  assert.deepEqual(
+    insertByProximity(['a','b','c','d'], 'n', lineDist(-30)),
+    ['n','a','b','c','d']);
+});
+
+test('insertByProximity puts a new order at the end when that is cheapest', () => {
+  assert.deepEqual(
+    insertByProximity(['a','b','c','d'], 'n', lineDist(60)),
+    ['a','b','c','d','n']);
+});
+
+test('insertByProximity moves an order already in the sequence', () => {
+  // Re-placing 'd' (30) with the list out of order must not duplicate it.
+  const out = insertByProximity(['a','d','b','c'], 'd', lineDist(30));
+  assert.equal(out.filter(x => x === 'd').length, 1);
+  assert.equal(out.length, 4);
+});
+
+test('insertByProximity parks an unpinnable order last', () => {
+  assert.deepEqual(
+    insertByProximity(['a','b','c'], 'n', () => null),
+    ['a','b','c','n']);
+});
+
+test('insertByProximity handles an empty sequence', () => {
+  assert.deepEqual(insertByProximity([], 'n', () => null), ['n']);
+});
+
+test('needsCommit ignores capacity — a met target is full, not exhausted', () => {
+  // The set still owns unfinished orders, so hitting the target must NOT roll
+  // tomorrow's chunk into today; it only pushes today's leftovers out to Day 2.
+  const anchor = { date:'2026-07-24', ids:['a', 'b'] };
+  assert.equal(needsCommit(anchor, '2026-07-24', items(['a', 'b'])), false);
 });

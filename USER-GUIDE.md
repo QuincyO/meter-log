@@ -173,11 +173,15 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
   and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
   its driving order is chosen; they do not tell it where you are. Pace uses your
   latest 30 land workdays when available and remains editable.
-- If you are already away from the planned route, tap **Start from here**, then
-  Optimize. That one run gets a fresh phone location and routes from there toward
-  your saved Home. With no Home saved, it starts here and leaves the last stop
-  open. The pill resets after the run and your location is not saved or uploaded.
-  If location is unavailable, the message says so and normal routing is used.
+- Every Optimize asks **"are you starting from the morning meeting location?"**
+  Answer **Yes** for the usual plan — the first stop is the far end of the day and
+  you work your way back toward home. Answer **No** when you are already out in the
+  field (most often after you've hit your target and want to keep going): that run
+  gets one fresh phone location and makes the **nearest** meter your next stop, still
+  working toward your saved Home. With no Home saved it starts where you are and
+  leaves the last stop open. **Cancel** leaves the route alone. Your location is not
+  saved or uploaded, and if location is unavailable the message says so and normal
+  routing is used.
 - Appointment stops are placed no later than their entered time, allowing arrival
   up to 20 minutes early. Earlier arrival is shown as waiting time, and that wait
   shifts the ETAs after it. Weekends are not route days.
@@ -186,7 +190,7 @@ Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best
   message names the affected work order.
 
 - Each address is looked up and matched **near where you are** (within the app's search radius), so "Main St" means *your* Main St, not one in another city.
-- With a **Home address** in Settings, normal routing ends heading toward home — the first stop is the far end of the day, and you work your way back. With no Home and without **Start from here**, whatever order is first in your list stays the starting point.
+- With a **Home address** in Settings, normal routing ends heading toward home — the first stop is the far end of the day, and you work your way back. With no Home, and when you answered **Yes** to the meeting-location question, whatever order is first in your list stays the starting point.
 - Every card shows its state next to the WO#: a **📍 fix address** pill (couldn't be matched), a **⚠ pick a town** pill (matched more than one place), or a small **no pin** pill (not looked up yet). No pill means the order is pinned and routed. Cards show the **full address** — long ones wrap onto extra lines.
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
@@ -209,14 +213,35 @@ worked out for a different run. Optimize again for a fresh number.
 ### Today stays today
 
 The first time you look at your route each day, the app **locks in today's list** —
-the orders under the **Day 1** header at that moment. From then on Day 1 only ever
-**shrinks** as you finish them: optimizing again, or downloading a fresh plan, can
-reshuffle the driving order but **won't pull tomorrow's orders up into today**. Only
-once you've cleared today's list does Day 1 roll forward to the next batch. So if you
-set out to do 24 and get 10 done, your Day 1 still shows the **14 you have left** —
-not 4 of tomorrow's houses tacked on the end. (A brand-new order you add partway
-through the day lands on **Day 2**; finish today's list and it comes around, or drag
-it up yourself.)
+the orders under the **Day 1** header at that moment. Optimizing again, or downloading
+a fresh plan, can reshuffle the driving order but **won't pull tomorrow's orders up
+into today**. Only once you've cleared today's list does Day 1 roll forward to the
+next batch. So if you set out to do 24 and get 10 done, your Day 1 still shows the
+**14 you have left** — not 4 of tomorrow's houses tacked on the end.
+
+**Meters you install off the list count too.** Day 1 is sized by your **Meters/day**
+target minus everything you've actually installed today — including meters you find
+in the field that were never on the plan. Say your target is 20 and the day starts
+with 20 planned. You finish 5 of them and install 5 more you came across: that's 10
+in, so Day 1 drops to the **next 10** and the rest move to tomorrow on their own. You
+don't have to do anything; the number on screen is always the room you have left.
+
+### Adding orders partway through the day
+
+Add an order after your route is set and the app asks where it goes:
+
+- **Add to today** — it joins today's run and the day goes a bit longer. The app
+  slots it in next to its nearest neighbours rather than tacking it on the end.
+- **Add to today, keep the day's size** — it joins today, but the day stays the
+  length it was, so the last stop or two roll to tomorrow. The button names which
+  ones.
+- **Leave for later** — it stays on the list, after today's work.
+
+Add several in a row and you're asked once for the lot.
+
+When the **office** sends you a plan that starts today, whatever they put on their
+Day 1 simply becomes your today — no question asked. A plan for a later date leaves
+today alone.
 
 ### Two routes: road matrix and straight-line
 

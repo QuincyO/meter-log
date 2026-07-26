@@ -580,8 +580,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (Settings → `localStorage` `homeAddress`/`homeLat`/`homeLng`, geocoded once at
   save) fixes the route's homeward end and puts the start on the far side of the
   cluster; without Home, the list's first order is fixed as the start. The phone
-  worklist also has a one-run **Start from here** pill. When armed, Optimize asks
-  for one fresh GPS fix and uses it as the fixed start while retaining Home as
+  worklist also offers a **one-run GPS start**, chosen from the chooser Optimize
+  opens on every run (see "the start-location question" below). When taken, Optimize
+  asks for one fresh GPS fix and uses it as the fixed start while retaining Home as
   the fixed end; without Home, the end floats. The fix is reused as the geocode
   gate and is never stored or synced. If it is denied or times out, the run
   visibly falls back to the normal Home/first-order behavior. `Route starts`,
@@ -614,17 +615,56 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   choke point (run after optimize, Download, a completion, a reset, and first view):
   it (re)commits the anchor when the date rolls or today's set is exhausted
   (`needsCommit`), then reorders pending so today's committed orders lead
-  (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with the new
-  **`opts.day1Count`** — which sizes Day 1 to *exactly* the committed count (shrinking
-  as orders finish) while days 2+ still fill by `target`. Day 1 therefore only ever
-  shrinks and rolls to the next chunk when empty; it never grows from later work. The
-  commit snapshots the route's **current** Day-1 group (honouring any `timeCapacity`
-  shrink or the office's chunking), falling back to the first `target` orders only for
-  a never-routed list. The anchor is never synced (no sheet/schema change); `day1Count`
-  unset ⇒ the scheduler behaves exactly as before. A brand-new order added mid-day is
-  not in the frozen set, so it lands on Day 2 until the anchor rolls (or the installer
-  drags it up). See `js/route-today.js`, `tests/route-today.test.mjs`, and the
-  `day1Count` cases in `tests/route-constraints.test.mjs`.
+  (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with
+  **`opts.day1Count`**, while days 2+ still fill by `target`. The commit snapshots the
+  route's **current** Day-1 group (honouring any `timeCapacity` shrink or the office's
+  chunking), falling back to the first `target` orders only for a never-routed list.
+  The anchor is never synced (no sheet/schema change); `day1Count` omitted ⇒ the
+  scheduler behaves exactly as before.
+- **The frozen set says *which* orders are today; `dayCapacity` says how many *fit*.**
+  Sizing Day 1 to the committed count alone over-corrected: it could only ever shrink,
+  and only as its own planned orders were finished. Two things went wrong. Meters the
+  crew installed **off-plan** — the walk-ups they find in the field, which
+  `markWorklistDone` never sees — consumed none of the day's target, so the route kept
+  showing more work than there was room for; and an order added mid-day couldn't join
+  today at all, sinking to the bottom of the **last** day. So Day 1 is now sized by
+  `day1Count(anchor, day1Ids, dayCapacity(target, installedToday))` —
+  `dayCapacity` = the meters/day target minus **every** meter installed today, counted
+  with the shared `countDay()` over the `dayCache` (offline, exact the instant a stop
+  is logged). Whatever sits past that capacity rolls to Day 2 on its own. Worked
+  example: target 20, 5 planned done + 5 walk-ups ⇒ 10 installed ⇒ Day 1 shows the
+  next **10**, and 5 of the 15 still-pending orders roll to tomorrow, no prompt.
+  This must run after **every** logged stop, not just a planned one — `planAdvance`
+  is that call site, above its plan-mode guard.
+  **Zero is a real `day1Count`, not "unset"** (`route-constraints.js` tests it against
+  `null`): a met target means Day 1 takes no stops, where truthiness would have handed
+  today a whole fresh target. `needsCommit` is deliberately keyed on the set's
+  *identity*, never on capacity — a full day still owns its unfinished orders, so
+  hitting the target pushes today's leftovers out rather than rolling tomorrow's in.
+- **`anchor.extend` — working past the target on purpose.** The anchor is
+  `{date, ids, extend}`; a legacy `{date, ids}` reads as extend 0. `extend` counts the
+  stops the installer *explicitly agreed* to work beyond capacity, and is added on top
+  of it. It is written by two paths:
+  - **An order added on the phone** (`saveOrder` → `offerAddTo`, `#wlAddTo`) asks,
+    because nobody else has weighed in on it: **Add to today** (`extend += 1`, the day
+    runs longer), **Add to today, keep the day's size** (capacity holds, so the day's
+    tail rolls to tomorrow — the option names which WOs), or **Leave for later**. The
+    chooser only appears when the choice is real: an anchor committed for today that
+    still holds work. Accepted orders are slotted into today by **cheapest insertion**
+    (`insertByProximity`, pure, over saved pins via `haversine`) so they land beside
+    their nearest neighbours instead of at the end of the day, then written back
+    through the same `persistOrderIds` the drag uses so locks/appointments still get
+    their say. Ids accumulate across a burst of adds — the form's copy-street-forward
+    flow makes that the normal case — so one answer covers the whole burst.
+  - **Download** (`adoptPlannerDay1`) asks nothing: *the planner decides, the phone
+    obeys*. When the downloaded `WorklistPlans.routeStartDate` **is today**, every
+    order the office tagged `day === 1` joins the committed set and `extend` is raised
+    as far as it takes to hold their whole day 1, rather than being trimmed against
+    this phone's capacity. A plan for tomorrow (the normal case) leaves the anchor
+    alone and its orders queue behind today's, as before.
+
+  See `js/route-today.js`, `tests/route-today.test.mjs`, and the `day1Count` cases in
+  `tests/route-constraints.test.mjs`.
   `optimizeRoute` also takes `opts.osrmUrl` — the **desktop planner's** matrix
   source: one free `table` call against a self-hosted OSRM (then the ORS backup,
   then straight-line — never the billable Google path), which is how the office
@@ -647,8 +687,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (`homeLegMetersFor`, still kept out of the between-stop total), and draws the drive
   OUT to each day's first (furthest) stop. `measure.startIsCommute` marks it a
   commute so `solveVariant` drops it from the ordering matrix — distinct from the
-  one-run GPS **Start from here**, which stays a real ordering anchor (its first leg
-  is a charged driven leg).
+  one-run GPS start, which stays a real ordering anchor (its first leg is a charged
+  driven leg).
+  **Which start is used is asked on every Optimize, not armed ahead of time.**
+  The old persistent "Start from here" pill is gone: it was a mode the crew had to
+  remember to set, and the answer changes with every mid-day re-optimize. The phone's
+  Optimize now opens an inline chooser (`askStartLocation`, `#wlStartAsk`) — *are you
+  starting from the morning meeting location?* **Yes** routes the usual way
+  (furthest-meter-first, working back toward home). **No** takes one GPS fix as the
+  ordering anchor, so `solveVariant` runs `orderChunkStartHome` and the **nearest**
+  meter is next — the answer to "I hit my target and want to keep going, but the next
+  day's first stop is across the map". Cancel aborts. With no home pin on file either
+  answer degrades to the plain most-efficient solve, as before.
+  **A live GPS start is priced straight-line, always.** `straightLineNode` rewrites
+  that node's row/column of `D` (and of `T`, scaled by `CROW_MIN_PER_METRE`) with
+  crow-flies values while every **between-stop** distance keeps whatever the run
+  actually pulled — road matrix on the two-second hold, straight-line on a normal tap,
+  and an existing road matrix is reused rather than re-fetched. Only *which meter is
+  nearest* has to be right, so the fix never needs to be in the fetched matrix and
+  anchoring the route where you stand costs no matrix elements. A **team** start is
+  deliberately excluded from this: its drive-out is shown, priced and drawn, so it
+  keeps real road distance.
   ETAs are built from a **duration matrix `T`** — `measure.T`, exposed by
   `travelLookup(measure)` as `fromStart(id)` (morning drive out of the crew start)
   and `between(fromId,toId)` (drive between two stops). `simulateDay` builds each ETA

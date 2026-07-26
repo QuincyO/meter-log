@@ -134,6 +134,23 @@ test('without day1Count, Day 1 still fills to the full target (unchanged)', () =
   assert.equal(result.dayOf.e, 2);                              // the 5th rolls to Day 2
 });
 
+test('day1Count 0 empties Day 1 instead of refilling it to a whole target', () => {
+  // The day's meters/day target is already met (dayCapacity 0). Zero is a real
+  // value here, not "unset" — treating it as falsy would hand today a fresh full
+  // target, which is the exact opposite of what a met target means.
+  const items = ['a','b','c'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b','c'],
+    opts({ target:4, day1Count:0 }));
+  assert.deepEqual([result.dayOf.a, result.dayOf.b, result.dayOf.c], [2, 2, 2]);
+});
+
+test('day1Count 0 still starts the rolled-over day on a morning clock', () => {
+  const items = ['a','b'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b'],
+    opts({ target:4, day1Count:0, firstStopTime:'08:00' }));
+  assert.equal(result.scheduleById.a.eta, '08:00');
+});
+
 test('day1Count restarts the ETA clock on Day 2 morning', () => {
   const items = ['a','b','c'].map(id => item(id));
   const result = scheduleRouteConstraints(items, ['a','b','c'],
