@@ -31,11 +31,19 @@ another. Two consequences that matter more than they sound:
   Commit directly to `main` unless told otherwise; on a feature branch, push that
   branch. **Run the tests before pushing** — a push to `main` here is a production
   deploy, so "evidence before assertions" matters more, not less.
-- **Add the `CHANGELOG.md` entry in the same commit as the change.** Not as a later sweep —
-  reconstructing *why* a change was made from a diff, weeks on, is exactly the work the file
-  exists to prevent. Newest first, one `##` section per date (no version numbers; a merge to
-  `main` is the release). One or two sentences: what shipped, and the problem it solves.
-  Skip it for a pure docs edit or a nightly-export commit.
+- **Write the changelog entry in the same commit as the change.** Not as a later sweep —
+  reconstructing *why* a change was made from a diff, weeks on, is exactly the work it exists
+  to prevent. Two files, both required:
+  1. **`changelog/YYYY-MM-DD.md`** — the day's page. Create it if today has none (copy the
+     shape of any existing one: frontmatter, `#` heading, a `##` per change, and the
+     prev/next footer — fix the previous day's `next:` link too). Append a `##` section if it
+     exists. Say what shipped, the problem it solves, and the trap worth remembering; cite
+     the commit and the files.
+  2. **`CHANGELOG.md`** — one row in the month table, newest first: the date linking to the
+     page, and a short phrase for the whole day.
+  No version numbers — a merge to `main` is the release. Skip both for a pure docs edit or a
+  nightly-export commit. The day pages are Obsidian notes (the vault root is the repo root),
+  so keep links as relative markdown — they resolve on GitHub *and* in Obsidian.
 - **Never proceed on defaults when a question goes unanswered.** If you ask the user
   something and get no reply, stop and wait. Do not pick the recommended option and
   carry on. Restate the open question in plain text and end the turn.

@@ -5,8 +5,12 @@
 # node (only used transiently for clasp; no package.json in this repo)
 node_modules/
 
-# Obsidian knowledge vault — local-only, never pushed to the public repo
+# Obsidian knowledge vault — local-only, never pushed to the public repo.
+# The vault ROOT is the repo root (so CHANGELOG.md, ARCHITECTURE.md and friends are
+# real, linkable notes); `vault/` holds the notes that are about the vault itself,
+# and `.obsidian/` is config + ~20 plugin bundles. Neither belongs in a public repo.
 vault/
+.obsidian/
 
 # The vault's portable bootstrap spec — a local input to vault/, already applied.
 # Ignored so it stops reading as a pending instruction to the next agent.
