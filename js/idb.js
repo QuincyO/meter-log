@@ -9,11 +9,16 @@
 //   'driveTracks' (keyPath 'id') — Drive-mode leg segments (points + gap anchors),
 //                the local copy that survives a reload mid-leg and is uploaded via
 //                the offline queue's saveDriveTrack (see drive.js / drive-track.js)
+//   'roadPacks' (keyPath 'id') — downloaded offline road maps, one row per
+//                district: {id, name, bbox, bytes, builtAt, buf:ArrayBuffer}.
+//                MUCH bigger than anything else here (megabytes), which is why
+//                they live in IndexedDB and NOT in the sw.js SHELL — see
+//                js/roadpack.js and AGENTS.md.
 //
 // Bumping the schema: raise DB_VERSION and add the new store inside
 // onupgradeneeded (guarded by `contains`, so it's additive and safe on upgrade).
 // This is separate from the sw.js CACHE version.
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const idb = (() => {
   let _db = null;
@@ -29,6 +34,7 @@ export const idb = (() => {
           if(!d.objectStoreNames.contains('queue'))     d.createObjectStore('queue', {keyPath:'_seq', autoIncrement:true});
           if(!d.objectStoreNames.contains('addrCache')) d.createObjectStore('addrCache');
           if(!d.objectStoreNames.contains('driveTracks')) d.createObjectStore('driveTracks', {keyPath:'id'});
+          if(!d.objectStoreNames.contains('roadPacks'))   d.createObjectStore('roadPacks', {keyPath:'id'});
         };
         req.onsuccess = e => { _db = e.target.result; res(_db); };
         req.onerror   = e => rej(e.target.error);

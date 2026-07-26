@@ -32,6 +32,8 @@ import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
 import { onSiteMinutes } from './route-constraints.js';
+import { matrix as roadGraphMatrix, path as roadGraphPath } from './roadgraph.js';
+import { loadGraph, coverage } from './roadpack.js';
 
 const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const MATRIX_URL  = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
@@ -535,6 +537,68 @@ export function encodePolyline(points, precision = 5){
     prevLat = la; prevLng = ln;
   }
   return out;
+}
+
+// ── road-distance matrix (the ON-DEVICE road graph — the PREFERRED source) ───
+// A downloaded district pack (js/roadpack.js) routed by js/roadgraph.js. This is
+// the only matrix source that costs nothing, needs no signal, and belongs to the
+// phone — so it sits ABOVE Google/ORS in the ladder rather than below them as a
+// fallback. Returns the same { D, T } (metres + minutes) osrmMatrix does, or
+// { error } describing why the pack couldn't carry the run.
+//
+// A run is accepted only when the pack covers at least this much of it. Below
+// the line the crew is working outside the district they downloaded, and the
+// honest answer is to decline to the next provider rather than route most of a
+// day against a map that stops halfway.
+const LOCAL_MIN_COVERAGE = 0.8;
+
+async function localGraphMatrix(coords){
+  let graph = null;
+  try { graph = await loadGraph(); }
+  catch(e){ console.warn('road pack load failed:', e); return { error: 'offline map unreadable' }; }
+  if(!graph) return { error: 'no offline map' };
+  const cov = coverage(graph, coords);
+  if(cov.ratio < LOCAL_MIN_COVERAGE)
+    return { error: `offline map covers only ${cov.covered}/${cov.total} stops` };
+
+  const { D, T, snapped } = roadGraphMatrix(graph, coords);
+  // REPAIR PASS — load-bearing. The solver (and every metre total downstream)
+  // assumes finite distances; a single Infinity from a stop that snapped to no
+  // road, or to a genuinely disconnected island, would poison the whole tour.
+  // Those pairs fall back to the same crow-flies × detour estimate a matrix-less
+  // run uses — per pair, so the rest of the day keeps its real road distances.
+  const H = haversineMatrix(coords);
+  let repaired = 0;
+  for(let i = 0; i < D.length; i++){
+    for(let j = 0; j < D.length; j++){
+      if(i === j) continue;
+      if(Number.isFinite(D[i][j]) && Number.isFinite(T[i][j])) continue;
+      D[i][j] = H[i][j] * ROAD_DETOUR_FACTOR;
+      T[i][j] = H[i][j] * CROW_MIN_PER_METRE;
+      repaired++;
+    }
+  }
+  const unsnapped = snapped.filter(s => !s).length;
+  return { D, T, graph, repaired, unsnapped, coverage: cov };
+}
+
+// The driven path between two points, straight from the on-device graph, encoded
+// like an OSRM one. This is what lets the PHONE fill legGeometryRoad — until now
+// only the desktop planner could, because only it could reach an OSRM `route`
+// service. Returns '' when either end is off-network or nothing connects them,
+// which is exactly what a missing geometry already means to both maps: draw the
+// leg straight.
+export function localRoadGeometry(graph, from, to){
+  if(!graph) return '';
+  const a = coordsOf(from), b = coordsOf(to);
+  if(!a || !b) return '';
+  try {
+    const pts = roadGraphPath(graph, a, b);
+    return pts.length > 1 ? encodePolyline(pts) : '';
+  } catch(e){
+    console.warn('local road geometry failed:', e);
+    return '';
+  }
 }
 
 // ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
@@ -1208,6 +1272,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     return { ...only, parkedIds, usedFallback:false,
       fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
       variants:{ road:null, straight:null }, measure:null, straightDistanceSource:'',
+      roadGraph:null, usedLocalGraph:false,
       provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
   }
 
@@ -1225,7 +1290,34 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // ORS is only reached when the primary returns nothing; a fallback straight-line
   // solve then means BOTH failed.
   let D, T = null, usedFallback = false, fallbackReason = '';
-  if(opts.straightLine){
+  // ── the on-device road graph goes first ────────────────────────────────────
+  // It is free, needs no signal, and returns real durations, so it outranks
+  // every network source — including on a plain straight-line tap, which is the
+  // whole point: with a district downloaded, the crew stops having to think
+  // about which press costs money. The desktop planner is deliberately excluded
+  // (opts.osrmUrl): its local OSRM has turn restrictions and penalties this
+  // graph does not, so it remains the better answer where it is available.
+  let localGraph = null, usedLocalGraph = false, localNote = null;
+  if(!opts.osrmUrl && !opts.noLocalGraph){
+    providerEvent(onProgress, 'routing', 'roadgraph', 'attempted');
+    const local = await localGraphMatrix(coords);
+    providerEvent(onProgress, 'routing', 'roadgraph', local.D ? 'resolved' : 'failed');
+    if(local.D){
+      D = local.D; T = local.T; localGraph = local.graph; usedLocalGraph = true;
+      routingProvenance = { method:'matrix', provider:'roadgraph', fallbackReason:'' };
+      // Say so when part of the run wasn't measurable — a silent crow-flies
+      // patch over a third of the day is the kind of thing that reads as "the
+      // route is just wrong" three weeks later.
+      if(local.unsnapped || local.repaired)
+        localNote = local.unsnapped
+          ? `${local.unsnapped} stop${local.unsnapped === 1 ? '' : 's'} off the road map (estimated)`
+          : 'some legs estimated (no road connection)';
+    }
+  }
+
+  if(usedLocalGraph){
+    // measured already — skip the network ladder entirely
+  } else if(opts.straightLine){
     // Deliberate choice, NOT a degraded fallback: leave usedFallback false so the
     // toast doesn't warn "straight-line (…)". No durations on straight-line, so
     // T stays null and no ETAs are shown for this run.
@@ -1275,7 +1367,11 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // is which meter is NEAREST the installer, not the exact drive to it. A team muster
   // start is deliberately excluded: its drive-out IS shown, priced and drawn, so that
   // one keeps real road distance.
-  if(startC && !usingTeamStart){
+  // …EXCEPT when the on-device graph carried the run. That rewrite exists to
+  // keep a live fix out of a matrix somebody has to pay for; the local graph
+  // already measured the fix's real road distances at no cost, so overwriting
+  // them with crow-flies would be a pure downgrade.
+  if(startC && !usingTeamStart && !usedLocalGraph){
     straightLineNode(D, coords, 0);
     if(T) straightLineNode(T, coords, 0, CROW_MIN_PER_METRE);
   }
@@ -1311,7 +1407,9 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // Did this run actually get road distances? Only then is there a road route to
   // save, and only then can a straight-line ORDER be priced in real driving
   // metres (the whole point of comparing the two).
-  const onRoad = !opts.straightLine && !usedFallback;
+  // The on-device graph IS road data, so a plain tap that it carried gets a real
+  // road variant and a comparable straight-line one — same as a paid matrix.
+  const onRoad = usedLocalGraph || (!opts.straightLine && !usedFallback);
   const variants = { road:null, straight:null };
   if(onRoad){
     variants.road = primary;
@@ -1332,9 +1430,13 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     startIsCommute: usingTeamStart };
 
   return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
-    note: combineNotes(orsNote(notes), geoNote),
+    note: combineNotes(orsNote(notes), geoNote, localNote),
     variants, measure, straightDistanceSource: onRoad ? 'road' : 'straight-line',
     dayTarget: target, estimatedTimes,
+    // The decoded graph this run used, so the caller can draw real road geometry
+    // from it without re-loading or re-deciding coverage. Null on every path that
+    // didn't route locally.
+    roadGraph: localGraph, usedLocalGraph,
     provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
 }
 

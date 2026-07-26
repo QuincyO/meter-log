@@ -75,7 +75,10 @@ export function createLastRunRecord({ at='', provenance={} }={}){
     },
     routing:{
       method:route.method === 'matrix' ? 'matrix' : 'straight-line',
-      provider:['osrm', 'google-routes', 'ors', 'haversine'].includes(route.provider)
+      // Keep in step with route.js's routingProvenance. An unlisted provider is
+      // silently recorded as 'haversine', so a new matrix source that isn't
+      // added here reads back as "we fell back to straight-line" forever.
+      provider:['roadgraph', 'osrm', 'google-routes', 'ors', 'haversine'].includes(route.provider)
         ? route.provider : 'haversine',
       fallbackReason:String(route.fallbackReason || ''),
     },
@@ -87,7 +90,8 @@ export function formatLastRunSummary(record){
     ? createLastRunRecord({ at:record.at, provenance:{ geocoding:record.geocoding, routing:record.routing } })
     : createLastRunRecord(record);
   const g = r.geocoding, route = r.routing;
-  const name = { nominatim:'Nominatim', google:'Google', ors:'ORS', osrm:'OSRM', 'google-routes':'Google Routes', haversine:'Haversine' };
+  const name = { nominatim:'Nominatim', google:'Google', ors:'ORS', osrm:'OSRM',
+    'google-routes':'Google Routes', roadgraph:'offline map', haversine:'Haversine' };
   return `Geocoding: ${g.cached} cached; Nominatim ${g.nominatim.resolved}/${g.nominatim.attempted}; Google ${g.google.resolved}/${g.google.attempted}; ORS ${g.ors.resolved}/${g.ors.attempted}; ${g.parked} parked. Routing: ${route.method} via ${name[route.provider]}${route.fallbackReason ? ` (${route.fallbackReason})` : ''}.`;
 }
 

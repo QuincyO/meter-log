@@ -272,6 +272,61 @@ copy the already-built data on an SSD. Two `scripts/` helpers do it:
 Re-run the export whenever you refresh the Ontario map (new `.pbf` → re-run the
 OSRM preprocess + the Nominatim import once on the primary PC, then re-export).
 
+## Offline road maps for the phone (district packs)
+
+Everything above puts road distances on the **desktop planner**. This puts them on
+the **phone**, with no signal and no API spend: a district's drivable road network
+is distilled into a few-MB binary the crew downloads once from Settings ▸ **Offline
+road map**, and `js/roadgraph.js` routes on it directly. See ARCHITECTURE.md
+§"Offline road maps" for what's inside a pack and why.
+
+Build one on the planning PC, from the **same Ontario `.pbf`** already downloaded
+for OSRM. Three `osmium` commands (Docker, no install) then one Node script:
+
+```powershell
+# 1. Clip to the district. --bbox is minLng,minLat,maxLng,maxLat.
+docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
+  osmium extract -b -79.4,44.2,-78.0,45.0 /data/ontario-latest.osm.pbf `
+  -o /data/district.osm.pbf --overwrite
+
+# 2. Keep only ways that could be roads (drops ~90% of the file).
+docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
+  osmium tags-filter /data/district.osm.pbf w/highway `
+  -o /data/district-roads.osm.pbf --overwrite
+
+# 3. Export one GeoJSON Feature per line — what lets the builder stream it.
+docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
+  osmium export /data/district-roads.osm.pbf -f geojsonseq `
+  -o /data/district-roads.geojsonseq --overwrite
+```
+
+```powershell
+node tools/build-roadpack.mjs --in D:\osrm\district-roads.geojsonseq `
+  --id kawartha --name "Kawartha Lakes" --bbox -79.4,44.2,-78.0,45.0
+```
+
+**Pass the same `--bbox` to the builder as to `osmium extract`** — it becomes the
+pack's coverage box, and `optimizeRoute` only routes locally when the pack covers
+≥80% of a run's stops.
+
+The script writes `maps/<id>.pack` and updates `maps/index.json` (the catalogue the
+phone's district picker reads). **Commit and push both** — GitHub Pages serves them
+like every other file, so that's the whole deploy. Expect a few MB for a ~150 km
+district; the builder warns past 30 MB, which is the point to use a tighter bbox.
+
+Two things worth knowing before you rebuild casually:
+
+- Every rebuild adds another multi-megabyte blob to git history, permanently.
+  Rebuild when the roads actually change, not on a schedule.
+- Packs are deliberately **not** in `sw.js`'s `SHELL`. ⟳ Force update from GitHub
+  re-fetches the entire shell, and packs there would make a routine app update a
+  many-megabyte download on boat signal. They live in IndexedDB and survive it.
+
+Accuracy: distances land within a few percent of OSRM. The graph has no turn
+restrictions or turn penalties, so durations drift a little more — the planner's
+real OSRM stays the better source where it's available, and `optimizeRoute` keeps
+using it there (a pack never overrides `osrmUrl`).
+
 ## OpenRouteService backup (optional)
 
 `js/route.js` falls back to **OpenRouteService** (ORS) — a free, hosted OSM
@@ -282,10 +337,12 @@ straight lines. It backs up **both** lookups:
 - **Geocoding:** (local Nominatim, planner only, if configured →) Google →
   **ORS** → park. A `REQUEST_DENIED`/over-quota Google key (or a plain miss)
   retries the address on ORS before parking it.
-- **Road matrix:** Google Routes (phone) / local OSRM (planner) → **ORS** →
+- **Road matrix:** **offline district pack (phone, when one covers the run)** →
+  Google Routes (phone) / local OSRM (planner) → **ORS** →
   straight-line. ORS's hosted matrix is one free call, capped at ~3,500
   location-pairs (≈ **59 stops**) — a bigger list skips ORS and solves
-  straight-line.
+  straight-line. With a pack downloaded the phone never reaches the billable
+  Google rung at all.
 
 When ORS carries a run, the optimize toast says so (e.g. "roads via
 OpenRouteService backup"); a Google-key rejection that ORS rescued no longer

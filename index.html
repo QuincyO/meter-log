@@ -442,10 +442,23 @@
       <p class="muted" id="cfgStartHint">Where your route starts each morning — set by the office for your crew.</p>
       <button class="primary" id="saveSettings">Save</button>
 
+      <h2>Offline road map</h2>
+      <p class="muted">Download the roads for your district once, on wifi, and Optimize route
+        measures real driving distance on this phone — no signal needed. Without one it falls
+        back to straight-line estimates.</p>
+      <p class="muted" id="packCurrent">No map downloaded.</p>
+      <label for="packPick">District</label>
+      <select id="packPick"><option value="">— checking… —</option></select>
+      <div class="pack-actions">
+        <button class="ghost" id="packGet" type="button">⇩ Download map</button>
+        <button class="ghost danger" id="packDrop" type="button">Delete</button>
+      </div>
+      <p class="muted" id="packHint"></p>
+
       <h2>App version</h2>
       <p class="muted" id="appVersionHint">Checking…</p>
       <button class="ghost" id="refreshApp" type="button">⟳ Force update from GitHub</button>
-      <p class="muted">Re-downloads the app itself when the office ships a change. Needs signal. Your name, settings and anything waiting to send are left alone.</p>
+      <p class="muted">Re-downloads the app itself when the office ships a change. Needs signal. Your name, settings and anything waiting to send are left alone. Your offline road map is kept.</p>
     </div>
   </div>
 

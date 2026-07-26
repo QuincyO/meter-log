@@ -31,7 +31,7 @@ test('the refresh bypasses the browser HTTP cache and never deletes first', () =
 });
 
 test('the worker still owns the one SHELL list the refresh walks', () => {
-  assert.match(worker, /const CACHE = 'meterlog-v34';/);
+  assert.match(worker, /const CACHE = 'meterlog-v35';/);
   // Refreshing SHELL itself (not a page-side copy) is what stops the file list
   // from drifting the first time someone adds a module.
   assert.match(worker, /SHELL\[next\+\+\]/);
@@ -39,6 +39,24 @@ test('the worker still owns the one SHELL list the refresh walks', () => {
                        './js/config.js', './css/capture.css', './index.html']) {
     assert.ok(worker.includes(`'${entry}'`), `SHELL is missing ${entry}`);
   }
+});
+
+test('the road-routing modules ship, but the map packs deliberately do not', () => {
+  // The modules are ordinary shared code and belong in the shell.
+  for (const entry of ['./js/roadgraph.js', './js/roadpack.js']) {
+    assert.ok(worker.includes(`'${entry}'`), `SHELL is missing ${entry}`);
+  }
+  // A district pack is megabytes. refreshShell() re-fetches every SHELL entry on
+  // ⟳ Force update from GitHub, so one in this list turns a routine app update
+  // into a many-megabyte download on boat signal. Packs live in the IndexedDB
+  // 'roadPacks' store instead — which is also why they survive the refresh.
+  // Comments stripped: the SHELL block explains this rule in prose, and the
+  // explanation naturally names the paths it is forbidding.
+  const shell = worker
+    .slice(worker.indexOf('const SHELL = ['), worker.indexOf('];'))
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(shell, /maps\//, 'a map pack must never be cached in the app shell');
+  assert.doesNotMatch(shell, /\.pack/);
 });
 
 test('the force update is static files only — it never calls the spine', () => {

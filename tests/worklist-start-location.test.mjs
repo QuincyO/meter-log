@@ -59,7 +59,17 @@ test('the second route is only ever asked for on the road-matrix press', () => {
 // every between-stop distance keeps whatever matrix the run actually pulled.
 
 test('a live GPS start rewrites only its own row/column, straight-line', () => {
-  assert.match(route, /if\(startC && !usingTeamStart\)\{\s*straightLineNode\(D, coords, 0\);/);
+  assert.match(route, /if\(startC && !usingTeamStart && !usedLocalGraph\)\{\s*straightLineNode\(D, coords, 0\);/);
+});
+
+test('the on-device road graph is exempt: it already measured the fix for free', () => {
+  // The crow-flies rewrite exists to keep a live GPS fix out of a matrix somebody
+  // PAYS for. A downloaded district costs nothing and routed the fix along with
+  // every other stop, so applying the rewrite there would replace a real road
+  // distance with an estimate — a pure downgrade. Guard the exemption so it
+  // can't be "simplified" back out.
+  assert.match(route, /!usedLocalGraph\)\{\s*straightLineNode/);
+  assert.match(route, /const onRoad = usedLocalGraph \|\| \(!opts\.straightLine && !usedFallback\)/);
 });
 
 test('a team muster start keeps real road distance for its drive-out', () => {

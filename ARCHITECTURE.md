@@ -522,8 +522,56 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `WorklistPlans` stores route start date, first-stop time, editable pace, and the
   installer-owned tuning (`commutePull`/`finishBy`) + `target` once per H number
   instead of repeating those settings on every order.
+- **Offline road maps (`js/roadgraph.js` + `js/roadpack.js` + `tools/build-roadpack.mjs`).**
+  The phone's own road-distance source, and the first rung of the matrix ladder
+  below. A **district pack** — the drivable OSM road network for one working area,
+  distilled to node positions, segments with a speed and a oneway bit, and the
+  shape points for drawing — is downloaded once from Settings ▸ **Offline road
+  map** and kept in the IndexedDB `roadPacks` store. `js/roadgraph.js` then does
+  on-device what a self-hosted OSRM does over HTTP: snap coordinates to the
+  network, run one Dijkstra per source (costed in seconds, carrying metres), and
+  reconstruct paths. `matrix()` returns the **same `{D, T}` shape `osrmMatrix`
+  returns** — metres and minutes — which is what lets it drop into `optimizeRoute`
+  without anything downstream changing, and `path()` feeds the existing
+  `encodePolyline` so the **phone can finally produce `legGeometryRoad` itself**
+  rather than only decoding the planner's.
+  A ~150 km district lands at a few MB. Things that are load-bearing here:
+  - **The pack stores only raw arrays.** The adjacency (CSR) and the snapping grid
+    are rebuilt at decode time — both O(segments) and a few milliseconds — which
+    keeps the format small and the writer simple. Decode is not the slow part.
+  - **`snap` splits a segment without mutating the graph.** It returns the metres
+    to each end (`toFromM`/`toToM`, scaled so they sum to the pack's `segLen`), and
+    the search is seeded at both endpoints with those partial costs. Same-segment
+    pairs are handled directly. Snapping to the nearest *node* instead would be
+    half a block wrong on every stop.
+  - **Oneways are honoured**, so the matrix is legitimately asymmetric. A router
+    that ignored them would send the crew the wrong way up a street.
+  - **The repair pass in `localGraphMatrix` is not optional.** Anything the graph
+    can't reach (a stop that snapped to no road, a disconnected island) comes back
+    `Infinity`, which would poison the solve and every metre total downstream; those
+    pairs — and only those pairs — fall back to crow-flies × `ROAD_DETOUR_FACTOR`.
+    The run says so in its `note` rather than patching silently.
+  - **Coverage gate.** A run is routed locally only when the pack covers
+    ≥ `LOCAL_MIN_COVERAGE` (80%) of its coordinates; below that the crew is working
+    outside the district they downloaded and the run declines to the next provider.
+  - **Packs are not in `sw.js`'s `SHELL`** — they are megabytes and `refreshShell()`
+    re-fetches the whole shell on every ⟳ Force update. They live in IndexedDB and
+    survive app refreshes. The `roadgraph.js`/`roadpack.js` *modules* are in `SHELL`.
+  - **The desktop planner is deliberately excluded** (`opts.osrmUrl` set): its local
+    OSRM has turn restrictions and penalties this graph does not, so it stays the
+    better answer where it's available.
+  Packs are built by `tools/build-roadpack.mjs` (plain Node, no dependencies) from
+  a bbox-clipped `osmium` export of the same Ontario `.pbf` already downloaded for
+  OSRM, and committed under `maps/` with a published `maps/index.json` catalogue —
+  GitHub Pages serves them like everything else. See DEPLOY.md and `maps/README.md`.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
-  screen; online-only). The whole pipeline runs on the phone: forward-geocode
+  screen). **The matrix ladder is: on-device road graph → (local OSRM on the
+  planner / budget-guarded Google Routes on the phone) → OpenRouteService →
+  straight-line.** With a district downloaded the billable Google path is never
+  reached at all, real durations mean ETAs lose their "(est.)" label, and Optimize
+  works with the radio off — the only thing still needing signal is geocoding an
+  address that has never been pinned, and those park as they always have. The rest
+  of the pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
   API-restricted to Geocoding + Routes (no referrer restriction — the
   Geocoding web service rejects those keys, see DEPLOY.md) and quota-capped
@@ -689,9 +737,13 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   commute so `solveVariant` drops it from the ordering matrix — distinct from the
   one-run GPS start, which stays a real ordering anchor (its first leg is a charged
   driven leg).
-  **Which matrix is used is the press, not a menu.** A normal tap on 🧭 Optimize
-  routes on straight-line distances (free); holding it two seconds pulls the real
-  road matrix. The recognizer is `js/press-hold.js` — pure, injectable timers,
+  **Which matrix is used is the press, not a menu — and with an offline map the
+  press stops mattering.** A normal tap on 🧭 Optimize routes on straight-line
+  distances (free); holding it two seconds pulls the real road matrix. **Once a
+  district pack is downloaded the on-device graph outranks both**, so a plain tap
+  is already road-accurate and the hold only changes anything when the pack does
+  *not* cover the run — which is the point: the crew stops having to remember
+  which press costs money. The recognizer is `js/press-hold.js` — pure, injectable timers,
   unit-tested — and `bindOptimizeGesture` in `js/worklist.js` is only the DOM wiring
   for it. It **aborts the press past 10px of travel**, because Optimize is a
   full-width button and a swipe up the worklist lands on it; without that (and with
@@ -714,11 +766,16 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   click and resolves null — without it the promise would sit pending behind a hidden
   sheet and Optimize would never continue. With no home pin on file either answer
   degrades to the plain most-efficient solve, as before.
-  **A live GPS start is priced straight-line, always.** `straightLineNode` rewrites
+  **A live GPS start is priced straight-line — except on the on-device graph.**
+  `straightLineNode` rewrites
   that node's row/column of `D` (and of `T`, scaled by `CROW_MIN_PER_METRE`) with
   crow-flies values while every **between-stop** distance keeps whatever the run
   actually pulled — road matrix on the two-second hold, straight-line on a normal tap,
-  and an existing road matrix is reused rather than re-fetched. Only *which meter is
+  and an existing road matrix is reused rather than re-fetched. That rewrite exists to
+  keep a live fix out of a matrix somebody **pays** for; a downloaded district costs
+  nothing and already routed the fix along with every other stop, so the rewrite is
+  skipped when `usedLocalGraph` — applying it there would replace a real road distance
+  with an estimate. `tests/worklist-start-location.test.mjs` guards both halves. Only *which meter is
   nearest* has to be right, so the fix never needs to be in the fetched matrix and
   anchoring the route where you stand costs no matrix elements. A **team** start is
   deliberately excluded from this: its drive-out is shown, priced and drawn, so it

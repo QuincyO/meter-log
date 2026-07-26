@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v34';
+const CACHE = 'meterlog-v35';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -33,6 +33,11 @@ const SHELL = [
   './js/drive.js', './js/drive-track.js', './js/drive-recorder.js',
   './js/drag-autoscroll.js', './js/press-hold.js',
   './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/route-today.js', './js/planner-services.js', './js/utiReasons.js',
+  // on-device road routing. The MODULES belong in the shell; the district
+  // PACKS (maps/*.pack) deliberately do NOT — they are megabytes, they live in
+  // IndexedDB, and refreshShell() re-fetches everything listed here on every
+  // ⟳ Force update from GitHub. See js/roadpack.js.
+  './js/roadgraph.js', './js/roadpack.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',
   './js/compute/summary.js', './js/compute/estimate.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)

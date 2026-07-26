@@ -307,6 +307,16 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
    .row2 grid it sits in, so give this standalone one a full-width box. */
 #refreshApp{width:100%;margin-top:4px}
 
+/* Settings ▸ Offline road map. Download is the common action and keeps the
+   full-width feel of the block; Delete is deliberately narrow and set apart so
+   a thumb reaching for Download can't land on it. */
+.pack-actions{display:flex;gap:8px;margin-top:4px}
+.pack-actions .ghost{margin:0}
+#packGet{flex:1}
+#packDrop{flex:none;width:auto;padding:0 16px;color:var(--amber)}
+#packDrop[disabled]{opacity:.4}
+#packCurrent{font-weight:600;color:var(--ink)}
+
 /* Route tuning screen */
 .tune-row { margin: 16px 2px; }
 .tune-row > label { display: flex; justify-content: space-between; align-items: baseline;

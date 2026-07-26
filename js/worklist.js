@@ -14,7 +14,8 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, localRoadGeometry } from './route.js';
+import { activePackId } from './roadpack.js';
 import { liveMetrics } from './drive-recorder.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
@@ -401,12 +402,25 @@ async function crewStartPin(){
 }
 
 async function optimizeRouteHandler(straightLine){
-  if(!navigator.onLine){ toast('Offline — route optimization needs signal'); return; }
   const pending = pendingOf(await allSorted());
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
-  const algorithm = straightLine
-    ? 'straight-line algorithm'
-    : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
+  // Offline is no longer a flat refusal. With a district downloaded, everything
+  // that matters runs on the phone — the only thing that still needs signal is
+  // geocoding an address we've never pinned, and those just park. So the gate
+  // asks the real question: can this run actually measure anything?
+  const havePack = !!activePackId();
+  const alreadyPinned = pending.filter(x => coordsOf(x)).length;
+  if(!navigator.onLine && !(havePack && alreadyPinned >= 2)){
+    toast(havePack
+      ? 'Offline — needs at least 2 orders with pins'
+      : 'Offline — route optimization needs signal or an offline map');
+    return;
+  }
+  const algorithm = havePack
+    ? 'offline road map on this phone'
+    : straightLine
+      ? 'straight-line algorithm'
+      : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
   // One gate, and it carries the decision that matters: a mid-day re-optimize from
   // out in the field must not re-plan as if the crew were back at the muster point.
   const startChoice = await askStartLocation(pending.length, algorithm);
@@ -468,20 +482,40 @@ async function optimizeRouteHandler(straightLine){
     // Each computed variant's own positions over the pending set (routed first,
     // then parked) — saved as its own columns, never renumbered by anything else.
     const variantPos = {};
+    // The decoded district this run routed on, when it had one. It is what lets
+    // the phone draw REAL roads: until offline packs existed only the desktop
+    // planner could produce legGeometry, because only it could reach an OSRM
+    // `route` service.
+    const graph = base.roadGraph || null;
     for(const v of Object.keys(computed)){
       const c = computed[v], pos = {};
       [...c.orderedIds, ...parkedIds].forEach((id, n) => {
-        // A day's first stop (the ones homeLegMetersFor priced) carries the
-        // crew-start drive-out — a straight two-point line, since the phone can't
-        // fetch OSRM road paths. Every other stop stores none.
-        const it = byId[id], fc = it && coordsOf(it);
-        const driveOut = (crewStart && fc && c.homeLegMeters[id] != null)
-          ? encodePolyline([[crewStart.lat, crewStart.lng], [fc.lat, fc.lng]]) : '';
         pos[id] = { order:n * 10, day:c.dayOf[id] || '',
           legMeters:c.legMeters[id] == null ? '' : c.legMeters[id],
           homeLegMeters:c.homeLegMeters[id] == null ? '' : c.homeLegMeters[id],
-          homeLegGeometry: driveOut };
+          geometry:'', homeLegGeometry:'' };
       });
+      // Second pass over the ROUTED sequence only (parked orders are not on the
+      // route and get no geometry), tracking the previous stop per day so a
+      // day's first stop takes the crew-start drive-out instead of a between-
+      // stops leg — the same split the planner's fetchVariantGeometry makes.
+      const prevByDay = {};
+      for(const id of c.orderedIds){
+        const fc = coordsOf(byId[id]);
+        if(!fc) continue;
+        const day = c.dayOf[id] || 0;
+        const prev = prevByDay[day];
+        if(prev){
+          pos[id].geometry = localRoadGeometry(graph, prev, fc);
+        } else if(crewStart){
+          // Road path when the offline map can draw it, else the straight
+          // two-point line that has always been drawn here, so the start pin and
+          // its faint dashed line show either way.
+          pos[id].homeLegGeometry = localRoadGeometry(graph, crewStart, fc)
+            || encodePolyline([[crewStart.lat, crewStart.lng], [fc.lat, fc.lng]]);
+        }
+        prevByDay[day] = fc;
+      }
       variantPos[v] = pos;
     }
     let i = 0;
@@ -504,11 +538,12 @@ async function optimizeRouteHandler(straightLine){
         patch[f.day] = p ? p.day : '';
         patch[f.legMeters] = p ? p.legMeters : '';
         patch[f.homeLegMeters] = p ? p.homeLegMeters : '';
-        // Sequence changed → saved BETWEEN-stops road geometry is keyed to the old
-        // order, and the phone can't re-fetch it (only the desktop hits OSRM), so
-        // clear it and let the route map draw straight legs. The crew-start drive-out
-        // IS redrawn here as a straight line so the pin + faint line always show.
-        patch[f.geometry] = '';
+        // Sequence changed → saved BETWEEN-stops road geometry is keyed to the OLD
+        // order and must never outlive it. With an offline map the phone can now
+        // regenerate it for the new sequence in the same pass (pos.geometry); with
+        // no map that value is '' and the route map draws straight legs, exactly as
+        // before. The crew-start drive-out is likewise redrawn every run.
+        patch[f.geometry] = p ? p.geometry : '';
         patch[f.homeLegGeometry] = p ? p.homeLegGeometry : '';
       }
       await idb.put('worklist', Object.assign({}, item, patch));

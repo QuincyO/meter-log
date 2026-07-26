@@ -21,6 +21,7 @@ import {
   startRecording, stopRecording, subscribe as subscribeDrive,
 } from '../drive-recorder.js';
 import { geocodeOne } from '../route.js';
+import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPack, deletePack } from '../roadpack.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
@@ -1454,6 +1455,7 @@ function openSheet(id){
     paintHomeHint();
     paintStartField();
     paintVersionHint();
+    paintRoadPacks();
     loadSubInfo();
   }
   $(id).classList.remove('hide');
@@ -1534,6 +1536,85 @@ function paintVersionHint(){
     .catch(() => { el.textContent = 'Version unknown' + last; });
 }
 
+// ── offline road map (Settings) ───────────────────────────────────────────────
+// The district picker for on-device routing. Packs are megabytes and live in
+// IndexedDB, NOT the service-worker shell — see js/roadpack.js for why. This
+// paints from what's already installed first, so the block is useful offline,
+// then folds in the published catalogue when there's signal.
+const mb = bytes => (Number(bytes) || 0) >= 1048576
+  ? (bytes / 1048576).toFixed(1) + ' MB'
+  : Math.max(1, Math.round((Number(bytes) || 0) / 1024)) + ' KB';
+
+async function paintRoadPacks(){
+  const sel = $('packPick'), cur = $('packCurrent'), hint = $('packHint');
+  if(!sel) return;
+  const installed = await installedPacks();
+  const active = activePackId();
+  const mine = installed.find(p => p.id === active) || installed[0] || null;
+  cur.textContent = mine
+    ? `Using ${mine.name} — ${mb(mine.bytes)}${mine.builtAt ? ', built ' + mine.builtAt : ''}`
+    : 'No map downloaded.';
+  $('packDrop').disabled = !mine;
+
+  // Installed districts always appear, even with no signal; the catalogue adds
+  // the ones not yet downloaded.
+  let catalogue = [];
+  try { catalogue = await fetchManifest(); }
+  catch { hint.textContent = navigator.onLine ? 'Could not read the district list.' : ''; }
+  const byId = new Map();
+  for(const p of installed) byId.set(p.id, { ...p, installed:true });
+  for(const d of catalogue) byId.set(d.id, { ...(byId.get(d.id) || {}), ...d, installed: byId.has(d.id) });
+  const all = [...byId.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+  sel.innerHTML = all.length
+    ? all.map(d => `<option value="${attr(d.id)}"${d.id === active ? ' selected' : ''}>`
+        + `${esc(d.name)} — ${mb(d.bytes)}${d.installed ? ' ✓' : ''}</option>`).join('')
+    : '<option value="">— none published —</option>';
+  if(!hint.textContent)
+    hint.textContent = all.some(d => d.installed)
+      ? 'A ✓ means it is already on this phone. Downloading again replaces it.'
+      : 'Pick your district and download it while you have wifi.';
+}
+
+async function downloadRoadPack(){
+  const sel = $('packPick'), btn = $('packGet'), hint = $('packHint');
+  const id = sel && sel.value;
+  if(!id){ toast('Pick a district first'); return; }
+  if(!navigator.onLine){ toast('No signal — connect to wifi first'); return; }
+  let entry = null;
+  try { entry = (await fetchManifest()).find(d => d.id === id) || null; }
+  catch { toast('Could not reach the district list'); return; }
+  if(!entry){ toast('That district is no longer published'); return; }
+  const label = btn.textContent;
+  btn.disabled = true;
+  try {
+    await downloadPack(entry, ({ received, total }) => {
+      btn.textContent = total
+        ? `Downloading… ${Math.round(received / total * 100)}%`
+        : `Downloading… ${mb(received)}`;
+    });
+    await setActivePack(id);
+    toast(`${entry.name} ready — routes now work offline`);
+  } catch(e){
+    // Nothing was stored, so whatever was already installed still works.
+    hint.textContent = 'Download failed — ' + (e && e.message ? e.message : 'try again on better signal') + '.';
+    toast('Map download failed');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+    paintRoadPacks();
+  }
+}
+
+async function deleteRoadPack(){
+  const installed = await installedPacks();
+  const mine = installed.find(p => p.id === activePackId()) || installed[0];
+  if(!mine) return;
+  if(!confirm(`Delete the ${mine.name} map (${mb(mine.bytes)})?\n\nRoutes go back to straight-line estimates until you download one again.`)) return;
+  await deletePack(mine.id);
+  toast('Map deleted');
+  paintRoadPacks();
+}
+
 async function refreshAppShell(){
   const btn = $('refreshApp'), el = $('appVersionHint');
   if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller){
@@ -1577,6 +1658,16 @@ $('navSettings').onclick  = () => { $('navMenu').classList.add('hide'); openShee
 $('navHelp').onclick      = () => { window.location.href = 'help.html'; };
 
 $('refreshApp').onclick = refreshAppShell;
+$('packGet').onclick    = downloadRoadPack;
+$('packDrop').onclick   = deleteRoadPack;
+// Picking a district that is already downloaded switches to it; picking one that
+// isn't just arms the Download button. Setting a not-installed district active
+// would leave the app believing it has a map it can't load.
+$('packPick').onchange  = async e => {
+  const id = e.target.value;
+  if((await installedPacks()).some(p => p.id === id)) await setActivePack(id);
+  paintRoadPacks();
+};
 
 $('saveSettings').onclick = () => {
   const c = cfg();
