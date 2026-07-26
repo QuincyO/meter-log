@@ -31,7 +31,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const MAPS = join(REPO, 'maps');
 
-const OSMIUM_IMAGE = 'ghcr.io/osmcode/osmium-tool';
 const PORT = 8790;
 
 // A district id becomes a filename and a URL path segment. Anything outside
@@ -48,6 +47,15 @@ function parseArgs(argv){
 }
 const args = parseArgs(process.argv.slice(2));
 const DATA_DIR = args.data ? resolve(args.data) : '';
+
+// osmcode publishes NO official osmium container — the `ghcr.io/osmcode/osmium-tool`
+// this used to name has never existed, so every build died on `denied` from the
+// registry before osmium ever ran. `iboates/osmium` is the maintained community
+// build of the same tool; the version is pinned so a district built today builds
+// the same way in a year. **Its ENTRYPOINT is already `osmium`**, so the argv in
+// `osmium()` below starts at the subcommand — an image without that entrypoint
+// needs `--image` *and* the word `osmium` put back.
+const OSMIUM_IMAGE = args.image || 'iboates/osmium:1.19.0';
 
 function findPbf(){
   if(args.pbf) return args.pbf;
@@ -97,7 +105,7 @@ function newJob(){
 const push = (job, line) => { job.log.push(line); if(job.log.length > 400) job.log.shift(); };
 
 const osmium = (job, argv) => run('docker',
-  ['run', '--rm', '-v', `${DATA_DIR}:/data`, OSMIUM_IMAGE, 'osmium', ...argv],
+  ['run', '--rm', '-v', `${DATA_DIR}:/data`, OSMIUM_IMAGE, ...argv],
   l => push(job, l));
 
 async function buildDistrict(job, { id, name, bbox }){
@@ -236,6 +244,10 @@ createServer(async (req, res) => {
       if(!name) return json(res, 400, { error:'name is required' });
       if(!bbox) return json(res, 400, { error:'draw a sensible rectangle first' });
       if(!DATA_DIR) return json(res, 400, { error:'server started without --data' });
+      // Checked here, not just inside the job: a --data folder that doesn't exist
+      // (or holds no extract) is a launch-flag typo, and finding that out from a
+      // failed job's log is three clicks too late.
+      if(!findPbf()) return json(res, 409, { error:`No .osm.pbf in ${DATA_DIR} — restart with --data pointing at the folder holding the Ontario extract` });
       const docker = await dockerUp();
       if(!docker.ok) return json(res, 409, { error:docker.reason });
 

@@ -37,6 +37,11 @@ let map = null, mapLayer = null;   // Leaflet instances (lazy)
 // The offline-district rectangle lives on its OWN layer: renderMap() clears
 // mapLayer on every repaint, and a drawn district must survive that.
 let districtLayer = null, districtBox = null, drawHandlers = null, builderOnline = false;
+// The last /status. Cached because updateDistrictButtons() is also called from
+// the draw handlers and the id/name inputs, which have no status to hand it —
+// without the cache, drawing a box re-enabled Build on a machine with no Docker
+// and no extract.
+let builderState = null;
 let serviceState = {
   osrm:{ provider:'osrm', online:false, reason:'not checked' },
   nominatim:{ provider:'nominatim', online:false, reason:'not checked' },
@@ -183,7 +188,8 @@ async function refreshDistrictList(){
   const el = $('plDistrictList');
   let status;
   try { status = await builderStatus(); }
-  catch { el.textContent = ''; return; }
+  catch { el.textContent = ''; builderState = null; return; }
+  builderState = status;
   const list = status.districts || [];
   el.innerHTML = list.length
     ? '<p class="sub">Built so far:</p><ul class="pldistricts">' + list.map(d =>
@@ -191,15 +197,32 @@ async function refreshDistrictList(){
         + `${d.addresses ? ` · ${d.addresses.toLocaleString()} addresses` : ' · roads only'}`
         + ` · built ${esc(d.builtAt || '')}</span></li>`).join('') + '</ul>'
     : '<p class="sub">No districts built yet.</p>';
-  // Docker is what runs osmium; without it there is nothing to build with.
-  $('plDistrictBuild').title = status.docker ? '' : (status.dockerReason || 'Docker is not running');
   $('plDistrictPublish').disabled = !list.length || !status.git;
-  updateDistrictButtons(status);
+  updateDistrictButtons();
+  // Spelled out in the panel as well as on the button: a disabled button's
+  // title tooltip never fires in Chrome, which is where this runs.
+  const blocked = builderBlocker();
+  if(blocked) el.innerHTML += `<p class="sub plwarn">⚠ ${esc(blocked)}</p>`;
 }
 
-function updateDistrictButtons(status){
+// Two things have to be true before a build can even start, and both are the
+// service's environment rather than anything on this page: Docker is what runs
+// osmium, and --data has to actually hold the province extract to clip. Say
+// which one is missing on the button — a wrong --data used to look like a
+// working Build that died minutes later in the job log.
+function builderBlocker(){
+  if(!builderState) return '';
+  if(builderState.docker === false) return builderState.dockerReason || 'Docker is not running';
+  if(!builderState.pbf) return `No .osm.pbf in ${builderState.data || 'the data folder'}`
+    + ' — restart the builder with --data pointing at your Ontario extract';
+  return '';
+}
+
+function updateDistrictButtons(){
   const ready = !!districtBox && !!$('plDistrictId').value.trim() && !!$('plDistrictName').value.trim();
-  $('plDistrictBuild').disabled = !ready || !builderOnline || (status && status.docker === false);
+  const blocked = builderBlocker();
+  $('plDistrictBuild').title = blocked;
+  $('plDistrictBuild').disabled = !ready || !builderOnline || !!blocked;
 }
 
 function ensureDistrictLayer(){

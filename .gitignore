@@ -16,6 +16,13 @@ vault/
 # Ignored so it stops reading as a pending instruction to the next agent.
 VAULT_BOOTSTRAP.md
 
+# OSM extracts and the district builder's scratch files. The Ontario .pbf is ~1 GB
+# — past GitHub's 100 MB per-file limit — and belongs in the OSRM data folder
+# (D:\osrm), never in the repo. Ignored so a stray copy downloaded next to data/
+# can't be swept into a commit by `git add -A`.
+*.osm.pbf
+_build_*
+
 # graphify's knowledge graph — derived data, rebuilt from source by the post-commit
 # hook. Committing it would mean a graph diff on every code commit, and a checked-in
 # graph goes stale the moment someone commits without the hook installed.

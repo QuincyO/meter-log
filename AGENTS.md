@@ -188,6 +188,19 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   id is validated against a strict slug before touching a filename or a git command.
   **Publishing is a separate, confirmed button** because it pushes to `main`, which
   deploys the whole app; it only ever stages `maps/`.
+  Two things it got wrong the first time, both invisible until a real Build ran:
+  **there is no official osmium container.** `osmcode` publishes none, so the
+  `ghcr.io/osmcode/osmium-tool` the server named never existed and every build died
+  on `denied` from the registry before osmium ran. It is `iboates/osmium:1.19.0`
+  now (community-maintained, pinned, overridable with `--image`), and **that image's
+  `ENTRYPOINT` is already `osmium`** — the argv starts at the subcommand, so a
+  different image may need the word put back. And **`--data` is only checked when
+  a build runs**: a folder that doesn't exist, or holds no `.osm.pbf`, used to look
+  like a working panel until the job failed minutes later. `/build` now rejects it
+  up front and the panel disables Build with the reason, but the flag is still the
+  first thing to check when a district won't build — `curl localhost:8790/status`
+  prints the resolved `data` and `pbf`. On this machine the extract lives in
+  `D:\osrm`, the same folder mounted into the OSRM and Nominatim containers.
 
 - **Spine reads are cached at two levels (`Code.gs` `rows()`).** Per-request memo (`ROWS_MEMO`) for every tab, plus a cross-request `CacheService` copy for the small slow-changing tabs (`Employees`/`Teams`/`Captains`/`Subs`/`Metrics` — `CACHED_TABS`). **Any code that writes a tab must call `bustRows(tab)`** (the shared helpers `upsertByHeader`/`upsertDayRow`/`deleteDayRows`/`setDayFields`/`ensureName`/`deleteName` already do) or a read later in the same request — or a roster read for up to 6h — sees stale data. Don't add big/hot tabs (`Stops`, `Downtime`, …) to `CACHED_TABS`: they exceed the 100KB/key limit and are written on every log.
 

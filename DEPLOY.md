@@ -143,8 +143,12 @@ Start-menu icon, auto-updates on every push.
 Set up OSRM once (Windows, ~20 minutes, mostly download time):
 
 1. Install **Docker Desktop** (WSL2 backend, the default).
-2. Make a data folder (e.g. `C:\osrm`) and download the Ontario road network
-   into it: <https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf>
+2. Make a data folder and download the Ontario road network into it:
+   <https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf>
+   **On this machine that folder is `D:\osrm`** — the rest of this document, the
+   OSRM and Nominatim mounts, and `roadpack-server.mjs --data` all assume it.
+   Pick a different one and change it everywhere; a `--data` pointing at a folder
+   that doesn't exist is silent until a district build fails.
    (~1.5 GB; re-download every few months if you want new roads).
 3. Preprocess it (one-time per download; a few minutes on a fast machine):
 
@@ -294,8 +298,9 @@ node tools/roadpack-server.mjs --data D:\osrm
 mounted into the OSRM and Nominatim containers. The `.pbf` is auto-detected.
 
 Leave it running and open `planner.html`. The panel appears only while the service
-is up, and **Build** stays disabled (with the reason on hover) unless Docker Desktop
-is running, since Docker is what runs `osmium`.
+is up, and **Build** stays disabled — with the reason both on hover and spelled out
+under the district list — unless Docker Desktop is running (Docker is what runs
+`osmium`) *and* `--data` names a folder that actually holds an `.osm.pbf`.
 
 **Publish is a separate button on purpose.** Build writes `maps/` locally; Publish
 commits and pushes it to `main` — which redeploys the whole app — so it asks first.
@@ -311,29 +316,36 @@ downloaded for OSRM — `osmium` in Docker, then one Node script:
 
 ```powershell
 # 1. Clip to the district. --bbox is minLng,minLat,maxLng,maxLat.
-docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
-  osmium extract -b -79.4,44.2,-78.0,45.0 /data/ontario-latest.osm.pbf `
+docker run --rm -v D:\osrm:/data iboates/osmium:1.19.0 `
+  extract -b -79.4,44.2,-78.0,45.0 /data/ontario-latest.osm.pbf `
   -o /data/district.osm.pbf --overwrite
 
 # 2. Keep only ways that could be roads (drops ~90% of the file).
-docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
-  osmium tags-filter /data/district.osm.pbf w/highway `
+docker run --rm -v D:\osrm:/data iboates/osmium:1.19.0 `
+  tags-filter /data/district.osm.pbf w/highway `
   -o /data/district-roads.osm.pbf --overwrite
 
 # 3. Export one GeoJSON Feature per line — what lets the builder stream it.
-docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
-  osmium export /data/district-roads.osm.pbf -f geojsonseq `
+docker run --rm -v D:\osrm:/data iboates/osmium:1.19.0 `
+  export /data/district-roads.osm.pbf -f geojsonseq `
   -o /data/district-roads.geojsonseq --overwrite
 
 # 4. The same two steps again for addresses (this is what gives the phone
 #    offline geocoding). Skip these for a roads-only pack.
-docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
-  osmium tags-filter /data/district.osm.pbf n/addr:housenumber w/addr:housenumber `
+docker run --rm -v D:\osrm:/data iboates/osmium:1.19.0 `
+  tags-filter /data/district.osm.pbf n/addr:housenumber w/addr:housenumber `
   -o /data/district-addr.osm.pbf --overwrite
-docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
-  osmium export /data/district-addr.osm.pbf -f geojsonseq `
+docker run --rm -v D:\osrm:/data iboates/osmium:1.19.0 `
+  export /data/district-addr.osm.pbf -f geojsonseq `
   -o /data/district-addr.geojsonseq --overwrite
 ```
+
+**There is no official osmium container.** `osmcode` publishes none, so the
+`ghcr.io/osmcode/osmium-tool` these commands used to name never existed and every
+build failed with `denied` from the registry before osmium ran. `iboates/osmium`
+is the maintained community build; **its `ENTRYPOINT` is already `osmium`**, which
+is why the commands above start at the subcommand (`extract`, not `osmium
+extract`). Swapping in another image means checking that first.
 
 ```powershell
 node tools/build-roadpack.mjs --in D:\osrm\district-roads.geojsonseq `
