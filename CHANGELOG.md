@@ -26,20 +26,20 @@ the repo, and are not listed.
 
 ## 2026-07
 
-| Day | What shipped |
-|---|---|
-| [2026-07-26](changelog/2026-07-26.md) | Optimize stopped eating scroll attempts; this changelog |
-| [2026-07-25](changelog/2026-07-25.md) | Walk-up meters count toward the day; start-location popup |
-| [2026-07-24](changelog/2026-07-24.md) | Route tuning dials, real ETAs, the drive HUD, four field bugs |
+| Day                                   | What shipped                                                       |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| [2026-07-26](changelog/2026-07-26.md) | Optimize stopped eating scroll attempts; this changelog            |
+| [2026-07-25](changelog/2026-07-25.md) | Walk-up meters count toward the day; start-location popup          |
+| [2026-07-24](changelog/2026-07-24.md) | Route tuning dials, real ETAs, the drive HUD, four field bugs      |
 | [2026-07-23](changelog/2026-07-23.md) | Drive mode, two route variants, one instruction set for all agents |
-| [2026-07-22](changelog/2026-07-22.md) | Optimize turned on for everyone; per-installer metrics |
-| [2026-07-21](changelog/2026-07-21.md) | Google Routes + ORS road matrices; the desktop planner |
-| [2026-07-20](changelog/2026-07-20.md) | Route optimization arrives; worklist sync; a long bug-fixing day |
-| [2026-07-19](changelog/2026-07-19.md) | Sub-foremen and a per-sub reports page |
-| [2026-07-18](changelog/2026-07-18.md) | Land-work mode; removing a stop became archive-before-delete |
-| 2026-07-04 → 07-17 | *Quiet fortnight — nightly Sheet export only* |
-| [2026-07-03](changelog/2026-07-03.md) | A performance pass for scale: caching, locks, date windows |
-| 2026-06-30 → 07-02 | *Nightly Sheet export only* |
+| [2026-07-22](changelog/2026-07-22.md) | Optimize turned on for everyone; per-installer metrics             |
+| [2026-07-21](changelog/2026-07-21.md) | Google Routes + ORS road matrices; the desktop planner             |
+| [2026-07-20](changelog/2026-07-20.md) | Route optimization arrives; worklist sync; a long bug-fixing day   |
+| [2026-07-19](changelog/2026-07-19.md) | Sub-foremen and a per-sub reports page                             |
+| [2026-07-18](changelog/2026-07-18.md) | Land-work mode; removing a stop became archive-before-delete       |
+| 2026-07-04 → 07-17                    | *Quiet fortnight — nightly Sheet export only*                      |
+| [2026-07-03](changelog/2026-07-03.md) | A performance pass for scale: caching, locks, date windows         |
+| 2026-06-30 → 07-02                    | *Nightly Sheet export only*                                        |
 
 ## 2026-06
 
