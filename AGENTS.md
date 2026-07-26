@@ -35,10 +35,11 @@ another. Two consequences that matter more than they sound:
   reconstructing *why* a change was made from a diff, weeks on, is exactly the work it exists
   to prevent. Two files, both required:
   1. **`changelog/YYYY-MM-DD.md`** — the day's page. Create it if today has none (copy the
-     shape of any existing one: frontmatter, `#` heading, a `##` per change, and the
-     prev/next footer — fix the previous day's `next:` link too). Append a `##` section if it
-     exists. Say what shipped, the problem it solves, and the trap worth remembering; cite
-     the commit and the files.
+     shape of any existing one: frontmatter, `#` heading, a `##` per change, and a footer
+     linking back to the index plus a `previous:` link to the last day that shipped). Append
+     a `##` section if the page exists. Say what shipped, the problem it solves, and the trap
+     worth remembering; cite the commit and the files. **Days link backwards only** — the
+     index is what points forward, so no day carries a `next:` link.
   2. **`CHANGELOG.md`** — one row in the month table, newest first: the date linking to the
      page, and a short phrase for the whole day.
   No version numbers — a merge to `main` is the release. Skip both for a pure docs edit or a
