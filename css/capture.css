@@ -69,8 +69,14 @@
   font-size:16px;cursor:pointer;color:var(--ink-soft)}
 .wl-lock.on{border-color:var(--amber);background:#FEF3E2;color:#754900}
 .wl-card.locked{border-color:var(--amber)}
-/* The Optimize button owns a two-second hold gesture. Disable the browser's
-   native long-press selection/copy callout so it cannot cancel that gesture. */
+/* The Optimize button owns a two-second hold gesture, and this rule is the ONLY
+   thing stopping the browser's long-press from selecting its label instead. The
+   JS once also preventDefault()ed `touchstart` as a second guard; that cancels
+   panning too, so the full-width button became a strip of the worklist you could
+   not scroll through (see bindOptimizeGesture in js/worklist.js). If the loupe
+   ever comes back on iOS, guard `touchmove` — never `touchstart` — and only for a
+   press already judged stationary; a touchmove guard cannot kill a pan that has
+   begun. `manipulation` still allows panning; it only drops double-tap zoom. */
 #wlOptimize{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 /* day-group dividers synced from the office planner (Day 1 / Day 2 …) */
 .wl-day{display:flex;align-items:center;gap:8px;margin:16px 2px 4px;font-size:12px;font-weight:800;

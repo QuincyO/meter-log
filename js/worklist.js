@@ -23,6 +23,7 @@ import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js
 import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
+import { createPressHold } from './press-hold.js';
 // The address helpers (split/join/recent streets) live with the fill-in screen —
 // it is the module that exists to put an address on an order.
 import {
@@ -555,61 +556,57 @@ async function optimizeRouteHandler(straightLine){
 }
 
 // ── Optimize press gesture: normal tap vs. the road-matrix secret ────────────
-// A normal tap uses straight-line distances. Holding for two seconds selects
-// the real road-distance matrix. Pointer release generates a click in browsers,
-// so consume that click after either path to avoid opening a second confirm.
+// A normal tap uses straight-line distances. Holding for two seconds selects the
+// real road-distance matrix. The recognizer itself is js/press-hold.js (pure, and
+// unit-tested); this is only the DOM wiring for it. Three details are
+// load-bearing:
+//
+// **Never preventDefault() `touchstart` here.** It was added once to stop iOS
+// selecting the button's label, and it does — but it cancels every other native
+// default for that touch too, panning included. Optimize is a full-width 56px
+// button, so that made a strip of the worklist you could not scroll through: the
+// only way past it was to start the swipe above or below it. Suppressing the
+// selection is the CSS's job (the #wlOptimize rule in css/capture.css);
+// `selectstart` below is the harmless belt to its braces. A press that travels
+// instead aborts itself, so a swipe that starts on the button just scrolls.
+//
+// Pointer capture is taken on the press because the hold fires while the finger
+// is still down, and it opens the #wlStartAsk sheet under that finger — without
+// capture, the release would hit-test into a freshly drawn sheet button and
+// answer the question for the installer.
+//
+// move/up/cancel are on `window`, not the button, for the same reason as
+// wireDrag: capture can be lost, and a finger that leaves the button still has to
+// abort the press. They are bound once (this runs once, at wire time) and are
+// inert while no press is active, so there is nothing to remove.
 function bindOptimizeGesture(btn, onStraightLine, onRoadMatrix, holdMs=2000){
-  let pointerId = null, holdTimer = null, held = false, suppressPointerClick = false;
+  const press = createPressHold({ holdMs, onTap: onStraightLine, onHold: onRoadMatrix });
+  const release = id => { try { btn.releasePointerCapture(id); } catch { /* already released */ } };
 
-  const clearPress = () => {
-    clearTimeout(holdTimer);
-    holdTimer = null;
-    pointerId = null;
-  };
-
-  // iOS can show its selection loupe even with user-select/touch-callout CSS.
-  // Cancel the native touch default before it can steal the two-second hold.
-  btn.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
   btn.addEventListener('selectstart', e => e.preventDefault());
 
   btn.addEventListener('pointerdown', e => {
-    if(e.isPrimary === false || e.button !== 0) return;
-    clearPress();
-    pointerId = e.pointerId;
-    held = false;
-    suppressPointerClick = false;
-    try { btn.setPointerCapture(pointerId); } catch { /* best-effort */ }
-    holdTimer = setTimeout(() => {
-      holdTimer = null;
-      held = true;
-      suppressPointerClick = true;
-      onRoadMatrix();
-    }, holdMs);
+    if(!press.down(e)) return;
+    try { btn.setPointerCapture(e.pointerId); } catch { /* best-effort */ }
   });
-
-  btn.addEventListener('pointerup', e => {
-    if(e.pointerId !== pointerId) return;
-    const shortTap = !held;
-    clearPress();
-    held = false;
-    try { btn.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    suppressPointerClick = true;
-    if(shortTap) onStraightLine();
+  window.addEventListener('pointermove', e => {
+    if(press.move(e)) release(e.pointerId);   // it was a scroll — hand the touch back
   });
-
-  btn.addEventListener('pointercancel', e => {
-    if(e.pointerId !== pointerId) return;
-    clearPress();
-    held = false;
-    suppressPointerClick = false;
+  window.addEventListener('pointerup', e => {
+    if(press.up(e)) release(e.pointerId);
+  });
+  window.addEventListener('pointercancel', e => {
+    if(press.cancel(e)) release(e.pointerId);
   });
 
   btn.addEventListener('click', e => {
-    if(suppressPointerClick){ e.preventDefault(); suppressPointerClick = false; return; }
-    onStraightLine(); // keyboard, assistive-tech, or click-only activation
+    // true = the synthetic click after a gesture that already ran its command.
+    // false = a real click-only activation (keyboard, assistive tech), which the
+    // recognizer has just handled as a tap.
+    if(press.click()) e.preventDefault();
   });
   btn.addEventListener('contextmenu', e => {
-    if(pointerId !== null || held) e.preventDefault();
+    if(press.active) e.preventDefault();
   });
 }
 

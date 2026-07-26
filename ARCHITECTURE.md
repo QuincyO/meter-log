@@ -689,6 +689,16 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   commute so `solveVariant` drops it from the ordering matrix — distinct from the
   one-run GPS start, which stays a real ordering anchor (its first leg is a charged
   driven leg).
+  **Which matrix is used is the press, not a menu.** A normal tap on 🧭 Optimize
+  routes on straight-line distances (free); holding it two seconds pulls the real
+  road matrix. The recognizer is `js/press-hold.js` — pure, injectable timers,
+  unit-tested — and `bindOptimizeGesture` in `js/worklist.js` is only the DOM wiring
+  for it. It **aborts the press past 10px of travel**, because Optimize is a
+  full-width button and a swipe up the worklist lands on it; without that (and with
+  the `touchstart` `preventDefault()` that used to guard against iOS selecting the
+  label) the button was both unscrollable and liable to start a route optimization on
+  an accidental brush. Text selection is suppressed in CSS instead — see the
+  `#wlOptimize` rule in `css/capture.css` and the note in AGENTS.md.
   **Which start is used is asked on every Optimize, not armed ahead of time.**
   The old persistent "Start from here" pill is gone: it was a mode the crew had to
   remember to set, and the answer changes with every mid-day re-optimize. The phone's
