@@ -15,3 +15,8 @@ vault/
 # The vault's portable bootstrap spec — a local input to vault/, already applied.
 # Ignored so it stops reading as a pending instruction to the next agent.
 VAULT_BOOTSTRAP.md
+
+# graphify's knowledge graph — derived data, rebuilt from source by the post-commit
+# hook. Committing it would mean a graph diff on every code commit, and a checked-in
+# graph goes stale the moment someone commits without the hook installed.
+graphify-out/

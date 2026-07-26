@@ -219,6 +219,34 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 `SHARED_TOKEN` and the Web App URL sit in client-side source on a public-capable GitHub Pages site — this is a deliberate, documented trade-off (open-the-link-and-it-works), mitigated by keeping the repo private. Do not treat the token as a real secret, but also do not introduce anything that assumes per-user auth exists.
 
+## Knowledge graph (graphify)
+
+Optional, and **only useful once a graph exists** — `graphify-out/` is gitignored, so a fresh
+clone has none. Build it with `graphify .` from the repo root; that writes `graph.json`, a
+plain-language `GRAPH_REPORT.md`, and an interactive HTML view. Code is parsed structurally
+(tree-sitter AST, local, no API key, no token cost); the ~55 markdown files go through an LLM,
+which means the *first* build spends real tokens unless `GEMINI_API_KEY` is set.
+
+When a graph is present:
+
+- Prefer `graphify query "<question>"` over grepping for orientation questions — it returns a
+  scoped subgraph rather than whole files. `graphify path "<A>" "<B>"` traces how two things
+  connect; `graphify explain "<concept>"` unpacks one node.
+- Read raw files freely once oriented, and always for modifying or debugging specific lines.
+  This repo is ~32k lines across 171 files; plenty of questions are answered faster by just
+  opening the file, and the graph's matcher is literal substring + IDF, so it misses when your
+  wording doesn't match the code's.
+- Edges are tagged `EXTRACTED` / `INFERRED` / `AMBIGUOUS`. An `INFERRED` edge is a guess and
+  reads as authoritative — verify it against the source before acting on it.
+- Two git hooks keep it current: `post-commit` re-runs AST extraction on the code files that
+  changed, and `post-checkout` rebuilds on a branch switch. Both skip during
+  rebase/merge/cherry-pick, and both are code-only. **Doc changes are not covered** — run
+  `graphify update .` after editing markdown, or the graph will confidently describe docs
+  that no longer say that.
+
+A stale graph is worse than no graph. If what it tells you contradicts the source, the source
+wins — and rebuild.
+
 ## Tool-specific notes
 
 Everything above applies to every agent. Only these lines don't:
@@ -228,7 +256,16 @@ Everything above applies to every agent. Only these lines don't:
   `.claude/settings.local.json` (a denied `git push` is that file, not anything in the
   repo), and has `.claude/launch.json` defining a static-server debug config. Its
   `verify` skill at `.claude/skills/verify/` is a pointer to `VERIFY.md`.
-- **Codex** reads this file directly.
+  `.claude/settings.json` also carries two graphify `PreToolUse` hooks that inject a
+  "query the graph first" reminder before `Read`/`Glob`/`Grep`/`Bash`. They are nudges
+  only — nothing is blocked — and they stay silent when no graph exists. They shell out
+  to a bare `graphify` rather than an absolute path, so the tracked file stays portable;
+  on a machine without the CLI the hook just errors harmlessly. The `/graphify` skill
+  itself is **not** vendored here — it comes from the user-level install
+  (`uv tool install graphifyy && graphify install`), same as the CLI it depends on.
+- **Codex** reads this file directly. The graphify section above applies to it too, but
+  the `PreToolUse` hooks are Claude-Code-only; nothing reminds Codex, so it has to
+  remember on its own.
 
 Neither tool's config directory should become the home of a project instruction — see
 §"Working in this repo" above.

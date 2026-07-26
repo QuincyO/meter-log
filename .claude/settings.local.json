@@ -4,7 +4,12 @@
       "Bash(git --no-pager diff -- Code.gs)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(uv tool *)",
+      "Bash(graphify --version)",
+      "Bash(graphify install *)",
+      "Read(//c/Users/Quincy/.claude/skills/graphify/**)",
+      "Read(//c/Users/Quincy/.claude/skills/graphify/references/**)"
     ]
   }
 }
