@@ -64,9 +64,13 @@ test('makes a serializable key-free last-run record and concise summary', () => 
 
   assert.deepEqual(record, {
     at:'2026-07-22T12:00:00.000Z',
-    geocoding:{ cached:2, nominatim:{ attempted:2, resolved:1 }, google:{ attempted:1, resolved:1 }, ors:{ attempted:0, resolved:0 }, parked:1 },
+    // `offline` (the downloaded district pack) is normalized in even when the
+    // caller's provenance predates it — an older stored record must still read.
+    geocoding:{ cached:2, offline:{ attempted:0, resolved:0 }, nominatim:{ attempted:2, resolved:1 }, google:{ attempted:1, resolved:1 }, ors:{ attempted:0, resolved:0 }, parked:1 },
     routing:{ method:'matrix', provider:'ors', fallbackReason:'OSRM offline' },
   });
+  // The offline line is omitted from the summary when it was never attempted,
+  // so a planner run (which has no pack) reads exactly as it always did.
   assert.equal(formatLastRunSummary(record),
     'Geocoding: 2 cached; Nominatim 1/2; Google 1/1; ORS 0/0; 1 parked. Routing: matrix via ORS (OSRM offline).');
   assert.doesNotMatch(JSON.stringify(record), /key|must-not-persist/i);

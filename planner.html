@@ -61,6 +61,30 @@
         </div>
       </div>
 
+      <!-- Offline map districts. Hidden entirely unless the build service is up
+           (tools/roadpack-server.mjs) — it is only needed to MAKE a district,
+           never to plan a route, so its absence is normal rather than a fault. -->
+      <div class="card hide" id="plDistricts">
+        <h2>Offline map districts</h2>
+        <p class="sub">Draw the area a crew works, build it, then publish it so their phones
+          can download it and route with no signal.</p>
+        <div class="plbtns">
+          <button class="btn" id="plDrawDistrict" type="button">✏️ Draw on map</button>
+          <button class="btn" id="plDrawCancel" type="button" hidden>Cancel</button>
+        </div>
+        <p class="sub" id="plDistrictBox">No area drawn yet.</p>
+        <div class="row2">
+          <label for="plDistrictName">District name<input id="plDistrictName" type="text" placeholder="Kawartha Lakes"></label>
+          <label for="plDistrictId">Short id<input id="plDistrictId" type="text" spellcheck="false" placeholder="kawartha"></label>
+        </div>
+        <div class="plbtns">
+          <button class="btn primary" id="plDistrictBuild" type="button" disabled>🗺 Build district</button>
+          <button class="btn" id="plDistrictPublish" type="button" disabled>⇪ Publish to phones</button>
+        </div>
+        <pre class="plbuildlog hide" id="plDistrictLog" aria-live="polite"></pre>
+        <div id="plDistrictList" class="sub"></div>
+      </div>
+
       <div class="card">
         <div class="plbtns">
           <button class="btn" id="plLoad" type="button">⇩ Load saved list</button>

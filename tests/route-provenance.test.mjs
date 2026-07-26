@@ -21,6 +21,9 @@ test('an unavailable desktop OSRM skips its fetch and uses ORS without Google Ro
     assert.deepEqual(result.provenance, {
       geocoding:{
         cached:2,
+        // The offline district pack is the phone's first geocoder. It is
+        // attempted 0 times here because both stops arrive already pinned.
+        offline:{ attempted:0, resolved:0 },
         nominatim:{ attempted:0, resolved:0 },
         google:{ attempted:0, resolved:0 },
         ors:{ attempted:0, resolved:0 },

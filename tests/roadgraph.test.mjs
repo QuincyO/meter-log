@@ -7,8 +7,10 @@ import assert from 'node:assert/strict';
 import { encodePack, ONEWAY_FWD, ONEWAY_REV } from '../tools/build-roadpack.mjs';
 import {
   decodePack, snap, matrix, path, segmentPoints, packCovers,
+  geocodeAddress, hasAddresses, normalizeStreet, splitAddress, houseNumber,
   SNAP_RADIUS_M, PACK_VERSION,
 } from '../js/roadgraph.js';
+import { readFileSync } from 'node:fs';
 
 // A 2×3 lattice at latitude 44, plus an isolated pair far to the north-east.
 //
@@ -248,4 +250,140 @@ test('packCovers gates on the pack bbox', () => {
   assert.equal(packCovers(g, { lat: 45.5, lng: -78.0 }), false);
   assert.equal(packCovers(g, null), false);
   assert.equal(packCovers(null, { lat: 44, lng: -78 }), false);
+});
+
+// ── address index (pack v2) ──────────────────────────────────────────────────
+// Offline geocoding was the last part of Optimize that still needed signal.
+// These cover the two halves that can silently disagree: how a street name is
+// normalized on each side, and how a house number is placed along a street.
+
+test('normalizeStreet folds abbreviations without mangling leading words', () => {
+  // The pairs that must collide.
+  assert.equal(normalizeStreet('Main St'), normalizeStreet('Main Street'));
+  assert.equal(normalizeStreet('123 Lakeshore Rd.'), normalizeStreet('123 Lakeshore Road'));
+  assert.equal(normalizeStreet('Bay Ave W'), normalizeStreet('Bay Avenue West'));
+  assert.equal(normalizeStreet('  county   RD  12 '), normalizeStreet('County Rd 12'));
+
+  // …and the trap: expansion is positional, so a leading "St" (Saint) is left
+  // alone. A blind word swap turns "St Andrews Rd" into "street andrews road"
+  // and the address never matches what the builder stored.
+  assert.equal(normalizeStreet('St Andrews Rd'), 'st andrews road');
+  assert.equal(normalizeStreet('St. Andrews Road'), 'st andrews road');
+  assert.notEqual(normalizeStreet('St Andrews Rd'), 'street andrews road');
+
+  assert.equal(normalizeStreet(''), '');
+  assert.equal(normalizeStreet(null), '');
+});
+
+test('splitAddress matches splitAddr in js/worklist-address-fill.js', () => {
+  // The two are deliberate duplicates (roadgraph.js takes no dependencies), so
+  // the regex must not drift. Compare against the real source.
+  const src = readFileSync(new URL('../js/worklist-address-fill.js', import.meta.url), 'utf8');
+  const m = src.match(/export function splitAddr\(address\)\{[\s\S]*?match\((\/.*?\/)\)/);
+  assert.ok(m, 'could not find splitAddr in worklist-address-fill.js');
+  const mine = readFileSync(new URL('../js/roadgraph.js', import.meta.url), 'utf8')
+    .match(/export function splitAddress\(address\)\{[\s\S]*?match\((\/.*?\/)\)/);
+  assert.equal(mine[1], m[1], 'splitAddress and splitAddr must use the same regex');
+
+  assert.deepEqual(splitAddress('123 Main St'), { num:'123', street:'Main St' });
+  assert.deepEqual(splitAddress('Main St'), { num:'', street:'Main St' });
+  assert.equal(houseNumber('123A'), 123);
+  assert.equal(houseNumber('123-125'), 123);
+  assert.equal(houseNumber(''), 0);
+});
+
+// One street ("Main Street") in two localities, plus a sparse rural road.
+function addressGraph(){
+  const streets = ['main street', 'concession road 4'];
+  const places  = ['Riverton', 'Hillside'];
+  const addresses = [
+    { street:0, place:0, num:10,  lat:44.0010, lng:-78.0000 },
+    { street:0, place:0, num:20,  lat:44.0010, lng:-77.9990 },
+    { street:0, place:0, num:30,  lat:44.0010, lng:-77.9980 },
+    // Same street name, different town, ~9 km north — far enough to be a
+    // genuine ambiguity rather than a same-town rival.
+    { street:0, place:1, num:10,  lat:44.0900, lng:-78.0000 },
+    { street:0, place:1, num:30,  lat:44.0900, lng:-77.9980 },
+    // A rural road with a big gap between civic numbers.
+    { street:1, place:0, num:400, lat:44.0500, lng:-78.0000 },
+    { street:1, place:0, num:500, lat:44.0500, lng:-77.9000 },
+  ];
+  return decodePack(toArrayBuffer(encodePack({
+    bbox: { minLat: 43.9, minLng: -78.1, maxLat: 44.2, maxLng: -77.8 },
+    nodes: NODES, segments: [seg(0, 1, STEP_LNG_M)],
+    streets, places, addresses,
+  })));
+}
+
+test('a roads-only pack is valid and simply has no geocoding', () => {
+  const g = buildGraph();
+  assert.equal(hasAddresses(g), false);
+  assert.deepEqual(geocodeAddress(g, '123 Main St'), []);
+});
+
+test('an exact house number resolves to its own point', () => {
+  const g = addressGraph();
+  assert.equal(hasAddresses(g), true);
+  const hits = geocodeAddress(g, '20 Main St');
+  const riverton = hits.find(h => h.place === 'Riverton');
+  assert.ok(riverton, 'expected a Riverton hit');
+  assert.ok(near(riverton.lat, 44.0010, 1e-5));
+  assert.ok(near(riverton.lng, -77.9990, 1e-5));
+  assert.equal(riverton.exact, true);
+});
+
+test('a missing house number interpolates between its neighbours', () => {
+  const g = addressGraph();
+  // 450 sits halfway between 400 and 500 — the point should land mid-road, not
+  // at either end. This is what makes sparse rural concessions usable.
+  const hits = geocodeAddress(g, '450 Concession Rd 4');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].exact, false);
+  assert.ok(near(hits[0].lng, -77.9500, 1e-3), `interpolated to ${hits[0].lng}`);
+});
+
+test('a number past both ends clamps to the nearest known point', () => {
+  const g = addressGraph();
+  const low  = geocodeAddress(g, '2 Concession Rd 4')[0];
+  const high = geocodeAddress(g, '900 Concession Rd 4')[0];
+  assert.ok(near(low.lng, -78.0000, 1e-4));
+  assert.ok(near(high.lng, -77.9000, 1e-4));
+  assert.equal(low.exact, false);
+});
+
+test('the same street in two towns returns both, so the caller can flag it', () => {
+  const g = addressGraph();
+  const hits = geocodeAddress(g, '10 Main St');
+  assert.equal(hits.length, 2, 'both localities must come back');
+  const towns = hits.map(h => h.place).sort();
+  assert.deepEqual(towns, ['Hillside', 'Riverton']);
+  // Distinct places far apart is exactly what route.js's pickBest turns into
+  // the "⚠ pick a town" ambiguity rather than guessing.
+  assert.ok(Math.abs(hits[0].lat - hits[1].lat) > 0.05);
+});
+
+test('an unknown street misses cleanly so the network providers still run', () => {
+  const g = addressGraph();
+  assert.deepEqual(geocodeAddress(g, '5 Nowhere Lane'), []);
+  assert.deepEqual(geocodeAddress(g, ''), []);
+});
+
+test('abbreviated input matches the normalized name the builder stored', () => {
+  const g = addressGraph();
+  // Stored as "main street"; the installer types any of these.
+  for(const typed of ['20 Main St', '20 main st.', '20 MAIN STREET']){
+    const hit = geocodeAddress(g, typed).find(h => h.place === 'Riverton');
+    assert.ok(hit && hit.exact, `"${typed}" should have matched`);
+  }
+});
+
+test('street/place dictionaries and address points survive the round trip', () => {
+  const g = addressGraph();
+  assert.equal(g.streetCount, 2);
+  assert.equal(g.placeCount, 2);
+  assert.equal(g.addrCount, 7);
+  assert.deepEqual([...g.streetNames], ['main street', 'concession road 4']);
+  // streetOff must span the whole address array, or a street's run is truncated.
+  assert.equal(g.streetOff[0], 0);
+  assert.equal(g.streetOff[g.streetCount], g.addrCount);
 });

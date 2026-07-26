@@ -276,12 +276,38 @@ OSRM preprocess + the Nominatim import once on the primary PC, then re-export).
 
 Everything above puts road distances on the **desktop planner**. This puts them on
 the **phone**, with no signal and no API spend: a district's drivable road network
-is distilled into a few-MB binary the crew downloads once from Settings ▸ **Offline
-road map**, and `js/roadgraph.js` routes on it directly. See ARCHITECTURE.md
-§"Offline road maps" for what's inside a pack and why.
+*and its addresses* are distilled into a few-MB binary the crew downloads once from
+Settings ▸ **Offline road map**. `js/roadgraph.js` then both routes and geocodes on
+it directly. See ARCHITECTURE.md §"Offline road maps" for what's inside a pack.
 
-Build one on the planning PC, from the **same Ontario `.pbf`** already downloaded
-for OSRM. Three `osmium` commands (Docker, no install) then one Node script:
+### The easy way: build it from the planner
+
+Run the helper service on the planning PC and the planner page grows a **Districts**
+panel — draw a rectangle over the crew's work area, name it, Build, Publish. No
+coordinates to type.
+
+```powershell
+node tools/roadpack-server.mjs --data D:\osrm
+```
+
+`--data` is the folder holding your `ontario-latest.osm.pbf` — the same one already
+mounted into the OSRM and Nominatim containers. The `.pbf` is auto-detected.
+
+Leave it running and open `planner.html`. The panel appears only while the service
+is up, and **Build** stays disabled (with the reason on hover) unless Docker Desktop
+is running, since Docker is what runs `osmium`.
+
+**Publish is a separate button on purpose.** Build writes `maps/` locally; Publish
+commits and pushes it to `main` — which redeploys the whole app — so it asks first.
+Phones can only download a district after it is published, because they fetch it
+from GitHub Pages, not from the office PC.
+
+The service binds to `127.0.0.1` only. Don't expose it: it runs Docker and git.
+
+### The manual way
+
+Same result, from PowerShell. Build from the **same Ontario `.pbf`** already
+downloaded for OSRM — `osmium` in Docker, then one Node script:
 
 ```powershell
 # 1. Clip to the district. --bbox is minLng,minLat,maxLng,maxLat.
@@ -298,12 +324,25 @@ docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
 docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
   osmium export /data/district-roads.osm.pbf -f geojsonseq `
   -o /data/district-roads.geojsonseq --overwrite
+
+# 4. The same two steps again for addresses (this is what gives the phone
+#    offline geocoding). Skip these for a roads-only pack.
+docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
+  osmium tags-filter /data/district.osm.pbf n/addr:housenumber w/addr:housenumber `
+  -o /data/district-addr.osm.pbf --overwrite
+docker run --rm -v D:\osrm:/data ghcr.io/osmcode/osmium-tool `
+  osmium export /data/district-addr.osm.pbf -f geojsonseq `
+  -o /data/district-addr.geojsonseq --overwrite
 ```
 
 ```powershell
 node tools/build-roadpack.mjs --in D:\osrm\district-roads.geojsonseq `
+  --addr D:\osrm\district-addr.geojsonseq `
   --id kawartha --name "Kawartha Lakes" --bbox -79.4,44.2,-78.0,45.0
 ```
+
+`--addr` is optional. Without it you get a valid pack that routes but does not
+geocode, and new addresses keep needing signal.
 
 **Pass the same `--bbox` to the builder as to `osmium extract`** — it becomes the
 pack's coverage box, and `optimizeRoute` only routes locally when the pack covers
@@ -334,9 +373,11 @@ service — whenever a Google/OSRM primary comes up empty, so a rejected Google
 key or a matrix outage still produces a real route instead of parked orders and
 straight lines. It backs up **both** lookups:
 
-- **Geocoding:** (local Nominatim, planner only, if configured →) Google →
+- **Geocoding:** **offline district pack (phone, when it has the street)** →
+  (local Nominatim, planner only, if configured →) Google →
   **ORS** → park. A `REQUEST_DENIED`/over-quota Google key (or a plain miss)
-  retries the address on ORS before parking it.
+  retries the address on ORS before parking it. A pack that doesn't know the
+  street simply falls through to the rest of the ladder.
 - **Road matrix:** **offline district pack (phone, when one covers the run)** →
   Google Routes (phone) / local OSRM (planner) → **ORS** →
   straight-line. ORS's hosted matrix is one free call, capped at ~3,500

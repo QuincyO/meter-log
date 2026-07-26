@@ -564,6 +564,43 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   a bbox-clipped `osmium` export of the same Ontario `.pbf` already downloaded for
   OSRM, and committed under `maps/` with a published `maps/index.json` catalogue —
   GitHub Pages serves them like everything else. See DEPLOY.md and `maps/README.md`.
+- **Offline geocoding (the pack's second job).** Forward geocoding was the one part
+  of Optimize that still needed signal after on-device routing landed, so pack v2
+  carries an address index built from the same extract: a street dictionary, a
+  locality dictionary, and house-number points sorted by (street, number).
+  `geocodeAddress` is wired into `geocodeOne` as **provider −1, ahead of Nominatim,
+  Google and ORS** — free, instant, radio off. A miss is not an error: it falls
+  through to the network providers exactly as before, so a thin OSM area still
+  geocodes when there's signal. Load-bearing details:
+  - **`normalizeStreet` runs on both sides** — the builder normalizes OSM's
+    `addr:street` before storing it, the phone normalizes what the installer typed.
+    They must agree or the phone silently fails to match addresses it actually has.
+    Its rule is subtle: a suffix expands anywhere **except** the first word, because
+    "Concession Rd 4" and "County Rd 12" put the suffix mid-name while "St Andrews
+    Rd" (Saint) must not become "street andrews road". Directions expand anywhere,
+    so "N Main St" and "North Main Street" collide.
+  - **Missing house numbers interpolate** between the bracketing neighbours. OSM
+    rarely has every civic number, and "between 410 and 460" puts the pin on the
+    right stretch of a 12 km concession rather than at one end of it.
+  - **One hit per locality, never auto-picked.** The same street name recurs across
+    a district, so `geocodeAddress` returns a hit per town and route.js's existing
+    `pickBest` raises the "⚠ pick a town" ambiguity — the same protection the online
+    providers get.
+  - A roads-only pack (no address file at build time) is perfectly valid and simply
+    has no offline geocoding.
+- **District building from the planner (`tools/roadpack-server.mjs`).** Drawing a
+  rectangle on the planner map beats hand-typing bbox corners, but a web page can't
+  run Docker — so a small **local helper service** does, in the same spirit as the
+  OSRM and Nominatim containers already on the planning PC. The planner probes it
+  (`probeBuilder`) and **hides the whole Districts panel when it isn't running**:
+  it is needed to *make* a district, never to plan a route, so its absence is normal
+  rather than a fault. Build runs the `osmium` chain in Docker, then `buildPack`,
+  and writes `maps/`. **Publishing is a deliberately separate button** — a push to
+  `main` is a live deploy of the whole app, so it asks first and only ever stages
+  `maps/`. Security posture, worth keeping: the service binds to **127.0.0.1 only**,
+  every child process is `spawn`ed with an argument array rather than a shell string,
+  and the district id is validated against a strict slug before it reaches a filename
+  or a git command.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen). **The matrix ladder is: on-device road graph → (local OSRM on the
   planner / budget-guarded Google Routes on the phone) → OpenRouteService →

@@ -26,14 +26,17 @@ import {
   liveDayMeters, pendingOf, routeTotalSummary, variantMatchesLive, variantSelectable, variantSummary,
 } from '../route-variants.js';
 import {
-  DEFAULT_NOMINATIM_URL, DEFAULT_OSRM_URL, buildOptimizeConfirmation,
+  DEFAULT_NOMINATIM_URL, DEFAULT_OSRM_URL, DEFAULT_BUILDER_URL, buildOptimizeConfirmation,
   createLastRunRecord, createLatestProbeRunner, formatLastRunSummary, parsePlannerLastRunRecord,
-  probeNominatim, probeOsrm,
+  probeNominatim, probeOsrm, probeBuilder,
 } from '../planner-services.js';
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order
 let map = null, mapLayer = null;   // Leaflet instances (lazy)
+// The offline-district rectangle lives on its OWN layer: renderMap() clears
+// mapLayer on every repaint, and a drawn district must survive that.
+let districtLayer = null, districtBox = null, drawHandlers = null, builderOnline = false;
 let serviceState = {
   osrm:{ provider:'osrm', online:false, reason:'not checked' },
   nominatim:{ provider:'nominatim', online:false, reason:'not checked' },
@@ -151,6 +154,187 @@ async function checkServices(){
   restoreProviderStatus('osrm');
   restoreProviderStatus('nominatim');
   return serviceState;
+}
+
+// ── offline map districts ────────────────────────────────────────────────────
+// Draw the area a crew works, build a road+address pack from the Ontario
+// extract, and publish it so their phones can download it. The whole panel is
+// hidden unless tools/roadpack-server.mjs is running: it is needed to MAKE a
+// district, never to plan a route, so its absence is normal and not a fault.
+
+const DISTRICT_FILL = { color:'#2563eb', weight:2, dashArray:'6,4', fillOpacity:0.08 };
+const slugify = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '').slice(0, 32);
+
+async function checkBuilder(){
+  const health = await probeBuilder({ url: DEFAULT_BUILDER_URL });
+  builderOnline = health.online;
+  $('plDistricts').classList.toggle('hide', !builderOnline);
+  if(builderOnline) refreshDistrictList();
+}
+
+async function builderStatus(){
+  const res = await fetch(`${DEFAULT_BUILDER_URL}/status`);
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function refreshDistrictList(){
+  const el = $('plDistrictList');
+  let status;
+  try { status = await builderStatus(); }
+  catch { el.textContent = ''; return; }
+  const list = status.districts || [];
+  el.innerHTML = list.length
+    ? '<p class="sub">Built so far:</p><ul class="pldistricts">' + list.map(d =>
+        `<li><strong>${esc(d.name)}</strong> <span class="sub">${(d.bytes / 1048576).toFixed(1)} MB`
+        + `${d.addresses ? ` · ${d.addresses.toLocaleString()} addresses` : ' · roads only'}`
+        + ` · built ${esc(d.builtAt || '')}</span></li>`).join('') + '</ul>'
+    : '<p class="sub">No districts built yet.</p>';
+  // Docker is what runs osmium; without it there is nothing to build with.
+  $('plDistrictBuild').title = status.docker ? '' : (status.dockerReason || 'Docker is not running');
+  $('plDistrictPublish').disabled = !list.length || !status.git;
+  updateDistrictButtons(status);
+}
+
+function updateDistrictButtons(status){
+  const ready = !!districtBox && !!$('plDistrictId').value.trim() && !!$('plDistrictName').value.trim();
+  $('plDistrictBuild').disabled = !ready || !builderOnline || (status && status.docker === false);
+}
+
+function ensureDistrictLayer(){
+  if(!map || districtLayer) return;
+  districtLayer = L.layerGroup().addTo(map);
+}
+
+function setDistrictBox(box){
+  districtBox = box;
+  ensureDistrictLayer();
+  if(districtLayer){
+    districtLayer.clearLayers();
+    L.rectangle([[box.minLat, box.minLng], [box.maxLat, box.maxLng]], DISTRICT_FILL).addTo(districtLayer);
+  }
+  const wide = Math.round((box.maxLng - box.minLng) * 111.32 * Math.cos(box.minLat * Math.PI / 180));
+  const tall = Math.round((box.maxLat - box.minLat) * 111.32);
+  $('plDistrictBox').textContent = `Area drawn: roughly ${wide} × ${tall} km.`;
+  updateDistrictButtons();
+}
+
+function stopDrawing(){
+  if(!drawHandlers || !map) return;
+  map.off('mousedown', drawHandlers.down);
+  map.off('mousemove', drawHandlers.move);
+  map.off('mouseup', drawHandlers.up);
+  map.dragging.enable(); map.doubleClickZoom.enable();
+  map.getContainer().style.cursor = '';
+  drawHandlers = null;
+  $('plDrawCancel').hidden = true;
+  $('plDrawDistrict').disabled = false;
+}
+
+function startDrawing(){
+  if(!map){ toast('The map is still loading'); return; }
+  ensureDistrictLayer();
+  // Panning must be off while drawing, or the drag that draws the rectangle
+  // moves the map underneath it instead.
+  map.dragging.disable(); map.doubleClickZoom.disable();
+  map.getContainer().style.cursor = 'crosshair';
+  $('plDrawCancel').hidden = false;
+  $('plDrawDistrict').disabled = true;
+  let start = null, rect = null;
+  const down = e => {
+    start = e.latlng;
+    districtLayer.clearLayers();
+    rect = L.rectangle([start, start], DISTRICT_FILL).addTo(districtLayer);
+  };
+  const move = e => { if(rect && start) rect.setBounds(L.latLngBounds(start, e.latlng)); };
+  const up = e => {
+    if(!rect || !start){ stopDrawing(); return; }
+    const b = L.latLngBounds(start, e.latlng);
+    // A stray click is a zero-size box, not a district.
+    if(b.getNorth() - b.getSouth() < 0.01 || b.getEast() - b.getWest() < 0.01){
+      districtLayer.clearLayers();
+      $('plDistrictBox').textContent = 'That area was too small — drag a rectangle.';
+      stopDrawing();
+      return;
+    }
+    setDistrictBox({ minLat:b.getSouth(), minLng:b.getWest(), maxLat:b.getNorth(), maxLng:b.getEast() });
+    stopDrawing();
+  };
+  drawHandlers = { down, move, up };
+  map.on('mousedown', down); map.on('mousemove', move); map.on('mouseup', up);
+  $('plDistrictBox').textContent = 'Drag a rectangle over the crew’s work area.';
+}
+
+// A build takes minutes — far longer than a fetch should hang — so the service
+// hands back a job id and we poll it for the log.
+async function pollBuildJob(jobId, log){
+  for(;;){
+    await new Promise(r => setTimeout(r, 900));
+    let job;
+    try {
+      const res = await fetch(`${DEFAULT_BUILDER_URL}/job?id=${encodeURIComponent(jobId)}`);
+      job = await res.json();
+    } catch { continue; }                    // a blip mid-build isn't fatal
+    if(Array.isArray(job.log)){
+      log.textContent = job.log.join('\n');
+      log.scrollTop = log.scrollHeight;
+    }
+    if(job.done){
+      if(job.error) throw new Error(job.error);
+      return job;
+    }
+  }
+}
+
+async function postBuilder(path, body){
+  const res = await fetch(DEFAULT_BUILDER_URL + path, {
+    method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body || {}) });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function buildDistrict(){
+  const id = slugify($('plDistrictId').value);
+  const name = String($('plDistrictName').value || '').trim();
+  if(!districtBox || !id || !name) return;
+  const log = $('plDistrictLog');
+  log.classList.remove('hide');
+  log.textContent = 'Starting…';
+  $('plDistrictBuild').disabled = true;
+  try {
+    const { job } = await postBuilder('/build', { id, name, bbox: districtBox });
+    await pollBuildJob(job, log);
+    toast(`${name} built — publish it to reach phones`);
+    await refreshDistrictList();
+  } catch(e){
+    log.textContent += `\n✗ ${e.message}`;
+    toast('Build failed');
+  } finally {
+    updateDistrictButtons();
+  }
+}
+
+async function publishDistricts(){
+  // Publishing pushes to main, which redeploys the whole app — so it is a
+  // deliberate, separate action from building, and it asks first.
+  if(!confirm('Publish the built districts?\n\nThis commits maps/ and pushes to main, '
+    + 'which deploys the app. Installers can then download the map on their phones.')) return;
+  const log = $('plDistrictLog');
+  log.classList.remove('hide');
+  log.textContent = 'Publishing…';
+  $('plDistrictPublish').disabled = true;
+  try {
+    const { job } = await postBuilder('/publish', {});
+    await pollBuildJob(job, log);
+    toast('Published — phones can download it now');
+  } catch(e){
+    log.textContent += `\n✗ ${e.message}`;
+    toast('Publish failed');
+  } finally {
+    refreshDistrictList();
+  }
 }
 
 function renderLastOptimization(record){
@@ -992,6 +1176,20 @@ $('plPace').onchange = () => {
   store.set('plannerPaceSource:' + hNumber(), 'override');
   $('plPaceHint').textContent = `Plan override: ${p.paceMin} min/stop`;
 };
+
+// Offline map districts (panel stays hidden unless the build service is up).
+$('plDrawDistrict').onclick   = startDrawing;
+$('plDrawCancel').onclick     = stopDrawing;
+$('plDistrictBuild').onclick  = buildDistrict;
+$('plDistrictPublish').onclick = publishDistricts;
+$('plDistrictName').oninput = () => {
+  // Fill the id from the name until someone types their own.
+  const idEl = $('plDistrictId');
+  if(!idEl.dataset.touched) idEl.value = slugify($('plDistrictName').value);
+  updateDistrictButtons();
+};
+$('plDistrictId').oninput = e => { e.target.dataset.touched = '1'; updateDistrictButtons(); };
+checkBuilder();
 
 $('navSel').onchange = e => {
   const v = e.target.value;

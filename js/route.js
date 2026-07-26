@@ -32,7 +32,7 @@ import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
 import { onSiteMinutes } from './route-constraints.js';
-import { matrix as roadGraphMatrix, path as roadGraphPath } from './roadgraph.js';
+import { matrix as roadGraphMatrix, path as roadGraphPath, geocodeAddress, hasAddresses } from './roadgraph.js';
 import { loadGraph, coverage } from './roadpack.js';
 
 const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -195,6 +195,7 @@ let geoFellBack = false;
 
 function blankGeocodingProvenance(){
   return { cached:0,
+    offline:{ attempted:0, resolved:0 },
     nominatim:{ attempted:0, resolved:0 }, google:{ attempted:0, resolved:0 },
     ors:{ attempted:0, resolved:0 }, parked:0 };
 }
@@ -219,6 +220,13 @@ export async function geocodeOne(address, center, geoUrl, stats=null, onProgress
     providerEvent(onProgress, 'geocoding', provider, 'missed');
     return null;
   };
+  // Provider −1 (phone): the downloaded district's own address index. Tried
+  // before anything on the network — it is free, instant, and works with the
+  // radio off, which is what finally makes Optimize fully offline. A miss just
+  // falls through to the providers below exactly as before, so a thin OSM area
+  // still geocodes when there's signal.
+  const offline = await tryProvider('offline', () => offlineGeocode(text, center));
+  if(offline) return offline;
   // Provider 0 (planner only): a self-hosted Nominatim, tried FIRST when its URL
   // is passed, so a normal planning run makes no external geocoding call.
   if(geoUrl){
@@ -258,6 +266,23 @@ function pickBest(hits, center){
     return { lat: best.lat, lng: best.lng, label: best.label, ambig: cands.slice(0, 3) };
   }
   return { lat: best.lat, lng: best.lng, label: best.label };
+}
+
+// Provider −1 — the offline district pack (js/roadgraph.js `geocodeAddress`).
+// Returns pickBest()'s hit shape, so the SAME radius gate and "⚠ pick a town"
+// ambiguity rules apply here as to every network provider — a street name that
+// recurs in two localities must never be silently resolved to one of them.
+// Null (not a throw) on a missing/roads-only/unreadable pack: this is an
+// accelerator, never a hard dependency.
+async function offlineGeocode(text, center){
+  try {
+    const graph = await loadGraph();
+    if(!graph || !hasAddresses(graph)) return null;
+    return pickBest(geocodeAddress(graph, text), center);
+  } catch(e){
+    console.warn('offline geocode failed:', e);
+    return null;
+  }
 }
 
 // Provider 1 — Google Geocoding. Records geoKeyError on a key-level status so

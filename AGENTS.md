@@ -167,10 +167,27 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   both the display-name map and `createLastRunRecord`'s allow-list whitelist
   providers, so an unlisted one is silently recorded as `haversine` forever;
   (4) **the planner is deliberately excluded** (`opts.osrmUrl` set) because its real
-  OSRM has turn restrictions this graph does not. Pack format changes mean bumping
-  `PACK_VERSION` in **both** `js/roadgraph.js` and `tools/build-roadpack.mjs` —
-  `tests/roadgraph.test.mjs` builds its fixtures through the real writer, so a
-  one-sided change fails there rather than in the field.
+  OSRM has turn restrictions this graph does not. The pack also carries an **address
+  index** (v2), wired into `geocodeOne` as provider −1 ahead of Nominatim/Google/ORS;
+  a miss falls through to them, so it is an accelerator and never a hard dependency.
+  **`normalizeStreet` must behave identically on both sides** — the builder normalizes
+  OSM's `addr:street`, the phone normalizes what was typed — and its positional rule
+  is load-bearing: a suffix expands anywhere *except* the first word, so "Concession
+  Rd 4" matches while "St Andrews Rd" (Saint) isn't mangled into "street andrews
+  road". Pack format changes mean bumping `PACK_VERSION` in `js/roadgraph.js` (the
+  tool imports it) — `tests/roadgraph.test.mjs` builds its fixtures through the real
+  writer, so a one-sided change fails there rather than in the field. There is
+  deliberately **no v1 reader**: nothing was ever published, so a rebuild beats a
+  compatibility branch carried forever.
+- **The planner builds districts through a local helper, not in the page.** A web
+  page can't run Docker, so `tools/roadpack-server.mjs` does — probed like OSRM and
+  Nominatim, and the Districts panel **hides entirely when it isn't running** (it is
+  needed to make a district, never to plan a route). Three things there are security
+  posture, not style: it binds to **127.0.0.1 only**, every child process is
+  `spawn`ed with an **argument array** rather than a shell string, and the district
+  id is validated against a strict slug before touching a filename or a git command.
+  **Publishing is a separate, confirmed button** because it pushes to `main`, which
+  deploys the whole app; it only ever stages `maps/`.
 
 - **Spine reads are cached at two levels (`Code.gs` `rows()`).** Per-request memo (`ROWS_MEMO`) for every tab, plus a cross-request `CacheService` copy for the small slow-changing tabs (`Employees`/`Teams`/`Captains`/`Subs`/`Metrics` — `CACHED_TABS`). **Any code that writes a tab must call `bustRows(tab)`** (the shared helpers `upsertByHeader`/`upsertDayRow`/`deleteDayRows`/`setDayFields`/`ensureName`/`deleteName` already do) or a read later in the same request — or a roster read for up to 6h — sees stale data. Don't add big/hot tabs (`Stops`, `Downtime`, …) to `CACHED_TABS`: they exceed the 100KB/key limit and are written on every log.
 

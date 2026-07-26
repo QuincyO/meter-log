@@ -44,7 +44,9 @@ test('planner last-run records add identity without retaining secrets and reject
 
   assert.deepEqual(record, {
     at:'2026-07-22T12:00:00.000Z',
-    geocoding:{ cached:2, nominatim:{attempted:2,resolved:1}, google:{attempted:1,resolved:1}, ors:{attempted:0,resolved:0}, parked:2 },
+    // `offline` (the downloaded district pack) is normalized in even though the
+    // provenance passed above predates it — an older stored record must still read.
+    geocoding:{ cached:2, offline:{attempted:0,resolved:0}, nominatim:{attempted:2,resolved:1}, google:{attempted:1,resolved:1}, ors:{attempted:0,resolved:0}, parked:2 },
     routing:{ method:'matrix', provider:'osrm', fallbackReason:'' },
     installer:'Quincy Jones', hNumber:'H123', pendingCount:6,
   });

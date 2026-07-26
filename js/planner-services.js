@@ -4,6 +4,7 @@
 
 export const DEFAULT_OSRM_URL = 'http://localhost:5000';
 export const DEFAULT_NOMINATIM_URL = 'http://localhost:8080';
+export const DEFAULT_BUILDER_URL = 'http://localhost:8790';
 export const PROVIDER_TIMEOUT_MS = 4000;
 
 const trimBase = url => String(url || '').replace(/\/+$/, '');
@@ -46,6 +47,14 @@ export function probeNominatim({ url=DEFAULT_NOMINATIM_URL, ...deps }={}){
   return probe('nominatim', `${trimBase(url)}/status?format=json`, data => !!(data && data.status === 0), deps);
 }
 
+// The district build service (tools/roadpack-server.mjs). Unlike OSRM and
+// Nominatim this one is only needed to BUILD an offline map, never to plan a
+// route — so the planner treats it as absent-by-default and simply hides the
+// Build button, rather than reporting a problem.
+export function probeBuilder({ url=DEFAULT_BUILDER_URL, ...deps }={}){
+  return probe('builder', `${trimBase(url)}/status`, data => !!(data && data.ok === true), deps);
+}
+
 // Cached pins are already valid planner data, regardless of the local service
 // health. Only fresh address lookups move local-first after a successful probe.
 export function selectGeocodingProviders({ nominatimOnline=false }={}){
@@ -70,6 +79,10 @@ export function createLastRunRecord({ at='', provenance={} }={}){
     at:String(at || ''),
     geocoding:{
       cached:Number(geo.cached) || 0,
+      // `offline` is the downloaded district pack's address index — the phone's
+      // provider, ahead of everything on the network. Keep in step with
+      // blankGeocodingProvenance() in route.js.
+      offline:counts(geo.offline),
       nominatim:counts(geo.nominatim), google:counts(geo.google), ors:counts(geo.ors),
       parked:Number(geo.parked) || 0,
     },
@@ -92,7 +105,8 @@ export function formatLastRunSummary(record){
   const g = r.geocoding, route = r.routing;
   const name = { nominatim:'Nominatim', google:'Google', ors:'ORS', osrm:'OSRM',
     'google-routes':'Google Routes', roadgraph:'offline map', haversine:'Haversine' };
-  return `Geocoding: ${g.cached} cached; Nominatim ${g.nominatim.resolved}/${g.nominatim.attempted}; Google ${g.google.resolved}/${g.google.attempted}; ORS ${g.ors.resolved}/${g.ors.attempted}; ${g.parked} parked. Routing: ${route.method} via ${name[route.provider]}${route.fallbackReason ? ` (${route.fallbackReason})` : ''}.`;
+  const offline = g.offline.attempted ? `Offline map ${g.offline.resolved}/${g.offline.attempted}; ` : '';
+  return `Geocoding: ${g.cached} cached; ${offline}Nominatim ${g.nominatim.resolved}/${g.nominatim.attempted}; Google ${g.google.resolved}/${g.google.attempted}; ORS ${g.ors.resolved}/${g.ors.attempted}; ${g.parked} parked. Routing: ${route.method} via ${name[route.provider]}${route.fallbackReason ? ` (${route.fallbackReason})` : ''}.`;
 }
 
 export function buildOptimizeConfirmation({

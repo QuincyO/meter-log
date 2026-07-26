@@ -29,7 +29,12 @@
 // Int32 at 1e6 fixed point (≈11 cm), which is far finer than any GPS fix and
 // halves the size of a Float64.
 export const PACK_MAGIC   = 'MLRP';
-export const PACK_VERSION = 1;
+// v2 added the address index (street/place dictionaries + house-number points).
+// There is no v1 reader: no pack was ever published, so requiring a rebuild is
+// simpler and more honest than carrying a compatibility branch forever. Bump
+// this in BOTH this file and tools/build-roadpack.mjs — tests/roadgraph.test.mjs
+// builds its fixtures through the real writer, so a one-sided change fails there.
+export const PACK_VERSION = 2;
 export const HEADER_BYTES = 64;
 export const COORD_SCALE  = 1e6;
 
@@ -54,6 +59,67 @@ const GRID_MAX    = 512;
 // stops; without a cap, one unreachable island would scan the whole graph once
 // per source.
 export const MAX_LEG_SECONDS = 4 * 3600;
+
+// ── address normalization ────────────────────────────────────────────────────
+// Both sides of the geocoder go through these: the builder normalizes OSM's
+// `addr:street` before storing it, and a lookup normalizes what the installer
+// typed. They MUST agree, which is why they live here rather than in the tool.
+
+// Suffixes and directions, expanded to their long form so "Main St" and
+// "Main Street" collide.
+//
+// Expansion is POSITIONAL, and the rule is subtler than "last word wins":
+//   - A suffix is expanded anywhere EXCEPT the first word. Anchoring it to the
+//     final token looks right until you meet rural Ontario, where "Concession
+//     Rd 4" and "County Rd 12" put the suffix in the middle and would never
+//     have matched the "concession road 4" the builder stored.
+//   - Skipping the first word is what keeps "St Andrews Rd" (Saint) from
+//     becoming "street andrews road".
+//   - Directions expand at ANY position, including the first, so "N Main St"
+//     and "North Main Street" collide.
+const SUFFIXES = {
+  st:'street', str:'street', rd:'road', ave:'avenue', av:'avenue', dr:'drive',
+  blvd:'boulevard', blv:'boulevard', cres:'crescent', cr:'crescent', ln:'lane',
+  hwy:'highway', ct:'court', crt:'court', pl:'place', ter:'terrace', terr:'terrace',
+  trl:'trail', pkwy:'parkway', pky:'parkway', cir:'circle', sq:'square',
+  gdns:'gardens', hts:'heights', pt:'point',
+};
+const DIRECTIONS = {
+  n:'north', s:'south', e:'east', w:'west',
+  ne:'northeast', nw:'northwest', se:'southeast', sw:'southwest',
+  north:'north', south:'south', east:'east', west:'west',
+  northeast:'northeast', northwest:'northwest', southeast:'southeast', southwest:'southwest',
+};
+
+// "123 Main St" → { num:'123', street:'Main St' }. Deliberately the same regex
+// as splitAddr() in js/worklist-address-fill.js — duplicated rather than
+// imported to keep this module free of any dependency; the test asserts the two
+// stay in step.
+export function splitAddress(address){
+  const m = String(address || '').trim().match(/^(\d[\w-]*)\s+(.+)$/);
+  return m ? { num: m[1], street: m[2] } : { num: '', street: String(address || '').trim() };
+}
+
+export function normalizeStreet(street){
+  const words = String(street || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter(Boolean);
+  if(!words.length) return '';
+  return words.map((w, i) => {
+    if(DIRECTIONS[w]) return DIRECTIONS[w];
+    if(i > 0 && SUFFIXES[w]) return SUFFIXES[w];
+    return w;
+  }).join(' ');
+}
+
+// House numbers are matched numerically: "123A" and "123" are the same civic
+// address for our purposes, and "123-125" takes the low end.
+export function houseNumber(raw){
+  const m = String(raw || '').match(/\d+/);
+  return m ? Number(m[0]) : 0;
+}
 
 // ── small helpers ────────────────────────────────────────────────────────────
 
@@ -139,12 +205,19 @@ function readHeader(view, bytes){
     nodeCount:  view.getUint32(24, true),
     segCount:   view.getUint32(28, true),
     shapeCount: view.getUint32(32, true),
+    // v2 address index. All five may be 0 — a roads-only district is valid and
+    // simply has no offline geocoding.
+    streetCount: view.getUint32(36, true),
+    placeCount:  view.getUint32(40, true),
+    addrCount:   view.getUint32(44, true),
+    strBytes:    view.getUint32(48, true),
+    placeBytes:  view.getUint32(52, true),
   };
 }
 
 // Section layout, in file order. Keep this table and tools/build-roadpack.mjs's
 // writer in lockstep — it is the single description of the format on this side.
-function sectionPlan({ nodeCount, segCount, shapeCount }){
+function sectionPlan({ nodeCount, segCount, shapeCount, streetCount, placeCount, addrCount, strBytes, placeBytes }){
   return [
     ['nodeLat',  Int32Array,  nodeCount],
     ['nodeLng',  Int32Array,  nodeCount],
@@ -156,6 +229,20 @@ function sectionPlan({ nodeCount, segCount, shapeCount }){
     ['shapeOff', Uint32Array, segCount + 1],
     ['shapeLat', Int32Array,  shapeCount],
     ['shapeLng', Int32Array,  shapeCount],
+    // ── v2 address index ──
+    // Street and place names are UTF-8 blobs with offset tables, the usual
+    // trick for a string array in a flat buffer.
+    ['streetText', Uint32Array, streetCount + 1],
+    ['strBlob',    Uint8Array,  strBytes],
+    ['placeText',  Uint32Array, placeCount + 1],
+    ['placeBlob',  Uint8Array,  placeBytes],
+    // Address points are sorted by (street, house number), so the street id of
+    // any point is implied by streetOff and never needs storing.
+    ['streetOff',  Uint32Array, streetCount + 1],
+    ['addrPlace',  Uint32Array, addrCount],
+    ['addrNum',    Uint32Array, addrCount],
+    ['addrLat',    Int32Array,  addrCount],
+    ['addrLng',    Int32Array,  addrCount],
   ];
 }
 
@@ -263,6 +350,7 @@ export function decodePack(buffer){
     throw new Error('road pack: shape index does not match shape count');
   buildAdjacency(g);
   buildGrid(g);
+  buildStreetIndex(g);
   // Scratch reused across every Dijkstra on this graph. The generation stamp
   // means a new source costs no clearing pass over 200k nodes.
   g._scratch = {
@@ -275,6 +363,111 @@ export function decodePack(buffer){
     heap: makeHeap(Math.max(16, Math.min(head.nodeCount, 1 << 14))),
   };
   return g;
+}
+
+// ── offline geocoding ────────────────────────────────────────────────────────
+// The pack's second job. Forward geocoding is the ONE part of Optimize that
+// still needed signal after on-device routing landed; an address index built
+// from the same OSM extract closes it. A miss here is not an error — geocodeOne
+// simply falls through to Nominatim/Google/ORS exactly as before.
+
+function decodeStrings(blob, offsets, count){
+  const dec = new TextDecoder();
+  const out = new Array(count);
+  for(let i = 0; i < count; i++) out[i] = dec.decode(blob.subarray(offsets[i], offsets[i + 1]));
+  return out;
+}
+
+// Street names are stored ALREADY NORMALIZED, so the lookup is an exact map hit
+// rather than a scan — a district can hold tens of thousands of streets and a
+// route geocodes a whole worklist one address at a time.
+function buildStreetIndex(g){
+  g.streetNames = g.streetCount ? decodeStrings(g.strBlob, g.streetText, g.streetCount) : [];
+  g.placeNames  = g.placeCount  ? decodeStrings(g.placeBlob, g.placeText, g.placeCount)  : [];
+  g.streetIndex = new Map();
+  for(let i = 0; i < g.streetNames.length; i++) g.streetIndex.set(g.streetNames[i], i);
+}
+
+export function hasAddresses(g){ return !!(g && g.addrCount > 0); }
+
+// Place a house number among one street's points, which are sorted by number.
+// Exact match wins; otherwise INTERPOLATE between the neighbours that bracket
+// it, which is what makes rural roads usable — OSM rarely has every civic
+// number, but "between 410 and 460" puts the pin on the right stretch of road
+// rather than at the wrong end of a 12 km concession.
+function placeOnStreet(g, lo, hi, want){
+  if(hi <= lo) return null;
+  if(!want){
+    const mid = (lo + hi - 1) >> 1;                 // no number typed → the street itself
+    return { lat: g.addrLat[mid] / COORD_SCALE, lng: g.addrLng[mid] / COORD_SCALE, exact:false };
+  }
+  let a = lo, b = hi - 1;
+  while(a <= b){
+    const m = (a + b) >> 1;
+    if(g.addrNum[m] === want)
+      return { lat: g.addrLat[m] / COORD_SCALE, lng: g.addrLng[m] / COORD_SCALE, exact:true };
+    if(g.addrNum[m] < want) a = m + 1; else b = m - 1;
+  }
+  // a is now the first index above `want`; b the last below it.
+  const below = b >= lo ? b : -1, above = a < hi ? a : -1;
+  if(below < 0 && above < 0) return null;
+  if(below < 0) return { lat: g.addrLat[above] / COORD_SCALE, lng: g.addrLng[above] / COORD_SCALE, exact:false };
+  if(above < 0) return { lat: g.addrLat[below] / COORD_SCALE, lng: g.addrLng[below] / COORD_SCALE, exact:false };
+  const span = g.addrNum[above] - g.addrNum[below];
+  const t = span > 0 ? (want - g.addrNum[below]) / span : 0.5;
+  return {
+    lat: (g.addrLat[below] + (g.addrLat[above] - g.addrLat[below]) * t) / COORD_SCALE,
+    lng: (g.addrLng[below] + (g.addrLng[above] - g.addrLng[below]) * t) / COORD_SCALE,
+    exact: false,
+  };
+}
+
+// "123 Main St" → hits in pickBest()'s shape: [{lat, lng, label, place}].
+//
+// One hit PER LOCALITY, deliberately. The same street name recurs across a
+// district, and returning them all is what lets route.js's existing pickBest
+// raise the "⚠ pick a town" ambiguity instead of silently choosing — the same
+// protection GEO_RADIUS_KM gives the online providers.
+export function geocodeAddress(g, address){
+  if(!hasAddresses(g)) return [];
+  const { num, street } = splitAddress(address);
+  const key = normalizeStreet(street);
+  if(!key) return [];
+  const sid = g.streetIndex.get(key);
+  if(sid === undefined) return [];
+  const lo = g.streetOff[sid], hi = g.streetOff[sid + 1];
+  if(hi <= lo) return [];
+
+  const want = houseNumber(num);
+  // Group this street's points by locality, preserving the sorted-by-number
+  // order inside each group so placeOnStreet can still binary-search.
+  const groups = new Map();
+  for(let i = lo; i < hi; i++){
+    const p = g.addrPlace[i];
+    if(!groups.has(p)) groups.set(p, []);
+    groups.get(p).push(i);
+  }
+  const hits = [];
+  for(const [placeId, idx] of groups){
+    // Re-project the group into a contiguous view placeOnStreet can bisect.
+    const view = {
+      addrNum: idx.map(i => g.addrNum[i]),
+      addrLat: idx.map(i => g.addrLat[i]),
+      addrLng: idx.map(i => g.addrLng[i]),
+    };
+    const hit = placeOnStreet(view, 0, idx.length, want);
+    if(!hit) continue;
+    const town = g.placeNames[placeId] || '';
+    hits.push({
+      lat: hit.lat, lng: hit.lng,
+      label: [address, town].filter(Boolean).join(', '),
+      place: town || `street:${sid}`,
+      exact: hit.exact,
+    });
+  }
+  // An exact civic match outranks an interpolated guess.
+  hits.sort((a, b) => (b.exact ? 1 : 0) - (a.exact ? 1 : 0));
+  return hits;
 }
 
 // ── geometry ─────────────────────────────────────────────────────────────────

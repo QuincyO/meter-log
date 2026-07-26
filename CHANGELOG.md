@@ -28,7 +28,7 @@ the repo, and are not listed.
 
 | Day                                   | What shipped                                                       |
 | ------------------------------------- | ------------------------------------------------------------------ |
-| [2026-07-26](changelog/2026-07-26.md) | Offline road maps — the phone routes on real roads with no signal   |
+| [2026-07-26](changelog/2026-07-26.md) | Offline road maps, offline geocoding, districts drawn on the planner |
 | [2026-07-25](changelog/2026-07-25.md) | Walk-up meters count toward the day; start-location popup          |
 | [2026-07-24](changelog/2026-07-24.md) | Route tuning dials, real ETAs, the drive HUD, four field bugs      |
 | [2026-07-23](changelog/2026-07-23.md) | Drive mode, two route variants, one instruction set for all agents |
