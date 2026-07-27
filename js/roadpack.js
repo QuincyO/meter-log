@@ -12,6 +12,7 @@
 import { idb } from './idb.js';
 import { store } from './store.js';
 import { decodePack, packCovers } from './roadgraph.js';
+import { pickPack } from './districts.js';
 
 const MANIFEST_URL = 'maps/index.json';
 const STORE = 'roadPacks';
@@ -25,9 +26,13 @@ const MIRROR_KEY = 'roadPackMeta';
 const ACTIVE_KEY = 'roadPackActive';
 
 // One decoded graph at a time. Decoding is a few milliseconds but allocating a
-// second district's adjacency and grid is not free, and only one can be in play.
-let decoded = null;      // { id, graph }
-let decodeFailed = null; // id we already know is unusable, so we don't retry per run
+// second district's adjacency and grid is not free, and only one can be in play
+// — a phone may HOLD several districts, but it routes on one of them per run.
+let decoded = null;                  // { id, graph }
+// Districts we already know are unusable, so we neither retry them every run nor
+// let one corrupt pack stand in for the good ones beside it. A Set rather than a
+// single id precisely because there can now be several installed.
+const decodeFailed = new Set();
 
 function readMirror(){
   try { const v = JSON.parse(store.get(MIRROR_KEY) || '[]'); return Array.isArray(v) ? v : []; }
@@ -51,7 +56,6 @@ export function activePackId(){ return store.get(ACTIVE_KEY) || ''; }
 export async function setActivePack(id){
   store.set(ACTIVE_KEY, id || '');
   if(decoded && decoded.id !== id) decoded = null;
-  decodeFailed = null;
 }
 
 // The district catalogue published with the app. Needs signal; the Settings
@@ -108,7 +112,8 @@ export async function downloadPack(entry, onProgress){
   writeMirror([...readMirror().filter(m => m.id !== row.id), meta]);
   if(!activePackId()) await setActivePack(row.id);
   if(decoded && decoded.id === row.id) decoded = null;
-  decodeFailed = null;
+  // A fresh download of a district that was unreadable deserves another go.
+  decodeFailed.delete(row.id);
   return meta;
 }
 
@@ -116,20 +121,32 @@ export async function deletePack(id){
   await idb.del(STORE, id);
   writeMirror(readMirror().filter(m => m.id !== id));
   if(decoded && decoded.id === id) decoded = null;
+  decodeFailed.delete(id);
   if(activePackId() === id){
     const left = await installedPacks();
     await setActivePack(left.length ? left[0].id : '');
   }
 }
 
-// The decoded graph for the active district, or null. Decoding is lazy — the
-// first Optimize pays it, not every page load, because most sessions never
-// route at all.
-export async function loadGraph(){
-  const id = activePackId() || (await installedPacks())[0]?.id || '';
+// The decoded graph to route on, or null. Decoding is lazy — the first Optimize
+// pays it, not every page load, because most sessions never route at all.
+//
+// `coords` is the run being measured. A phone can hold several districts, so
+// the one to use is whichever covers the most of THIS run — worked out from the
+// descriptors alone (`pickPack`), because deciding by decoding each candidate
+// would defeat the point of only ever holding one graph. The winner becomes the
+// active district, so the Settings line keeps naming what is actually in use.
+// Called without coords (the geocode path often has no centre) it behaves
+// exactly as it always did: the active district, else the first installed.
+export async function loadGraph(coords){
+  // Known-bad districts are dropped BEFORE the choice, not after it: a corrupt
+  // pack that happened to cover the run would otherwise win the scoring and
+  // return null, hiding a perfectly good district beside it.
+  const installed = (await installedPacks()).filter(p => !decodeFailed.has(p.id));
+  const id = pickPack(installed, coords, activePackId());
   if(!id) return null;
+  if(id !== activePackId()) await setActivePack(id);
   if(decoded && decoded.id === id) return decoded.graph;
-  if(decodeFailed === id) return null;
   const row = await idb.get(STORE, id);
   if(!row || !row.buf) return null;
   try {
@@ -139,7 +156,7 @@ export async function loadGraph(){
   } catch(e){
     // A corrupt pack must not wedge every future run; remember and move on.
     console.warn('road pack unusable, ignoring:', e);
-    decodeFailed = id;
+    decodeFailed.add(id);
     return null;
   }
 }
@@ -158,4 +175,4 @@ export function coverage(graph, coords){
 }
 
 // Test seam + a way for Settings to force a re-read after a delete/download.
-export function resetGraphCache(){ decoded = null; decodeFailed = null; }
+export function resetGraphCache(){ decoded = null; decodeFailed.clear(); }

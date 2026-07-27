@@ -302,10 +302,23 @@ is up, and **Build** stays disabled — with the reason both on hover and spelle
 under the district list — unless Docker Desktop is running (Docker is what runs
 `osmium`) *and* `--data` names a folder that actually holds an `.osm.pbf`.
 
+Each district in the list carries two more actions:
+
+- **⊕ Extend** — draw another rectangle and the district is rebuilt over both, keeping
+  its id and name. Use it when a crew's area grew. If the two areas are far apart the
+  panel warns: a district is a single rectangle, so joining opposite corners clips all
+  the empty land between them. Build a second district instead — phones hold several
+  and pick whichever covers the day being routed.
+- **✕** — deletes the district from `maps/`. Phones stop being offered it once you
+  Publish; a phone that already downloaded it **keeps working with the copy it has**.
+
 **Publish is a separate button on purpose.** Build writes `maps/` locally; Publish
 commits and pushes it to `main` — which redeploys the whole app — so it asks first.
-Phones can only download a district after it is published, because they fetch it
-from GitHub Pages, not from the office PC.
+Publish also ships **removals** and **extends**, not just new districts. Phones can
+only download a district after it is published, because they fetch it from GitHub
+Pages, not from the office PC. An extended district keeps its id, so the phone's
+Settings list marks it **↻** instead of ✓ — that is the crew's cue to download it
+again and pick up the bigger map.
 
 The service binds to `127.0.0.1` only. Don't expose it: it runs Docker and git.
 

@@ -362,6 +362,16 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 - Syncing is automatic when signal returns; nothing is lost if the phone stays offline all day.
 - The only things that genuinely need signal: worklist **⇪ Upload / ⇩ Download**, looking up stops older than your cached week, and fresh map tiles on the Map page. They just toast "Offline" and wait — nothing breaks.
 
+### Offline road map
+
+**Settings ▸ Offline road map** is what makes **Optimize route** measure real roads with no signal. Pick your district, tap **Download** while you're on wifi (it's a few MB — don't do it on boat signal), and that's it.
+
+- A **✓** means that district is already on this phone.
+- A **↻** means the office published a newer or bigger version of a district you already have — download it again to pick it up.
+- You can keep **more than one** district on the phone. Optimize works out which one covers the day you're routing and uses it, so there's nothing to switch when you move between areas.
+- **Drop** deletes the district you're using. Routes fall back to straight-line estimates until you download one again.
+- A district the office removes stays on your phone and keeps working; it just won't be in the list to download any more.
+
 ---
 
 ## Crew & Boat Teams (office)

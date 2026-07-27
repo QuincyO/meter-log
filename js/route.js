@@ -276,7 +276,9 @@ function pickBest(hits, center){
 // accelerator, never a hard dependency.
 async function offlineGeocode(text, center){
   try {
-    const graph = await loadGraph();
+    // One address, so the only hint available is the crew's centre — and often
+    // there isn't one, which is the no-coords path `loadGraph` falls back on.
+    const graph = await loadGraph(center ? [center] : null);
     if(!graph || !hasAddresses(graph)) return null;
     return pickBest(geocodeAddress(graph, text), center);
   } catch(e){
@@ -579,7 +581,10 @@ const LOCAL_MIN_COVERAGE = 0.8;
 
 async function localGraphMatrix(coords){
   let graph = null;
-  try { graph = await loadGraph(); }
+  // The run's own stops choose the district: a phone holding several picks
+  // whichever covers most of THIS day (js/districts.js `pickPack`), so a crew
+  // that works two areas stops having to switch maps by hand in Settings.
+  try { graph = await loadGraph(coords); }
   catch(e){ console.warn('road pack load failed:', e); return { error: 'offline map unreadable' }; }
   if(!graph) return { error: 'no offline map' };
   const cov = coverage(graph, coords);

@@ -22,7 +22,7 @@
 //     if the working tree is dirty.
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { readdirSync, existsSync, unlinkSync, readFileSync } from 'node:fs';
+import { readdirSync, existsSync, unlinkSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPack } from './build-roadpack.mjs';
@@ -158,6 +158,35 @@ async function buildDistrict(job, { id, name, bbox }){
   return entry;
 }
 
+// ── remove ───────────────────────────────────────────────────────────────────
+// Deletes a district from maps/ and the catalogue. Local only, exactly like a
+// build: nothing reaches a phone until Publish pushes maps/ — and `git add`
+// stages the deletion the same way it stages a new pack, so removal rides the
+// existing button rather than needing a push of its own.
+//
+// A phone that already downloaded the district KEEPS it. The pack is in that
+// phone's IndexedDB and still routes; unpublishing is the office tidying its
+// catalogue, and reaching through it to delete a crew's working offline map
+// mid-day would be a much worse failure than a stale district in a list.
+function removeDistrict(id){
+  const idxPath = join(MAPS, 'index.json');
+  const index = existsSync(idxPath)
+    ? JSON.parse(readFileSync(idxPath, 'utf8')) : { districts: [] };
+  if(!Array.isArray(index.districts)) index.districts = [];
+  const entry = index.districts.find(d => d && d.id === id);
+
+  // The pack file is deleted whether or not the catalogue knew about it, so a
+  // half-finished build can't leave an orphan megabyte behind in maps/.
+  const packPath = join(MAPS, `${id}.pack`);
+  const hadFile = existsSync(packPath);
+  if(hadFile) unlinkSync(packPath);
+  if(!entry && !hadFile) return { removed:false, missing:true };
+
+  index.districts = index.districts.filter(d => !d || d.id !== id);
+  writeFileSync(idxPath, JSON.stringify(index, null, 2) + '\n');
+  return { removed:true, name: (entry && entry.name) || id };
+}
+
 // ── publish ──────────────────────────────────────────────────────────────────
 // Deliberately separate from building: a push to main is a live deploy of the
 // whole app, so it is its own explicit action rather than a side effect.
@@ -258,6 +287,20 @@ createServer(async (req, res) => {
         .catch(e => { job.error = e.message || String(e); push(job, '✗ ' + job.error); })
         .finally(() => { job.done = true; });
       return;
+    }
+
+    // Removal is instant (a file and a JSON entry), so unlike /build it answers
+    // directly instead of handing back a job to poll.
+    if(url.pathname === '/remove' && req.method === 'POST'){
+      const body = await readBody(req);
+      const id = String(body.id || '').trim().toLowerCase();
+      // The same strict slug the build uses, for the same reason: this reaches
+      // a filename. Never relax it to "whatever is in the catalogue".
+      if(!ID_OK.test(id)) return json(res, 400, { error:'bad district id' });
+      const out = removeDistrict(id);
+      return out.missing
+        ? json(res, 404, { error:'no such district' })
+        : json(res, 200, { ok:true, ...out });
     }
 
     if(url.pathname === '/publish' && req.method === 'POST'){

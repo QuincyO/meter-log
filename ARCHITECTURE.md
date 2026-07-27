@@ -557,6 +557,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   - **Packs are not in `sw.js`'s `SHELL`** — they are megabytes and `refreshShell()`
     re-fetches the whole shell on every ⟳ Force update. They live in IndexedDB and
     survive app refreshes. The `roadgraph.js`/`roadpack.js` *modules* are in `SHELL`.
+  - **A phone may HOLD several districts but ROUTES on one per run.** `loadGraph(coords)`
+    scores every installed district on how many of the run's stops fall inside its
+    **bbox** — `pickPack` in `js/districts.js`, pure and unit-tested — and decodes only
+    the winner, which then becomes the active district so Settings keeps naming what is
+    in use. Scoring reads the descriptors in the localStorage mirror, never a decoded
+    graph: deciding by decoding each candidate is exactly the cost the one-graph rule
+    exists to avoid. Ties go to the district the installer picked by hand, and a run
+    that says nothing (no coords, or every stop outside every district) falls back to
+    that same choice rather than to no map at all. Stops outside the winner take the
+    repair path above and price crow-flies. A district that fails to decode is dropped
+    **before** the scoring, so one corrupt pack can't win the run and mask a good pack
+    beside it.
   - **The desktop planner is deliberately excluded** (`opts.osrmUrl` set): its local
     OSRM has turn restrictions and penalties this graph does not, so it stays the
     better answer where it's available.
@@ -601,6 +613,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   every child process is `spawn`ed with an argument array rather than a shell string,
   and the district id is validated against a strict slug before it reaches a filename
   or a git command.
+  Two more things the panel can do, both landing in `maps/` and both reaching phones
+  only via that same Publish:
+  - **⊕ Extend** grows a district instead of making a new one. A district *is* one
+    rectangle, so extending means rebuilding the **same id** over `unionBbox(old, drawn)`
+    — `buildPack` already overwrites the pack and replaces the catalogue entry, so an
+    extend is a build over more ground and nothing else. The id input locks while
+    extending, because a changed id would quietly build a second district instead. When
+    the two rectangles are far apart the union is mostly land nobody drives, so the
+    panel warns above `SPARSE_UNION` (2× the ground of the areas themselves) and points
+    at a separate district — which is now a real option, since the phone picks between
+    districts per run on its own.
+  - **✕ Remove** (`POST /remove`) deletes `maps/<id>.pack` and its catalogue entry.
+    The slug is validated exactly as `/build` validates it — this reaches a filename.
+    It is local until Publish, which stages the deletion through the same `git add`.
+    **A phone that already downloaded the district keeps it**: the pack is in that
+    phone's IndexedDB and still routes. Unpublishing is the office tidying its
+    catalogue, and reaching through it to delete a crew's working offline map mid-day
+    would be the worse failure. Because an extended district keeps its id and name, the
+    Settings picker compares the catalogue's `builtAt`/`bytes` against what is installed
+    and shows **↻** rather than ✓ — without that, a grown district reads as "already
+    installed" forever and never reaches the crew.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
   screen). **The matrix ladder is: on-device road graph → (local OSRM on the
   planner / budget-guarded Google Routes on the phone) → OpenRouteService →

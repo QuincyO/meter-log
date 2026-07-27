@@ -1563,17 +1563,29 @@ async function paintRoadPacks(){
   catch { hint.textContent = navigator.onLine ? 'Could not read the district list.' : ''; }
   const byId = new Map();
   for(const p of installed) byId.set(p.id, { ...p, installed:true });
-  for(const d of catalogue) byId.set(d.id, { ...(byId.get(d.id) || {}), ...d, installed: byId.has(d.id) });
+  for(const d of catalogue){
+    const mine = byId.get(d.id);
+    // The catalogue's numbers win for display — they describe what a download
+    // would fetch — but the comparison against what is actually on the phone
+    // has to happen BEFORE that spread. A district that was extended keeps its
+    // id and its name, so a plain ✓ would read "already installed" forever and
+    // the crew would never pick up the bigger map.
+    const stale = !!mine && (String(mine.builtAt || '') !== String(d.builtAt || '')
+      || Number(mine.bytes || 0) !== Number(d.bytes || 0));
+    byId.set(d.id, { ...(mine || {}), ...d, installed: !!mine, stale });
+  }
   const all = [...byId.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
   sel.innerHTML = all.length
     ? all.map(d => `<option value="${attr(d.id)}"${d.id === active ? ' selected' : ''}>`
-        + `${esc(d.name)} — ${mb(d.bytes)}${d.installed ? ' ✓' : ''}</option>`).join('')
+        + `${esc(d.name)} — ${mb(d.bytes)}${d.installed ? (d.stale ? ' ↻' : ' ✓') : ''}</option>`).join('')
     : '<option value="">— none published —</option>';
   if(!hint.textContent)
-    hint.textContent = all.some(d => d.installed)
-      ? 'A ✓ means it is already on this phone. Downloading again replaces it.'
-      : 'Pick your district and download it while you have wifi.';
+    hint.textContent = all.some(d => d.stale)
+      ? 'A ↻ means a newer version of that district was published — download it again to get it.'
+      : all.some(d => d.installed)
+        ? 'A ✓ means it is already on this phone. Downloading again replaces it.'
+        : 'Pick your district and download it while you have wifi.';
 }
 
 async function downloadRoadPack(){

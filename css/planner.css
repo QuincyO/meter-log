@@ -202,5 +202,13 @@ dialog::backdrop{background:rgba(19,23,28,.55)}
 .pldistricts li{margin:3px 0}
 /* Why Build is disabled — Docker down, or --data with no extract in it. */
 .plwarn{color:#b45309;margin-top:8px}
+/* Per-district Extend / ✕ Remove. Inline with the row so a long district list
+   stays a list rather than becoming a stack of cards. */
+.pldistrict-do{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}
+.plmini{padding:2px 8px;font-size:12px;line-height:1.6;cursor:pointer;
+  background:var(--panel,rgba(127,127,127,.08));color:inherit;
+  border:1px solid var(--line);border-radius:6px}
+.plmini:hover{background:rgba(127,127,127,.18)}
+.plmini-danger:hover{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
 #plDistrictBox{margin-bottom:10px}
 #plDistrictId{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

@@ -20,6 +20,7 @@ import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
+import { unionBbox, isSparseUnion, unionWaste } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
@@ -42,6 +43,12 @@ let districtLayer = null, districtBox = null, drawHandlers = null, builderOnline
 // without the cache, drawing a box re-enabled Build on a machine with no Docker
 // and no extract.
 let builderState = null;
+// The district being GROWN, when Build is going to extend one rather than make
+// a new one: `{id, name, bbox}` straight off the catalogue. A district is a
+// single rectangle, so growing it means rebuilding the same id over the union
+// of its old box and the newly drawn one — same pack file, same entry, more
+// ground. Null for an ordinary new district.
+let extendBase = null;
 let serviceState = {
   osrm:{ provider:'osrm', online:false, reason:'not checked' },
   nominatim:{ provider:'nominatim', online:false, reason:'not checked' },
@@ -195,9 +202,19 @@ async function refreshDistrictList(){
     ? '<p class="sub">Built so far:</p><ul class="pldistricts">' + list.map(d =>
         `<li><strong>${esc(d.name)}</strong> <span class="sub">${(d.bytes / 1048576).toFixed(1)} MB`
         + `${d.addresses ? ` · ${d.addresses.toLocaleString()} addresses` : ' · roads only'}`
-        + ` · built ${esc(d.builtAt || '')}</span></li>`).join('') + '</ul>'
+        + ` · built ${esc(d.builtAt || '')}</span>`
+        + `<span class="pldistrict-do">`
+        + `<button type="button" class="plmini" data-extend="${attr(d.id)}"`
+        + ` title="Draw more ground onto this district and rebuild it">⊕ Extend</button>`
+        + `<button type="button" class="plmini plmini-danger" data-remove="${attr(d.id)}"`
+        + ` title="Delete this district from maps/ — publish to unlist it for phones">✕</button>`
+        + `</span></li>`).join('') + '</ul>'
     : '<p class="sub">No districts built yet.</p>';
-  $('plDistrictPublish').disabled = !list.length || !status.git;
+  // NOT `!list.length` — removing the last district leaves maps/ with a deletion
+  // that still has to be published, and gating on the list emptied the button
+  // that does it. The service answers "Nothing new to publish" when there is
+  // genuinely nothing staged, which is the honest place for that check.
+  $('plDistrictPublish').disabled = !status.git;
   updateDistrictButtons();
   // Spelled out in the panel as well as on the button: a disabled button's
   // title tooltip never fires in Chrome, which is where this runs.
@@ -230,17 +247,105 @@ function ensureDistrictLayer(){
   districtLayer = L.layerGroup().addTo(map);
 }
 
+const boundsOf = b => [[b.minLat, b.minLng], [b.maxLat, b.maxLng]];
+
+// What Build will actually clip out of the province: the rectangle just drawn,
+// or — while extending — the bounding box of the old district and the new
+// rectangle together, because a district is one rectangle and growing it means
+// covering both.
+function buildBbox(){
+  if(!districtBox) return extendBase ? extendBase.bbox : null;
+  return extendBase ? unionBbox(extendBase.bbox, districtBox) : districtBox;
+}
+
+function kmSize(b){
+  const wide = Math.round((b.maxLng - b.minLng) * 111.32 * Math.cos(b.minLat * Math.PI / 180));
+  const tall = Math.round((b.maxLat - b.minLat) * 111.32);
+  return `${wide} × ${tall} km`;
+}
+
+// The district as it stands today, under the area being added to it. Muted and
+// solid so the dashed rectangle — what a Build would produce — reads as the
+// change rather than as another district.
+const DISTRICT_BASE = { color:'#0f766e', weight:2, fillOpacity:0.05 };
+
+function paintDistrictShapes(){
+  ensureDistrictLayer();
+  if(!districtLayer) return;
+  districtLayer.clearLayers();
+  if(extendBase) L.rectangle(boundsOf(extendBase.bbox), DISTRICT_BASE).addTo(districtLayer);
+  const target = buildBbox();
+  // With nothing new drawn yet the target IS the base — don't stack two
+  // rectangles on the same four corners.
+  if(target && (!extendBase || districtBox))
+    L.rectangle(boundsOf(target), DISTRICT_FILL).addTo(districtLayer);
+}
+
+function describeDistrictTarget(){
+  const el = $('plDistrictBox');
+  const target = buildBbox();
+  if(!target){
+    el.textContent = extendBase
+      ? `Extending ${extendBase.name} — drag the area to add.`
+      : 'No area drawn yet.';
+    return;
+  }
+  if(!extendBase){ el.textContent = `Area drawn: roughly ${kmSize(target)}.`; return; }
+  el.textContent = `Extending ${extendBase.name}: the rebuild covers roughly ${kmSize(target)}`
+    + ` (was ${kmSize(extendBase.bbox)}).`;
+  // A district is one rectangle, so two areas at opposite corners are joined by
+  // clipping everything between them — minutes of build and megabytes of pack
+  // for ground nobody drives. Two districts is the better shape for that, and
+  // the phone now picks between them per run on its own.
+  if(districtBox && isSparseUnion(extendBase.bbox, districtBox))
+    el.textContent += ` ⚠ That is ${unionWaste(extendBase.bbox, districtBox).toFixed(1)}× the ground`
+      + ' of the two areas themselves — consider a separate district instead.';
+}
+
 function setDistrictBox(box){
   districtBox = box;
-  ensureDistrictLayer();
-  if(districtLayer){
-    districtLayer.clearLayers();
-    L.rectangle([[box.minLat, box.minLng], [box.maxLat, box.maxLng]], DISTRICT_FILL).addTo(districtLayer);
-  }
-  const wide = Math.round((box.maxLng - box.minLng) * 111.32 * Math.cos(box.minLat * Math.PI / 180));
-  const tall = Math.round((box.maxLat - box.minLat) * 111.32);
-  $('plDistrictBox').textContent = `Area drawn: roughly ${wide} × ${tall} km.`;
+  paintDistrictShapes();
+  describeDistrictTarget();
   updateDistrictButtons();
+}
+
+// Growing an existing district: prefill it, lock the id (a changed id would
+// build a NEW district rather than extend this one), show its current area, and
+// wait for the rectangle to add.
+function beginExtend(d){
+  if(!d || !d.bbox){ toast('That district has no saved area — rebuild it instead'); return; }
+  extendBase = { id: d.id, name: d.name || d.id, bbox: d.bbox };
+  districtBox = null;
+  $('plDistrictId').value = d.id;
+  $('plDistrictId').readOnly = true;
+  $('plDistrictName').value = d.name || d.id;
+  $('plDistrictBuild').textContent = '🗺 Extend district';
+  if(map) map.fitBounds(boundsOf(d.bbox), { padding:[24, 24] });
+  paintDistrictShapes();
+  describeDistrictTarget();
+  updateDistrictButtons();
+  startDrawing();
+}
+
+function clearExtend(){
+  if(!extendBase) return;
+  extendBase = null;
+  $('plDistrictId').readOnly = false;
+  $('plDistrictBuild').textContent = '🗺 Build district';
+}
+
+async function removeDistrict(id, name){
+  if(!confirm(`Delete the ${name || id} district?\n\n`
+    + 'It is removed from maps/ here; phones stop being offered it once you Publish. '
+    + 'A phone that already downloaded it keeps working with the copy it has.')) return;
+  try {
+    await postBuilder('/remove', { id });
+    if(extendBase && extendBase.id === id){ clearExtend(); districtBox = null; paintDistrictShapes(); describeDistrictTarget(); }
+    toast(`${name || id} removed — publish to unlist it`);
+  } catch(e){
+    toast('Remove failed — ' + e.message);
+  }
+  await refreshDistrictList();
 }
 
 function stopDrawing(){
@@ -268,6 +373,9 @@ function startDrawing(){
   const down = e => {
     start = e.latlng;
     districtLayer.clearLayers();
+    // Keep the district being extended on screen underneath the drag — it is
+    // the thing the new rectangle is being drawn relative to.
+    if(extendBase) L.rectangle(boundsOf(extendBase.bbox), DISTRICT_BASE).addTo(districtLayer);
     rect = L.rectangle([start, start], DISTRICT_FILL).addTo(districtLayer);
   };
   const move = e => { if(rect && start) rect.setBounds(L.latLngBounds(start, e.latlng)); };
@@ -276,7 +384,7 @@ function startDrawing(){
     const b = L.latLngBounds(start, e.latlng);
     // A stray click is a zero-size box, not a district.
     if(b.getNorth() - b.getSouth() < 0.01 || b.getEast() - b.getWest() < 0.01){
-      districtLayer.clearLayers();
+      paintDistrictShapes();
       $('plDistrictBox').textContent = 'That area was too small — drag a rectangle.';
       stopDrawing();
       return;
@@ -321,15 +429,23 @@ async function postBuilder(path, body){
 async function buildDistrict(){
   const id = slugify($('plDistrictId').value);
   const name = String($('plDistrictName').value || '').trim();
-  if(!districtBox || !id || !name) return;
+  const bbox = buildBbox();
+  if(!districtBox || !bbox || !id || !name) return;
+  const growing = !!extendBase;
   const log = $('plDistrictLog');
   log.classList.remove('hide');
   log.textContent = 'Starting…';
   $('plDistrictBuild').disabled = true;
   try {
-    const { job } = await postBuilder('/build', { id, name, bbox: districtBox });
+    // Same id as the district being grown, which is the whole mechanism:
+    // buildPack overwrites maps/<id>.pack and replaces its catalogue entry, so
+    // an extend is just a build over more ground.
+    const { job } = await postBuilder('/build', { id, name, bbox });
     await pollBuildJob(job, log);
-    toast(`${name} built — publish it to reach phones`);
+    toast(growing
+      ? `${name} extended — publish it, then phones re-download it`
+      : `${name} built — publish it to reach phones`);
+    clearExtend();
     await refreshDistrictList();
   } catch(e){
     log.textContent += `\n✗ ${e.message}`;
@@ -1201,10 +1317,28 @@ $('plPace').onchange = () => {
 };
 
 // Offline map districts (panel stays hidden unless the build service is up).
-$('plDrawDistrict').onclick   = startDrawing;
+// ✏️ Draw is always a NEW district — leaving an extend armed here is how you
+// would silently rebuild somebody else's district over a fresh rectangle.
+$('plDrawDistrict').onclick   = () => {
+  clearExtend();
+  districtBox = null;
+  paintDistrictShapes();
+  startDrawing();
+};
 $('plDrawCancel').onclick     = stopDrawing;
 $('plDistrictBuild').onclick  = buildDistrict;
 $('plDistrictPublish').onclick = publishDistricts;
+// The rows are re-rendered on every refresh, so the buttons are delegated
+// rather than bound per row.
+$('plDistrictList').onclick = e => {
+  const btn = e.target.closest('button[data-extend], button[data-remove]');
+  if(!btn) return;
+  const known = (builderState && builderState.districts) || [];
+  const id = btn.dataset.extend || btn.dataset.remove;
+  const d = known.find(x => x && x.id === id);
+  if(btn.dataset.extend) beginExtend(d || { id });
+  else removeDistrict(id, d && d.name);
+};
 $('plDistrictName').oninput = () => {
   // Fill the id from the name until someone types their own.
   const idEl = $('plDistrictId');

@@ -201,6 +201,25 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   first thing to check when a district won't build — `curl localhost:8790/status`
   prints the resolved `data` and `pbf`. On this machine the extract lives in
   `D:\osrm`, the same folder mounted into the OSRM and Nominatim containers.
+  The panel also **extends** and **removes** districts, and three things there are
+  easy to undo by accident: (1) **extend rebuilds the same id over
+  `unionBbox(old, drawn)`** — a district is one rectangle, so the id input locks
+  while extending, because a changed id builds a second district instead of
+  growing the one on screen; (2) **`/remove` is local until Publish**, and a phone
+  that already downloaded the district **keeps** it — unpublishing tidies the
+  office catalogue, it does not reach into a crew's phone; (3) Publish is gated on
+  `status.git` alone and **not** on the district list being non-empty — removing
+  the last district leaves a deletion that still has to be published, and gating
+  on the list disabled the very button that ships it.
+- **A phone can hold several districts and picks one per run.** `loadGraph(coords)`
+  scores installed packs on bbox hits (`pickPack`, pure, in `js/districts.js`) and
+  decodes only the winner. Three traps: it scores **descriptors, never decoded
+  graphs** (decoding each candidate is the cost the one-graph rule exists to
+  avoid); a run with no usable coords must still fall back to a real pack, or a
+  phone with a perfectly good district declines to the next matrix provider; and
+  a **known-bad pack is filtered out before the scoring**, or one corrupt district
+  wins the run and hides the good one beside it. `js/districts.js` is in `SHELL`
+  and its absence there means phones keep the old single-pack behaviour silently.
 
 - **Spine reads are cached at two levels (`Code.gs` `rows()`).** Per-request memo (`ROWS_MEMO`) for every tab, plus a cross-request `CacheService` copy for the small slow-changing tabs (`Employees`/`Teams`/`Captains`/`Subs`/`Metrics` — `CACHED_TABS`). **Any code that writes a tab must call `bustRows(tab)`** (the shared helpers `upsertByHeader`/`upsertDayRow`/`deleteDayRows`/`setDayFields`/`ensureName`/`deleteName` already do) or a read later in the same request — or a roster read for up to 6h — sees stale data. Don't add big/hot tabs (`Stops`, `Downtime`, …) to `CACHED_TABS`: they exceed the 100KB/key limit and are written on every log.
 
