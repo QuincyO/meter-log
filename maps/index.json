@@ -1,3 +1,20 @@
 {
-  "districts": []
+  "districts": [
+    {
+      "id": "huntsville-meg",
+      "name": "Huntsville Meg",
+      "file": "maps/huntsville-meg.pack",
+      "bbox": {
+        "minLat": 44.62175409623327,
+        "minLng": -80.47210693359376,
+        "maxLat": 46.03129569755734,
+        "maxLng": -77.98828147351742
+      },
+      "bytes": 5436572,
+      "nodes": 39082,
+      "segments": 44768,
+      "addresses": 54145,
+      "builtAt": "2026-07-27"
+    }
+  ]
 }
