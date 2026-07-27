@@ -177,7 +177,21 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
   .concat(['updated'])
   // Appended as a block so an existing wide InstallerMetrics sheet upgrades
   // without shifting any of its established positional columns.
-  .concat(['recent30AvgLogMin','boatRecent30AvgLogMin','landRecent30AvgLogMin']);
+  .concat(['recent30AvgLogMin','boatRecent30AvgLogMin','landRecent30AvgLogMin'])
+  // The MEASURED on-site (dwell) model behind route ETAs — a second appended
+  // block, for the same reason. Until this existed the phone derived dwell as
+  // `pace − 10`, where the 10 was a hardcoded guess at the typical drive between
+  // stops (js/route-dwell.js). These are the same quantity measured instead:
+  //   onSiteMin      hands-on minutes at a stop        (fit intercept)
+  //   travelMinPerKm the installer's real travel rate  (fit slope)
+  //   extraMeterMin  a 2nd/3rd meter at one address, which is far quicker
+  //   onSiteSource   'gps' | 'fit' | 'pace' — how much to trust the above,
+  //                  mirroring the existing paceSource convention. Blank/'pace'
+  //                  means the phone falls back to exactly its old behaviour.
+  .concat(['onSiteMin','boatOnSiteMin','landOnSiteMin',
+           'extraMeterMin','boatExtraMeterMin','landExtraMeterMin',
+           'travelMinPerKm','boatTravelMinPerKm','landTravelMinPerKm',
+           'onSiteSource','boatOnSiteSource','landOnSiteSource']);
 
 // One row per planned worklist order, keyed per installer on the employee
 // H number (names can collide, H numbers can't; installer is a readable label
@@ -439,6 +453,10 @@ function doGet(e) {
   if (p.action === 'driveTracks') return json(driveTracksRead(p.installer, p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
+  // Crew-wide per-site dwell history for the route ETA model — sites the crew has
+  // measurably lingered at or flown through. `days` omitted/0 = the whole history,
+  // which is the sensible default at this data volume.
+  if (p.action === 'siteDwell') return json(crewSiteDwell(p.days ? Number(p.days) : 0));
   if (p.action === 'roster')  return json(roster());
   if (p.action === 'idle') {
     const date = p.date || today();
@@ -2377,6 +2395,7 @@ function refreshInstallerMetrics(hNumber, name) {
   row.recent30AvgLogMin = installerRecentAvgLogMin(nm, 'all', 30);
   row.boatRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'boat', 30);
   row.landRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'land', 30);
+  applyOnSiteMetrics(row, nm);   // the measured dwell model behind route ETAs
   upsertByHeader('InstallerMetrics', 'hNumber', h, row);
 }
 
@@ -2509,6 +2528,348 @@ function installerRecentAvgLogMin(name, workType, workdays) {
   return cnt ? Math.round(Math.max(0, sum - breakMin) / cnt) : '';
 }
 
+// ── Measured on-site (dwell) time ────────────────────────────────────────────
+//
+// A route ETA is built as  arrival = previous departure + drive,  departure =
+// arrival + DWELL (js/route-constraints.js simulateDay). Real road durations have
+// always answered the drive half. The dwell half was one flat number for every
+// stop on every route: the installer's log-to-log pace minus a HARDCODED ten-minute
+// guess at the drive that pace already contains. These functions measure it
+// instead, from data the crew already produces at end of day — no new taps, no new
+// order fields, nothing to backfill by hand.
+//
+// Everything below rests on one sample. For two consecutive logged stops:
+//
+//   gap = log(i) − log(i−1) = drive to stop i + work at stop i + interruptions
+//
+// The interruptions are exactly the gap-tagged Downtime rows the crew allocates in
+// the end-of-day travel review, so subtracting them leaves drive + work. Regressing
+// the remainder against the distance moved splits those two: the INTERCEPT is the
+// work (on-site minutes) and the SLOPE is the installer's real travel rate — which
+// is the same quantity the hardcoded ten minutes was guessing at. The sample is
+// attributed to the ARRIVING stop, matching how computeIdle() attributes Timing rows.
+//
+// Note this nets out every gap-tagged category (isGapDeduction), where
+// installerRecentAvgLogMin only nets out LUNCH/BREAK. DISPATCH alone is about half
+// the Downtime rows, and it is waiting for a meter, not installing one.
+
+const DWELL_SAME_SITE_M       = 60;    // moved less than this ⇒ another meter, one site
+const DWELL_MAX_GAP_MIN       = 240;   // longer than this is a broken day, not a stop
+const DWELL_MIN_FIT_SAMPLES   = 20;
+const DWELL_MIN_EXTRA_SAMPLES = 5;
+// Four visits, not two. Measured against the real export: 266 sites had been
+// visited once, 22 twice, and the n=2 factors spanned 0.34–4.03 — that is noise
+// wearing a number, and it would have driven real ETAs. At this bar almost no site
+// qualifies today and the tier simply does nothing, which is the correct amount to
+// do with no evidence; it starts contributing on its own as repeat visits
+// accumulate, with no code change.
+const DWELL_MIN_SITE_SAMPLES  = 4;
+// Shrink a factor toward 1 by how much evidence stands behind it, so a site that
+// just cleared the bar nudges an ETA instead of doubling it.
+const DWELL_SITE_SHRINK_K     = 4;
+const DWELL_MIN_TRACK_SAMPLES = 15;
+const DWELL_TRACK_MIN_MIN     = 2;     // a shorter stop-and-go is traffic, not a stop
+const DWELL_TRACK_MAX_MIN     = 120;
+const DWELL_ONSITE_FLOOR      = 5;
+const DWELL_ONSITE_CEIL       = 90;
+// A site factor within this band changes no ETA worth shipping over a truck's
+// connection, so those sites are dropped from the payload entirely.
+const DWELL_SITE_FLAT_LO      = 0.85;
+const DWELL_SITE_FLAT_HI      = 1.15;
+
+// Street-address suffix/direction expansion. A VERBATIM copy of js/roadgraph.js's
+// tables — Apps Script cannot import the module, and tests/route-dwell-parity.test.mjs
+// evaluates this function against the real siteKey() so the two cannot drift.
+const DWELL_SUFFIXES = {
+  st:'street', str:'street', rd:'road', ave:'avenue', av:'avenue', dr:'drive',
+  blvd:'boulevard', blv:'boulevard', cres:'crescent', cr:'crescent', ln:'lane',
+  hwy:'highway', ct:'court', crt:'court', pl:'place', ter:'terrace', terr:'terrace',
+  trl:'trail', pkwy:'parkway', pky:'parkway', cir:'circle', sq:'square',
+  gdns:'gardens', hts:'heights', pt:'point',
+};
+const DWELL_DIRECTIONS = {
+  n:'north', s:'south', e:'east', w:'west',
+  ne:'northeast', nw:'northwest', se:'southeast', sw:'southwest',
+  north:'north', south:'south', east:'east', west:'west',
+  northeast:'northeast', northwest:'northwest', southeast:'southeast', southwest:'southwest',
+};
+
+/** A site's identity: civic number + normalized street, mirroring siteKey() in
+ *  js/route-dwell.js. The office TYPES a worklist address and the field LOGGED this
+ *  one months earlier, so they must land on the same key.
+ *  NOT keyed on coordinates — a Stops pin is a phone GPS fix and jitters tens of
+ *  metres between visits to one property, while a worklist pin is geocoder output.
+ *  The locality tail is dropped: a logged Stops address is usually a full geocoder
+ *  string ("10 Island 19c, Carling, ON P0G 1G0, Canada") and a worklist order
+ *  carries what the office typed ("10 Island 19c"). Take the first comma-segment
+ *  that STARTS WITH A CIVIC NUMBER — some logged addresses are label-prefixed
+ *  ("Town of, 14 Maple Heights Dr, Huntsville, …") and taking segment zero merged
+ *  34 distinct Huntsville houses onto one key. */
+function siteKeyOf(address) {
+  const parts = String(address == null ? '' : address).split(',');
+  let head = parts[0];
+  for (let i = 0; i < parts.length; i++) {
+    if (/^\s*\d/.test(parts[i])) { head = parts[i]; break; }
+  }
+  const s = String(head).trim();
+  const m = s.match(/^(\d[\w-]*)\s+(.+)$/);
+  const numRaw = m ? m[1] : '';
+  const street = m ? m[2] : s;
+  const words = String(street).toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter(String);
+  if (!words.length) return '';
+  // Suffixes expand anywhere EXCEPT the first word, so "St Andrews Rd" (Saint) is
+  // not mangled into "street andrews road"; directions expand at any position.
+  const road = words.map(function (w, i) {
+    if (DWELL_DIRECTIONS[w]) return DWELL_DIRECTIONS[w];
+    if (i > 0 && DWELL_SUFFIXES[w]) return DWELL_SUFFIXES[w];
+    return w;
+  }).join(' ');
+  if (!road) return '';
+  const nm = String(numRaw).match(/\d+/);
+  const n = nm ? Number(nm[0]) : 0;
+  return n ? (n + ' ' + road) : road;
+}
+
+function dwellClamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function dwellMedian(list) {
+  const a = list.slice().sort(function (x, y) { return x - y; });
+  if (!a.length) return null;
+  const mid = a.length >> 1;
+  return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+}
+/** Drop the worst outliers before the real fit. An unlogged delay is
+ *  indistinguishable from a slow install in this data, and ordinary least squares
+ *  would let a handful of them set the intercept for every stop the installer ever
+ *  visits.
+ *  Trimmed by RESIDUAL against a first-pass fit, NOT by raw gap minutes. Trimming
+ *  the slowest gaps outright looks equivalent and is not: the slowest gaps are
+ *  mostly the longest drives, so it would shave the far end off the distance
+ *  distribution, drag the slope down and push the intercept — the number actually
+ *  shipped — up. A residual trim trims "surprisingly slow for this distance", which
+ *  is what an unlogged delay actually looks like. */
+function dwellTrimTail(samples, keepFraction) {
+  if (samples.length < 3) return samples.slice();
+  const first = dwellLeastSquares(
+    samples.map(function (s) { return s.distanceM / 1000; }),
+    samples.map(function (s) { return s.gapMin; }));
+  if (!first) return samples.slice();
+  const scored = samples.map(function (s) {
+    return { s: s, r: Math.abs(s.gapMin - (first.intercept + first.slope * s.distanceM / 1000)) };
+  }).sort(function (a, b) { return a.r - b.r; });
+  return scored.slice(0, Math.max(2, Math.floor(scored.length * keepFraction)))
+    .map(function (x) { return x.s; });
+}
+function dwellLeastSquares(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; }
+  const denom = n * sxx - sx * sx;
+  if (!denom) return null;                       // every stop at one distance
+  const slope = (n * sxy - sx * sy) / denom;
+  return { slope: slope, intercept: (sy - slope * sx) / n };
+}
+function hhmmToMinutes(text) {
+  const m = String(text == null ? '' : text).match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** Every usable consecutive-stop sample: { who, date, gapMin, distanceM, site }.
+ *  `name` blank/null ⇒ the whole crew (what the site history needs — 463 stops split
+ *  three ways is too thin to key by installer). `workdays` > 0 keeps only that many
+ *  of each installer's most recent worked days, matching installerRecentAvgLogMin's
+ *  "N actual route days" rule rather than a calendar window. */
+function dwellSamples(name, workType, workdays) {
+  const nm = String(name == null ? '' : name).trim();
+  const mode = workType || 'all';
+  const inMode = function (wt) { return mode === 'all' || normWorkType(wt) === mode; };
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const days = Math.max(0, Math.floor(Number(workdays) || 0));
+
+  const byWho = {};
+  rows('Stops').forEach(function (r) {
+    const who = String(r.installer == null ? '' : r.installer).trim();
+    if (!who || (nm && !sameName(who, nm))) return;
+    if (!inMode(r.workType)) return;
+    if (!printable[String(r.status || '').trim().toUpperCase()]) return;
+    const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
+    if (!d || sec == null) return;
+    const byDate = byWho[who] = byWho[who] || {};
+    (byDate[d] = byDate[d] || []).push({
+      sec: sec, address: r.address, lat: numCoord(r.lat), lng: numCoord(r.lng)
+    });
+  });
+
+  // The crew's own end-of-day allocation of what each long gap actually was. This
+  // is what separates "the install took an hour" from "dispatch took 40 of it".
+  // Keyed on the gap's clock window, which is how gapNoteTimes() records it.
+  const ded = {};
+  rows('Downtime').forEach(function (r) {
+    if (!isGapDeduction(String(r.category || '').trim().toUpperCase())) return;
+    const who = String(r.installer == null ? '' : r.installer).trim();
+    if (!who || (nm && !sameName(who, nm))) return;
+    if (!inMode(r.workType)) return;
+    const m = gapNoteTimes(r.note), d = dateOf(r.timestamp);
+    if (!m || !d) return;
+    const k = who + '|' + d + '|' + hhmmToMinutes(m[1]) + '|' + hhmmToMinutes(m[2]);
+    ded[k] = (ded[k] || 0) + (Number(r.minutes) || 0);
+  });
+
+  const out = [];
+  Object.keys(byWho).forEach(function (who) {
+    const byDate = byWho[who];
+    let dates = Object.keys(byDate).sort();
+    if (days) dates = dates.slice(-days);
+    dates.forEach(function (d) {
+      const list = byDate[d].sort(function (a, b) { return a.sec - b.sec; });
+      for (let i = 1; i < list.length; i++) {
+        const prev = list[i - 1], cur = list[i];
+        const rawMin = (cur.sec - prev.sec) / 60;
+        if (!(rawMin > 0) || rawMin > DWELL_MAX_GAP_MIN) continue;
+        // FLOOR, not round: a gap note is written from HH:mm-formatted clock times,
+        // which truncate. Rounding 08:59:43 up to 09:00 would miss its deduction.
+        const k = who + '|' + d + '|' + Math.floor(prev.sec / 60) + '|' + Math.floor(cur.sec / 60);
+        const gapMin = rawMin - (ded[k] || 0);
+        if (!(gapMin > 0)) continue;
+        if (prev.lat == null || prev.lng == null || cur.lat == null || cur.lng == null) continue;
+        out.push({
+          who: who, date: d, gapMin: gapMin,
+          distanceM: haversine(prev.lat, prev.lng, cur.lat, cur.lng),
+          site: siteKeyOf(cur.address)
+        });
+      }
+    });
+  });
+  return out;
+}
+
+/** One installer's measured dwell model for a work mode:
+ *    { onSiteMin, travelMinPerKm, extraMeterMin, samples }
+ *  Any field is '' when there is not enough evidence for it, which the phone reads
+ *  as "fall back to the pace guess" — the safe default, and what every installer
+ *  shows until backfillInstallerMetrics() has run. */
+function installerOnSiteFit(name, workType, workdays) {
+  const samples = dwellSamples(name, workType, workdays);
+  const near = [], far = [];
+  samples.forEach(function (s) {
+    (s.distanceM < DWELL_SAME_SITE_M ? near : far).push(s);
+  });
+  const out = { onSiteMin: '', travelMinPerKm: '', extraMeterMin: '', samples: far.length };
+
+  const kept = dwellTrimTail(far, 0.9);
+  if (kept.length >= DWELL_MIN_FIT_SAMPLES) {
+    const fit = dwellLeastSquares(
+      kept.map(function (s) { return s.distanceM / 1000; }),
+      kept.map(function (s) { return s.gapMin; }));
+    if (fit && isFinite(fit.intercept)) {
+      out.onSiteMin = Math.round(dwellClamp(fit.intercept, DWELL_ONSITE_FLOOR, DWELL_ONSITE_CEIL));
+      // A negative slope is a fit that failed, not an installer who drives backwards.
+      // Guard the ROUNDED value: a slope that rounds to 0.0 is no rate at all, and
+      // storing a literal 0 would read as "measured, and it's zero" downstream —
+      // crewSiteDwell in particular must see blank so it withholds site factors.
+      const rate = Math.round(fit.slope * 10) / 10;
+      if (isFinite(rate) && rate > 0) out.travelMinPerKm = rate;
+    }
+  }
+  // The repeat-meter number, taken as a median rather than from the fit: a 2nd meter
+  // at an address the crew is already parked at is a different job, not the same job
+  // with the drive removed, and the logs show them a minute or two apart.
+  if (near.length >= DWELL_MIN_EXTRA_SAMPLES) {
+    const cap = out.onSiteMin === '' ? DWELL_ONSITE_CEIL : out.onSiteMin;
+    out.extraMeterMin = Math.round(dwellClamp(dwellMedian(near.map(function (s) { return s.gapMin; })), 1, cap));
+  }
+  return out;
+}
+
+/** On-site minutes measured from GPS instead of inferred: the hole between one
+ *  DriveTracks leg ENDING and the next STARTING is literally time parked at a stop —
+ *  true arrive/depart, which a Stops log timestamp can never be (the app records one
+ *  moment per stop, never an arrival). Returns '' unless there is enough of it;
+ *  recording is opt-in per phone per day, so most installers land on the fit. */
+function installerOnSiteFromTracks(name, workType, workdays) {
+  const nm = String(name == null ? '' : name).trim();
+  if (!nm) return '';
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DriveTracks')) return '';
+  const mode = workType || 'all';
+  const inMode = function (wt) { return mode === 'all' || normWorkType(wt) === mode; };
+  const byDate = {};
+  rows('DriveTracks').forEach(function (r) {
+    if (!sameName(r.installer, nm) || !inMode(r.workType)) return;
+    const d = dateOf(r.date), s = secOfDay(r.startTime), e = secOfDay(r.endTime);
+    if (!d || s == null || e == null) return;
+    (byDate[d] = byDate[d] || []).push({ start: s, end: e });
+  });
+  let dates = Object.keys(byDate).sort();
+  const days = Math.max(0, Math.floor(Number(workdays) || 0));
+  if (days) dates = dates.slice(-days);
+  const gaps = [];
+  dates.forEach(function (d) {
+    const legs = byDate[d].sort(function (a, b) { return a.start - b.start; });
+    for (let i = 1; i < legs.length; i++) {
+      const min = (legs[i].start - legs[i - 1].end) / 60;
+      if (min >= DWELL_TRACK_MIN_MIN && min <= DWELL_TRACK_MAX_MIN) gaps.push(min);
+    }
+  });
+  if (gaps.length < DWELL_MIN_TRACK_SAMPLES) return '';
+  return Math.round(dwellClamp(dwellMedian(gaps), DWELL_ONSITE_FLOOR, DWELL_ONSITE_CEIL));
+}
+
+/** Crew-wide per-site dwell history — the siteDwell GET. A factor is a site's median
+ *  WORK time against the crew's, where work = gap − (crew travel rate × distance):
+ *  without removing the drive, a site far from everything else would score "slow"
+ *  purely for being remote, which is the opposite of useful.
+ *  Crew-wide on purpose (one installer's history per site is far too thin), and
+ *  same-site repeat meters are excluded because the repeat-meter tier already prices
+ *  those — counting them here would mark every multi-meter address "fast" twice. */
+function crewSiteDwell(workdays) {
+  const rate = Number(installerOnSiteFit('', 'all', workdays).travelMinPerKm) || 0;
+  // No usable travel rate ⇒ no site factors at all. Without one, "work" is just the
+  // raw gap, so a site 5 km from its neighbours scores slow purely for being remote
+  // and the factor measures geography rather than the job. That is exactly what
+  // happens on boat routes, where the distance/time slope is dominated by docking
+  // and comes out unusable — so this is the live case, not a theoretical one.
+  if (!(rate > 0)) return { ok: true, crewMedianMin: '', sites: [], note: 'no travel rate' };
+  const usable = dwellSamples('', 'all', workdays).filter(function (s) {
+    return s.site && s.distanceM >= DWELL_SAME_SITE_M;
+  }).map(function (s) {
+    return { site: s.site, work: Math.max(1, s.gapMin - rate * (s.distanceM / 1000)) };
+  });
+  if (usable.length < DWELL_MIN_FIT_SAMPLES) return { ok: true, crewMedianMin: '', sites: [] };
+  const crewMed = dwellMedian(usable.map(function (x) { return x.work; }));
+  if (!(crewMed > 0)) return { ok: true, crewMedianMin: '', sites: [] };
+
+  const bySite = {};
+  usable.forEach(function (x) { (bySite[x.site] = bySite[x.site] || []).push(x.work); });
+  const sites = [];
+  Object.keys(bySite).forEach(function (k) {
+    const list = bySite[k];
+    if (list.length < DWELL_MIN_SITE_SAMPLES) return;
+    const raw = dwellMedian(list) / crewMed;
+    const n = list.length;
+    const f = 1 + (raw - 1) * (n / (n + DWELL_SITE_SHRINK_K));
+    if (f >= DWELL_SITE_FLAT_LO && f <= DWELL_SITE_FLAT_HI) return;
+    sites.push({ key: k, factor: Math.round(f * 100) / 100, n: n });
+  });
+  return { ok: true, crewMedianMin: Math.round(crewMed), sites: sites };
+}
+
+/** Fill one InstallerMetrics row's dwell columns for all three work modes. */
+function applyOnSiteMetrics(row, nm) {
+  [['', 'all'], ['boat', 'boat'], ['land', 'land']].forEach(function (pair) {
+    const prefix = pair[0], mode = pair[1];
+    const col = function (k) { return prefix ? prefix + k[0].toUpperCase() + k.slice(1) : k; };
+    const fit = installerOnSiteFit(nm, mode, 30);
+    const gps = installerOnSiteFromTracks(nm, mode, 30);
+    // GPS wins when there is enough of it — a leg boundary is literal arrive/depart.
+    // Neither available ⇒ every column blank and the phone keeps its pace guess,
+    // which is exactly the behaviour that shipped before this existed.
+    row[col('onSiteMin')]      = gps !== '' ? gps : fit.onSiteMin;
+    row[col('extraMeterMin')]  = fit.extraMeterMin;
+    row[col('travelMinPerKm')] = fit.travelMinPerKm;
+    row[col('onSiteSource')]   = gps !== '' ? 'gps' : (fit.onSiteMin !== '' ? 'fit' : 'pace');
+  });
+}
+
 /** InstallerMetrics rows — the installerMetrics GET. Optionally filtered by
  *  H number. workType 'boat'|'land' projects that mode's prefixed columns down
  *  to canonical field names (so a reader always sees `avgPerDay`, `avgLogMin`,
@@ -2526,6 +2887,12 @@ function installerMetricsRead(hNumber, workType) {
                   firstDay: r.firstDay, lastDay: r.lastDay, updated: r.updated };
       INSTALLER_METRIC_KEYS.forEach(k => o[k] = r[wt + k[0].toUpperCase() + k.slice(1)]);
       o.recent30AvgLogMin = r[wt + 'Recent30AvgLogMin'];
+      // The dwell block projects the same way. Easy to forget when adding a column
+      // here: the phone reads THROUGH this projection, so a field left out of it
+      // simply never reaches the route model and the guess silently stays in use.
+      ['onSiteMin','extraMeterMin','travelMinPerKm','onSiteSource'].forEach(k => {
+        o[k] = r[wt + k[0].toUpperCase() + k.slice(1)];
+      });
       return o;
     });
   }

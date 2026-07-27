@@ -263,6 +263,14 @@ export function initWorklistRouteView(opts){
   function showTimes(){ return true; }
   function timesEstimated(){ return Boolean(opts.timesEstimated && opts.timesEstimated()); }
   function etaText(item){ return `ETA ${timesEstimated() ? '~' : ''}${esc(item.scheduledEta)}`; }
+  // The on-site half of the ETA, which used to be invisible: a stop's ETA is the
+  // one before it plus the drive PLUS this. Shown per stop because it is no longer
+  // the same everywhere — a repeat meter at an address the crew is already parked
+  // at costs a fraction of a fresh site, and that is most of what changed.
+  function onSiteText(item){
+    const n = Number(item.scheduledOnSiteMin);
+    return (isFinite(n) && n > 0) ? `${Math.round(n)}m on site` : '';
+  }
 
   function markerTooltip(item, position, parked){
     const prefix = parked ? '⚠ Parked — ' : `${position}. `;
@@ -353,7 +361,7 @@ export function initWorklistRouteView(opts){
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
-        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
+        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && onSiteText(item)) ? ` · ${onSiteText(item)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
     const handle = card.querySelector('.wl-route-handle');
     if(handle) wireDrag(handle, card);

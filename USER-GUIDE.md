@@ -184,6 +184,16 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
   its driving order is chosen; they do not tell it where you are. Pace uses your
   latest 30 land workdays when available and remains editable.
+- **Time on site** is the other half of each ETA: an arrival time is the stop before
+  it, plus the drive, plus however long you spend at that stop. The app works your
+  on-site time out from your own history — the line under Pace tells you the number
+  and where it came from — so you don't set it. Two things make it change from stop
+  to stop: a **second or third meter at an address you're already parked at** is
+  counted as the few minutes it really takes rather than a whole fresh stop, and a
+  place the crew has repeatedly found slow gets a little longer. Each stop on the
+  route view shows its own figure beside the ETA. If it's wrong for the work you're
+  actually doing you can set it yourself on the **Route tuning** screen; leave that
+  box empty to go back to the measured number.
 - Every Optimize asks **"are you starting from the morning meeting location?"**
   Answer **Yes** for the usual plan — the first stop is the far end of the day and
   you work your way back toward home. Answer **No** when you are already out in the

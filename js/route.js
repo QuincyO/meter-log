@@ -1229,15 +1229,21 @@ export function travelLookup(measure){
 }
 
 // How many stops fit in a day and still finish by opts.dayFinishBy, given real
-// durations. Uses the installer's on-site time (onSiteMinutes, pace-derived) plus
-// the route's average between-stop drive and an average morning drive-out, so a
-// travel-heavy route yields a smaller day (fewer stops → home bias) while an easy
-// route keeps the full target. A rough average, not a per-day simulation — the
-// office target is "ideally" met two hours early, not a hard cap.
+// durations. Uses the installer's on-site time plus the route's average
+// between-stop drive and an average morning drive-out, so a travel-heavy route
+// yields a smaller day (fewer stops → home bias) while an easy route keeps the full
+// target. A rough average, not a per-day simulation — the office target is
+// "ideally" met two hours early, not a hard cap.
+//
+// opts.onSiteMin: the route's MEASURED average dwell (js/route-dwell.js
+// dwellLookup.average). Must come from the same dwell model the ETA simulation
+// uses, or the day target and the ETAs describing it drift apart. Omitted ⇒ the
+// pace-derived fallback, exactly as before.
 function timeCapacity(T, offset, locatedCount, startNode, opts){
   const avail = Number(opts.dayFinishBy) - Number(opts.departMin) - (Number(opts.breakMin) || 0);
   if(!(avail > 0) || locatedCount < 1) return Infinity;
   const pace = Math.max(1, Number(opts.paceMin) || 30);
+  const measuredOnSite = Number(opts.onSiteMin);
   let sum = 0, cnt = 0;
   for(let k = 0; k < locatedCount - 1; k++){
     const v = T[offset + k][offset + k + 1];
@@ -1250,7 +1256,8 @@ function timeCapacity(T, offset, locatedCount, startNode, opts){
     if(isFinite(v)){ msum += v; mcnt++; }
   }
   const morning = mcnt ? msum / mcnt : 0;
-  const perStop = onSiteMinutes(pace) + avgBetween;
+  const perStop = ((isFinite(measuredOnSite) && measuredOnSite > 0)
+    ? measuredOnSite : onSiteMinutes(pace)) + avgBetween;
   if(!(perStop > 0)) return Infinity;
   return Math.max(1, Math.floor((avail - morning) / perStop));
 }

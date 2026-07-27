@@ -12,11 +12,12 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 // effect: a route whose legs run about the baseline behaves like the historical
 // pace, while a travel-heavy route correctly runs longer (fewer stops fit by the
 // finish clock — the home-bias vs production balance). Floored so it never vanishes.
-export const MIN_ONSITE_MIN = 8;
-export const NOMINAL_TRAVEL_MIN = 10;
-export function onSiteMinutes(paceMin){
-  return Math.max(MIN_ONSITE_MIN, (Number(paceMin) || 0) - NOMINAL_TRAVEL_MIN);
-}
+//
+// This is now the FALLBACK, not the model: it lives in js/route-dwell.js alongside
+// the measured per-stop dwell that supersedes it, and is re-exported here because
+// callers and tests already import it from this module.
+export { MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN, onSiteMinutes } from './route-dwell.js';
+import { onSiteMinutes } from './route-dwell.js';
 
 function dateAtUtc(text){
   if(!DATE_RE.test(String(text || ''))) return null;
@@ -81,13 +82,23 @@ export function currentRoutePlacement(items, itemId, target){
 // no durations), the legacy flat-pace cadence is used unchanged. A leg with no known
 // duration (a free-slot placeholder, or a missing matrix cell) falls back to a
 // nominal drive so the simulation still advances.
-function simulateDay(slotIds, byId, firstMin, pace, travel){
+//
+// `dwell` (optional) is the run's on-site lookup (js/route-dwell.js dwellLookup).
+// It is the exact mirror of `travel`: present ⇒ each stop is charged its OWN dwell
+// (measured on-site time, cut to `extraMeterMin` for a repeat meter at an address
+// the crew is already parked at, scaled by a site's history); absent ⇒ the flat
+// pace-derived `onSiteMinutes(pace)` every stop got before, unchanged.
+function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
   const schedule = {}, errors = [];
-  const onSite = onSiteMinutes(pace);
-  const moveFallback = Math.max(1, pace - onSite);
+  const flatOnSite = onSiteMinutes(pace);
+  // The route's typical dwell, used for the between-leg fallback only. Taking it
+  // from `dwell.base` rather than a per-item value keeps the fallback stable across
+  // a day whose stops price differently.
+  const baseOnSite = dwell ? dwell.base : flatOnSite;
+  const moveFallback = Math.max(1, pace - baseOnSite);
   let delayed = 0;         // total appointment wait (flat model + return value)
   let departClock = firstMin;   // running departure clock (time model)
-  let prevId = null;
+  let prevId = null, prevItem = null;
   slotIds.forEach((id, i) => {
     const item = byId[id];
     let raw;
@@ -107,14 +118,19 @@ function simulateDay(slotIds, byId, firstMin, pace, travel){
         if(raw < windowStart){ waitMin = windowStart - raw; delayed += waitMin; eta = windowStart; }
       }
     }
-    schedule[id] = { slot:i + 1, eta:clock(eta), waitMin:Math.round(waitMin) };
+    // `prevItem` is the previous stop on THIS day only — simulateDay is called once
+    // per day and both trackers reset with it, so a day's first stop can never be
+    // read as a repeat meter of the last stop of the day before.
+    const onSite = dwell ? dwell.forItem(item, prevItem) : flatOnSite;
+    schedule[id] = { slot:i + 1, eta:clock(eta), waitMin:Math.round(waitMin),
+      onSiteMin:Math.round(onSite) };
     departClock = eta + onSite;   // leave after the on-site work
-    prevId = id;
+    prevId = id; prevItem = item;
   });
   return { schedule, errors, waitMin:delayed };
 }
 
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel){
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
@@ -129,7 +145,7 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
       // Empty slots still consume one cadence interval; use stable placeholders
       // for simulation, then discard their schedule entries.
       for(let k = 0; k < count; k++) if(!slots[k]) slots[k] = `__free_${k}`;
-      const sim = simulateDay(slots, byId, firstMin, pace, travel);
+      const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
       if(!best || sim.waitMin < best.waitMin ||
@@ -185,6 +201,10 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   // run — passed straight through to the day simulation so ETAs reflect actual drive
   // times when we have them and fall back to flat pace when we don't.
   const travel = opts.travel || null;
+  // Per-stop on-site lookup (js/route-dwell.js dwellLookup). Same contract as
+  // `travel` above, and the same trap: a caller that forgets it gets the old flat
+  // dwell silently, with no error to notice. Every optimize path must pass both.
+  const dwell = opts.dwell || null;
 
   let latestDay = Math.max(0, Math.ceil(route.length / target) - 1);
   const constrainedByDay = {}, minByDay = {};
@@ -232,7 +252,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       }
       if(item.appointmentDate) appts.push(item);
     }
-    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId, firstMin, pace, travel).anchors;
+    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId, firstMin, pace, travel, dwell).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));
@@ -242,7 +262,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), ids = [];
     for(let slot = 1; slot <= counts[day]; slot++) ids.push(anchorsByDay[day][slot] || free[freeAt++]);
-    const sim = simulateDay(ids, byId, firstMin, pace, travel);
+    const sim = simulateDay(ids, byId, firstMin, pace, travel, dwell);
     if(sim.errors.length) throw new Error(sim.errors.join('; '));
     ids.forEach(id => {
       finalIds.push(id); dayOf[id] = day + 1;

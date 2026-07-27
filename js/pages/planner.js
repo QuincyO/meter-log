@@ -20,6 +20,7 @@ import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
+import { dwellLookup } from '../route-dwell.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -60,6 +61,13 @@ const dayColor = d => DAY_COLORS[((Number(d) || 1) - 1) % DAY_COLORS.length];
 // The picked installer's cadence, from installerMetrics — sizes the day ETA and
 // the avg/day hint. avgLogMin = minutes per meter; avgPerDay = meters/day.
 let avgLogMin = null, avgPerDay = null;
+// The same read's MEASURED dwell model (js/route-dwell.js): on-site minutes per
+// stop and the shorter figure for a repeat meter at one address. Null until this
+// installer has enough history, which the dwell lookup reads as "use the pace
+// guess" — the planner then behaves exactly as it did before.
+let onSiteMin = null, extraMeterMin = null;
+// Crew-wide per-site dwell history, fetched once per page load.
+let siteFactorMap = {};
 
 // Day time window (minutes-of-day). The crew leaves the muster point at 08:00 (no
 // later than 08:30) and aims to finish the daily target by 14:00 — two hours before
@@ -626,17 +634,42 @@ function dayWindow(pending, d){
   return etas.length === 1 ? ` · ${etas[0]}` : ` · ${etas[0]}–${etas[etas.length - 1]}`;
 }
 
+function numOrNull(v){
+  const n = Number(v);
+  return (v === '' || v == null || !isFinite(n) || n <= 0) ? null : n;
+}
+// Crew-wide site history. Best-effort: the planner is an office desktop, but a
+// failed fetch must only cost the site tier, never the whole route.
+async function loadSiteFactors(){
+  try{
+    const r = await apiGet('siteDwell', {});
+    if(!r || !r.ok || !Array.isArray(r.sites)) return;
+    const map = {};
+    r.sites.forEach(s => { if(s && s.key) map[s.key] = Number(s.factor); });
+    siteFactorMap = map;
+  } catch {}
+}
+// The run's on-site model. Same assembly as the phone's dwellShape(), so a route
+// built here and a route built on the phone price a stop identically.
+function dwellShape(){
+  return dwellLookup({ paceMin: planShape().paceMin, onSiteMin, extraMeterMin,
+                       siteFactors: siteFactorMap });
+}
+
 // The picked installer's cadence: fills the avg/day hint beside the target field.
 async function showAvgDay(){
   const el = $('plAvgDay');
-  avgLogMin = null; avgPerDay = null;
+  avgLogMin = null; avgPerDay = null; onSiteMin = null; extraMeterMin = null;
   if(el) el.textContent = '';
   const h = hNumber();
   if(!h) return;
+  loadSiteFactors();
   try{
     const r = await apiGet('installerMetrics', { hNumber: h, workType:'land' });
     const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
     if(m){
+      onSiteMin = numOrNull(m.onSiteMin);
+      extraMeterMin = numOrNull(m.extraMeterMin);
       avgPerDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
       avgLogMin = (m.recent30AvgLogMin === '' || m.recent30AvgLogMin == null)
         ? ((m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin))
@@ -882,11 +915,14 @@ async function optimize(pending, health){
     // straight-line ordering too — one extra local solve, no extra lookup. `start`
     // (team muster point) + `home` (installer's home) anchor the two ends; the
     // finish-by clock + pace let route.js size each day to land by 14:00.
+    // One dwell model for the run: day sizing (onSiteMin) and the ETA simulation
+    // (planOpts.dwell) have to agree or the day target stops describing the ETAs.
+    const dwell = dwellShape();
     const base = await optimizeRoute(pending, progress, home,
       { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true,
         start, target, dayFinishBy:hhmmMin(planShape().finishBy) || DAY_FINISH_MIN, breakMin:DAY_BREAK_MIN,
         departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
-        commutePull:planShape().commutePull });
+        commutePull:planShape().commutePull, onSiteMin: dwell.average(pending) });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
@@ -904,7 +940,7 @@ async function optimize(pending, health){
       if(!variant) continue;
       const routedItems = variant.orderedIds.map(id => byId[id]).filter(Boolean);
       const travel = v === 'road' ? roadTravel : null;
-      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, { ...planOpts, travel });
+      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, { ...planOpts, travel, dwell });
       computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
         homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
     }

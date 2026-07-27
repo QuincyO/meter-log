@@ -21,17 +21,21 @@ function pullVal(v){
 }
 
 // How many stops a day fits by `finishMin`, from the installer's pace — the same
-// per-stop model route.js timeCapacity uses (pace-derived on-site + a between-stop
-// drive), minus one morning drive-out. `travelPerStopMin` is the between-stop drive:
-// it defaults to the nominal baseline, but callers pass the current route's REAL
-// average leg travel (priced at the truck's measured speed) so the what-if reflects
-// actual working data. Minutes-of-day in; null when the finish time or pace is
-// unusable, or the break eats the day.
+// per-stop model route.js timeCapacity uses (on-site + a between-stop drive), minus
+// one morning drive-out. `travelPerStopMin` is the between-stop drive: it defaults
+// to the nominal baseline, but callers pass the current route's REAL average leg
+// travel (priced at the truck's measured speed) so the what-if reflects actual
+// working data. `onSiteMin` is the installer's MEASURED dwell when they have one;
+// without it this falls back to pace-minus-the-nominal-drive, unchanged. Minutes-of-day
+// in; null when the finish time or pace is unusable, or the break eats the day.
 export function expectedDailyStops({ departMin, finishMin, pace, breakMin = 60,
-                                     travelPerStopMin = NOMINAL_TRAVEL_MIN }){
+                                     travelPerStopMin = NOMINAL_TRAVEL_MIN,
+                                     onSiteMin = null }){
   if(!isFinite(finishMin) || !isFinite(departMin) || !(pace > 0)) return null;
   const available = finishMin - departMin - breakMin;
-  const perStop = onSiteMinutes(pace) + travelPerStopMin;
+  const onSite = (isFinite(Number(onSiteMin)) && Number(onSiteMin) > 0)
+    ? Number(onSiteMin) : onSiteMinutes(pace);
+  const perStop = onSite + travelPerStopMin;
   if(!(available > 0) || !(perStop > 0)) return null;
   return Math.max(0, Math.floor((available - travelPerStopMin) / perStop));
 }
@@ -41,6 +45,11 @@ let pace = null, avgPerDay = null, metricsLoaded = false;
 // paceContext). Independent of the dials, so render() can reproject synchronously
 // against a dragged finish time without re-reading the dayCache each keystroke.
 let getPaceContext = null, paceCtx = null;
+// The dwell model + its provenance, handed down by worklist.js. Not re-derived
+// here: a second copy of the "override beats measurement" precedence is how the
+// readout and the actual route end up quoting different numbers.
+let getDwell = null, getMeasuredOnSite = null, getOnSiteSourceLabel = null,
+    onOnSiteChanged = null;
 
 async function loadMetrics(){
   const c = cfg();
@@ -65,11 +74,22 @@ function render(){
   // Use the current route's real average leg travel when we have it, so the
   // expected-stops number reacts to the finish dial with actual working data.
   const travelPerStopMin = (paceCtx && paceCtx.avgLegTravelMin) || undefined;
-  const n = expectedDailyStops({ departMin:hhmmMin(ROUTE_DEPART_TIME), finishMin, pace:p, travelPerStopMin });
+  // The same dwell the route model will use, handed down rather than re-derived —
+  // an "expected stops/day" that disagrees with the ETAs is worse than none. The
+  // LIVE field value wins while typing, exactly as the finish-time dial does, so
+  // the readout responds before Save rather than after it.
+  const dwell = getDwell ? getDwell() : null;
+  const typed = Math.round(Number($('tuneOnSite').value));
+  const onSiteMin = (isFinite(typed) && typed > 0) ? typed : (dwell ? dwell.base : null);
+  const n = expectedDailyStops({ departMin:hhmmMin(ROUTE_DEPART_TIME), finishMin, pace:p,
+                                 travelPerStopMin, onSiteMin });
   const lines = [
     n == null ? 'Set a finish time to see expected stops' : `At ${finishStr} finish → ~${n} stops/day`,
     `Your 30-day pace: ${pace ? pace + ' min/stop' : '—'}`
   ];
+  if(onSiteMin) lines.push(`On site: ${Math.round(onSiteMin)} min/stop`
+    + ((isFinite(typed) && typed > 0) ? ' (set by you)'
+       : (getOnSiteSourceLabel ? ` (${getOnSiteSourceLabel()})` : '')));
   if(avgPerDay) lines.push(`Recent avg: ${avgPerDay} meters/day`);
   // What-if landing: reproject today's remaining route against the dragged finish
   // time, from real cadence + real route travel. Shows how the day is affected as
@@ -88,12 +108,26 @@ function loadControls(){
   $('tuneCommutePullVal').textContent = pull.value + '%';
   $('tuneFinishBy').value = store.get('wlFinishBy') || '14:00';
   $('tuneShowDriveMetrics').checked = showMetricsPref();
+  // Blank means "use the measurement" — so show the override only when there is
+  // one, and let the placeholder carry the measured number.
+  const override = Number(store.get('wlOnSiteOverride'));
+  $('tuneOnSite').value = (isFinite(override) && override > 0) ? String(override) : '';
+  const measured = getMeasuredOnSite ? getMeasuredOnSite() : null;
+  $('tuneOnSite').placeholder = measured ? `measured: ${Math.round(measured)}` : 'measured';
+  $('tuneOnSiteHint').textContent = measured
+    ? `Hands-on time at a stop, not counting the drive to it. Yours measures ${Math.round(measured)} min — leave blank to use it.`
+    : 'Hands-on time at a stop, not counting the drive to it. No history yet, so this is estimated from your pace.';
 }
 
 function save(){
   store.set('wlCommutePull', String(pullVal($('tuneCommutePull').value)));
   const f = $('tuneFinishBy').value;
   if(/^\d{1,2}:\d{2}$/.test(f)) store.set('wlFinishBy', f);
+  // The override lives in its own key, so clearing the box hands the installer
+  // their measured number back rather than leaving the last typed one behind.
+  const on = Math.round(Number($('tuneOnSite').value));
+  store.set('wlOnSiteOverride', (isFinite(on) && on > 0) ? String(on) : '');
+  if(onOnSiteChanged) onOnSiteChanged();
   toast('Saved — Upload your list to sync these to the office');
 }
 
@@ -113,8 +147,13 @@ function close(){ $('tuningScreen').classList.add('hide'); }
 
 export function initWorklistTuning(opts){
   getPaceContext = (opts && opts.getPaceContext) || getPaceContext;
+  getDwell = (opts && opts.getDwell) || getDwell;
+  getMeasuredOnSite = (opts && opts.getMeasuredOnSite) || getMeasuredOnSite;
+  getOnSiteSourceLabel = (opts && opts.getOnSiteSourceLabel) || getOnSiteSourceLabel;
+  onOnSiteChanged = (opts && opts.onOnSiteChanged) || onOnSiteChanged;
   $('tuneCommutePull').oninput = () => { $('tuneCommutePullVal').textContent = $('tuneCommutePull').value + '%'; };
   $('tuneFinishBy').oninput = render;
+  $('tuneOnSite').oninput = render;
   $('tuneSave').onclick = save;
   // Device-local: save on toggle, independent of Save/Upload — it never syncs.
   $('tuneShowDriveMetrics').onchange = e => setShowMetricsPref(e.target.checked);

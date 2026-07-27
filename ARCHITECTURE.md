@@ -953,9 +953,7 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   ETAs are built from a **duration matrix `T`** — `measure.T`, exposed by
   `travelLookup(measure)` as `fromStart(id)` (morning drive out of the crew start)
   and `between(fromId,toId)` (drive between two stops). `simulateDay` builds each ETA
-  from the previous departure + real travel + **on-site time** (`onSiteMinutes(pace)`
-  = the 30-day `recent30AvgLogMin` minus a nominal baseline drive, floored — real
-  per-leg travel added on top without double-counting). **Every matrix source now
+  from the previous departure + real travel + **on-site time**. **Every matrix source now
   carries `T`:** OSRM (`?annotations=distance,duration`), **Google Routes** (`duration`
   in the FieldMask → `parseGoogleDuration`), and **ORS** (`metrics:['distance','duration']`),
   all in minutes. When **no** road matrix is pulled — the phone's free straight-line
@@ -975,6 +973,69 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   reschedule** pass `estimateTravelFromCoords(items, crewStart, home)` — a haversine
   estimate over the saved pins, so those paths keep realistic ETAs on-device without
   a fetch. A downloaded planner route is always real OSRM (no "(est.)").
+
+### On-site time (dwell)
+
+The other half of every ETA, and until it was measured it was one flat number for
+every stop on every route: `onSiteMinutes(pace)` = the 30-day `recent30AvgLogMin`
+minus a **hardcoded** `NOMINAL_TRAVEL_MIN = 10`, floored at 8. The subtraction is
+necessary (a log-to-log pace already contains the drive the scheduler is about to add
+back for real); the *number* was never checked against anything.
+
+**`js/route-dwell.js`** is the pure model — `dwellLookup({paceMin, onSiteMin,
+extraMeterMin, siteFactors})` returns `{base, forItem(item, prevItem), average(items)}`
+— and **`opts.dwell` is the exact mirror of `opts.travel`**, with the same trap: a
+caller that forgets it silently gets the old flat number and no error. Three tiers,
+each falling through to the next, so a run with no measurements schedules identically
+to before the module existed:
+
+1. **A repeat meter** — `siteKey(item.address) === siteKey(prevItem.address)`, same day
+   — takes `extraMeterMin`. Deliberately *not* floored at `MIN_ONSITE_MIN`: the real
+   figure is 11–12 min against a 25–29 min fresh site, and ~11% of all logged gaps are
+   these.
+2. **A site with a track record** scales `base` by its factor, clamped to 0.4–2.5.
+3. Everything else takes `base` = the measured `onSiteMin`, else `onSiteMinutes(pace)`.
+
+`timeCapacity` takes the same model's `average(items)` as `opts.onSiteMin`, because a
+day target that disagrees with the ETAs it sizes is worse than both being wrong the
+same way.
+
+**Measured spine-side** (`Code.gs`), from data the crew already produces — no new taps
+and no new order fields. For two consecutive logged stops, `gap = drive + work +
+interruptions`, where the interruptions are exactly the gap-tagged `Downtime` rows
+allocated in the end-of-day travel review (`isGapDeduction` — note this nets out
+*every* category, where `installerRecentAvgLogMin` nets out only LUNCH/BREAK).
+Subtract them and regress the remainder on distance: the **intercept** is on-site
+work, the **slope** is the installer's real travel rate. Stored per work mode in the
+appended `InstallerMetrics` block `onSiteMin` / `extraMeterMin` / `travelMinPerKm` /
+`onSiteSource`, read through `installerMetricsRead`'s `boat*`/`land*` projection.
+
+- **`onSiteSource` is `'gps' | 'fit' | 'pace'`** — GPS wins when available, since the
+  hole between one `DriveTracks` leg ending and the next starting is literal
+  arrive/depart, the one thing a Stops timestamp can never be (one moment per stop, no
+  arrival). Recording is opt-in per phone per day, so most installers land on the fit.
+  `'pace'` means no evidence and is the safe default until `backfillInstallerMetrics()`
+  runs.
+- **Outliers trim by RESIDUAL, not by gap minutes.** Trimming the slowest gaps looks
+  equivalent and is not — they are mostly the longest drives, so it shaves the far end
+  off the distance distribution, drags the slope down and pushes the intercept (the
+  shipped number) up.
+- **`siteKey` is civic number + normalized street, from the first comma-segment that
+  starts with a digit.** A logged Stops address is usually a full geocoder string
+  ("10 Island 19c, Carling, ON P0G 1G0, Canada") and a worklist order carries what the
+  office typed, so keeping the locality tail means the two can never match. Segment
+  zero is also wrong — label-prefixed addresses ("Town of, 14 Maple Heights Dr, …")
+  collapse onto one key. **Never keyed on coordinates:** a Stops pin is a phone GPS fix
+  and jitters between visits to one property. `Code.gs siteKeyOf` is a hand copy (Apps
+  Script cannot import a module) held to the JS original by
+  `tests/route-dwell-parity.test.mjs`, because a drift there fails silently.
+- **Site factors are crew-wide and gated hard** (`?action=siteDwell`, ≥4 visits, and a
+  usable travel rate — without one "work" is just the raw gap, so a remote site scores
+  slow for being remote). At current data volume almost nothing qualifies and the tier
+  correctly does nothing.
+- **No `Worklist` column.** The per-stop dwell rides in IndexedDB as
+  `scheduledOnSiteMin`; `wireShape()` is an explicit allow-list, so it never reaches
+  the sheet.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 

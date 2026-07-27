@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentRoutePlacement, scheduleRouteConstraints, workdayOffset, onSiteMinutes } from '../js/route-constraints.js';
+import { dwellLookup } from '../js/route-dwell.js';
 
 const item = (id, extra={}) => ({ id, workOrderId:id.toUpperCase(), ...extra });
 const opts = (extra={}) => ({
@@ -158,6 +159,94 @@ test('day1Count restarts the ETA clock on Day 2 morning', () => {
   // c is the first stop of Day 2, so its ETA is the morning start, not an
   // afternoon slot carried over from a target-sized Day 1.
   assert.equal(result.scheduleById.c.eta, '08:00');
+});
+
+test('opts.dwell charges each stop its own on-site time', () => {
+  const items = [
+    item('a', { address:'1 First St' }),
+    item('b', { address:'2 Second St' }),
+    item('c', { address:'3 Third St' })
+  ];
+  const travel = { fromStart:() => 0, between:() => 10 };
+  const dwell = dwellLookup({ paceMin:30, onSiteMin:25,
+    siteFactors:{ '2 second street':2 } });
+  const r = scheduleRouteConstraints(items, ['a','b','c'],
+    opts({ target:3, travel, dwell }));
+  assert.equal(r.scheduleById.a.eta, '08:00');   // 480 + 0
+  assert.equal(r.scheduleById.b.eta, '08:35');   // (480 + 25) + 10
+  assert.equal(r.scheduleById.c.eta, '09:35');   // (515 + 50 slow site) + 10
+  assert.equal(r.scheduleById.b.onSiteMin, 50);  // the factored dwell is reported
+});
+
+test('a repeat-meter cluster pulls in every stop that follows it', () => {
+  // The change that motivated all this: orders sharing an address used to be
+  // charged a full dwell each. Note the cut lands on the SECOND meter's own
+  // on-site time, so arrival AT it is unchanged (the crew is still finishing the
+  // first) — what moves is everything after. Identical drive times both runs;
+  // only the addresses differ.
+  const travel = { fromStart:() => 0, between:() => 0 };
+  const dwell = dwellLookup({ paceMin:30, onSiteMin:20, extraMeterMin:4 });
+  const route = ['a','b','c'];
+  const clustered = scheduleRouteConstraints([
+    item('a', { address:'7 Lake St' }),
+    item('b', { address:'7 Lake St' }),
+    item('c', { address:'9 Lake St' })
+  ], route, opts({ target:3, travel, dwell }));
+  const distinct = scheduleRouteConstraints([
+    item('a', { address:'1 Lake St' }),
+    item('b', { address:'5 Lake St' }),
+    item('c', { address:'9 Lake St' })
+  ], route, opts({ target:3, travel, dwell }));
+
+  assert.equal(clustered.scheduleById.b.eta, '08:20');   // unchanged: 480 + 20
+  assert.equal(clustered.scheduleById.b.onSiteMin, 4);   // but priced as a repeat
+  assert.equal(clustered.scheduleById.c.eta, '08:24');   // (500 + 4)
+  assert.equal(distinct.scheduleById.c.eta, '08:40');    // (500 + 20)
+});
+
+test('a day boundary resets the repeat-meter check', () => {
+  // Day 2's first stop must never be read as a repeat of Day 1's last stop, even
+  // at the identical address — the crew went home in between.
+  const travel = { fromStart:() => 0, between:() => 0 };
+  const dwell = dwellLookup({ paceMin:30, onSiteMin:20, extraMeterMin:4 });
+  const r = scheduleRouteConstraints(
+    [item('a', { address:'7 Lake St' }), item('b', { address:'7 Lake St' })],
+    ['a','b'], opts({ target:1, travel, dwell }));
+  assert.equal(r.dayOf.b, 2);
+  assert.equal(r.scheduleById.b.onSiteMin, 20);   // full dwell, not the 4-min cut
+});
+
+test('omitting opts.dwell schedules exactly as it did before dwell existed', () => {
+  // The documented footgun: a caller that forgets `dwell` silently gets the flat
+  // pace-derived number. That fallback has to stay byte-identical.
+  const items = [item('a'), item('b'), item('c')];
+  const travel = {
+    fromStart: id => (({ a:15 })[id] ?? null),
+    between: (f, t) => (({ 'a|b':10, 'b|c':25 })[f + '|' + t] ?? null),
+  };
+  const r = scheduleRouteConstraints(items, ['a','b','c'], opts({ target:3, travel }));
+  assert.equal(r.scheduleById.a.eta, '08:15');
+  assert.equal(r.scheduleById.b.eta, '08:45');
+  assert.equal(r.scheduleById.c.eta, '09:30');
+  assert.equal(r.scheduleById.a.onSiteMin, onSiteMinutes(30));
+});
+
+test('free-slot placeholders consume the base dwell while placing appointments', () => {
+  // placeAppointments pads the day with `__free_k` ids that have no item behind
+  // them. Measured dwell (25) differs from the pace fallback (30 − 10 = 20), so
+  // the accrued wait is what proves the placeholders were priced at the measured
+  // base: three ahead of the appointment at 25 each ⇒ arrive 08:55, wait 35 to
+  // the 09:50 window. Priced at 0 the wait would be 110; at the old flat 20, 50.
+  const items = [item('a'), item('b'), item('c'), item('appt', {
+    appointmentDate:'2026-07-24', appointmentTime:'10:10'
+  })];
+  const travel = { fromStart:() => 0, between:() => 0 };
+  const dwell = dwellLookup({ paceMin:30, onSiteMin:25 });
+  const r = scheduleRouteConstraints(items, ['a','b','c','appt'],
+    opts({ target:4, travel, dwell }));
+  assert.equal(r.scheduleById.appt.slot, 4);       // latest non-late slot
+  assert.equal(r.scheduleById.appt.eta, '09:50');  // still the 20-min early window
+  assert.equal(r.scheduleById.appt.waitMin, 35);
 });
 
 test('locking after a manual reorder uses the current slot, not an old ETA slot', () => {

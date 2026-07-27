@@ -34,6 +34,7 @@ import {
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
+import { dwellLookup } from './route-dwell.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
@@ -452,11 +453,16 @@ async function optimizeRouteHandler(useNetwork){
     // a tap with no pack still does exactly one solve and this can never be the
     // thing that causes a matrix call. A pack-routed tap IS a road run, so it
     // now gets the comparable straight-line variant the toggle switches to.
+    // One dwell model for the whole run: day sizing (onSiteMin, below) and the ETA
+    // simulation (planOpts.dwell) must agree, or the day target and the ETAs it is
+    // supposed to describe drift apart — worse than both being wrong the same way.
+    const dwell = dwellShape();
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
       straightLine: !useNetwork, noLocalGraph: useNetwork,
       startFromCurrent, start: crewStart, compareVariants: true,
       target, dayFinishBy: hhmmMin(planShape().finishBy), departMin: hhmmMin(ROUTE_DEPART_TIME),
-      paceMin: planShape().paceMin, commutePull: planShape().commutePull
+      paceMin: planShape().paceMin, commutePull: planShape().commutePull,
+      onSiteMin: dwell.average(pending)
     });
     const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
@@ -469,7 +475,7 @@ async function optimizeRouteHandler(useNetwork){
     // ORS/OSRM), or the estimate route.js derived from distances — either way the
     // first stop's ETA now includes the crew-start drive and the day fits the clock.
     const travel = travelLookup(base.measure);
-    const planOpts = { ...planShape(), target: base.dayTarget || target, travel };
+    const planOpts = { ...planShape(), target: base.dayTarget || target, travel, dwell };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals
@@ -544,7 +550,11 @@ async function optimizeRouteHandler(useNetwork){
       const s = prim.scheduleById[id] || {};
       const patch = {
         order, day, scheduledDate:s.date||'', scheduledEta:s.eta||'',
-        scheduledSlot:s.slot||'', scheduledWaitMin:s.waitMin||'', updatedAt:stamp()
+        scheduledSlot:s.slot||'', scheduledWaitMin:s.waitMin||'',
+        // Local-only: wireShape() is an explicit allow-list, so this rides in
+        // IndexedDB for the route view to show and never reaches the Worklist tab.
+        // That is the whole reason no sheet column was added for it.
+        scheduledOnSiteMin:s.onSiteMin||'', updatedAt:stamp()
       };
       // Only the variants this run recomputed are touched: a straight-line tap
       // leaves an earlier road route exactly where it was (it stays offerable
@@ -1003,8 +1013,80 @@ async function refreshAvgDay(){
       $('wlPaceHint').textContent = wlAvgLogMin
         ? `Recent 30-workday pace: ${wlAvgLogMin} min/stop`
         : 'No pace history yet — using the editable 30 min/stop fallback.';
+      // The measured dwell model rides the same read. Persisted rather than kept in
+      // a module variable because the Optimize that needs it often runs offline in
+      // a truck; a blank value simply falls back to the pace guess.
+      storeNum('wlOnSiteMin', m.onSiteMin);
+      storeNum('wlExtraMeterMin', m.extraMeterMin);
+      store.set('wlOnSiteSource', String(m.onSiteSource || ''));
+      paintOnSiteHint();
     }
   } catch {}
+  await refreshSiteFactors();
+}
+
+function storeNum(key, v){
+  const n = Number(v);
+  if(v === '' || v == null || !isFinite(n) || n <= 0) store.set(key, '');
+  else store.set(key, String(n));
+}
+function readNum(key){
+  const n = Number(store.get(key));
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+// Crew-wide per-site dwell history. Best-effort and cached, like the metrics above.
+// Deliberately crew-wide, not per-installer: one installer's history at one address
+// is far too thin to say anything (see Code.gs crewSiteDwell).
+async function refreshSiteFactors(){
+  if(!navigator.onLine) return;
+  try{
+    const r = await apiGet('siteDwell', {});
+    if(!r || !r.ok || !Array.isArray(r.sites)) return;
+    const map = {};
+    r.sites.forEach(s => { if(s && s.key) map[s.key] = Number(s.factor); });
+    store.set('wlSiteFactors', JSON.stringify(map));
+  } catch {}
+}
+function siteFactors(){
+  try{
+    const parsed = JSON.parse(store.get('wlSiteFactors') || '{}');
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch { return {}; }
+}
+
+// The run's on-site model, assembled the same way planShape() assembles the rest.
+// A tuning-screen override wins over the measurement, and is kept in its OWN key so
+// setting one never destroys the measured value underneath it — clearing the field
+// has to be able to hand the installer their measurement back.
+export function dwellShape(){
+  return dwellLookup({
+    paceMin: planShape().paceMin,
+    onSiteMin: readNum('wlOnSiteOverride') != null ? readNum('wlOnSiteOverride') : readNum('wlOnSiteMin'),
+    extraMeterMin: readNum('wlExtraMeterMin'),
+    siteFactors: siteFactors(),
+  });
+}
+
+// How the on-site number was arrived at, for the readouts. Kept in one place so
+// the worklist hint and the tuning screen can never describe it differently.
+export function onSiteSourceLabel(){
+  if(readNum('wlOnSiteOverride') != null) return 'set by you';
+  const src = store.get('wlOnSiteSource') || '';
+  if(src === 'gps') return 'measured from GPS drive tracks';
+  if(src === 'fit') return 'measured from 30 workdays';
+  return 'estimated from your pace';
+}
+// The measurement alone, ignoring any override — what the tuning field shows as its
+// placeholder so clearing the box has a visible meaning.
+export function measuredOnSiteMin(){ return readNum('wlOnSiteMin'); }
+function paintOnSiteHint(){
+  const el = $('wlOnSiteHint');
+  if(!el) return;
+  const d = dwellShape();
+  const extra = readNum('wlExtraMeterMin');
+  el.textContent = `On site: ${Math.round(d.base)} min/stop (${onSiteSourceLabel()})`
+    + (extra ? ` · ${Math.round(extra)} min for another meter at the same address` : '');
 }
 
 function appointmentBadge(item){
@@ -1231,7 +1313,7 @@ async function persistOrderIds(ordered){
     try{
       const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
       schedule = scheduleRouteConstraints(pending, pendingIds,
-        { ...planShape(), target:targetVal(), travel: estimateTravel(pending) });
+        { ...planShape(), target:targetVal(), travel: estimateTravel(pending), dwell: dwellShape() });
       ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
   }
@@ -1661,7 +1743,7 @@ async function applyTodayAnchor(opts){
   let schedule;
   try {
     schedule = scheduleRouteConstraints(pending, seq,
-      { ...planShape(), target, day1Count: fits, travel });
+      { ...planShape(), target, day1Count: fits, travel, dwell: dwellShape() });
   } catch { return; }   // locks/appointments make it impossible — leave days as they are
 
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
@@ -1722,10 +1804,12 @@ function routeTravel(pending){
 function onsitePerStopReal(stops){
   const printable = (stops || []).filter(s => PRINTABLE[s.status]);
   const gaps = computeGapsLocal(printable, [], null, false);
-  const observed = gaps.length
-    ? gaps.reduce((a, g) => a + g.idleMin, 0) / gaps.length
-    : planShape().paceMin;
-  return onSiteMinutes(observed);
+  // Today's own cadence beats any historical average once there is some — it is the
+  // only thing that knows about today's weather, ferry, or bad access. Before the
+  // second stop of the day there is none, and the measured dwell is a far better
+  // stand-in than pace-minus-a-guess.
+  if(!gaps.length) return dwellShape().base;
+  return onSiteMinutes(gaps.reduce((a, g) => a + g.idleMin, 0) / gaps.length);
 }
 
 // Assemble the real inputs. Async — reads the dayCache + worklist. `finishByMin`
@@ -1884,7 +1968,16 @@ export function initWorklist(opts){
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });
-  tuning = initWorklistTuning({ getPaceContext: paceContext });
+  // Hand the dwell model down rather than letting the tuning screen re-derive it:
+  // two copies of the "override beats measurement" precedence is exactly how the
+  // readout and the route end up disagreeing. Same pattern as getPaceContext.
+  tuning = initWorklistTuning({
+    getPaceContext: paceContext,
+    getDwell: dwellShape,
+    getMeasuredOnSite: measuredOnSiteMin,
+    getOnSiteSourceLabel: onSiteSourceLabel,
+    onOnSiteChanged: paintOnSiteHint,
+  });
   $('wlBack').onclick = closeWorklist;
   $('wlDrive').onclick = openDriveScreen;
   $('wlViewRoute').onclick = openWorklistRoute;

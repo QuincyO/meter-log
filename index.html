@@ -190,6 +190,10 @@
       <label>Pace (min/stop)<input id="wlPace" type="number" min="1" step="1" inputmode="numeric"></label>
     </div>
     <div class="muted" id="wlPaceHint"></div>
+    <!-- The on-site half of every ETA. Pace is log-to-log (it already contains the
+         drive); this is the hands-on part the scheduler adds on top of each leg's
+         real road time, measured rather than guessed. -->
+    <div class="muted" id="wlOnSiteHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <!-- Which saved route is live. A road-matrix optimize works out both a road
@@ -403,6 +407,15 @@
       <label for="tuneFinishBy">Target finish time</label>
       <input id="tuneFinishBy" type="time" value="14:00">
       <p class="muted tune-hint">Earlier = fewer stops, home sooner</p>
+    </div>
+
+    <!-- The on-site half of an ETA. Normally measured from your own history and
+         left alone; the field is here for the case where the measurement is wrong
+         for the work you're actually doing. Blank = use the measurement. -->
+    <div class="tune-row">
+      <label for="tuneOnSite">Time on site (min/stop)</label>
+      <input id="tuneOnSite" type="number" min="1" step="1" inputmode="numeric" placeholder="measured">
+      <p class="muted tune-hint" id="tuneOnSiteHint">Hands-on time at a stop, not counting the drive to it.</p>
     </div>
 
     <div class="tune-readout" id="tuneReadout"></div>
