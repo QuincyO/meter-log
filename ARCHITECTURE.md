@@ -595,8 +595,21 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   only on a dead-straight join produced a stack of unusable 30 m steps on a curving
   concession. **The pack carries no turn restrictions**, so these are a driver's aid
   and not something to follow blindly; that is the same reason the desktop planner
-  still routes against a real OSRM, and the UI must say so. A v2 pack routes fine
-  and simply reports `canGiveDirections === false`.
+  still routes against a real OSRM, and **both screens that show them say so**. A v2
+  pack routes fine and simply reports `canGiveDirections === false`.
+  Two places render them. The **Drive screen** (`js/drive.js`) lists the steps to the
+  current card's stop under the card, repainted by `renderCard` so Back/Next and every
+  refresh update it, and guarded by the card index it was started for so a late answer
+  can't land on a card the driver has stepped past. Its origin is best-available:
+  the truck's own position (`liveMetrics().lastFix` — exposed by the recorder so the
+  drive screen stays free of location code), else the previous stop, else — for the
+  **first stop of the day** — the crew's muster point via `opts.getCrewStart`. That last
+  rung is not an edge case: recording is opt-in per day per phone, so the ordinary
+  morning has no fix and no previous stop, and without it the very first card was the
+  one card with no directions on it. The **route view** (`js/worklist-route-view.js`)
+  puts a collapsed **▾ Directions** expander on each card for the drive *into* that
+  stop, solved once and kept on reopen; a card whose previous stop has no pin gets no
+  expander, because an empty one is worse than none.
 - **Offline geocoding (the pack's second job).** Forward geocoding was the one part
   of Optimize that still needed signal after on-device routing landed, so pack v2
   carries an address index built from the same extract: a street dictionary, a

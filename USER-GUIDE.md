@@ -372,6 +372,15 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 - **Drop** deletes the district you're using. Routes fall back to straight-line estimates until you download one again.
 - A district the office removes stays on your phone and keeps working; it just won't be in the list to download any more.
 
+### Directions without signal
+
+Once a district is downloaded, the app can give you the turns to your next stop — no signal, no data.
+
+- On the **Drive** screen the steps to the current stop appear under the card, and update as you tap **Back** / **Next ›**. They start from where you are if drive tracking is on, from your last stop otherwise, and from the muster point for the first stop of the day.
+- On **Your route**, tap **▾ Directions** on any stop to see the turns for the drive into it.
+- These are a **guide only** — the offline map doesn't know about no-left-turn signs, one-way changes or closures. **Navigate** still hands off to Google Maps, and that's what to use when you have signal.
+- No steps showing? Either the district isn't downloaded, or that stop has no pin on the map yet.
+
 ---
 
 ## Crew & Boat Teams (office)

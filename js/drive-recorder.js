@@ -90,6 +90,12 @@ export function liveMetrics(){
     avgMovingSpeed: +avgMovingSpeed.toFixed(2),
     maxSpeed: +maxSpeed.toFixed(2),
     currentSpeed: lastPt ? +(lastPt.spd || 0).toFixed(2) : 0,
+    // Where the truck actually is, for the Drive screen's directions. Exposed
+    // here rather than having drive.js ask for a fix of its own: this module is
+    // already the one place that talks to the GPS, and the drive screen is
+    // deliberately free of location code. Null whenever nothing is recording —
+    // recording is opt-in per day per phone, so the caller must have a fallback.
+    lastFix: lastPt ? { lat: lastPt.lat, lng: lastPt.lng } : null,
   };
 }
 

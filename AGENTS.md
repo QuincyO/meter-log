@@ -233,6 +233,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   during the clip; the moving stripes on the track are what show it is alive.
   A phase renamed on one side only silently stalls the bar —
   `tests/districts.test.mjs` checks every `onPhase` name is in `BUILD_PHASES`.
+- **The Drive screen's directions need an origin, and often there isn't an obvious
+  one.** Best-available, in order: the truck's live fix (`liveMetrics().lastFix`,
+  exposed by the recorder precisely so `drive.js` stays free of location code),
+  the previous stop, then the crew's muster point for the **first stop of the
+  day**. Don't drop that last rung: recording is opt-in per day per phone, so the
+  ordinary morning has neither a fix nor a previous stop, and without it the very
+  first card is the only one with no directions. The render is also **guarded by
+  the card index it started for** — a driver steps faster than a route solves.
 - **Directions come from the pack, and the pack has no turn restrictions.**
   `js/directions.js` builds turn-by-turn from `pathDetail`'s segment list plus
   pack v3's road names. It can say the geometry turns left; it **cannot** say

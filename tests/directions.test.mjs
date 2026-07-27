@@ -264,3 +264,53 @@ test('the service worker ships the directions module', () => {
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'\.\/js\/directions\.js'/);
 });
+
+// ── wired into the two screens ───────────────────────────────────────────────
+const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+
+test('the drive screen has somewhere to put the steps', () => {
+  assert.match(read('index.html'), /id="driveSteps"/);
+  assert.match(read('css/drive.css'), /\.drive-steps-list/);
+});
+
+test('the drive card asks for directions whenever it repaints', () => {
+  const js = read('js/drive.js');
+  assert.match(js, /import \{ offlineDirections \} from '\.\/route\.js'/);
+  // Called from renderCard, so stepping Back/Next and refreshing all update it.
+  assert.match(js, /renderSteps\(\);/);
+  // A late answer must not paint over a card the driver has stepped past.
+  assert.match(js, /stepsFor !== at/);
+});
+
+test('the drive screen falls back to the last stop when nothing is recording', () => {
+  // Recording is opt-in per day per phone, so a live fix is often absent and
+  // the previous stop is the only honest starting point.
+  const js = read('js/drive.js');
+  assert.match(js, /liveMetrics\(\)\.lastFix/);
+  assert.match(js, /pending\[at - 1\]/);
+  assert.match(read('js/drive-recorder.js'), /lastFix:/);
+});
+
+test('the FIRST stop of the day starts from the muster point', () => {
+  // Caught by driving the real screen: card 1 has no previous stop, and a phone
+  // that never armed the recorder has no fix — so the very first card, the one
+  // a driver looks at first, was the one card with no directions on it.
+  const js = read('js/drive.js');
+  assert.match(js, /at === 0 && opts\.getCrewStart/);
+  assert.match(read('js/worklist.js'), /getCrewStart: crewStartPin/);
+});
+
+test('the route view offers directions per leg, collapsed', () => {
+  const js = read('js/worklist-route-view.js');
+  assert.match(js, /offlineDirections/);
+  assert.match(js, /wl-route-dirbtn/);
+  assert.match(js, /aria-expanded/);
+  assert.match(read('css/capture.css'), /\.wl-route-dirs/);
+});
+
+// The pack has no turn restrictions. It can be certain of the geometry and not
+// of the law, and that has to reach the person driving — not just the docs.
+test('both screens say the directions are a guide, not a navigator', () => {
+  assert.match(read('js/drive.js'), /Guide only/);
+  assert.match(read('js/worklist-route-view.js'), /Guide only/);
+});
