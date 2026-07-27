@@ -650,6 +650,50 @@ export function localRoadGeometry(graph, from, to){
   }
 }
 
+// Road paths for a set of point-to-point legs, measured on the phone from the
+// downloaded district pack. This is the DRAW-TIME counterpart to
+// localRoadGeometry: instead of trusting a polyline saved against some earlier
+// sequence, a caller asks for the legs it is about to draw and gets paths for
+// exactly those.
+//
+// That difference is the whole point. Saved geometry is keyed to the order it was
+// fetched for, so anything that reorders the list afterwards — a drag, and more
+// often the today anchor, which re-leads the pending list after every logged stop
+// — leaves it describing a route that no longer exists. Both maps used to detect
+// that (variantMatchesLive) and drop the geometry wholesale, which is why a phone
+// holding a perfectly good district still drew straight lines all day.
+//
+// `legs` is [{ key, from, to }, …]; anything with coordinates on both ends is
+// routed. Returns Map key → [[lat,lng], …], with a key simply ABSENT when the
+// pack can't carry that leg (off-network end, nothing connecting them, no pack at
+// all) — which every caller already handles by drawing the leg straight. One pack
+// decode is shared by the whole call, and the run's own coordinates pick the
+// district exactly as the matrix does.
+export async function offlineRoutePaths(legs){
+  const out = new Map();
+  const list = (legs || []).filter(l => l && coordsOf(l.from) && coordsOf(l.to));
+  if(!list.length) return out;
+  let graph = null;
+  try {
+    const coords = [];
+    for(const l of list) coords.push(coordsOf(l.from), coordsOf(l.to));
+    graph = await loadGraph(coords);
+  } catch(e){
+    console.warn('offline route paths: pack unreadable:', e);
+    return out;
+  }
+  if(!graph) return out;
+  for(const l of list){
+    try {
+      const pts = roadGraphPath(graph, coordsOf(l.from), coordsOf(l.to));
+      if(pts.length > 1) out.set(l.key, pts);
+    } catch(e){
+      console.warn('offline route path failed:', e);
+    }
+  }
+  return out;
+}
+
 // ── road-distance matrix (OpenRouteService — the BACKUP source) ──────────────
 // One POST to ORS's hosted matrix (config.js ORS_API_KEY): free, no tiling, but
 // capped at ORS_MATRIX_MAX location-PAIRS — a list over the cap skips ORS so the

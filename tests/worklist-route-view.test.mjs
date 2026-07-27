@@ -8,6 +8,9 @@ import {
   buildRouteMapModel,
   routeCardState,
   needsOrderWrite,
+  routeLegs,
+  legKey,
+  START_ID,
 } from '../js/worklist-route-view.js';
 import { decodePolyline, encodePolyline } from '../js/route.js';
 import { VARIANT_FIELDS } from '../js/route-variants.js';
@@ -165,4 +168,79 @@ test('normalizes legacy blank and string orders instead of treating them as nume
   assert.equal(needsOrderWrite({ order:'0' }, { order:0 }), true);
   assert.equal(needsOrderWrite({ order:0 }, { order:0 }), false);
   assert.equal(needsOrderWrite({ order:10 }, { order:0 }), true);
+});
+
+// ── pack-measured leg paths (the fix for roads vanishing after a reorder) ─────
+// The saved polylines are keyed to the sequence they were fetched for, so the
+// today anchor — which re-leads the pending list after every logged stop — used
+// to strand a phone with a perfectly good district on straight lines all day.
+// `routeLegs` asks for the legs on screen and `computed` answers for those.
+
+test('routeLegs asks for exactly the legs between consecutive routed stops', () => {
+  const a = { id:'a', lat:45.40, lng:-75.65 };
+  const b = { id:'b', lat:45.39, lng:-75.60 };
+  const c = { id:'c', lat:45.38, lng:-75.55 };
+  const { legs, startPoint } = routeLegs([a, b, c], null);
+  assert.deepEqual(legs.map(l => l.key), [legKey('a', 'b'), legKey('b', 'c')]);
+  assert.equal(startPoint, null);          // no saved drive-out ⇒ no crew start known
+});
+
+test('routeLegs skips parked stops and adds the drive-out from the saved start', () => {
+  const homeField = VARIANT_FIELDS.road.homeLegGeometry;
+  const a = { id:'a', lat:45.40, lng:-75.65,
+    [homeField]: encodePolyline([[45.42, -75.70], [45.40, -75.65]]) };
+  const parked = { id:'p', lat:45.30, lng:-75.90, geoFail:true };
+  const b = { id:'b', lat:45.39, lng:-75.60 };
+  const { legs, startPoint } = routeLegs([a, parked, b], homeField);
+  assert.deepEqual(legs.map(l => l.key),
+    [legKey('a', 'b'), legKey(START_ID, 'a')]);
+  assert.deepEqual(startPoint.map(n => Math.round(n * 100) / 100), [45.42, -75.70]);
+});
+
+test('a pack-measured leg is drawn even when the saved geometry is gated off', () => {
+  // geomField null = exactly what renderMap passes once variantMatchesLive fails.
+  const a = { id:'a', lat:45.40, lng:-75.65 };
+  const b = { id:'b', lat:45.39, lng:-75.60 };
+  const road = [[45.40, -75.65], [45.395, -75.63], [45.39, -75.60]];
+  const computed = new Map([[legKey('a', 'b'), road]]);
+  const model = buildRouteMapModel([a, b], null, null, computed);
+  assert.deepEqual(model.path, [[45.40, -75.65], ...road]);
+});
+
+test('a pack-measured leg beats a saved polyline from an older sequence', () => {
+  const geomField = VARIANT_FIELDS.road.geometry;
+  const a = { id:'a', lat:45.40, lng:-75.65 };
+  const b = { id:'b', lat:45.39, lng:-75.60,
+    [geomField]: encodePolyline([[45.0, -79.0], [45.1, -79.1]]) };   // stale
+  const road = [[45.40, -75.65], [45.39, -75.60]];
+  const model = buildRouteMapModel([a, b], geomField, null,
+    new Map([[legKey('a', 'b'), road]]));
+  assert.deepEqual(model.path.slice(1), road);
+});
+
+test('a leg the pack cannot carry still falls back to saved, then straight', () => {
+  const geomField = VARIANT_FIELDS.road.geometry;
+  const saved = [[45.40, -75.65], [45.399, -75.62], [45.39, -75.60]];
+  const a = { id:'a', lat:45.40, lng:-75.65 };
+  const b = { id:'b', lat:45.39, lng:-75.60, [geomField]: encodePolyline(saved) };
+  const c = { id:'c', lat:45.38, lng:-75.55 };
+  // Pack answered for b→c only; a→b keeps the saved path, nothing is straightened.
+  const model = buildRouteMapModel([a, b, c], geomField, null,
+    new Map([[legKey('b', 'c'), [[45.39, -75.60], [45.38, -75.55]]]]));
+  const round = p => p.map(n => Math.round(n * 1000) / 1000);
+  assert.deepEqual(model.path.slice(1, 4).map(round), saved.map(round));
+  // …and with no computed path and no saved geometry it is a plain segment.
+  const bare = buildRouteMapModel([a, c], null, null, null);
+  assert.deepEqual(bare.path, [[45.40, -75.65], [45.40, -75.65], [45.38, -75.55]]);
+});
+
+test('a measured drive-out replaces the saved one; the start pin is unmoved', () => {
+  const homeField = VARIANT_FIELDS.road.homeLegGeometry;
+  const a = { id:'a', lat:45.40, lng:-75.65,
+    [homeField]: encodePolyline([[45.42, -75.70], [45.40, -75.65]]) };
+  const road = [[45.42, -75.70], [45.41, -75.68], [45.40, -75.65]];
+  const model = buildRouteMapModel([a], null, homeField,
+    new Map([[legKey(START_ID, 'a'), road]]));
+  assert.equal(model.driveOut.length, 3);
+  assert.deepEqual(model.start.map(n => Math.round(n * 100) / 100), [45.42, -75.70]);
 });

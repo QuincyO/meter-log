@@ -2,7 +2,7 @@
 // this view a sorted snapshot plus one persistence callback; this module owns
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
-import { coordsOf, decodePolyline, isParked } from './route.js';
+import { coordsOf, decodePolyline, isParked, offlineRoutePaths } from './route.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 
@@ -67,14 +67,33 @@ export function reorderRouteGroup(items, key, orderedIds){
   return source.map((item, index) => Object.assign({}, item, { order:index * 10 }));
 }
 
-// `geomField` (VARIANT_FIELDS[...].geometry) is optional: when given, `path`
-// follows each between-stops leg's saved OSRM road polyline (decoded on-device —
-// no network), falling back to a straight segment for any leg with no saved
-// geometry (an edited/quick-change leg, or a list the desktop never routed). The
-// first routed stop starts `path` at its own pin — the phone has no home anchor,
-// so there is no incoming home leg to draw. `line` is the straight pin-to-pin
-// route kept as-is (used when no geometry field is passed).
-export function buildRouteMapModel(items, geomField, homeGeomField){
+/** The key a leg's road path is looked up under. Exported so the caller that
+ *  BUILDS the leg list and the model that CONSUMES it can't drift apart. */
+export function legKey(fromId, toId){
+  return `${fromId == null ? '' : fromId}>${toId == null ? '' : toId}`;
+}
+
+/** The drive-out leg's origin is the crew start, which is not an order and has no
+ *  id of its own. */
+export const START_ID = 'start';
+
+// Three sources for a drawn leg, in order of trust:
+//
+//   1. `computed` — paths measured from the on-device pack for THESE legs, keyed
+//      by legKey(). Always describes the sequence on screen, so it needs no
+//      staleness check; a leg the pack couldn't carry is simply absent.
+//   2. `geomField` (VARIANT_FIELDS[...].geometry) — the saved polyline, which is
+//      the desktop planner's real OSRM path on a phone with no district of its
+//      own. Keyed to the order it was fetched for, so the caller passes null
+//      once that order no longer matches (variantMatchesLive).
+//   3. a straight segment between the two pins.
+//
+// The first routed stop starts `path` at its own pin — the phone has no home
+// anchor, so there is no incoming between-stops leg to draw. `line` is the
+// straight pin-to-pin route kept as-is (used when neither geometry source is
+// passed).
+export function buildRouteMapModel(items, geomField, homeGeomField, computed){
+  const at = key => (computed && computed.get) ? (computed.get(key) || []) : [];
   const markers = [];
   const line = [];
   const path = [];
@@ -93,19 +112,48 @@ export function buildRouteMapModel(items, geomField, homeGeomField){
         path.push([c.lat, c.lng]);
         // The day's first stop may carry a saved drive-out from the crew start —
         // decode it as its own faint segment (its first point is the start pin).
-        const home = homeGeomField ? decodePolyline(item[homeGeomField]) : [];
-        if(home.length) driveOut = home;
+        // A freshly measured one wins, but the saved polyline is still what says
+        // WHERE the start is, so it is read either way.
+        const saved = homeGeomField ? decodePolyline(item[homeGeomField]) : [];
+        const fresh = at(legKey(START_ID, item.id));
+        driveOut = fresh.length ? fresh : saved;
       } else {
-        const leg = geomField ? decodePolyline(item[geomField]) : [];
+        const fresh = at(legKey(prev.item.id, item.id));
+        const leg = fresh.length ? fresh
+          : (geomField ? decodePolyline(item[geomField]) : []);
         if(leg.length) path.push(...leg);
-        else path.push([prev.lat, prev.lng], [c.lat, c.lng]);
+        else path.push([prev.c.lat, prev.c.lng], [c.lat, c.lng]);
       }
-      prev = c;
+      prev = { item, c };
     }
     markers.push({ item, position:index + 1, parked:stopped, point:[c.lat, c.lng] });
   });
   const start = driveOut.length ? driveOut[0] : null;
   return { markers, line, path, missing, parked, driveOut, start };
+}
+
+/** The legs `renderMap` is about to draw, as offlineRoutePaths() wants them.
+ *  `startPoint` is the crew start ([lat,lng]) when the group's first stop carries
+ *  a saved drive-out — the only thing that says where the morning drive begins,
+ *  since the crew start itself is not an order on the list. Pure, so the leg list
+ *  the map draws is testable without a pack or a Leaflet canvas. */
+export function routeLegs(items, homeGeomField){
+  const legs = [];
+  let prev = null;
+  let first = null;
+  for(const item of items || []){
+    const c = coordsOf(item);
+    if(!c || isParked(item)) continue;
+    if(prev) legs.push({ key:legKey(prev.id, item.id), from:prev, to:item });
+    else first = item;
+    prev = item;
+  }
+  const saved = (first && homeGeomField) ? decodePolyline(first[homeGeomField]) : [];
+  const startPoint = saved.length ? saved[0] : null;
+  if(startPoint && first)
+    legs.push({ key:legKey(START_ID, first.id),
+      from:{ lat:startPoint[0], lng:startPoint[1] }, to:first });
+  return { legs, startPoint };
 }
 
 export function routeCardState(item){
@@ -224,7 +272,7 @@ export function initWorklistRouteView(opts){
     return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}`;
   }
 
-  function renderMap(group){
+  async function renderMap(group){
     updateOfflineNote();
     if(!ensureMap()){
       mapEl.innerHTML = '<div class="wl-route-map-empty">Map unavailable. The route list can still be reordered.</div>';
@@ -233,15 +281,30 @@ export function initWorklistRouteView(opts){
     layer.clearLayers();
     const L = globalThis.L;
     const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
-    // Only trust the saved road geometry while the live order still matches the
-    // order it was fetched against. After a manual drag (live order changes, the
-    // variant's saved order doesn't) the geometry is stale, so drop it and draw
-    // clean straight legs instead of the previous route's roads.
+    // Only trust the SAVED road geometry while the live order still matches the
+    // order it was fetched against — it is keyed to that sequence, so after a
+    // reorder it would trace the previous route's roads. This gate stays exactly
+    // as strict as it was; the pack-measured paths below simply arrive first and
+    // don't need it, being measured for the sequence on screen.
     const geomField = variantMatchesLive(snapshot, variant)
       ? (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).geometry : null;
-    const homeGeomField = variantMatchesLive(snapshot, variant)
-      ? (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).homeLegGeometry : null;
-    const model = buildRouteMapModel(group ? group.items : [], geomField, homeGeomField);
+    // The drive-out's SAVED polyline is read even when the order no longer matches:
+    // its first point is the only record of where the crew start is, and that pin
+    // doesn't move when the list is reordered. Only its shape is re-measured below.
+    const homeGeomField = (VARIANT_FIELDS[variant] || VARIANT_FIELDS.road).homeLegGeometry;
+    const items = group ? group.items : [];
+    // Measure the legs actually on screen against the district pack. This is what
+    // makes the roads survive a reorder: the today anchor re-leads the pending list
+    // after every logged stop, which leaves the SAVED geometry keyed to a sequence
+    // that no longer exists (variantMatchesLive goes false and drops it). A pack the
+    // crew already downloaded can just answer for the current sequence instead.
+    // No pack, or a leg it can't carry, leaves the key absent — saved geometry then
+    // straight, exactly as before.
+    const { legs } = routeLegs(items, homeGeomField);
+    let computed = null;
+    try { computed = await offlineRoutePaths(legs); }
+    catch(e){ console.warn('route map: on-device paths unavailable:', e); }
+    const model = buildRouteMapModel(items, geomField, homeGeomField, computed);
     const bounds = [];
     const color = group && group.day ? dayColor(group.day) : '#2563EB';
     model.markers.forEach(({ item, position, parked, point }) => {
@@ -256,8 +319,8 @@ export function initWorklistRouteView(opts){
         if(el) el.style.background = color;
       }
     });
-    // Draw the road-following path (decoded saved geometry, straight fallback per
-    // leg) when there is one; otherwise the straight pin-to-pin route.
+    // Draw the road-following path (pack-measured, else saved geometry, else a
+    // straight fallback per leg); otherwise the straight pin-to-pin route.
     const route = model.path.length > 1 ? model.path : model.line;
     if(route.length > 1) L.polyline(route, { color, weight:4, opacity:.78 }).addTo(layer);
     // The drive out from the crew start to the day's first stop — a faint dashed
@@ -407,7 +470,7 @@ export function initWorklistRouteView(opts){
     fixEl.classList.toggle('hide', !parts.length);
     noticeEl.textContent = parts.length
       ? `${parts.join(' · ')} — fix addresses or Optimize from the worklist.` : '';
-    renderMap(group);
+    await renderMap(group);
   }
 
   async function refresh(){

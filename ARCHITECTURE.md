@@ -536,6 +536,19 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `encodePolyline` so the **phone can finally produce `legGeometryRoad` itself**
   rather than only decoding the planner's.
   A ~150 km district lands at a few MB. Things that are load-bearing here:
+  - **The route map measures its legs at draw time, and that is what keeps the
+    roads on screen.** `offlineRoutePaths(legs)` (`js/route.js`) takes the legs
+    the map is about to draw and returns a path per leg from the pack — one
+    shared decode, the run's own coordinates picking the district as always. It
+    exists because *saved* geometry is keyed to the sequence it was fetched for,
+    and the phone reorders that sequence constantly: `applyTodayAnchor` re-leads
+    the pending list after every logged stop, which trips `variantMatchesLive`
+    and made both maps drop the geometry wholesale. Measuring what is on screen
+    removes the staleness question instead of answering it. Precedence is
+    **measured → saved → straight**; the saved tier keeps its gate, since on a
+    phone with no district of its own that polyline is the planner's OSRM path
+    and can genuinely be stale. A leg the pack can't carry is simply absent from
+    the result, which every caller already draws straight.
   - **The pack stores only raw arrays.** The adjacency (CSR) and the snapping grid
     are rebuilt at decode time — both O(segments) and a few milliseconds — which
     keeps the format small and the writer simple. Decode is not the slow part.
