@@ -33,3 +33,12 @@ export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6
 // real drive out to it. Change it with a commit — GitHub Pages ships it. The
 // desktop planner still clamps it into its [08:00, 08:30] muster window.
 export const ROUTE_DEPART_TIME = '08:15';
+
+// When the working day is over ('HH:MM', 24h). Used for exactly ONE decision: is
+// today spent, so a route being planned now is for the next working day
+// (js/route-planday.js `resolvePlanDay`). It is deliberately NOT a day-sizing
+// input — the meters/day target alone decides how many stops a day holds. An
+// earlier per-installer "Finish by" dial did both jobs, and the sizing half made
+// the target silently inert above whatever the clock allowed: 16, 24 and 40 all
+// produced the same day. A constant, because nobody needs to tune when 4pm is.
+export const ROUTE_DAY_END = '16:00';

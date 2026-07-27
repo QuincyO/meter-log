@@ -1,32 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { expectedDailyStops } from '../js/worklist-tuning.js';
 
-// 08:15 depart, 14:00 finish, 60-min break, 24 min/stop pace.
-test('expected stops at the 14:00 default', () => {
-  assert.equal(expectedDailyStops({ departMin:495, finishMin:840, pace:24 }), 11);
-});
-
-test('an earlier finish fits fewer stops', () => {
-  assert.equal(expectedDailyStops({ departMin:495, finishMin:780, pace:24 }), 8);
-});
-
-test('null when the finish time is unusable or pace is missing', () => {
-  assert.equal(expectedDailyStops({ departMin:495, finishMin:null, pace:24 }), null);
-  assert.equal(expectedDailyStops({ departMin:495, finishMin:840, pace:0 }), null);
-  assert.equal(expectedDailyStops({ departMin:495, finishMin:520, pace:24 }), null); // break eats the day
-});
-
-test('a heavier real between-stop travel fits fewer stops than the nominal', () => {
-  const nominal = expectedDailyStops({ departMin:495, finishMin:840, pace:24 });          // 10 min default
-  const heavy   = expectedDailyStops({ departMin:495, finishMin:840, pace:24, travelPerStopMin:20 });
-  assert.equal(nominal, 11);
-  // onSite(24)=14, +20 travel = 34/stop; (285-20)/34 = 7.79 → 7.
-  assert.equal(heavy, 7);
-  assert.ok(heavy < nominal);
-});
-
+// The 'Target finish time' dial is gone. It did two jobs — projected the day's
+// landing and, invisibly, SHRANK the day below the meters/day target — and the
+// second made the target inert above whatever ceiling the clock implied. The
+// projection lives on, anchored on the fixed config.js ROUTE_DAY_END.
 test('the service worker ships the tuning module', () => {
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'\.\/js\/worklist-tuning\.js'/);
@@ -38,10 +17,11 @@ test('the capture nav offers a route-tuning entry', () => {
   assert.match(html, /<button id="navTuning">[^<]*Route tuning<\/button>/);
 });
 
-test('the tuning screen has both dials, a readout and a save', () => {
+test('the tuning screen has its dial, a readout and a save', () => {
   assert.match(html, /id="tuningScreen"/);
   assert.match(html, /id="tuneCommutePull"[^>]*type="range"[^>]*min="0"[^>]*max="100"/);
-  assert.match(html, /id="tuneFinishBy"[^>]*type="time"/);
+  // No finish-time input: the meters/day target is the only day-sizing control now.
+  assert.doesNotMatch(html, /id="tuneFinishBy"/);
   assert.match(html, /id="tuneReadout"/);
   assert.match(html, /id="tuneSave"/);
   // the org-wide leave time is shown as read-only context, not an input
@@ -52,8 +32,6 @@ const worklistJs = readFileSync(new URL('../js/worklist.js', import.meta.url), '
 const captureJs = readFileSync(new URL('../js/pages/capture.js', import.meta.url), 'utf8');
 
 test('worklist routes #tuning and exports an opener', () => {
-  // The named list is open — worklist.js also pulls expectedDailyStops from here for
-  // the finish-by ceiling shown beside the meters/day box — but the opener must be in it.
   assert.match(worklistJs, /import\s*\{[^}]*\binitWorklistTuning\b[^}]*\}\s*from\s*'\.\/worklist-tuning\.js'/);
   assert.match(worklistJs, /location\.hash === '#tuning'/);
   assert.match(worklistJs, /export function openTuning\(/);

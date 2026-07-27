@@ -15,13 +15,13 @@ import { store, cfg } from './store.js';
 import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, localRoadGeometry } from './route.js';
-import { activePackId } from './roadpack.js';
+import { installedPacks } from './roadpack.js';
 import { liveMetrics } from './drive-recorder.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
-import { expectedDailyStops, initWorklistTuning } from './worklist-tuning.js';
+import { initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 import { createPressHold } from './press-hold.js';
@@ -32,7 +32,7 @@ import {
   sinkAddressless, splitAddr,
 } from './worklist-address-fill.js';
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
-import { ROUTE_DEPART_TIME } from './config.js';
+import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
 import {
@@ -115,7 +115,7 @@ function planDayOpts(extra){
   return {
     today: localDate(),
     nowMin: hhmmMin(clockOf(stamp())),
-    finishByMin: hhmmMin(store.get('wlFinishBy') || '14:00'),
+    finishByMin: hhmmMin(ROUTE_DAY_END),
     dayClosed: dayClosed(),
     override: store.get('wlPlanDate') || '',
     ...extra,
@@ -216,7 +216,6 @@ function planShape(){
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('wlStraightDistanceSource') || '',
     commutePull:pullVal(store.get('wlCommutePull')),
-    finishBy:store.get('wlFinishBy') || '14:00',
     target:targetVal()
   };
 }
@@ -244,7 +243,7 @@ function implicitPlan(){
 }
 // Apply a downloaded plan's PLANNER-owned scheduling fields only (pace, variant).
 // The installer's phone is the source of truth for tuning + target (commutePull /
-// finishBy / target), so a Download never overwrites those — wlDownload pushes the
+// target), so a Download never overwrites those — wlDownload pushes the
 // local ones UP instead (savePlan) so the office sees the installer's latest.
 function loadPlanFields(plan){
   const p = plan || {};
@@ -541,7 +540,14 @@ async function optimizeRouteHandler(useNetwork){
   // asks the real question: can this run actually measure anything?
   // A HOLD skips the pack by definition, so offline it can measure nothing at
   // all — it is refused, pointing at the tap that would have worked.
-  const havePack = !!activePackId();
+  // What the ROUTER will actually try, not what the settings pointer happens to say.
+  // This was `!!activePackId()` — a single localStorage id — while loadGraph scores
+  // every district in installedPacks() and picks whichever covers this run, setting
+  // the active id as a side effect. A phone holding a district with no active id
+  // (never set, or left pointing at one that was deleted) therefore routed on the
+  // road graph while the sheet announced "straight-line algorithm" — and, worse,
+  // the offline gate below refused the run outright for want of a map it had.
+  const havePack = ((await installedPacks()) || []).length > 0;
   const alreadyPinned = pending.filter(x => coordsOf(x)).length;
   if(!navigator.onLine && (useNetwork || !(havePack && alreadyPinned >= 2))){
     toast(useNetwork
@@ -575,16 +581,16 @@ async function optimizeRouteHandler(useNetwork){
     // a tap with no pack still does exactly one solve and this can never be the
     // thing that causes a matrix call. A pack-routed tap IS a road run, so it
     // now gets the comparable straight-line variant the toggle switches to.
-    // One dwell model for the whole run: day sizing (onSiteMin, below) and the ETA
-    // simulation (planOpts.dwell) must agree, or the day target and the ETAs it is
-    // supposed to describe drift apart — worse than both being wrong the same way.
+    // One dwell model for the whole run, used by the ETA simulation (planOpts.dwell).
+    // It used to be handed to optimizeRoute as `onSiteMin` too, for the day sizing
+    // that a finish-by clock did; nothing sizes days but the target now, so the
+    // router no longer takes it.
     const dwell = dwellShape();
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
       straightLine: !useNetwork, noLocalGraph: useNetwork,
       startFromCurrent, start: crewStart, compareVariants: true,
-      target, dayFinishBy: hhmmMin(planShape().finishBy), departMin: hhmmMin(ROUTE_DEPART_TIME),
-      paceMin: planShape().paceMin, commutePull: planShape().commutePull,
-      onSiteMin: dwell.average(pending)
+      target, departMin: hhmmMin(ROUTE_DEPART_TIME),
+      paceMin: planShape().paceMin, commutePull: planShape().commutePull
     });
     const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
@@ -721,16 +727,13 @@ async function optimizeRouteHandler(useNetwork){
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     const totalM = Object.values(prim.legMeters).reduce((a, b) => a + b, 0);
-    // Report the size the days ACTUALLY got, not the one that was asked for. The
-    // day is min(target, timeCapacity) — how many stops fit before the finish-by
-    // clock — so above that ceiling the typed number changes nothing. Printing the
-    // request here said "2 days of 24" over a day holding 12, which is exactly why
-    // raising the target read as broken rather than as capped.
+    // `base.dayTarget` is still the source of truth for how big the days got rather
+    // than the requested `target` — they are the same number now that nothing shrinks
+    // a day behind the installer's back, and reading the echo keeps it that way if
+    // anything ever sizes days again.
     const effective = Math.max(1, Math.floor(Number(base.dayTarget) || target));
-    const capped = effective < target;
     const extra = ` · ${fmtKm(totalM)}`
       + (days > 1 ? ` · ${days} days of ${effective}` : '')
-      + (capped ? ` — ${target}/day doesn’t fit before ${planShape().finishBy}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
@@ -1117,33 +1120,15 @@ function targetVal(){ return Math.max(1, Math.floor(Number($('wlTarget').value) 
 let wlAvgLogMin = null;
 let wlAvgPerDay = null;
 
-// The hint beside the meters/day box: the installer's recent average, and — the
-// part that matters — the CEILING the finish-by clock puts on a day.
-//
-// The route takes `min(target, timeCapacity)` (js/route.js), so a target above
-// what fits before `finishBy` does nothing whatsoever: typing 16, 24 or 40 all
-// produce the same day. With nothing on screen saying so, that reads as a broken
-// control rather than a full one, which is exactly how it was reported.
-//
-// Estimated with `breakMin: 0` to mirror what optimizeRoute actually does — it is
-// never passed a break — rather than the tuning screen's more human 60. The two
-// therefore differ on purpose; this one answers "will my number survive the
-// solve?", and the toast after a run reports the size the days really got.
+// The hint beside the meters/day box: the installer's recent average, and nothing
+// else. It briefly also carried a "about N fit before 14:00" ceiling, which existed
+// only because a finish-by clock could silently shrink a day below the target. That
+// clock no longer sizes anything, so the target is now the whole answer and there is
+// no second number to reconcile.
 function paintTargetHint(){
   const el = $('wlAvgDay');
   if(!el) return;
-  const dwell = dwellShape();
-  const finishBy = store.get('wlFinishBy') || '14:00';
-  const fits = expectedDailyStops({
-    departMin: hhmmMin(ROUTE_DEPART_TIME), finishMin: hhmmMin(finishBy),
-    pace: Math.max(1, Math.round(Number($('wlPace').value) || 30)),
-    breakMin: 0, onSiteMin: dwell ? dwell.base : null,
-  });
-  const parts = [];
-  if(wlAvgPerDay) parts.push(`your avg ${wlAvgPerDay}/day`);
-  if(fits != null && fits > 0 && targetVal() > fits)
-    parts.push(`about ${fits} fit before ${finishBy}`);
-  el.textContent = parts.join(' · ');
+  el.textContent = wlAvgPerDay ? `your avg ${wlAvgPerDay}/day` : '';
 }
 function wlDayEta(count){
   if(!wlAvgLogMin || !count) return '';
@@ -2009,8 +1994,10 @@ function onsitePerStopReal(stops){
 }
 
 // Assemble the real inputs. Async — reads the dayCache + worklist. `finishByMin`
-// can be overridden by callers (the tuning what-if reprojects against a dragged
-// finish time); everything else reflects the live state.
+// is the end of the working day (config.js ROUTE_DAY_END) — it answers "will the
+// remaining route land before knock-off", which is a projection, NOT a day-sizing
+// input; nothing here shrinks a route. It used to be the installer's Finish-by
+// dial, and callers could override it for a what-if against a dragged value.
 export async function paceContext(){
   const c = cfg();
   const cached = c.name ? await idb.get('dayCache', `${c.name}|${localDate()}`) : null;
@@ -2023,7 +2010,7 @@ export async function paceContext(){
     remainingTravelMin: travel.totalMin,
     avgLegTravelMin: travel.perStopMin,
     onsitePerStop: onsitePerStopReal(stops),
-    finishByMin: hhmmMin(planShape().finishBy),
+    finishByMin: hhmmMin(ROUTE_DAY_END),
     dayClosed: dayClosed(),
   };
 }
@@ -2134,8 +2121,7 @@ export function initWorklist(opts){
     routeVariant: activeVariant,
     // The installer's current tuning weights, shown on the route so they can see
     // what produced it (the phone owns these; they ride up on the next sync).
-    weights: () => ({ commutePull:pullVal(store.get('wlCommutePull')),
-      finishBy:store.get('wlFinishBy') || '14:00', target:targetVal() }),
+    weights: () => ({ commutePull:pullVal(store.get('wlCommutePull')), target:targetVal() }),
     timesEstimated: () => store.get('wlTimesEstimated') === '1',
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];

@@ -197,7 +197,6 @@ export function initWorklistRouteView(opts){
     const pull = Number(w.commutePull);
     weightsEl.classList.remove('hide');
     weightsEl.textContent = `Tuning · commute pull ${isFinite(pull) ? pull : 70}%`
-      + ` · finish by ${w.finishBy || '14:00'}`
       + ` · target ${Math.max(1, Math.floor(Number(w.target) || 24))}/day`
       + (timesEstimated() ? ' · ~ETAs estimated (road Optimize for exact)' : '');
   }

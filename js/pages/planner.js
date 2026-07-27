@@ -75,8 +75,6 @@ let siteFactorMap = {};
 // the 16:00 shift end — so a slow/heavy day can still knock off by ~16:00.
 const DEPART_MIN = 8 * 60;              // 08:00 earliest departure
 const DEPART_LATEST_MIN = 8 * 60 + 30; // 08:30 hard latest
-const DAY_FINISH_MIN = 14 * 60;        // 14:00 target finish
-const DAY_BREAK_MIN = 60;              // lunch + break allowance in the day budget
 // 'HH:MM' → minutes-of-day, clamped to the [08:00, 08:30] leave window; DEPART_MIN
 // on anything unparseable.
 function departMinutes(hhmm){
@@ -106,8 +104,7 @@ function planShape(){
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
-    commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
-    finishBy:store.get('plannerFinishBy:' + hNumber()) || '14:00',
+    commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
     target:targetVal()
   };
 }
@@ -123,8 +120,7 @@ function loadPlan(plan){
   store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
   if(p.routeVariant) store.set('plannerVariant:' + hNumber(), p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('plannerStraightSource:' + hNumber(), p.straightDistanceSource);
-  if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
-  if(p.finishBy) store.set('plannerFinishBy:' + hNumber(), p.finishBy);
+  if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
   // The installer owns their target — a Download of their plan drives the planner's
   // day target so the office plans to the same number the installer set.
   if(p.target !== '' && p.target != null) $('plTarget').value = String(Math.max(1, Math.floor(Number(p.target) || 24)));
@@ -915,15 +911,15 @@ async function optimize(pending, health){
     // The planner is the road-matrix path, so it always asks for the second,
     // straight-line ordering too — one extra local solve, no extra lookup. `start`
     // (team muster point) + `home` (installer's home) anchor the two ends; the
-    // finish-by clock + pace let route.js size each day to land by 14:00.
-    // One dwell model for the run: day sizing (onSiteMin) and the ETA simulation
-    // (planOpts.dwell) have to agree or the day target stops describing the ETAs.
+    // The meters/day target alone sizes a day now — no finish-by clock shrinks it
+    // behind the planner's back. `dwell` still has to be the run's one model, so the
+    // ETA simulation (planOpts.dwell) and anything reading onSiteMin agree.
     const dwell = dwellShape();
     const base = await optimizeRoute(pending, progress, home,
       { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true,
-        start, target, dayFinishBy:hhmmMin(planShape().finishBy) || DAY_FINISH_MIN, breakMin:DAY_BREAK_MIN,
+        start, target,
         departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
-        commutePull:planShape().commutePull, onSiteMin: dwell.average(pending) });
+        commutePull:planShape().commutePull });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));

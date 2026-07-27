@@ -309,13 +309,15 @@ test('an OSRM run captures durations, marks the team start a commute, and time-s
     const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 }, {
       osrmUrl:'http://localhost:5000', osrmReady:true, compareVariants:true,
       start:{ lat:45.0, lng:-78.95 },
-      target:3, dayFinishBy:14 * 60, departMin:8 * 60, breakMin:60, paceMin:30,
+      target:3, departMin:8 * 60, paceMin:30,
     });
     assert.ok(r.measure.T, 'durations are captured into measure.T');
     assert.equal(r.measure.startIsCommute, true, 'the team start is a commute anchor');
     const t = travelLookup(r.measure);
     assert.ok(t && typeof t.fromStart === 'function', 'travelLookup is available on a duration run');
-    assert.ok(r.dayTarget >= 1 && r.dayTarget <= 3, 'the day is sized within the target');
+    // The target IS the day size. Nothing shrinks it behind the installer's back —
+    // a finish-by clock used to, which made the number inert above its ceiling.
+    assert.equal(r.dayTarget, 3, 'the day is exactly the requested target');
   } finally { globalThis.fetch = before; }
 });
 
@@ -412,13 +414,13 @@ test('a straight-line run estimates durations so ETAs + day sizing engage', asyn
   try {
     const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 }, {
       straightLine:true, start:{ lat:45.0, lng:-78.9 },
-      target:4, dayFinishBy:14 * 60, departMin:8 * 60 + 15, breakMin:60, paceMin:30 });
+      target:4, departMin:8 * 60 + 15, paceMin:30 });
     assert.equal(r.estimatedTimes, true, 'the run is flagged as estimated');
     assert.ok(r.measure.T, 'measure.T is populated from the estimate');
     const t = travelLookup(r.measure);
     assert.ok(t, 'travelLookup works on the estimated measure');
     assert.ok(t.fromStart(r.orderedIds[0]) > 0, 'first-stop ETA now includes the crew-start drive');
-    assert.ok(r.dayTarget >= 1 && r.dayTarget <= 4, 'the day is sized to the workday, capped by target');
+    assert.equal(r.dayTarget, 4, 'estimated durations still never shrink the day');
   } finally { globalThis.fetch = before; }
 });
 
@@ -430,7 +432,7 @@ test('a real duration run is not flagged estimated', async () => {
   try {
     const r = await optimizeRoute(STOPS(), null, { lat:45.0, lng:-79.35 },
       { osrmUrl:'http://localhost:5000', osrmReady:true, start:{ lat:45.0, lng:-78.95 },
-        target:3, dayFinishBy:14 * 60, departMin:8 * 60, breakMin:60, paceMin:30 });
+        target:3, departMin:8 * 60, paceMin:30 });
     assert.equal(r.estimatedTimes, false, 'real OSRM durations are not an estimate');
   } finally { globalThis.fetch = before; }
 });

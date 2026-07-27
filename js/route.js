@@ -31,7 +31,6 @@ import { GMAPS_API_KEY, ORS_API_KEY } from './config.js';
 import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
-import { onSiteMinutes } from './route-constraints.js';
 import { matrix as roadGraphMatrix, path as roadGraphPath, geocodeAddress, hasAddresses } from './roadgraph.js';
 import { loadGraph, coverage } from './roadpack.js';
 import { directionsBetween, canGiveDirections } from './directions.js';
@@ -1228,40 +1227,6 @@ export function travelLookup(measure){
   };
 }
 
-// How many stops fit in a day and still finish by opts.dayFinishBy, given real
-// durations. Uses the installer's on-site time plus the route's average
-// between-stop drive and an average morning drive-out, so a travel-heavy route
-// yields a smaller day (fewer stops → home bias) while an easy route keeps the full
-// target. A rough average, not a per-day simulation — the office target is
-// "ideally" met two hours early, not a hard cap.
-//
-// opts.onSiteMin: the route's MEASURED average dwell (js/route-dwell.js
-// dwellLookup.average). Must come from the same dwell model the ETA simulation
-// uses, or the day target and the ETAs describing it drift apart. Omitted ⇒ the
-// pace-derived fallback, exactly as before.
-function timeCapacity(T, offset, locatedCount, startNode, opts){
-  const avail = Number(opts.dayFinishBy) - Number(opts.departMin) - (Number(opts.breakMin) || 0);
-  if(!(avail > 0) || locatedCount < 1) return Infinity;
-  const pace = Math.max(1, Number(opts.paceMin) || 30);
-  const measuredOnSite = Number(opts.onSiteMin);
-  let sum = 0, cnt = 0;
-  for(let k = 0; k < locatedCount - 1; k++){
-    const v = T[offset + k][offset + k + 1];
-    if(isFinite(v)){ sum += v; cnt++; }
-  }
-  const avgBetween = cnt ? sum / cnt : 0;
-  let msum = 0, mcnt = 0;
-  if(startNode != null) for(let k = 0; k < locatedCount; k++){
-    const v = T[startNode][offset + k];
-    if(isFinite(v)){ msum += v; mcnt++; }
-  }
-  const morning = mcnt ? msum / mcnt : 0;
-  const perStop = ((isFinite(measuredOnSite) && measuredOnSite > 0)
-    ? measuredOnSite : onSiteMinutes(pace)) + avgBetween;
-  if(!(perStop > 0)) return Infinity;
-  return Math.max(1, Math.floor((avail - morning) / perStop));
-}
-
 // ── entry point ──────────────────────────────────────────────────────────────
 // pendingItems: the pending worklist orders in display order (each mutated in
 // place with coords). onProgress({phase, done, total}): optional UI callback.
@@ -1272,11 +1237,13 @@ function timeCapacity(T, offset, locatedCount, startNode, opts){
 // stop (solveVariant drops it from the ordering matrix, `startIsCommute`). Distinct
 // from startFromCurrent (a one-run live GPS fix that DOES anchor the route's first
 // stop); GPS wins when both are present.
-// opts.dayFinishBy / opts.departMin / opts.breakMin / opts.paceMin: minutes-of-day
-// clock inputs for time-based day sizing. With real durations (OSRM T) and a
-// dayFinishBy, the per-day count shrinks so the work lands by that clock (default
-// planner value 14:00 — two hours before the 16:00 shift end). Returned as dayTarget
-// so the scheduler can chunk days to the same size. No durations ⇒ fixed opts.target.
+// opts.target: how many stops a day holds — the ONLY day-sizing input, echoed back
+// as `dayTarget` so the scheduler chunks days to the same size. There was once a
+// second one, a per-installer "Finish by" clock that shrank the count to whatever
+// landed before it; it made the target inert above the ceiling it implied and gave
+// no sign it had done so, so it is gone. A clock survives for one unrelated
+// decision — "is today over", config.js ROUTE_DAY_END — and never touches sizing.
+// opts.departMin / opts.paceMin: the morning clock and cadence the ETAs run on.
 // opts.osrmUrl: a self-hosted OSRM base URL (the desktop planner passes its
 // local Docker instance) — the matrix primary is then OSRM instead of Google;
 // omitted = the phone path (budget-guarded Google matrix). Both paths back up
@@ -1503,17 +1470,15 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   onProgress && onProgress({ phase:'solve' });
   // Optional day-split. target > 0 cuts the master route into contiguous chunks
   // of `target`; with a home pin each chunk is re-solved to end near home.
-  const userTarget = Math.max(0, Math.floor(Number(opts.target) || 0));
-  // With durations (T — real, or the estimate above) and a finish-by clock, shrink
-  // the per-day count so the day's work still lands by opts.dayFinishBy (default
-  // 14:00 — two hours before the 16:00 shift end). Travel-heavy routes hold fewer
-  // stops per day (the home-bias vs production balance); easy routes keep the full
-  // target. This is what activated ETAs + workday sizing on the phone (which never
-  // had a T before). No dayFinishBy ⇒ fixed count as before.
+  // The meters/day target is the ONLY thing that sizes a day. There used to be a
+  // second, invisible one: a per-installer "Finish by" clock shrank the count to
+  // whatever landed before it, so above that ceiling the typed target did nothing
+  // at all — 16, 24 and 40 all produced the same day, and the installer had no way
+  // to see why. The clock now answers one question only, and it is not this one:
+  // "is today over" for the plan day (config.js ROUTE_DAY_END). If a day is too
+  // long, the number to change is the target.
   const anchorOffset = (startC || homeC) ? 1 : 0;
-  const target = (T && userTarget && opts.dayFinishBy)
-    ? Math.max(1, Math.min(userTarget, timeCapacity(T, anchorOffset, located.length, startC ? 0 : null, opts)))
-    : userTarget;
+  const target = Math.max(0, Math.floor(Number(opts.target) || 0));
   const shape = { startC, homeC, target, commutePull: opts.commutePull, startIsCommute: usingTeamStart };
   const primary = solveVariant(D, located, shape);
 

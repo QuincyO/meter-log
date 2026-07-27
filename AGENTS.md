@@ -178,17 +178,25 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   a user-pickable date that is now reachable (pick Thursday, appointment on Wednesday),
   so the message is parked in `wlPlanIssue` and painted — don't restore the bare catch.
   See ARCHITECTURE.md §"The plan day".
-- **The meters/day target is a ceiling that the clock can outrank, and saying so is
-  the feature.** `js/route.js` sizes a day as `min(userTarget, timeCapacity(...))` —
-  how many stops fit between `ROUTE_DEPART_TIME` and `finishBy`. Above that the typed
-  number does nothing, which is correct and was completely invisible: the toast printed
-  the *requested* target (`N days of 24` over a day holding 12), so raising it read as a
-  broken control. The toast now reports `base.dayTarget` and names the finish time when
-  it capped; `paintTargetHint` shows the ceiling beside the box. Two things to keep:
-  the hint passes **`breakMin: 0`** to `expectedDailyStops` because `optimizeRoute` is
-  never handed a break — the tuning screen's more human `60` is a *different question*
-  and the two are meant to differ — and `base.dayTarget` is the only honest source for
-  "how big did the days get", so don't reach back for `targetVal()` when reporting.
+- **The meters/day target is the ONLY thing that sizes a day. Don't add a second one.**
+  There used to be a per-installer "Finish by" dial, and `js/route.js` sized a day as
+  `min(target, timeCapacity(...))` — how many stops fit before that clock. It was
+  reported as "I set the target and nothing changes", and it was right: above the
+  ceiling the clock implied, 16, 24 and 40 all produced the same day, with nothing on
+  screen saying so. `timeCapacity`, `dayFinishBy`, `breakMin`, `opts.onSiteMin`, the
+  `wlFinishBy`/`plannerFinishBy` keys and the tuning dial are all gone. **One clock
+  survives and it is a constant** — `config.js ROUTE_DAY_END` — answering exactly one
+  question: is today over, so the plan day rolls (`js/route-planday.js`). It must never
+  become a routing input again; if a day is too long, the number to change is the
+  target. `WorklistPlans.finishBy` stays as a **blank column** because `ensureTab` only
+  appends and removing a header would shift every one after it.
+- **`havePack` has to mean what the router will do, not what a pointer says.** It was
+  `!!activePackId()` — one localStorage id — while `loadGraph` scores every district in
+  `installedPacks()` and picks whichever covers the run, *setting* the active id as a
+  side effect. A phone holding a district with no active id therefore routed on the
+  road graph while the sheet announced "straight-line algorithm", and — the part that
+  actually cost something — the offline gate refused the run for want of a map it had.
+  It reads `installedPacks()` now. Any new "do we have a map" test belongs there too.
 - **One stale pin must never cost the whole route.** `scheduleRouteConstraints`
   rejects an order dated before the route starts by **throwing**, and that throw takes
   the entire route with it, not just that order. In `optimizeRouteHandler` it lands

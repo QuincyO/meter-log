@@ -785,14 +785,17 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   home). Zig-zag *within* a day is fine;
   only the day endpoints are constrained. It returns `dayOf` (`{id: dayNumber}`);
   with no home pin it degrades to plain count-chunks (`dayFallback:true`). The
-  A day is sized `min(userTarget, timeCapacity)` — the typed number, or how many stops
-  fit between `ROUTE_DEPART_TIME` and `finishBy`, whichever is smaller — and the phone
-  has to **say** which one bound. Above the clock ceiling the target does nothing, and
-  the toast used to print the request rather than `base.dayTarget`, so raising it read
-  as a broken control instead of a full day. The toast reports the effective size and
-  names the finish time when it capped; `paintTargetHint` shows the ceiling beside the
-  box (via `expectedDailyStops` with `breakMin: 0`, matching what `optimizeRoute` is
-  actually handed — the tuning screen's `60` is deliberately a different question).
+  A day is sized by the **meters/day target and nothing else**. It briefly had a second,
+  invisible input: a per-installer "Finish by" dial, with `min(target, timeCapacity)`
+  shrinking the day to what landed before that clock. Above the implied ceiling the
+  typed target did nothing — 16, 24 and 40 gave the same day — and the app never said
+  so, which is exactly how it was reported. `timeCapacity`, `dayFinishBy`, `breakMin`
+  and `opts.onSiteMin` are gone from the router; `WorklistPlans.finishBy` remains as a
+  blank column only because `ensureTab` appends and cannot remove one. One clock is
+  left, a **constant** (`config.js ROUTE_DAY_END`), and it answers a single unrelated
+  question — is today over, for the plan day — never how big a day is. The day-landing
+  projection (`projectDayReal`, the Drive screen and the tuning readout) still uses it,
+  which is safe precisely because a projection reports and never shortens.
   `target` is a soft anchor from a manual meters/day field on both the planner and
   the phone worklist — the installer's `avgPerDay` (InstallerMetrics) shows beside
   it, and the day cluster syncs via the `Worklist.day` column to the phone's Day 1

@@ -239,8 +239,8 @@ on the day its date falls on — so planning tomorrow's route this evening puts
 tomorrow's 10:00 appointment in **Day 1** where it belongs.
 
 It usually looks after itself. The date moves on to the next working day once today
-is done — either you've closed the day out, or nothing was logged and your
-**Finish by** time has gone past — and the line underneath says so
+is done — either you've closed the day out, or nothing was logged and it's gone
+4pm — and the line underneath says so
 (**Tue · tomorrow — today is done**). A day you're still working never jumps to
 tomorrow on you, however late it gets.
 
@@ -267,14 +267,11 @@ with 20 planned. You finish 5 of them and install 5 more you came across: that's
 in, so Day 1 drops to the **next 10** and the rest move to tomorrow on their own. You
 don't have to do anything; the number on screen is always the room you have left.
 
-**Meters/day is a ceiling, not a promise — the clock is the other one.** The day is
-sized by whichever is *smaller*: the number you type, or how many stops actually fit
-between leaving at 8:15 and your **Finish by** time. So once your target is above what
-the clock allows, raising it further changes nothing at all — 16, 24 and 40 all give
-the same day. The hint beside the box says so (**about 11 fit before 14:00**), and the
-message after an Optimize reports the size the days really got, plus a note when your
-number didn't fit. To genuinely get more stops into a day, move **Finish by** later on
-the tuning screen — that is the dial that buys you room.
+**Meters/day is the whole answer.** It is the only thing that decides how many stops a
+day holds — set 24 and you get days of 24. There used to be a **Finish by** time as
+well, and it quietly overruled you: it worked out how many stops fitted before that
+clock and shortened the day to match, so above that number your target did nothing at
+all. It has been removed. If a day is coming out too long, lower Meters/day.
 
 **Changed your Meters/day? Press Optimize.** Typing a new number on its own doesn't
 disturb the day you're already driving — the next 🧭 Optimize is what re-plans it.

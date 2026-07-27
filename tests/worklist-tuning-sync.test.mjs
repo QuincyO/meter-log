@@ -49,7 +49,7 @@ test('the spine treats an absent routeStartDate as "keep", not "blank"', () => {
 
 test('a Download never overwrites the phone-owned tuning + target', () => {
   const fn = worklist.match(/function loadPlanFields\(plan\)\s*\{[\s\S]*?\n\}/)[0];
-  for(const key of ['wlCommutePull', 'wlFinishBy', 'wlTarget'])
+  for(const key of ['wlCommutePull', 'wlTarget'])
     assert.doesNotMatch(fn, new RegExp(key), `${key} must not be written from a downloaded plan`);
 });
 

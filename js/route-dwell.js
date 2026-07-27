@@ -102,9 +102,11 @@ export function dwellLookup(opts = {}){
     return Math.max(MIN_ONSITE_MIN, base * factor);
   }
 
-  // The route's mean dwell — what day sizing needs, since `timeCapacity` is a rough
-  // per-stop average rather than a per-day simulation. Walks the list in order so
-  // repeat-meter clusters are priced the same way the schedule will price them.
+  // The route's mean dwell — a single per-stop average for callers that want one
+  // number rather than a per-day simulation (the day-landing projection). Walks the
+  // list in order so repeat-meter clusters are priced the way the schedule will
+  // price them. It once fed `timeCapacity`, which sized days from a finish-by clock;
+  // that is gone and the meters/day target alone decides how many stops a day holds.
   function average(items){
     const list = (items || []).filter(Boolean);
     if(!list.length) return base;

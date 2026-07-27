@@ -1305,7 +1305,11 @@ function saveWorklistPlan(hNumber, plan) {
       const n = Math.round(Number(plan.commutePull));
       return isFinite(n) ? Math.max(0, Math.min(100, n)) : '';
     })(),
-    finishBy: /^\d{1,2}:\d{2}$/.test(String(plan.finishBy || '')) ? String(plan.finishBy) : '',
+    // finishBy is retired: the meters/day target alone sizes a day now, and the
+    // one clock left (config.js ROUTE_DAY_END, "is today over") is a constant, not
+    // per-installer. The COLUMN stays — ensureTab only ever appends, so removing a
+    // header would shift every one after it — and is simply written blank.
+    finishBy: '',
     target: (() => {
       const n = Math.round(Number(plan.target));
       return isFinite(n) && n > 0 ? n : '';

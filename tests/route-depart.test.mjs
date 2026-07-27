@@ -24,13 +24,21 @@ test('the phone plan anchors first-stop time to the departure constant', () => {
   assert.doesNotMatch(worklistJs, /\$\('wlRouteTime'\)/);
 });
 
-test('the phone reads dials and feeds them into optimize', () => {
-  // planShape surfaces both dials with the agreed defaults.
+test('the phone reads its dial and feeds it into optimize', () => {
   assert.match(worklistJs, /commutePull:\s*pullVal\(store\.get\('wlCommutePull'\)\)/);
-  assert.match(worklistJs, /finishBy:\s*store\.get\('wlFinishBy'\)\s*\|\|\s*'14:00'/);
-  // the optimize call now carries the day-sizing + weight inputs.
-  assert.match(worklistJs, /optimizeRoute\([^;]*\bdayFinishBy:\s*hhmmMin\(planShape\(\)\.finishBy\)/s);
   assert.match(worklistJs, /optimizeRoute\([^;]*\bcommutePull:\s*planShape\(\)\.commutePull/s);
+});
+
+// The finish-by clock no longer sizes a day: the meters/day target is the only
+// input, so a target above the old ceiling stops being silently inert. The clock
+// that survives is a CONSTANT answering one unrelated question — is today over,
+// for the plan day — and it must never reach optimizeRoute.
+test('no finish-by clock reaches the router from either caller', () => {
+  for(const src of [worklistJs, plannerJs]){
+    assert.doesNotMatch(src, /dayFinishBy/);
+    assert.doesNotMatch(src, /wlFinishBy|plannerFinishBy/);
+  }
+  assert.match(worklistJs, /import\s*\{[^}]*\bROUTE_DAY_END\b[^}]*\}\s*from\s*'\.\/config\.js'/);
 });
 
 test('the planner drops its first-stop input and uses the departure constant', () => {
@@ -43,7 +51,6 @@ test('the planner drops its first-stop input and uses the departure constant', (
 
 test('the planner silently consumes the synced dials without adding UI', () => {
   assert.match(plannerJs, /commutePull:\s*pullVal\(store\.get\('plannerCommutePull:'\s*\+\s*hNumber\(\)\)\)/);
-  assert.match(plannerJs, /dayFinishBy:\s*hhmmMin\(planShape\(\)\.finishBy\)\s*\|\|\s*DAY_FINISH_MIN/);
   assert.match(plannerJs, /optimizeRoute\([^;]*\bcommutePull:\s*planShape\(\)\.commutePull/s);
   // no dial inputs leak into the office UI
   assert.doesNotMatch(plannerHtml, /id="plCommutePull"/);
