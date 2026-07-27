@@ -168,28 +168,3 @@
 .drive-track-hint{ font-size:13px; margin:0; }
 
 .wl-drive{ width:100%; margin-top:8px; }
-
-/* ── turn-by-turn from the offline pack ──────────────────────────────────────
-   Read at a glance from the cab, so: big type, a wide gap between the arrow and
-   the words, and no hover-only affordances. It is a list, not a live navigator —
-   the phone gets no GPS in the background, so nothing here advances by itself. */
-.drive-steps{ margin:12px 0 0; }
-.drive-steps-head{
-  margin:0 0 6px; font-size:13px; color:var(--muted); text-transform:uppercase;
-  letter-spacing:.04em;
-}
-.drive-steps-list{
-  list-style:none; margin:0; padding:0;
-  border:1px solid var(--line); border-radius:12px; overflow:hidden;
-}
-.drive-steps-list li{
-  display:flex; gap:12px; align-items:baseline;
-  padding:12px 14px; font-size:17px; line-height:1.35;
-}
-.drive-steps-list li + li{ border-top:1px solid var(--line); }
-.drive-step-icon{
-  flex:0 0 1.4em; font-size:20px; line-height:1; color:var(--accent); text-align:center;
-}
-/* The pack knows the geometry, not the law — a left turn it is sure of may not
-   be a left turn you are allowed to make. Never quietly drop this. */
-.drive-steps-warn{ margin:8px 2px 0; font-size:13px; color:#b45309; }

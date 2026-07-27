@@ -12,7 +12,6 @@
 import { $, esc } from './dom.js';
 import { store } from './store.js';
 import { clockOf, hhmmMin, stamp } from './time.js';
-import { offlineDirections } from './route.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
@@ -197,8 +196,6 @@ export function initDrive(opts){
       pos.textContent = '';
       $('driveNav').disabled = true;
       $('drivePrev').disabled = $('driveNext').disabled = true;
-      const steps = $('driveSteps');
-      if(steps){ steps.classList.add('hide'); steps.innerHTML = ''; }
       return;
     }
     empty.classList.add('hide');
@@ -214,72 +211,6 @@ export function initDrive(opts){
     $('driveNav').disabled = !addr && !(item.lat && item.lng);
     $('drivePrev').disabled = idx <= 0;
     $('driveNext').disabled = idx >= pending.length - 1;
-    // Deliberately not awaited: routing is milliseconds but the card must not
-    // wait on it, and renderSteps guards against a late answer landing on a
-    // card the driver has already stepped past.
-    renderSteps();
-  }
-
-  // ── directions to the current card's stop ──
-  // Built entirely on the phone from the downloaded district pack — no signal,
-  // no server (js/directions.js). Silent when there is no pack, when the pack
-  // predates road names, or when the two ends don't connect: the Navigate
-  // hand-off to a maps app is still there and is still the thing to trust.
-  const STEP_ICON = {
-    depart:'↑', straight:'↑', slight:'↗', turn:'→', sharp:'⤳', uturn:'⤺', arrive:'◉',
-  };
-  const stepIcon = s => s.side === 'left'
-    ? ({ slight:'↖', turn:'←', sharp:'⤶' }[s.kind] || STEP_ICON[s.kind] || '•')
-    : (STEP_ICON[s.kind] || '•');
-
-  // Where the drive starts, best available first:
-  //   1. the truck's own position, when this phone is recording;
-  //   2. the previous stop on the route;
-  //   3. the crew's muster point — which is what the FIRST stop of the day
-  //      needs, since it has no previous stop and a phone that never armed the
-  //      recorder has no fix. That is the ordinary morning, not an edge case:
-  //      without it the very first card, the one a driver looks at first, was
-  //      the one card with no directions on it.
-  async function legStart(at){
-    const fix = liveMetrics().lastFix;
-    if(fix) return { from: fix, label: 'From here' };
-    const prev = pending[at - 1];
-    if(prev && Number.isFinite(prev.lat) && Number.isFinite(prev.lng))
-      return { from: { lat: prev.lat, lng: prev.lng }, label: 'From the last stop' };
-    if(at === 0 && opts.getCrewStart){
-      const start = await opts.getCrewStart();
-      if(start && Number.isFinite(start.lat) && Number.isFinite(start.lng))
-        return { from: start, label: 'From the muster point' };
-    }
-    return { from: null, label: '' };
-  }
-
-  // Guarded by the card index it was started for: the driver can step through
-  // orders faster than a route solves, and a late answer must not paint over a
-  // card it does not belong to.
-  let stepsFor = -1;
-  async function renderSteps(){
-    const el = $('driveSteps');
-    if(!el) return;
-    const at = idx;
-    const item = pending[at];
-    stepsFor = at;
-    el.classList.add('hide');
-    el.innerHTML = '';
-    if(!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
-    const { from, label } = await legStart(at);
-    if(stepsFor !== at || !from) return;
-    const steps = await offlineDirections(from, { lat: item.lat, lng: item.lng });
-    if(stepsFor !== at || !steps.length) return;
-    el.innerHTML =
-      `<p class="drive-steps-head">${esc(label)} · offline map</p>`
-      + '<ol class="drive-steps-list">' + steps.map(s =>
-          `<li><span class="drive-step-icon" aria-hidden="true">${stepIcon(s)}</span>`
-          + `<span>${esc(s.text)}</span></li>`).join('') + '</ol>'
-      // Said on the screen, not just in the docs: the pack has no turn
-      // restrictions, so it can be sure of the geometry and not of the law.
-      + '<p class="drive-steps-warn">Guide only — no turn restrictions. Use Navigate for live traffic.</p>';
-    el.classList.remove('hide');
   }
 
   async function refresh(){

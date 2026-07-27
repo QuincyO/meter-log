@@ -1818,11 +1818,6 @@ export function initWorklist(opts){
   driveView = initDrive({
     getPending: async () => pendingOf(await allSorted()),
     getPace: drivePace,
-    // The muster point, for directions to the FIRST stop of the day: there is no
-    // previous stop to leave from, and a phone that never armed the recorder has
-    // no fix either — which is the ordinary morning, not an edge case. Same
-    // anchor the route's own drive-out leg is measured and drawn from.
-    getCrewStart: crewStartPin,
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });

@@ -2,7 +2,7 @@
 // this view a sorted snapshot plus one persistence callback; this module owns
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
-import { coordsOf, decodePolyline, isParked, offlineDirections } from './route.js';
+import { coordsOf, decodePolyline, isParked } from './route.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 
@@ -278,42 +278,12 @@ export function initWorklistRouteView(opts){
     }, 0);
   }
 
-  // Directions for the drive INTO this stop, built on the phone from the
-  // downloaded district pack. Collapsed by default: the route list is a
-  // reorder-and-scan screen, and a dozen expanded step lists would bury it.
-  function wireDirections(card, item, prev){
-    const btn = card.querySelector('.wl-route-dirbtn');
-    const out = card.querySelector('.wl-route-dirs');
-    if(!btn || !out) return;
-    let loaded = false;
-    btn.onclick = async () => {
-      const open = !out.classList.contains('hide');
-      if(open){ out.classList.add('hide'); btn.setAttribute('aria-expanded', 'false'); return; }
-      out.classList.remove('hide');
-      btn.setAttribute('aria-expanded', 'true');
-      if(loaded) return;
-      loaded = true;                       // one solve per card, kept on reopen
-      out.textContent = 'Working it out…';
-      const steps = await offlineDirections(
-        { lat: prev.lat, lng: prev.lng }, { lat: item.lat, lng: item.lng });
-      out.innerHTML = steps.length
-        ? '<ol>' + steps.map(s => `<li>${esc(s.text)}</li>`).join('') + '</ol>'
-          + '<p class="wl-route-dirwarn">Guide only — the offline map has no turn restrictions.</p>'
-        : '<p class="muted">No offline route between these two — download the district, or use Navigate.</p>';
-    };
-  }
-
-  function routeCard(item, index, prev){
+  function routeCard(item, index){
     const card = document.createElement('div');
     card.className = 'wl-route-card' + (item.lockedDate ? ' locked' : '');
     card.dataset.id = item.id;
     const cardState = routeCardState(item);
     const state = cardState ? `<span class="wl-route-state">${cardState}</span>` : '';
-    // Offered only when both ends have a pin — without them there is no leg to
-    // describe, and an empty expander is worse than no expander.
-    const canRoute = prev
-      && Number.isFinite(prev.lat) && Number.isFinite(prev.lng)
-      && Number.isFinite(item.lat) && Number.isFinite(item.lng);
     card.innerHTML = `
       ${item.lockedDate ? '<span aria-label="Locked position">🔒</span>' : '<button class="wl-route-handle" type="button" aria-label="Drag to reorder">⠿</button>'}
       <span class="wl-route-pos">${index + 1}</span>
@@ -321,12 +291,9 @@ export function initWorklistRouteView(opts){
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
         <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
-        ${canRoute ? `<button class="wl-route-dirbtn" type="button" aria-expanded="false">▾ Directions</button>
-        <div class="wl-route-dirs hide"></div>` : ''}
       </div>`;
     const handle = card.querySelector('.wl-route-handle');
     if(handle) wireDrag(handle, card);
-    if(canRoute) wireDirections(card, item, prev);
     return card;
   }
 
@@ -426,11 +393,7 @@ export function initWorklistRouteView(opts){
     renderWeights();
     renderDays(groups);
     listEl.innerHTML = '';
-    // The previous stop is handed in so a card can offer directions for its own
-    // leg — the drive INTO this stop, which is the one a driver wants when they
-    // are looking at it.
-    (group ? group.items : []).forEach((item, index, all) =>
-      listEl.appendChild(routeCard(item, index, all[index - 1] || null)));
+    (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
     if(!group){
       listEl.innerHTML = '<p class="muted">No pending orders. Add or download orders from the worklist.</p>';
     }

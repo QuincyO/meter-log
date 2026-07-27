@@ -215,16 +215,6 @@
 .wl-route-meta{margin-top:3px;font-size:11px;font-weight:800;color:var(--ink-soft)}
 .wl-route-state{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid var(--line);
   border-radius:999px;background:var(--surface);color:var(--ink-soft);font-size:10px;font-weight:800}
-/* Per-leg turn-by-turn, collapsed by default — the route list is a scan-and-
-   reorder screen, and a dozen expanded step lists would bury it. The card is a
-   flex row with align-items:center, so an expanded list has to stretch: hence
-   align-self on the button/panel rather than a taller row. */
-.wl-route-dirbtn{margin-top:6px;padding:4px 9px;border:1px solid var(--line);border-radius:8px;
-  background:var(--surface);color:var(--ink-soft);font-size:11px;font-weight:800;cursor:pointer}
-.wl-route-dirs{margin-top:6px;font-size:12px;color:var(--ink-soft)}
-.wl-route-dirs ol{margin:0;padding-left:18px}
-.wl-route-dirs li{margin:2px 0;line-height:1.35}
-.wl-route-dirwarn{margin:6px 0 0;font-size:11px;color:#b45309}
 /* Leaflet divIcon: the route sequence itself is the visual signature. */
 .wl-route-pin{display:flex !important;align-items:center;justify-content:center;border:2px solid #fff;
   border-radius:50%;background:var(--accent);box-shadow:0 2px 7px rgba(19,23,28,.38)}
