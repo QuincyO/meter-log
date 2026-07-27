@@ -26,6 +26,9 @@ import { readdirSync, existsSync, unlinkSync, readFileSync, writeFileSync } from
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPack } from './build-roadpack.mjs';
+// The same geometry the planner uses, imported rather than reimplemented —
+// js/districts.js is pure and browser-free precisely so both ends can share it.
+import { normalizeBbox, clampBbox, wasClamped } from '../js/districts.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -91,18 +94,88 @@ async function gitUp(){
   return r.code === 0;
 }
 
+// Where the extract actually has data, straight out of the .pbf header — one
+// `osmium fileinfo`, which reads the header only and returns instantly even on
+// a 1 GB file. Cached for the life of the process: the extract does not change
+// underneath a running server, and /status is polled.
+//
+// This is what lets a rectangle dragged past the edge of the province be
+// TRIMMED rather than built. Clipping outside the data does not fail at the
+// clip — osmium happily writes an empty extract — it fails a minute later in
+// the pack build with "No drivable segments found", which reads as a bug in the
+// tool rather than a rectangle in the wrong place.
+let pbfBboxCache;
+async function extractBbox(){
+  if(pbfBboxCache !== undefined) return pbfBboxCache;
+  const pbf = findPbf();
+  if(!pbf || !DATA_DIR) return (pbfBboxCache = null);
+  let out = '';
+  const r = await run('docker',
+    ['run', '--rm', '-v', `${DATA_DIR}:/data`, OSMIUM_IMAGE, 'fileinfo', `/data/${pbf}`],
+    l => { out += l + '\n'; });
+  if(r.code !== 0) return (pbfBboxCache = null);
+  // "    (-95.15965,41.6377,-74.30998,57.50826)" — minLng,minLat,maxLng,maxLat.
+  const m = out.match(/\(\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\s*\)/);
+  if(!m) return (pbfBboxCache = null);
+  const [minLng, minLat, maxLng, maxLat] = m.slice(1, 5).map(Number);
+  if(![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return (pbfBboxCache = null);
+  return (pbfBboxCache = { minLat, minLng, maxLat, maxLng });
+}
+
 // ── jobs ─────────────────────────────────────────────────────────────────────
 // A build takes minutes, which is far longer than a fetch should hang. /build
 // starts a job and returns its id; the planner polls /job?id=… for the log.
 const jobs = new Map();
 let jobSeq = 0;
 
+// The build's phases, in order. A district build takes minutes with nothing to
+// look at, so the planner draws a bar off `step`/`steps` and names `phase`.
+// Listing them here rather than counting as we go is what makes the bar
+// DETERMINATE — a spinner tells you the page is alive, a bar tells you whether
+// to wait or go and do something else.
+// The weights matter as much as the order. The first step scans the ENTIRE
+// province extract — a gigabyte — and on a measured small district it was 22s
+// of a 28s build; every later step reads only the clipped result. Equal-weight
+// steps therefore left the bar on 1/9 for most of the build, which looks
+// exactly like the hang the bar exists to rule out. Weights are rough by
+// nature: the clip is fixed cost, the pack passes grow with district size.
+const BUILD_PHASES = [
+  { name:'Clipping the district out of the province', weight:60 },
+  { name:'Selecting road ways',      weight:4 },
+  { name:'Exporting roads',          weight:5 },
+  { name:'Selecting address points', weight:4 },
+  { name:'Exporting addresses',      weight:5 },
+  { name:'Finding junctions',        weight:7 },
+  { name:'Building segments',        weight:7 },
+  { name:'Indexing addresses',       weight:4 },
+  { name:'Writing the pack',         weight:4 },
+];
+const PHASE_TOTAL = BUILD_PHASES.reduce((n, p) => n + p.weight, 0);
+
 function newJob(){
   const id = String(++jobSeq);
-  jobs.set(id, { id, done:false, error:'', log:[], entry:null });
+  jobs.set(id, {
+    id, done:false, error:'', log:[], entry:null,
+    phase:'', step:0, steps:BUILD_PHASES.length, pct:0, startedAt:Date.now(),
+  });
   return jobs.get(id);
 }
 const push = (job, line) => { job.log.push(line); if(job.log.length > 400) job.log.shift(); };
+
+// Advancing by NAME, not by ++: addresses are optional, and when they are
+// skipped the bar should jump over those phases rather than stall three short
+// of the end and look hung at the very moment the pack is being written.
+function setPhase(job, name){
+  const at = BUILD_PHASES.findIndex(p => p.name === name);
+  if(at < 0) return;
+  job.phase = name;
+  job.step = Math.max(job.step, at + 1);
+  // Work COMPLETED, so the bar shows what is behind the current phase rather
+  // than claiming it. Skipped phases (a district with no addresses) are counted
+  // as done — the bar jumps ahead instead of stalling short of the end.
+  const doneWeight = BUILD_PHASES.slice(0, at).reduce((n, p) => n + p.weight, 0);
+  job.pct = Math.max(job.pct, Math.round(doneWeight / PHASE_TOTAL * 100));
+}
 
 const osmium = (job, argv) => run('docker',
   ['run', '--rm', '-v', `${DATA_DIR}:/data`, OSMIUM_IMAGE, ...argv],
@@ -113,49 +186,78 @@ async function buildDistrict(job, { id, name, bbox }){
   if(!pbf) throw new Error('No .osm.pbf found in the data folder — pass --pbf');
   const tmp = [];
   const t = suffix => { const f = `_build_${id}${suffix}`; tmp.push(join(DATA_DIR, f)); return `/data/${f}`; };
-
-  const clipped   = t('.osm.pbf');
-  const roadsPbf  = t('-roads.osm.pbf');
-  const roadsGeo  = t('-roads.geojsonseq');
-  const addrPbf   = t('-addr.osm.pbf');
-  const addrGeo   = t('-addr.geojsonseq');
-  const box = `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`;
-
-  const step = async (label, argv) => {
-    push(job, `▸ ${label}`);
-    const r = await osmium(job, argv);
-    if(r.code !== 0) throw new Error(`${label} failed — ${r.err.split('\n').filter(Boolean).pop() || 'see log'}`);
-  };
-
-  await step('Clipping the district out of the province', [
-    'extract', '-b', box, `/data/${pbf}`, '-o', clipped, '--overwrite']);
-  await step('Selecting road ways', [
-    'tags-filter', clipped, 'w/highway', '-o', roadsPbf, '--overwrite']);
-  await step('Exporting roads', [
-    'export', roadsPbf, '-f', 'geojsonseq', '-o', roadsGeo, '--overwrite']);
-  // Addresses are best-effort: a district with no address data still yields a
-  // perfectly good roads-only pack, it just has no offline geocoding.
-  let addrFile = '';
+  // Scratch files are cleaned up in a finally, not after the last step: a build
+  // that FAILS is precisely the one that leaves the most behind, and on a real
+  // district these are hundreds of megabytes sitting in the OSRM data folder.
   try {
-    await step('Selecting address points', [
-      'tags-filter', clipped, 'n/addr:housenumber', 'w/addr:housenumber', '-o', addrPbf, '--overwrite']);
-    await step('Exporting addresses', [
-      'export', addrPbf, '-f', 'geojsonseq', '-o', addrGeo, '--overwrite']);
-    addrFile = join(DATA_DIR, `_build_${id}-addr.geojsonseq`);
-  } catch(e){
-    push(job, `! addresses skipped — ${e.message}`);
-    addrFile = '';
+    return await clipAndPack();
+  } finally {
+    for(const f of tmp){ try { if(existsSync(f)) unlinkSync(f); } catch { /* leave it */ } }
   }
 
-  push(job, '▸ Building the pack');
-  const { entry } = await buildPack({
-    roadsFile: join(DATA_DIR, `_build_${id}-roads.geojsonseq`),
-    addrFile, id, name, bbox, mapsDir: MAPS, log: m => push(job, '  ' + m),
-  });
+  async function clipAndPack(){
+    const clipped   = t('.osm.pbf');
+    const roadsPbf  = t('-roads.osm.pbf');
+    const roadsGeo  = t('-roads.geojsonseq');
+    const addrPbf   = t('-addr.osm.pbf');
+    const addrGeo   = t('-addr.geojsonseq');
+    const box = `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`;
 
-  for(const f of tmp){ try { if(existsSync(f)) unlinkSync(f); } catch { /* leave it */ } }
-  push(job, `✓ ${(entry.bytes / 1048576).toFixed(1)} MB — built, not yet published`);
-  return entry;
+    const step = async (label, argv) => {
+      setPhase(job, label);
+      push(job, `▸ ${label}`);
+      const r = await osmium(job, argv);
+      if(r.code !== 0) throw new Error(`${label} failed — ${r.err.split('\n').filter(Boolean).pop() || 'see log'}`);
+    };
+
+    await step('Clipping the district out of the province', [
+      'extract', '-b', box, `/data/${pbf}`, '-o', clipped, '--overwrite']);
+    await step('Selecting road ways', [
+      'tags-filter', clipped, 'w/highway', '-o', roadsPbf, '--overwrite']);
+    await step('Exporting roads', [
+      'export', roadsPbf, '-f', 'geojsonseq', '-o', roadsGeo, '--overwrite']);
+    // Addresses are best-effort: a district with no address data still yields a
+    // perfectly good roads-only pack, it just has no offline geocoding.
+    let addrFile = '';
+    try {
+      await step('Selecting address points', [
+        'tags-filter', clipped, 'n/addr:housenumber', 'w/addr:housenumber', '-o', addrPbf, '--overwrite']);
+      await step('Exporting addresses', [
+        'export', addrPbf, '-f', 'geojsonseq', '-o', addrGeo, '--overwrite']);
+      addrFile = join(DATA_DIR, `_build_${id}-addr.geojsonseq`);
+    } catch(e){
+      push(job, `! addresses skipped — ${e.message}`);
+      addrFile = '';
+    }
+
+    push(job, '▸ Building the pack');
+    // Trimming to the .pbf header box is necessary but not sufficient: Geofabrik's
+    // bounding box is a RECTANGLE around a province that isn't one, so a corner of
+    // it (over Minnesota, say) is inside the box and still holds no Ontario roads.
+    // buildPack's "wrong input file?" is exactly wrong there — the input file is
+    // fine, the rectangle is in the wrong place — so it is translated rather than
+    // passed through, since this is the message somebody actually reads.
+    let packed;
+    try {
+      packed = await buildPack({
+        roadsFile: join(DATA_DIR, `_build_${id}-roads.geojsonseq`),
+        addrFile, id, name, bbox, mapsDir: MAPS, log: m => push(job, '  ' + m),
+        // The pack build is the long tail on a big district — two streaming passes
+        // over the road export before a byte is written — so it reports its own
+        // phases rather than sitting on one bar position for minutes.
+        onPhase: p => setPhase(job, p),
+      });
+    } catch(e){
+      if(/No drivable segments/.test(e && e.message || ''))
+        throw new Error('That rectangle has no roads in the extract — the province data '
+          + 'does not reach there. Draw it over the province and build again.');
+      throw e;
+    }
+    const entry = packed.entry;
+
+    push(job, `✓ ${(entry.bytes / 1048576).toFixed(1)} MB — built, not yet published`);
+    return entry;
+  }
 }
 
 // ── remove ───────────────────────────────────────────────────────────────────
@@ -256,6 +358,9 @@ createServer(async (req, res) => {
       return json(res, 200, {
         ok:true, docker:docker.ok, dockerReason:docker.reason || '',
         data:DATA_DIR, pbf:findPbf(), git:await gitUp(), districts,
+        // Where the extract has data, so the planner can trim a rectangle to it
+        // (and draw the edge) instead of letting a build fail on empty ground.
+        pbfBbox: docker.ok ? await extractBbox() : null,
       });
     }
 
@@ -268,7 +373,12 @@ createServer(async (req, res) => {
       const body = await readBody(req);
       const id = String(body.id || '').trim().toLowerCase();
       const name = String(body.name || '').trim();
-      const bbox = validBbox(body.bbox);
+      // Wrap BEFORE validating: a rectangle drawn after panning the map sideways
+      // arrives with longitudes off by ±360, which is a real rectangle in the
+      // wrong coordinate space rather than a bad one. osmium rejects it outright
+      // ("wrong format for coordinate"), and the failure carried the CLIPPING
+      // step's name, so it read as the district being outside the province.
+      const bbox = validBbox(normalizeBbox(body.bbox));
       if(!ID_OK.test(id)) return json(res, 400, { error:'id must be lowercase letters, numbers and dashes' });
       if(!name) return json(res, 400, { error:'name is required' });
       if(!bbox) return json(res, 400, { error:'draw a sensible rectangle first' });
@@ -280,10 +390,19 @@ createServer(async (req, res) => {
       const docker = await dockerUp();
       if(!docker.ok) return json(res, 409, { error:docker.reason });
 
+      // Trim to where the extract actually has data. Dragging past the edge of
+      // the province is normal — nothing on screen shows where the data stops.
+      const limit = await extractBbox();
+      const clipped = clampBbox(bbox, limit);
+      if(!clipped) return json(res, 409, {
+        error:'that rectangle is outside the map data — draw it over the province' });
+
       const job = newJob();
       json(res, 202, { job:job.id });
-      buildDistrict(job, { id, name, bbox })
-        .then(entry => { job.entry = entry; })
+      if(wasClamped(bbox, clipped))
+        push(job, '· trimmed to the edge of the map data');
+      buildDistrict(job, { id, name, bbox: clipped })
+        .then(entry => { job.entry = entry; job.pct = 100; })
         .catch(e => { job.error = e.message || String(e); push(job, '✗ ' + job.error); })
         .finally(() => { job.done = true; });
       return;

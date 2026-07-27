@@ -22,6 +22,60 @@ export function validBbox(b){
   return { minLat, minLng, maxLat, maxLng };
 }
 
+// Leaflet does NOT wrap longitude. Pan a world map sideways past a copy and
+// every `latlng` comes back offset by 360 — a rectangle over Parry Sound is
+// reported at −439.9 rather than −79.9, which osmium rejects outright ("wrong
+// format for coordinate"). The build then failed with the CLIPPING step's label
+// on it, which read as "out of province" and only happened after a sideways pan.
+// The in-range short-circuit is not an optimisation: `(-80.1 + 180) % 360 - 180`
+// comes back −80.10000000000002, so wrapping unconditionally would put a
+// floating-point wobble on every rectangle anybody ever draws — and the
+// already-correct case is all of them but one.
+export const wrapLng = lng => {
+  const n = Number(lng);
+  if(!Number.isFinite(n)) return NaN;
+  if(n >= -180 && n <= 180) return n;
+  return ((((n + 180) % 360) + 360) % 360) - 180;
+};
+
+// A drawn rectangle, brought back onto the real world. Null when wrapping puts
+// the box across the antimeridian — a district straddling the date line is not
+// a thing this app has to solve, and building the inverted box would silently
+// clip the wrong side of the planet.
+export function normalizeBbox(b){
+  const x = validBbox(b);
+  if(!x) return null;
+  const minLng = wrapLng(x.minLng), maxLng = wrapLng(x.maxLng);
+  if(minLng >= maxLng) return null;
+  return { minLat: x.minLat, minLng, maxLat: x.maxLat, maxLng };
+}
+
+// The drawn rectangle trimmed to where map data actually exists — the .pbf's
+// own header bounding box. Dragging past the edge of the province extract is
+// normal (you cannot see where the data stops), and trimming is a far better
+// answer than a build that runs for a minute and then reports no roads. Null
+// when the two do not overlap at all: there is genuinely nothing to build.
+export function clampBbox(b, limit){
+  const x = validBbox(b), lim = validBbox(limit);
+  if(!x) return null;
+  if(!lim) return x;
+  const out = {
+    minLat: Math.max(x.minLat, lim.minLat), minLng: Math.max(x.minLng, lim.minLng),
+    maxLat: Math.min(x.maxLat, lim.maxLat), maxLng: Math.min(x.maxLng, lim.maxLng),
+  };
+  return (out.minLat < out.maxLat && out.minLng < out.maxLng) ? out : null;
+}
+
+// Did clamping actually take anything off? Used only to tell the planner
+// whether to say so — a silent trim would leave you wondering why the district
+// came out smaller than you drew it.
+export function wasClamped(drawn, clamped){
+  const a = validBbox(drawn), b = validBbox(clamped);
+  if(!a || !b) return false;
+  return a.minLat !== b.minLat || a.minLng !== b.minLng
+      || a.maxLat !== b.maxLat || a.maxLng !== b.maxLng;
+}
+
 // Inclusive, and deliberately the same test `packCovers` applies to a decoded
 // pack — this one just runs off the descriptor, so it costs no decode.
 export function bboxHas(bbox, coord){

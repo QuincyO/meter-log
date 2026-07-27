@@ -20,7 +20,7 @@ import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
-import { unionBbox, isSparseUnion, unionWaste } from '../districts.js';
+import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
@@ -254,8 +254,16 @@ const boundsOf = b => [[b.minLat, b.minLng], [b.maxLat, b.maxLng]];
 // rectangle together, because a district is one rectangle and growing it means
 // covering both.
 function buildBbox(){
-  if(!districtBox) return extendBase ? extendBase.bbox : null;
-  return extendBase ? unionBbox(extendBase.bbox, districtBox) : districtBox;
+  const wanted = !districtBox
+    ? (extendBase ? extendBase.bbox : null)
+    : (extendBase ? unionBbox(extendBase.bbox, districtBox) : districtBox);
+  if(!wanted) return null;
+  // Trimmed to where the extract actually holds data. There is nothing on the
+  // map showing where the province's data stops, so drawing past the edge is
+  // the normal mistake — and clipping empty ground doesn't fail at the clip, it
+  // fails a minute later in the pack build with "No drivable segments found".
+  const limit = builderState && builderState.pbfBbox;
+  return limit ? clampBbox(wanted, limit) : wanted;
 }
 
 function kmSize(b){
@@ -285,14 +293,20 @@ function describeDistrictTarget(){
   const el = $('plDistrictBox');
   const target = buildBbox();
   if(!target){
-    el.textContent = extendBase
-      ? `Extending ${extendBase.name} — drag the area to add.`
-      : 'No area drawn yet.';
+    el.textContent = districtBox
+      ? 'That rectangle is outside the map data — draw it over the province.'
+      : extendBase
+        ? `Extending ${extendBase.name} — drag the area to add.`
+        : 'No area drawn yet.';
     return;
   }
-  if(!extendBase){ el.textContent = `Area drawn: roughly ${kmSize(target)}.`; return; }
+  // Said out loud, because a silently smaller district would just look wrong.
+  const trimmed = districtBox && wasClamped(
+    extendBase ? unionBbox(extendBase.bbox, districtBox) : districtBox, target)
+    ? ' Trimmed to the edge of the map data.' : '';
+  if(!extendBase){ el.textContent = `Area drawn: roughly ${kmSize(target)}.${trimmed}`; return; }
   el.textContent = `Extending ${extendBase.name}: the rebuild covers roughly ${kmSize(target)}`
-    + ` (was ${kmSize(extendBase.bbox)}).`;
+    + ` (was ${kmSize(extendBase.bbox)}).${trimmed}`;
   // A district is one rectangle, so two areas at opposite corners are joined by
   // clipping everything between them — minutes of build and megabytes of pack
   // for ground nobody drives. Two districts is the better shape for that, and
@@ -389,7 +403,24 @@ function startDrawing(){
       stopDrawing();
       return;
     }
-    setDistrictBox({ minLat:b.getSouth(), minLng:b.getWest(), maxLat:b.getNorth(), maxLng:b.getEast() });
+    // Leaflet reports UNWRAPPED longitudes: pan the map sideways onto the next
+    // world copy and the same rectangle comes back at −439 rather than −79.
+    // osmium rejects that outright, and the build failed with the clipping
+    // step's name on it — which read as "outside the province" and only
+    // happened after a sideways pan. Wrap at the point the box is made, so
+    // nothing downstream ever sees a second copy of the world.
+    const drawn = normalizeBbox({
+      minLat: b.getSouth(), minLng: b.getWest(),
+      maxLat: b.getNorth(), maxLng: b.getEast(),
+    });
+    if(!drawn){
+      // Only reachable by dragging a rectangle across the date line.
+      paintDistrictShapes();
+      $('plDistrictBox').textContent = 'That rectangle wraps the world — draw it again in one piece.';
+      stopDrawing();
+      return;
+    }
+    setDistrictBox(drawn);
     stopDrawing();
   };
   drawHandlers = { down, move, up };
@@ -397,20 +428,73 @@ function startDrawing(){
   $('plDistrictBox').textContent = 'Drag a rectangle over the crew’s work area.';
 }
 
+const mmss = ms => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+// The bar only ever moves forwards. A poll that fails mid-build leaves the last
+// good reading on screen rather than snapping back to zero, which would read as
+// the build restarting itself.
+function paintBuildProgress(job){
+  const wrap = $('plDistrictProg'), fill = $('plDistrictFill'), label = $('plDistrictPhase');
+  if(!wrap) return;
+  wrap.classList.remove('hide');
+  const steps = Number(job && job.steps) || 0;
+  const step = Math.min(Number(job && job.step) || 0, steps);
+  // `pct` is weighted by the service — the first step scans the whole province
+  // and is most of the wait, so step/steps would leave the bar looking stuck on
+  // 1/9 for the bulk of the build.
+  const pct = job && job.done && !job.error ? 100
+    : Math.max(0, Math.min(100, Number(job && job.pct) || 0));
+  fill.style.width = pct + '%';
+  $('plDistrictBar').setAttribute('aria-valuenow', String(pct));
+  wrap.classList.toggle('is-error', !!(job && job.error));
+  // The reported number stays honest — it is work BEHIND you, so it really is 0
+  // through the twenty-odd seconds of the clip. A barber-pole on the TRACK (not
+  // the fill) is what shows the build is alive at 0%, without a bar that claims
+  // progress it hasn't made.
+  wrap.classList.toggle('is-running', !!(job && !job.done));
+  const elapsed = job && job.startedAt ? ` · ${mmss(Date.now() - job.startedAt)}` : '';
+  const count = steps ? ` (${step}/${steps})` : '';
+  // The clip reads the entire province extract however small the district is,
+  // so it is the one step worth warning about rather than leaving someone
+  // watching a bar that has not moved in twenty seconds.
+  const slow = job && /^Clipping/.test(job.phase || '') ? ' — the long one' : '';
+  label.textContent = job && job.error
+    ? `Failed: ${job.error}`
+    : job && job.done
+      ? `Done${elapsed}`
+      : `${job && job.phase ? job.phase : 'Starting'}${slow}…${count}${elapsed}`;
+}
+
+function hideBuildProgress(){
+  const wrap = $('plDistrictProg');
+  if(wrap) wrap.classList.add('hide');
+}
+
 // A build takes minutes — far longer than a fetch should hang — so the service
-// hands back a job id and we poll it for the log.
+// hands back a job id and we poll it for the log and its phase.
 async function pollBuildJob(jobId, log){
+  let last = null;
   for(;;){
     await new Promise(r => setTimeout(r, 900));
     let job;
     try {
       const res = await fetch(`${DEFAULT_BUILDER_URL}/job?id=${encodeURIComponent(jobId)}`);
       job = await res.json();
-    } catch { continue; }                    // a blip mid-build isn't fatal
+    } catch {
+      // A blip mid-build isn't fatal — but keep the clock moving, or a dropped
+      // poll looks like a stalled build.
+      if(last) paintBuildProgress(last);
+      continue;
+    }
+    last = job;
     if(Array.isArray(job.log)){
       log.textContent = job.log.join('\n');
       log.scrollTop = log.scrollHeight;
     }
+    paintBuildProgress(job);
     if(job.done){
       if(job.error) throw new Error(job.error);
       return job;
@@ -436,6 +520,8 @@ async function buildDistrict(){
   log.classList.remove('hide');
   log.textContent = 'Starting…';
   $('plDistrictBuild').disabled = true;
+  const startedAt = Date.now();
+  paintBuildProgress({ startedAt, step:0, steps:0, phase:'Starting' });
   try {
     // Same id as the district being grown, which is the whole mechanism:
     // buildPack overwrites maps/<id>.pack and replaces its catalogue entry, so
@@ -449,6 +535,7 @@ async function buildDistrict(){
     await refreshDistrictList();
   } catch(e){
     log.textContent += `\n✗ ${e.message}`;
+    paintBuildProgress({ startedAt, done:true, error:e.message });
     toast('Build failed');
   } finally {
     updateDistrictButtons();
@@ -463,6 +550,9 @@ async function publishDistricts(){
   const log = $('plDistrictLog');
   log.classList.remove('hide');
   log.textContent = 'Publishing…';
+  // Publishing is three git commands, not nine build phases — the log says
+  // everything a bar could, and a bar stuck at 0/9 would only mislead.
+  hideBuildProgress();
   $('plDistrictPublish').disabled = true;
   try {
     const { job } = await postBuilder('/publish', {});

@@ -624,6 +624,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     panel warns above `SPARSE_UNION` (2× the ground of the areas themselves) and points
     at a separate district — which is now a real option, since the phone picks between
     districts per run on its own.
+  - **A drawn rectangle is wrapped, then trimmed, before it is built.** Leaflet
+    reports **unwrapped** longitudes, so panning the map sideways onto the next copy
+    of the world posts a Parry Sound rectangle at −440 instead of −80; osmium rejects
+    that outright and the failure carried the clipping step's label, which read as
+    "outside the province". `normalizeBbox` wraps it at both ends — the planner where
+    the box is made, the server on the way in. It is then clamped to the extract's own
+    header bbox (`/status` `pbfBbox`, one cached `osmium fileinfo`), because nothing on
+    screen shows where the province data stops and clipping empty ground does not fail
+    at the clip — it fails a minute later in the pack build. Trimming is necessary but
+    not sufficient: Geofabrik's bbox is a rectangle around a province that isn't one,
+    so a corner of it still holds no roads, and that case is reported as a rectangle in
+    the wrong place rather than as `buildPack`'s "wrong input file?".
+  - **The build reports weighted progress.** `BUILD_PHASES` in the service carries a
+    weight per phase and the job exposes `phase`/`step`/`steps`/`pct`/`startedAt`; the
+    panel draws a determinate bar. The weights are the point: the first phase scans the
+    whole province extract whatever the district's size (~79% of a measured small
+    build), so equal steps left the bar on 1/9 for most of it. `pct` counts work
+    *behind* the current phase, so it is honestly 0 through the clip — the moving
+    stripes on the track, not an inflated fill, are what show the build is alive.
+    Scratch files are removed in a `finally`, since a failed build is the one that
+    leaves the most behind.
   - **✕ Remove** (`POST /remove`) deletes `maps/<id>.pack` and its catalogue entry.
     The slug is validated exactly as `/build` validates it — this reaches a filename.
     It is local until Publish, which stages the deletion through the same `git add`.

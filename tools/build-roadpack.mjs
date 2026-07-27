@@ -283,10 +283,16 @@ function addrPoint(geom){
 
 // ── the build ────────────────────────────────────────────────────────────────
 
-export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, mapsDir, log = () => {} }){
+// `onPhase(name)` names the pass about to run, for a caller drawing a progress
+// bar (tools/roadpack-server.mjs). It is distinct from `log`, which is prose for
+// a human reading the build output: phase names are matched against a fixed list
+// and must stay in step with BUILD_PHASES there.
+export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, mapsDir,
+  log = () => {}, onPhase = () => {} }){
   const key = makeKeyer(bbox);
 
   // Pass 1 — how many ways touch each coordinate (junctions).
+  onPhase('Finding junctions');
   log('Finding junctions…');
   const uses = new Map();
   let ways = 0;
@@ -303,6 +309,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
   log(`${ways.toLocaleString()} drivable ways, ${uses.size.toLocaleString()} distinct coordinates`);
 
   // Pass 2 — split ways at junctions, collapse the rest into segments.
+  onPhase('Building segments');
   log('Building segments…');
   const nodeId = new Map();
   const nodes = [];
@@ -342,6 +349,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
   // Pass 3 — the address index (optional).
   const streets = [], places = [], addresses = [];
   if(addrFile){
+    onPhase('Indexing addresses');
     log('Indexing addresses…');
     const streetId = new Map(), placeId = new Map();
     const idFor = (map, list, value) => {
@@ -381,6 +389,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
     log('No address file given — this district will have no offline geocoding.');
   }
 
+  onPhase('Writing the pack');
   const buf = encodePack({ bbox, nodes, segments, streets, places, addresses });
   if(!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
   const packPath = join(mapsDir, `${id}.pack`);

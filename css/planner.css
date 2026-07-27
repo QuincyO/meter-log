@@ -202,6 +202,31 @@ dialog::backdrop{background:rgba(19,23,28,.55)}
 .pldistricts li{margin:3px 0}
 /* Why Build is disabled — Docker down, or --data with no extract in it. */
 .plwarn{color:#b45309;margin-top:8px}
+/* Build progress. Determinate — the phases are known before the build starts —
+   so the bar answers "should I wait?", which a spinner cannot. */
+.plbuildprog{margin:10px 2px 0}
+.plbuildprog-track{height:8px;border-radius:999px;overflow:hidden;
+  background:var(--panel,rgba(127,127,127,.18))}
+.plbuildprog-fill{height:100%;width:0;border-radius:999px;background:#2563eb;
+  transition:width .35s ease}
+.plbuildprog.is-error .plbuildprog-fill{background:#b91c1c}
+.plbuildprog-label{margin:6px 2px 0}
+/* Alive-at-0%: the first phase scans the whole province and legitimately
+   reports no completed work for ~20s. The stripes move on the TRACK, so the
+   fill keeps telling the truth about how much is actually done. */
+.plbuildprog.is-running .plbuildprog-track{
+  background-image:linear-gradient(115deg,
+    rgba(37,99,235,.20) 25%, transparent 25%, transparent 50%,
+    rgba(37,99,235,.20) 50%, rgba(37,99,235,.20) 75%, transparent 75%);
+  background-size:22px 22px;
+  animation:plbuildprog-slide 1.1s linear infinite;
+}
+@keyframes plbuildprog-slide{ from{background-position:0 0} to{background-position:22px 0} }
+@media (prefers-reduced-motion: reduce){
+  .plbuildprog-fill{transition:none}
+  .plbuildprog.is-running .plbuildprog-track{animation:none}
+}
+
 /* Per-district Extend / ✕ Remove. Inline with the row so a long district list
    stays a list rather than becoming a stack of cards. */
 .pldistrict-do{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}

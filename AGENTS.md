@@ -211,6 +211,28 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   `status.git` alone and **not** on the district list being non-empty — removing
   the last district leaves a deletion that still has to be published, and gating
   on the list disabled the very button that ships it.
+  **Leaflet does not wrap longitude, and that broke builds.** Pan the planner map
+  sideways onto the next copy of the world and every `latlng` comes back offset
+  by ±360, so a rectangle over Parry Sound posts as −440 rather than −80. osmium
+  rejects it (`wrong format for coordinate`) and the failure carried the CLIPPING
+  step's label, which read as "outside the province" and only happened after a
+  sideways pan. `normalizeBbox` wraps at both ends now — the planner where the
+  box is made, the server on the way in — so keep any new source of a drawn box
+  going through it. The rectangle is then **trimmed** to the extract's own header
+  bbox (`/status` `pbfBbox`, one cached `osmium fileinfo`). Trimming is necessary
+  but not sufficient: Geofabrik's bbox is a rectangle around a province that is
+  not one, so a corner of it holds no Ontario roads and the build still fails —
+  deliberately with a message about the rectangle, not `buildPack`'s "wrong input
+  file?", which is the wrong diagnosis there. **The build's scratch files are
+  deleted in a `finally`**: a failed build is the one that leaves the most behind,
+  and on a real district that is hundreds of megabytes in the OSRM data folder.
+  The progress bar is **weighted, not step/total** (`BUILD_PHASES`): the clip
+  scans the whole extract and measured ~79% of a small district's build, so equal
+  steps parked the bar on 1/9 for most of it — which looks exactly like the hang
+  the bar exists to disprove. `pct` is work *behind* you, so it is honestly 0
+  during the clip; the moving stripes on the track are what show it is alive.
+  A phase renamed on one side only silently stalls the bar —
+  `tests/districts.test.mjs` checks every `onPhase` name is in `BUILD_PHASES`.
 - **A phone can hold several districts and picks one per run.** `loadGraph(coords)`
   scores installed packs on bbox hits (`pickPack`, pure, in `js/districts.js`) and
   decodes only the winner. Three traps: it scores **descriptors, never decoded

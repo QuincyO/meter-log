@@ -302,6 +302,16 @@ is up, and **Build** stays disabled — with the reason both on hover and spelle
 under the district list — unless Docker Desktop is running (Docker is what runs
 `osmium`) *and* `--data` names a folder that actually holds an `.osm.pbf`.
 
+A build takes minutes, so it shows a **progress bar** with the phase it is on and the
+time elapsed. The first phase — clipping the district out of the province — is most of
+that wait whatever size the district is, because it scans the whole extract; the bar
+sits at 0% through it on purpose (it counts finished work) while the moving stripes
+show it is running.
+
+Draw wherever you like: the rectangle is **trimmed to where the extract actually has
+data**, and one dragged completely off the province is refused before any work starts
+rather than after a minute of clipping.
+
 Each district in the list carries two more actions:
 
 - **⊕ Extend** — draw another rectangle and the district is rebuilt over both, keeping

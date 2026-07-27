@@ -81,6 +81,16 @@
           <button class="btn primary" id="plDistrictBuild" type="button" disabled>🗺 Build district</button>
           <button class="btn" id="plDistrictPublish" type="button" disabled>⇪ Publish to phones</button>
         </div>
+        <!-- A district build takes minutes. The bar is determinate (the phases
+             are known up front, see BUILD_PHASES in tools/roadpack-server.mjs)
+             so it answers "should I wait?" and not just "is it alive?". -->
+        <div class="plbuildprog hide" id="plDistrictProg">
+          <div class="plbuildprog-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+               aria-valuenow="0" aria-labelledby="plDistrictPhase" id="plDistrictBar">
+            <div class="plbuildprog-fill" id="plDistrictFill"></div>
+          </div>
+          <p class="sub plbuildprog-label" id="plDistrictPhase" aria-live="polite"></p>
+        </div>
         <pre class="plbuildlog hide" id="plDistrictLog" aria-live="polite"></pre>
         <div id="plDistrictList" class="sub"></div>
       </div>
