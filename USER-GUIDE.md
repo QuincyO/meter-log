@@ -267,6 +267,15 @@ with 20 planned. You finish 5 of them and install 5 more you came across: that's
 in, so Day 1 drops to the **next 10** and the rest move to tomorrow on their own. You
 don't have to do anything; the number on screen is always the room you have left.
 
+**Meters/day is a ceiling, not a promise — the clock is the other one.** The day is
+sized by whichever is *smaller*: the number you type, or how many stops actually fit
+between leaving at 8:15 and your **Finish by** time. So once your target is above what
+the clock allows, raising it further changes nothing at all — 16, 24 and 40 all give
+the same day. The hint beside the box says so (**about 11 fit before 14:00**), and the
+message after an Optimize reports the size the days really got, plus a note when your
+number didn't fit. To genuinely get more stops into a day, move **Finish by** later on
+the tuning screen — that is the dial that buys you room.
+
 **Changed your Meters/day? Press Optimize.** Typing a new number on its own doesn't
 disturb the day you're already driving — the next 🧭 Optimize is what re-plans it.
 Before the day starts (nothing installed or UTI'd yet) or after you've closed it out,

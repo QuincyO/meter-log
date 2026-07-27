@@ -21,7 +21,7 @@ import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
-import { initWorklistTuning } from './worklist-tuning.js';
+import { expectedDailyStops, initWorklistTuning } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 import { createPressHold } from './press-hold.js';
@@ -721,8 +721,16 @@ async function optimizeRouteHandler(useNetwork){
     const failed = parkedIds.length - ambig;
     const days = Object.keys(dayOf || {}).reduce((m, id) => Math.max(m, dayOf[id]), 0);
     const totalM = Object.values(prim.legMeters).reduce((a, b) => a + b, 0);
+    // Report the size the days ACTUALLY got, not the one that was asked for. The
+    // day is min(target, timeCapacity) — how many stops fit before the finish-by
+    // clock — so above that ceiling the typed number changes nothing. Printing the
+    // request here said "2 days of 24" over a day holding 12, which is exactly why
+    // raising the target read as broken rather than as capped.
+    const effective = Math.max(1, Math.floor(Number(base.dayTarget) || target));
+    const capped = effective < target;
     const extra = ` · ${fmtKm(totalM)}`
-      + (days > 1 ? ` · ${days} days of ${target}` : '')
+      + (days > 1 ? ` · ${days} days of ${effective}` : '')
+      + (capped ? ` — ${target}/day doesn’t fit before ${planShape().finishBy}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
@@ -927,6 +935,7 @@ export async function renderWorklist(){
        ignored.length ? `${ignored.length} set aside` : '',
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
   paintPlanDate();
+  paintTargetHint();
   paintVariantSwitch(items);
   paintFillAddr(items);
   paintDedup(items);
@@ -1106,6 +1115,36 @@ function targetVal(){ return Math.max(1, Math.floor(Number($('wlTarget').value) 
 
 // This installer's cadence for the avg/day hint + day ETA. Set by refreshAvgDay.
 let wlAvgLogMin = null;
+let wlAvgPerDay = null;
+
+// The hint beside the meters/day box: the installer's recent average, and — the
+// part that matters — the CEILING the finish-by clock puts on a day.
+//
+// The route takes `min(target, timeCapacity)` (js/route.js), so a target above
+// what fits before `finishBy` does nothing whatsoever: typing 16, 24 or 40 all
+// produce the same day. With nothing on screen saying so, that reads as a broken
+// control rather than a full one, which is exactly how it was reported.
+//
+// Estimated with `breakMin: 0` to mirror what optimizeRoute actually does — it is
+// never passed a break — rather than the tuning screen's more human 60. The two
+// therefore differ on purpose; this one answers "will my number survive the
+// solve?", and the toast after a run reports the size the days really got.
+function paintTargetHint(){
+  const el = $('wlAvgDay');
+  if(!el) return;
+  const dwell = dwellShape();
+  const finishBy = store.get('wlFinishBy') || '14:00';
+  const fits = expectedDailyStops({
+    departMin: hhmmMin(ROUTE_DEPART_TIME), finishMin: hhmmMin(finishBy),
+    pace: Math.max(1, Math.round(Number($('wlPace').value) || 30)),
+    breakMin: 0, onSiteMin: dwell ? dwell.base : null,
+  });
+  const parts = [];
+  if(wlAvgPerDay) parts.push(`your avg ${wlAvgPerDay}/day`);
+  if(fits != null && fits > 0 && targetVal() > fits)
+    parts.push(`about ${fits} fit before ${finishBy}`);
+  el.textContent = parts.join(' · ');
+}
 function wlDayEta(count){
   if(!wlAvgLogMin || !count) return '';
   const mins = count * wlAvgLogMin + 60;   // + lunch + break
@@ -1115,8 +1154,10 @@ function wlDayEta(count){
 // Pull the installer's avg/day + cadence (installerMetrics) into the hint beside
 // the target field. Online best-effort — silent offline; keeps the last value.
 async function refreshAvgDay(){
-  const el = $('wlAvgDay');
   const c = cfg();
+  // Offline keeps the last value, but the clock ceiling is computed on-device and
+  // must still be painted — it is the half that answers "why is my target ignored".
+  paintTargetHint();
   if(!c.hNumber || !navigator.onLine) return;
   try{
     // Worklist routing is a land workflow, so use land stops even when the
@@ -1132,7 +1173,8 @@ async function refreshAvgDay(){
         $('wlPace').value = String(wlAvgLogMin); store.set('wlPaceMin', String(wlAvgLogMin));
         store.set('wlPaceSource', 'recent30');
       }
-      if(el) el.textContent = perDay ? `your avg ${perDay}/day` : '';
+      wlAvgPerDay = perDay;
+      paintTargetHint();
       $('wlPaceHint').textContent = wlAvgLogMin
         ? `Recent 30-workday pace: ${wlAvgLogMin} min/stop`
         : 'No pace history yet — using the editable 30 min/stop fallback.';
@@ -2154,6 +2196,8 @@ export function initWorklist(opts){
   $('wlTarget').onchange = () => {
     const v = Math.max(1, Math.floor(Number($('wlTarget').value) || 24));
     $('wlTarget').value = String(v); store.set('wlTarget', String(v));
+    // Say straight away when the number just typed is above what the day can hold.
+    paintTargetHint();
   };
   loadPlanFields();
   $('wlPace').onchange = () => {

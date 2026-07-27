@@ -52,7 +52,9 @@ const worklistJs = readFileSync(new URL('../js/worklist.js', import.meta.url), '
 const captureJs = readFileSync(new URL('../js/pages/capture.js', import.meta.url), 'utf8');
 
 test('worklist routes #tuning and exports an opener', () => {
-  assert.match(worklistJs, /import\s*\{\s*initWorklistTuning\s*\}\s*from\s*'\.\/worklist-tuning\.js'/);
+  // The named list is open — worklist.js also pulls expectedDailyStops from here for
+  // the finish-by ceiling shown beside the meters/day box — but the opener must be in it.
+  assert.match(worklistJs, /import\s*\{[^}]*\binitWorklistTuning\b[^}]*\}\s*from\s*'\.\/worklist-tuning\.js'/);
   assert.match(worklistJs, /location\.hash === '#tuning'/);
   assert.match(worklistJs, /export function openTuning\(/);
 });

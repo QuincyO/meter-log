@@ -785,6 +785,14 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   home). Zig-zag *within* a day is fine;
   only the day endpoints are constrained. It returns `dayOf` (`{id: dayNumber}`);
   with no home pin it degrades to plain count-chunks (`dayFallback:true`). The
+  A day is sized `min(userTarget, timeCapacity)` — the typed number, or how many stops
+  fit between `ROUTE_DEPART_TIME` and `finishBy`, whichever is smaller — and the phone
+  has to **say** which one bound. Above the clock ceiling the target does nothing, and
+  the toast used to print the request rather than `base.dayTarget`, so raising it read
+  as a broken control instead of a full day. The toast reports the effective size and
+  names the finish time when it capped; `paintTargetHint` shows the ceiling beside the
+  box (via `expectedDailyStops` with `breakMin: 0`, matching what `optimizeRoute` is
+  actually handed — the tuning screen's `60` is deliberately a different question).
   `target` is a soft anchor from a manual meters/day field on both the planner and
   the phone worklist — the installer's `avgPerDay` (InstallerMetrics) shows beside
   it, and the day cluster syncs via the `Worklist.day` column to the phone's Day 1

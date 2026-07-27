@@ -178,6 +178,17 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   a user-pickable date that is now reachable (pick Thursday, appointment on Wednesday),
   so the message is parked in `wlPlanIssue` and painted — don't restore the bare catch.
   See ARCHITECTURE.md §"The plan day".
+- **The meters/day target is a ceiling that the clock can outrank, and saying so is
+  the feature.** `js/route.js` sizes a day as `min(userTarget, timeCapacity(...))` —
+  how many stops fit between `ROUTE_DEPART_TIME` and `finishBy`. Above that the typed
+  number does nothing, which is correct and was completely invisible: the toast printed
+  the *requested* target (`N days of 24` over a day holding 12), so raising it read as a
+  broken control. The toast now reports `base.dayTarget` and names the finish time when
+  it capped; `paintTargetHint` shows the ceiling beside the box. Two things to keep:
+  the hint passes **`breakMin: 0`** to `expectedDailyStops` because `optimizeRoute` is
+  never handed a break — the tuning screen's more human `60` is a *different question*
+  and the two are meant to differ — and `base.dayTarget` is the only honest source for
+  "how big did the days get", so don't reach back for `targetVal()` when reporting.
 - **One stale pin must never cost the whole route.** `scheduleRouteConstraints`
   rejects an order dated before the route starts by **throwing**, and that throw takes
   the entire route with it, not just that order. In `optimizeRouteHandler` it lands
