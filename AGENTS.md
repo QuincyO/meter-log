@@ -154,11 +154,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 ## Things that are easy to get wrong
 
-- **The phone measures its own roads now — the matrix ladder starts on-device.**
-  `optimizeRoute`'s order is **road graph → (planner OSRM / phone Google Routes) →
-  ORS → straight-line**. `js/roadgraph.js` is a pure, DOM-free router over a
-  downloaded district pack and returns the **same `{D, T}` shape `osrmMatrix`
-  does**; keep that contract or every caller downstream breaks. Four traps:
+- **The phone measures its own roads now — and the press picks the ladder.**
+  There are three entry points into `optimizeRoute` and each has its own order:
+  **phone tap** = road graph → straight-line (free, offline, never a network
+  matrix); **phone hold** (2s) = Google Routes → ORS → straight-line, with the
+  road graph **skipped outright** (`opts.noLocalGraph`); **planner** = local OSRM
+  → ORS → straight-line (`opts.osrmUrl`, never Google). `js/roadgraph.js` is a
+  pure, DOM-free router over a downloaded district pack and returns the **same
+  `{D, T}` shape `osrmMatrix` does**; keep that contract or every caller
+  downstream breaks. Five traps:
   (1) **the repair pass in `localGraphMatrix` is load-bearing** — an unreachable or
   un-snappable stop comes back `Infinity` and would poison the solve, so those pairs
   fall back to crow-flies individually and the run reports it in `note`;
@@ -166,8 +170,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   (3) **a new routing provider string must be added to `js/planner-services.js`** —
   both the display-name map and `createLastRunRecord`'s allow-list whitelist
   providers, so an unlisted one is silently recorded as `haversine` forever;
-  (4) **the planner is deliberately excluded** (`opts.osrmUrl` set) because its real
-  OSRM has turn restrictions this graph does not. The pack also carries an **address
+  (4) **two callers opt out of the graph, for the same underlying reason** — the
+  pack has no turn restrictions. The planner (`opts.osrmUrl`) has a real OSRM that
+  does; the phone's hold (`opts.noLocalGraph`) is how a crew reaches one. Both
+  opt-outs are deliberate: fold either back in and the gesture stops meaning
+  anything inside a downloaded district;
+  (5) **the hold is refused offline** (`optimizeRouteHandler` in `js/worklist.js`)
+  — it skips the pack by definition, so with no signal it can measure nothing at
+  all. The toast has to point at the tap that would have worked. The pack also carries an **address
   index** (v2), wired into `geocodeOne` as provider −1 ahead of Nominatim/Google/ORS;
   a miss falls through to them, so it is an accelerator and never a hard dependency.
   **`normalizeStreet` must behave identically on both sides** — the builder normalizes

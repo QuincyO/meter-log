@@ -1278,7 +1278,14 @@ function timeCapacity(T, offset, locatedCount, startNode, opts){
 // opts.straightLine: skip the road-distance matrix entirely and solve on
 // straight-line (haversine) distances — the phone's default Optimize button, so
 // a normal tap costs nothing beyond geocoding. Not a fallback (usedFallback
-// stays false); the five-tap secret leaves it off to get the real road matrix.
+// stays false). Note it does NOT skip the on-device road graph below, which is
+// free and offline: a tap over a downloaded district is still road-accurate.
+// opts.noLocalGraph: skip that on-device graph and go straight to the network
+// ladder. Nothing sets it on the planner (opts.osrmUrl already excludes the
+// graph); it is the PHONE's two-second hold on 🧭 Optimize — the deliberate
+// second opinion, because the pack carries no turn restrictions and Google does.
+// So the phone's two presses are: tap = {straightLine:true} (graph, else
+// crow-flies) and hold = {noLocalGraph:true} (Google → ORS → straight-line).
 // opts.startFromCurrent: request a fresh phone fix as a one-run route start.
 // With home it fixes both ends; without home the route end remains open. A
 // missing/denied fix falls back to the legacy anchor and sets startFallback.
@@ -1386,10 +1393,16 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // ── the on-device road graph goes first ────────────────────────────────────
   // It is free, needs no signal, and returns real durations, so it outranks
   // every network source — including on a plain straight-line tap, which is the
-  // whole point: with a district downloaded, the crew stops having to think
-  // about which press costs money. The desktop planner is deliberately excluded
-  // (opts.osrmUrl): its local OSRM has turn restrictions and penalties this
-  // graph does not, so it remains the better answer where it is available.
+  // whole point: with a district downloaded, a normal press is road-accurate and
+  // costs nothing. Two callers opt out, for opposite reasons:
+  //   opts.osrmUrl    — the desktop planner. Its local OSRM has turn
+  //                     restrictions and penalties this graph does not, so it
+  //                     remains the better answer where it is available.
+  //   opts.noLocalGraph — the phone's two-second hold. Same reason from the
+  //                     other side: the pack can't know a left turn is illegal,
+  //                     so the crew needs one press that asks a router which
+  //                     does. Skipping the graph is the whole point of it —
+  //                     without this the hold changed nothing inside coverage.
   let localGraph = null, usedLocalGraph = false, localNote = null;
   if(!opts.osrmUrl && !opts.noLocalGraph){
     providerEvent(onProgress, 'routing', 'roadgraph', 'attempted');

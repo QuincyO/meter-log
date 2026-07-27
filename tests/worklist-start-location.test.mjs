@@ -49,10 +49,31 @@ test('the answer still reaches optimizeRoute as startFromCurrent', () => {
   assert.match(js, /optimizeRoute\([^;]+\{[^}]*\bstraightLine\b[^}]*\bstartFromCurrent\b[^}]*\}\)/s);
 });
 
-test('the second route is only ever asked for on the road-matrix press', () => {
-  // A plain tap must cost exactly what it always did: one solve, no matrix.
-  assert.match(js, /compareVariants:\s*!straightLine/);
-  assert.doesNotMatch(js, /compareVariants:\s*true/);
+test('both presses ask for the second route, and it still costs nothing to say so', () => {
+  // A pack-routed tap IS a road run, so it has a road route worth comparing —
+  // asking on both presses is what gives the road/straight toggle something to
+  // switch to. It can never cause a matrix call: route.js only consults the flag
+  // inside `if(onRoad)`, so a tap with no pack still does exactly one solve.
+  assert.match(js, /compareVariants:\s*true/);
+  assert.match(route, /if\(onRoad\)\{\s*\n\s*variants\.road = primary;/);
+  assert.match(route, /if\(opts\.compareVariants\) variants\.straight = solveVariant\(haversineMatrix/);
+});
+
+test('the press picks the ladder: tap measures on-device, hold skips the pack', () => {
+  // The hold is the deliberate second opinion — the pack has no turn
+  // restrictions — so it must opt OUT of the local graph, not merely allow the
+  // network below it. Without noLocalGraph the gesture changes nothing inside
+  // a downloaded district's coverage, which is what it used to do.
+  assert.match(js, /straightLine:\s*!useNetwork,\s*noLocalGraph:\s*useNetwork/);
+  assert.match(js, /bindOptimizeGesture\(\$\('wlOptimize'\),\s*\n\s*\(\) => optimizeRouteHandler\(false\),[^\n]*\n\s*\(\) => optimizeRouteHandler\(true\)\)/);
+  assert.match(route, /if\(!opts\.osrmUrl && !opts\.noLocalGraph\)\{/);
+});
+
+test('a hold with no signal is refused rather than silently measuring nothing', () => {
+  // It skips the pack by definition, so offline it has no source at all. The
+  // refusal has to point at the tap that would have worked.
+  assert.match(js, /if\(!navigator\.onLine && \(useNetwork \|\| !\(havePack && alreadyPinned >= 2\)\)\)\{/);
+  assert.match(js, /tap Optimize to use the offline map/);
 });
 
 // The GPS fix is priced crow-flies — only which meter is NEAREST matters — while

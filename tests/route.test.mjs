@@ -331,6 +331,52 @@ test('a straight-line run does one solve and saves no road route', async () => {
   } finally { globalThis.fetch = before; }
 });
 
+// ── which press picks which ladder ───────────────────────────────────────────
+// The phone's tap and hold differ by exactly two opts, and the difference that
+// matters is whether the on-device district pack is consulted at all. Provider
+// events are the observable proof: 'roadgraph' is emitted before the pack is
+// even loaded, so its absence means the rung was skipped rather than tried and
+// failed. (No pack exists in node, so both runs end on haversine — the point
+// here is the ORDER of the attempts, not which one wins.)
+function providersOf(run){
+  const seen = [];
+  const onProgress = p => { if(p && p.phase === 'provider' && p.activity === 'routing') seen.push(p.provider); };
+  return run(onProgress).then(() => seen);
+}
+
+test('a tap consults the on-device pack first', async () => {
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('no network call expected'); };
+  try {
+    const seen = await providersOf(onProgress =>
+      optimizeRoute(STOPS(), onProgress, null, { straightLine:true }));
+    assert.equal(seen[0], 'roadgraph', 'the free, offline rung is always tried first on a tap');
+    assert.ok(!seen.includes('google-routes'), 'a tap must never reach a billable matrix');
+    assert.ok(!seen.includes('ors'));
+  } finally { globalThis.fetch = before; }
+});
+
+test('a hold skips the pack outright and ladders Google → ORS → straight-line', async () => {
+  // Skipping is the whole point of the gesture: the pack carries no turn
+  // restrictions, so the hold exists to ask a router that has them. If this
+  // regresses to "pack first", the hold silently changes nothing inside a
+  // downloaded district — which is exactly the behaviour it replaced.
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  try {
+    const seen = await providersOf(onProgress =>
+      optimizeRoute(STOPS(), onProgress, null, { noLocalGraph:true }));
+    assert.ok(!seen.includes('roadgraph'), 'the local graph must not even be attempted');
+    assert.deepEqual(seen, ['google-routes', 'google-routes', 'ors', 'ors', 'haversine']);
+
+    // …and both network rungs failing is a real fallback, unlike a tap.
+    const r = await optimizeRoute(STOPS(), null, null, { noLocalGraph:true });
+    assert.equal(r.usedFallback, true);
+    assert.ok(r.fallbackReason, 'the toast has to be able to say why');
+    assert.equal(r.variants.road, null);
+  } finally { globalThis.fetch = before; }
+});
+
 // ── estimated durations (phone has no OSRM) ──────────────────────────────────
 test('estimateDurations turns metres into minutes with a road-detour factor', () => {
   const est = estimateDurations(matrix([[0, 50000], [50000, 0]]), { crowFlies:true });

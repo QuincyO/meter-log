@@ -401,26 +401,40 @@ async function crewStartPin(){
   return null;
 }
 
-async function optimizeRouteHandler(straightLine){
+// useNetwork: which press this is, and therefore which ladder runs.
+//   false (a tap)  → the district pack on this phone, else straight-line. Free,
+//                    works with the radio off, never touches a paid matrix.
+//   true (a hold)  → the pack is SKIPPED on purpose (opts.noLocalGraph) and the
+//                    run goes Google Routes → OpenRouteService → straight-line.
+// The hold is the deliberate second opinion: the pack carries no turn
+// restrictions, so when its answer looks wrong there has to be a way to ask a
+// router that has them. That is the only thing the gesture decides.
+async function optimizeRouteHandler(useNetwork){
   const pending = pendingOf(await allSorted());
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
   // Offline is no longer a flat refusal. With a district downloaded, everything
   // that matters runs on the phone — the only thing that still needs signal is
   // geocoding an address we've never pinned, and those just park. So the gate
   // asks the real question: can this run actually measure anything?
+  // A HOLD skips the pack by definition, so offline it can measure nothing at
+  // all — it is refused, pointing at the tap that would have worked.
   const havePack = !!activePackId();
   const alreadyPinned = pending.filter(x => coordsOf(x)).length;
-  if(!navigator.onLine && !(havePack && alreadyPinned >= 2)){
-    toast(havePack
-      ? 'Offline — needs at least 2 orders with pins'
-      : 'Offline — route optimization needs signal or an offline map');
+  if(!navigator.onLine && (useNetwork || !(havePack && alreadyPinned >= 2))){
+    toast(useNetwork
+      ? (havePack
+        ? 'Offline — holding needs signal; tap Optimize to use the offline map'
+        : 'Offline — road distances need signal; tap Optimize for straight-line')
+      : havePack
+        ? 'Offline — needs at least 2 orders with pins'
+        : 'Offline — route optimization needs signal or an offline map');
     return;
   }
-  const algorithm = havePack
-    ? 'offline road map on this phone'
-    : straightLine
-      ? 'straight-line algorithm'
-      : 'road-matrix algorithm (with straight-line fallback if road distances are unavailable)';
+  const algorithm = useNetwork
+    ? 'Google road distances (then OpenRouteService, then straight-line)'
+    : havePack
+      ? 'offline road map on this phone'
+      : 'straight-line algorithm';
   // One gate, and it carries the decision that matters: a mid-day re-optimize from
   // out in the field must not re-plan as if the crew were back at the muster point.
   const startChoice = await askStartLocation(pending.length, algorithm);
@@ -433,11 +447,14 @@ async function optimizeRouteHandler(straightLine){
   try {
     const home = await homePin();
     const crewStart = await crewStartPin();   // ETA-only anchor + drive-out to draw
-    // compareVariants only ever rides the road-matrix press. On a straight-line
-    // tap route.js ignores it outright — there is no road matrix to compare
-    // against, and this must never be the thing that causes one.
+    // compareVariants is asked for on BOTH presses and costs nothing on the one
+    // that can't use it: route.js only consults the flag inside `if(onRoad)`, so
+    // a tap with no pack still does exactly one solve and this can never be the
+    // thing that causes a matrix call. A pack-routed tap IS a road run, so it
+    // now gets the comparable straight-line variant the toggle switches to.
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
-      straightLine, startFromCurrent, start: crewStart, compareVariants: !straightLine,
+      straightLine: !useNetwork, noLocalGraph: useNetwork,
+      startFromCurrent, start: crewStart, compareVariants: true,
       target, dayFinishBy: hhmmMin(planShape().finishBy), departMin: hhmmMin(ROUTE_DEPART_TIME),
       paceMin: planShape().paceMin, commutePull: planShape().commutePull
     });
@@ -590,11 +607,12 @@ async function optimizeRouteHandler(straightLine){
   }
 }
 
-// ── Optimize press gesture: normal tap vs. the road-matrix secret ────────────
-// A normal tap uses straight-line distances. Holding for two seconds selects the
-// real road-distance matrix. The recognizer itself is js/press-hold.js (pure, and
-// unit-tested); this is only the DOM wiring for it. Three details are
-// load-bearing:
+// ── Optimize press gesture: the on-device run vs. the network secret ────────
+// A normal tap measures on this phone — the district pack when one covers the
+// run, straight-line otherwise. Holding for two seconds skips the pack and asks
+// the network instead (Google → ORS → straight-line). The recognizer itself is
+// js/press-hold.js (pure, and unit-tested); this is only the DOM wiring for it.
+// Three details are load-bearing:
 //
 // **Never preventDefault() `touchstart` here.** It was added once to stop iOS
 // selecting the button's label, and it does — but it cancels every other native
@@ -614,8 +632,8 @@ async function optimizeRouteHandler(straightLine){
 // wireDrag: capture can be lost, and a finger that leaves the button still has to
 // abort the press. They are bound once (this runs once, at wire time) and are
 // inert while no press is active, so there is nothing to remove.
-function bindOptimizeGesture(btn, onStraightLine, onRoadMatrix, holdMs=2000){
-  const press = createPressHold({ holdMs, onTap: onStraightLine, onHold: onRoadMatrix });
+function bindOptimizeGesture(btn, onLocal, onNetwork, holdMs=2000){
+  const press = createPressHold({ holdMs, onTap: onLocal, onHold: onNetwork });
   const release = id => { try { btn.releasePointerCapture(id); } catch { /* already released */ } };
 
   btn.addEventListener('selectstart', e => e.preventDefault());
@@ -912,7 +930,7 @@ function paintVariantSwitch(items){
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.title = s.stale ? 'Saved, but the orders have changed since — optimize again to use it'
       : s.selectable ? 'Use this route'
-      : 'Not worked out yet — hold Optimize to get road distances';
+      : 'Not worked out yet — optimize with an offline map, or hold Optimize for road distances';
     btn.innerHTML = `<span class="wl-variant-name">${esc(s.label)}</span>`
       + `<span class="wl-variant-km">${esc(s.text)}</span>`;
     if(s.selectable) any = true;
@@ -1830,8 +1848,8 @@ export function initWorklist(opts){
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   bindOptimizeGesture($('wlOptimize'),
-    () => optimizeRouteHandler(true),
-    () => optimizeRouteHandler(false));
+    () => optimizeRouteHandler(false),
+    () => optimizeRouteHandler(true));
   $('wlAddToExtend').onclick = () => acceptAddTo(true);
   $('wlAddToSwap').onclick   = () => acceptAddTo(false);
   $('wlAddToLater').onclick  = () => { hideAddTo(); toast('Left for later'); };

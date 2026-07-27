@@ -167,7 +167,18 @@ An order checks itself off automatically when its work order # is actually logge
 
 ### Optimize route
 
-Tap **🧭 Optimize route** (needs signal) to put the pending orders in the best driving order for you:
+Tap **🧭 Optimize route** to put the pending orders in the best driving order for you:
+
+- **A tap is the everyday press, and it is free.** With an offline road map
+  downloaded (Settings ▸ Offline road map) it measures real roads with no signal at
+  all; without one it falls back to straight-line distances, which is still a good
+  order, just blind to rivers and detours.
+- **Holding it for two seconds** looks the road distances up over the internet
+  instead of using your downloaded map. That is the one to use when the offline map
+  routes you somewhere odd — it doesn't know about no-left-turns and one-way streets
+  the way the online one does. It needs signal, and with none it says so and asks you
+  to tap instead. The message before the run always tells you which one you're about
+  to get.
 
 - **Route starts** is the first calendar date, **First stop at** is stop 1's ETA,
   and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
@@ -245,8 +256,9 @@ today alone.
 
 ### Two routes: road matrix and straight-line
 
-When the office plans your day (or you hold **🧭 Optimize route** for two seconds
-to use road distances), **two** routes get worked out for the same stops: one
+Whenever a route is worked out with road distances — the office planning your day,
+a **🧭 Optimize route** tap with an offline map downloaded, or a two-second hold —
+**two** routes get worked out for the same stops: one
 that follows the roads and one that goes in straight-line order. Both are
 measured in real driving kilometres, so the smaller number really is the shorter
 drive — sometimes the simple straight-line order wins.
@@ -260,9 +272,9 @@ and Plan mode all follow it immediately, and it works with no signal. The office
 picks one for you, but you can always switch from the truck.
 
 A button is greyed out when there's nothing to switch to: either that route was
-never worked out (a normal quick Optimize tap only produces the straight-line
-one), or your orders have changed since, so the saved route no longer matches the
-work in hand. Optimize again and both come back.
+never worked out (an Optimize tap with no offline map downloaded only produces the
+straight-line one), or your orders have changed since, so the saved route no longer
+matches the work in hand. Optimize again and both come back.
 
 ### View and adjust the route
 
@@ -360,7 +372,7 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 - The app itself opens offline once it's been loaded on the phone one time.
 - Stops, downtime, edits, removals, the worklist, the end-of-day close, and the PDF all work offline. Saves say "— will sync when online" and the status pill counts what's waiting.
 - Syncing is automatic when signal returns; nothing is lost if the phone stays offline all day.
-- The only things that genuinely need signal: worklist **⇪ Upload / ⇩ Download**, looking up stops older than your cached week, and fresh map tiles on the Map page. They just toast "Offline" and wait — nothing breaks.
+- The only things that genuinely need signal: worklist **⇪ Upload / ⇩ Download**, looking up stops older than your cached week, fresh map tiles on the Map page, and **holding** 🧭 Optimize route (a tap works offline). They just toast "Offline" and wait — nothing breaks.
 
 ### Offline road map
 
@@ -370,6 +382,7 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 - A **↻** means the office published a newer or bigger version of a district you already have — download it again to pick it up.
 - You can keep **more than one** district on the phone. Optimize works out which one covers the day you're routing and uses it, so there's nothing to switch when you move between areas.
 - **Drop** deletes the district you're using. Routes fall back to straight-line estimates until you download one again.
+- Holding **🧭 Optimize route** deliberately **ignores** your downloaded map and looks the roads up online instead — that's the second opinion for when the offline map sends you a strange way round. Everything else uses the map on the phone.
 - A district the office removes stays on your phone and keeps working; it just won't be in the list to download any more.
 
 ---

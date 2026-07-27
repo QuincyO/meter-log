@@ -690,12 +690,23 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     and shows **↻** rather than ✓ — without that, a grown district reads as "already
     installed" forever and never reaches the crew.
 - **Route optimization** (`js/route.js`, the 🧭 Optimize button on the worklist
-  screen). **The matrix ladder is: on-device road graph → (local OSRM on the
-  planner / budget-guarded Google Routes on the phone) → OpenRouteService →
-  straight-line.** With a district downloaded the billable Google path is never
-  reached at all, real durations mean ETAs lose their "(est.)" label, and Optimize
+  screen). **There is no single ladder — the entry point picks one:**
+
+  | run | matrix order |
+  |---|---|
+  | phone, normal **tap** | on-device road graph → straight-line |
+  | phone, two-second **hold** | *(graph skipped, `opts.noLocalGraph`)* budget-guarded Google Routes → OpenRouteService → straight-line |
+  | desktop planner | *(graph skipped, `opts.osrmUrl`)* local OSRM → OpenRouteService → straight-line |
+
+  So a tap never reaches a billable matrix at all: with a district downloaded it is
+  road-accurate, real durations mean ETAs lose their "(est.)" label, and Optimize
   works with the radio off — the only thing still needing signal is geocoding an
-  address that has never been pinned, and those park as they always have. The rest
+  address that has never been pinned, and those park as they always have. Without a
+  district a tap simply solves on crow-flies. The **hold is the deliberate second
+  opinion**: the pack carries no turn restrictions, so when its answer looks wrong
+  the crew needs one press that asks a router which has them — which means the hold
+  must *skip* the graph rather than merely sit below it. It is refused offline
+  (`optimizeRouteHandler`), since it has no other source to fall back on. The rest
   of the pipeline runs on the phone: forward-geocode
   every pending order (**Google Geocoding API**, key in `config.js` —
   API-restricted to Geocoding + Routes (no referrer restriction — the
@@ -862,13 +873,21 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   commute so `solveVariant` drops it from the ordering matrix — distinct from the
   one-run GPS start, which stays a real ordering anchor (its first leg is a charged
   driven leg).
-  **Which matrix is used is the press, not a menu — and with an offline map the
-  press stops mattering.** A normal tap on 🧭 Optimize routes on straight-line
-  distances (free); holding it two seconds pulls the real road matrix. **Once a
-  district pack is downloaded the on-device graph outranks both**, so a plain tap
-  is already road-accurate and the hold only changes anything when the pack does
-  *not* cover the run — which is the point: the crew stops having to remember
-  which press costs money. The recognizer is `js/press-hold.js` — pure, injectable timers,
+  **Which matrix is used is the press, not a menu.** A normal tap on 🧭 Optimize
+  measures **on this phone** — the district pack when one covers the run, crow-flies
+  otherwise — and costs nothing either way. Holding it two seconds **skips the pack**
+  and asks the network instead (Google → ORS → straight-line). The tap is therefore
+  the everyday press even for a road-accurate route, and the crew never has to
+  remember which one costs money; the hold is there for the case the pack cannot
+  serve, because the pack has **no turn restrictions** and can route you the wrong
+  way up a street a real router knows about. That is also why the hold has to skip
+  the graph rather than rank below it: while it merely ranked below, holding changed
+  nothing at all inside a downloaded district. A hold with no signal is refused
+  outright (it has nothing left to measure with) and the toast points back at the
+  tap. Both presses now request `compareVariants`, so a pack-routed tap saves the
+  road **and** straight-line routes for the toggle to compare — it costs one extra
+  local solve and can never trigger a matrix call (`route.js` only reads the flag
+  inside `if(onRoad)`). The recognizer is `js/press-hold.js` — pure, injectable timers,
   unit-tested — and `bindOptimizeGesture` in `js/worklist.js` is only the DOM wiring
   for it. It **aborts the press past 10px of travel**, because Optimize is a
   full-width button and a swipe up the worklist lands on it; without that (and with
@@ -895,12 +914,14 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `straightLineNode` rewrites
   that node's row/column of `D` (and of `T`, scaled by `CROW_MIN_PER_METRE`) with
   crow-flies values while every **between-stop** distance keeps whatever the run
-  actually pulled — road matrix on the two-second hold, straight-line on a normal tap,
-  and an existing road matrix is reused rather than re-fetched. That rewrite exists to
-  keep a live fix out of a matrix somebody **pays** for; a downloaded district costs
-  nothing and already routed the fix along with every other stop, so the rewrite is
-  skipped when `usedLocalGraph` — applying it there would replace a real road distance
-  with an estimate. `tests/worklist-start-location.test.mjs` guards both halves. Only *which meter is
+  actually pulled — the Google/ORS matrix on the two-second hold, crow-flies on a tap
+  with no district, and an existing road matrix is reused rather than re-fetched. That
+  rewrite exists to keep a live fix out of a matrix somebody **pays** for; a downloaded
+  district costs nothing and already routed the fix along with every other stop, so the
+  rewrite is skipped when `usedLocalGraph` — applying it there would replace a real road
+  distance with an estimate. It therefore applies on a hold (which skips the graph, so
+  `usedLocalGraph` is false) and not on a pack-carried tap, which is the correct split:
+  the hold is the run that costs money. `tests/worklist-start-location.test.mjs` guards both halves. Only *which meter is
   nearest* has to be right, so the fix never needs to be in the fetched matrix and
   anchoring the route where you stand costs no matrix elements. A **team** start is
   deliberately excluded from this: its drive-out is shown, priced and drawn, so it

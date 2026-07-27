@@ -165,9 +165,9 @@ test('the selection guard lives in CSS, where it costs no scrolling', () => {
   assert.doesNotMatch(rule[0], /touch-action:\s*none/, 'touch-action:none would block panning');
 });
 
-test('Optimize still wires straight-line to the tap and the road matrix to the hold', () => {
-  assert.match(worklist, /createPressHold\(\{\s*holdMs,\s*onTap:\s*onStraightLine,\s*onHold:\s*onRoadMatrix\s*\}\)/);
-  assert.match(worklist, /bindOptimizeGesture\(\$\('wlOptimize'\),\s*\n\s*\(\) => optimizeRouteHandler\(true\),[^\n]*\n\s*\(\) => optimizeRouteHandler\(false\)\)/);
+test('Optimize wires the on-device run to the tap and the network one to the hold', () => {
+  assert.match(worklist, /createPressHold\(\{\s*holdMs,\s*onTap:\s*onLocal,\s*onHold:\s*onNetwork\s*\}\)/);
+  assert.match(worklist, /bindOptimizeGesture\(\$\('wlOptimize'\),\s*\n\s*\(\) => optimizeRouteHandler\(false\),[^\n]*\n\s*\(\) => optimizeRouteHandler\(true\)\)/);
 });
 
 test('the service worker ships the new module', () => {
