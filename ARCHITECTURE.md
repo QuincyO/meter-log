@@ -789,13 +789,50 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   the phone worklist — the installer's `avgPerDay` (InstallerMetrics) shows beside
   it, and the day cluster syncs via the `Worklist.day` column to the phone's Day 1
   / Day 2 dividers.
+- **The plan day — which day the route is being built *for*.** Day indices become
+  calendar dates through `scheduleRouteConstraints`' `routeStartDate`, and the phone
+  used to derive that as `nextWeekday(localDate())`. That name reads like "tomorrow"
+  but is only a **weekend clamp**, so on any weekday it returned *today* — a route
+  planned at 5pm on a day nobody worked was dated today, with a full day's orders
+  frozen into a day already over, and an appointment booked for tomorrow pushed out
+  to **Day 2** (`workdayOffset(today, tomorrow) = 1`, by construction). The calendar
+  date is load-bearing in exactly one place, appointments and locks — "Tuesday 10am"
+  is a promise to a customer and cannot be said as a day index — so the fix was not to
+  strip dates out but to let the phone name the day. `js/route-planday.js` (pure,
+  unit-tested) is that decision: `weekdayOnOrAfter` (the old clamp, honestly named),
+  `nextWorkday` (genuinely tomorrow), and `resolvePlanDay`, which answers **override →
+  rolled → today**. The roll fires when today is closed out, or when nothing has been
+  logged and the installer's `finishBy` clock has passed; a day that is **under way**
+  never rolls however late it is, because the crew is still driving it. The installer
+  can also point the `#wlPlanDate` control ("Planning for") at any weekday; a stale
+  override — one whose date has passed — is dropped rather than carried, and a weekend
+  pick snaps forward, since `scheduleRouteConstraints` refuses a weekend start.
+  `resolvePlanDay` needs the day's tally (async), while `planShape()` is called
+  synchronously from a dozen places, so `worklist.js` **caches** the answer and
+  refreshes it at the choke points that already await. Before the first refresh the
+  accessor answers conservatively (as if the day were under way, so it never rolls on
+  incomplete information): a wrong "today" self-corrects on the next refresh, a wrong
+  "tomorrow" would silently move the installer's route. The **office still owns the
+  date** on the sheet — the phone's implicit pushes (`syncWorklist` after a log, the
+  `savePlan` riding Download) omit `routeStartDate`, and `Code.gs saveWorklistPlan`
+  only writes the column when the payload carries one, because `upsertByHeader` leaves
+  an unlisted header alone. Only the explicit ⇪ Upload re-dates the row.
 - **The today anchor — freezing Day 1 so completions don't pull tomorrow up.** The
   chunking above runs over the **pending** list, so as orders are logged (dropped
   from `pending`) a re-optimize/Download refills Day 1 to a full `target` from the
   front of what's left — pulling the next day's orders up into today. `js/route-today.js`
   (pure, unit-tested) fixes that with a phone-owned **anchor**: `{date, ids}` in
   `localStorage['wlTodayAnchor']` — the set of order IDs that made up Day 1 the first
-  time the day's route was established. `worklist.js applyTodayAnchor()` is the single
+  time the day's route was established. **`date` is the plan day, not the wall clock.**
+  That distinction is load-bearing: freeze tomorrow's evening-built plan under *today's*
+  date and `needsCommit`'s `anchor.date !== today` fires at midnight, re-planning it and
+  throwing away exactly the work the plan day exists to allow. For the same reason the
+  capacity tally is taken on the **plan day** (`tallyOn`), so a day not yet reached
+  correctly reports a full day's room instead of inheriting what today already spent —
+  while `dayClosed()`/`dayStarted()` in the *roll* decision stay on `localDate()`,
+  because they answer "is the day the installer is standing in spent?". Two different
+  questions; reading one for the other is the easy mistake here.
+  `worklist.js applyTodayAnchor()` is the single
   choke point (run after optimize, Download, a completion, a reset, and first view):
   it (re)commits the anchor when the date rolls, today's set is exhausted, or the
   meters/day target moved under an explicit Optimize (`needsCommit`), then reorders

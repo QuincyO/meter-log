@@ -21,6 +21,7 @@ import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { dwellLookup } from '../route-dwell.js';
+import { weekdayOnOrAfter } from '../route-planday.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -92,14 +93,14 @@ function pullVal(v){
   return isFinite(n) ? Math.max(0, Math.min(100, n)) : 70;
 }
 
-function nextWeekday(date){
-  const d = new Date(`${date}T12:00:00`);
-  while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
 function planShape(){
   return {
-    routeStartDate:$('plRouteDate').value || nextWeekday(localDate()),
+    // Only a DEFAULT for the empty picker — the office's #plRouteDate is the real
+    // answer here, so this stays the plain weekend clamp rather than the phone's
+    // rolling plan day. (weekdayOnOrAfter was a local `nextWeekday` copy; the name
+    // read like "tomorrow" while only skipping weekends, which is exactly how the
+    // phone's routes ended up permanently dated today — see js/route-planday.js.)
+    routeStartDate:$('plRouteDate').value || weekdayOnOrAfter(localDate()),
     firstStopTime:ROUTE_DEPART_TIME,
     paceMin:Math.max(1, Math.round(Number($('plPace').value) || 30)),
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
@@ -117,7 +118,7 @@ function activeVariant(){
 }
 function loadPlan(plan){
   const p = plan || {};
-  $('plRouteDate').value = p.routeStartDate || nextWeekday(localDate());
+  $('plRouteDate').value = p.routeStartDate || weekdayOnOrAfter(localDate());
   $('plPace').value = String(Math.max(1, Number(p.paceMin) || 30));
   store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
   if(p.routeVariant) store.set('plannerVariant:' + hNumber(), p.routeVariant === 'straight' ? 'straight' : 'road');

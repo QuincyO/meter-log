@@ -49,6 +49,17 @@
 .wl-counts{font-weight:800;font-size:15px;color:var(--ink);margin:14px 2px 0}
 .wl-counts:empty{margin:0}
 /* meters/day target + the installer's avg/day reference */
+/* "Planning for" — the day this route is built for. Same row shape as .wl-target
+   below it, but the date input needs room to grow and the hint wraps under both
+   on a narrow phone, so the label/input hold their width and the hint takes the
+   rest of the line. */
+.wl-plan-date{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:12px}
+.wl-plan-date label{margin:0;font-weight:700;color:var(--ink-soft);font-size:13px;flex:none}
+.wl-plan-date input{flex:none;width:auto;min-width:150px}
+.wl-plan-date .muted{margin:0;flex:1 1 100%}
+/* A route the constraints can't satisfy (an appointment dated before the day being
+   planned) used to fail silently — the day tags just stopped moving. */
+.wl-plan-date .muted.warn{color:#754900;font-weight:700}
 .wl-target{display:flex;align-items:center;gap:10px;margin-top:12px}
 .wl-target label{margin:0;font-weight:700;color:var(--ink-soft);font-size:13px;flex:none}
 .wl-target input{width:80px;flex:none}

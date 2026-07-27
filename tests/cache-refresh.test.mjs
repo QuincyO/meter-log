@@ -31,7 +31,7 @@ test('the refresh bypasses the browser HTTP cache and never deletes first', () =
 });
 
 test('the worker still owns the one SHELL list the refresh walks', () => {
-  assert.match(worker, /const CACHE = 'meterlog-v37';/);
+  assert.match(worker, /const CACHE = 'meterlog-v38';/);
   // Refreshing SHELL itself (not a page-side copy) is what stops the file list
   // from drifting the first time someone adds a module.
   assert.match(worker, /SHELL\[next\+\+\]/);
@@ -63,7 +63,12 @@ test('the force update is static files only — it never calls the spine', () =>
   // Measured: the refresh makes 0 Apps Script / Sheets calls. It can only stay
   // that way while SHELL is same-origin relative paths, so an absolute URL
   // sneaking in (a CDN, or worse the /exec endpoint) has to fail here.
-  const shell = worker.slice(worker.indexOf('const SHELL = ['), worker.indexOf('];'));
+  // Comments stripped first: this walks quoted strings line by line, so an
+  // apostrophe in explanatory prose ("it isn't a feature") otherwise reads as a
+  // SHELL entry and fails with a baffling message about a fragment of English.
+  const shell = worker
+    .slice(worker.indexOf('const SHELL = ['), worker.indexOf('];'))
+    .replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(shell, /:\/\//, 'SHELL must hold only same-origin relative paths');
   assert.doesNotMatch(shell, /script\.google\.com|\/exec/);
   for (const line of shell.split('\n').filter(l => l.includes("'")))

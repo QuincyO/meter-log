@@ -154,6 +154,30 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 ## Things that are easy to get wrong
 
+- **"Today" and "the day being planned" are two different dates.** The phone can
+  plan a route for a day that isn't today (`js/route-planday.js`, the `#wlPlanDate`
+  "Planning for" control), and `worklist.js` keys the whole planning path on that
+  **plan day** rather than `localDate()`. Four traps:
+  (1) **`weekdayOnOrAfter` is a weekend CLAMP, not a "tomorrow"** — it returns a
+  weekday unchanged. It was called `nextWeekday`, and that misreading is the entire
+  original bug: every phone route was permanently dated today, so an appointment for
+  tomorrow landed on Day 2 forever. `nextWorkday` is the one that actually advances;
+  (2) **`anchor.date` must be the plan day** — freeze an evening-built plan under
+  today's date and `needsCommit`'s `anchor.date !== today` re-plans it at midnight,
+  destroying exactly the work this allows;
+  (3) **the roll decision reads TODAY's state, the capacity tally reads the PLAN
+  day's** — `dayClosed()`/`dayStarted()` answer "is the day I'm standing in spent?",
+  while `tallyOn(planDay)` answers "how much room does the day I'm planning have?".
+  Swapping either way is silent and wrong;
+  (4) **the office owns `routeStartDate` on the sheet** — the phone's implicit pushes
+  (`syncWorklist`, the `savePlan` on Download) omit it, and `Code.gs saveWorklistPlan`
+  writes the column only when the payload carries one, because `upsertByHeader` leaves
+  an unlisted header alone. Default it back to `|| ''` and every logged stop silently
+  blanks the planner's date picker.
+  Note `applyTodayAnchor` swallows a `scheduleRouteConstraints` throw by design; with
+  a user-pickable date that is now reachable (pick Thursday, appointment on Wednesday),
+  so the message is parked in `wlPlanIssue` and painted — don't restore the bare catch.
+  See ARCHITECTURE.md §"The plan day".
 - **An ETA has two halves, and `opts.dwell` is as easy to forget as `opts.travel`.**
   `simulateDay` walks `arrival = previous departure + drive`, `departure = arrival +
   on-site`. `opts.travel` answers the drive; `opts.dwell` (`js/route-dwell.js`)

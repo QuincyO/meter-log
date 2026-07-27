@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v37';
+const CACHE = 'meterlog-v38';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -32,7 +32,14 @@ const SHELL = [
   './js/worklist-dedup.js', './js/worklist-tuning.js',
   './js/drive.js', './js/drive-track.js', './js/drive-recorder.js',
   './js/drag-autoscroll.js', './js/press-hold.js',
-  './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/route-today.js', './js/planner-services.js', './js/utiReasons.js',
+  './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/route-today.js',
+  // route-dwell.js and route-planday.js are HARD imports of worklist.js, so an
+  // absence here is not a degraded feature — it is a worklist screen that fails
+  // to load offline at all. (route-dwell.js shipped a commit early without one.)
+  // Keep apostrophes out of comments in this block: tests/cache-refresh.test.mjs
+  // reads SHELL entries by matching quoted strings line by line.
+  './js/route-dwell.js', './js/route-planday.js',
+  './js/planner-services.js', './js/utiReasons.js',
   // on-device road routing. The MODULES belong in the shell; the district
   // PACKS (maps/*.pack) deliberately do NOT — they are megabytes, they live in
   // IndexedDB, and refreshShell() re-fetches everything listed here on every

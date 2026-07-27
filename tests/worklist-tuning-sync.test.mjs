@@ -22,8 +22,29 @@ test('saveWorklistPlan persists the target column', () => {
 test('the phone plan shape carries target and Download pushes it up', () => {
   assert.match(worklist, /target\s*:\s*targetVal\(\)/);
   // Plan-only push (never a whole-list saveWorklist, which would clobber the
-  // ordering the phone is about to pull).
-  assert.match(worklist, /action\s*:\s*'savePlan'[\s\S]*plan\s*:\s*savePlanLocal\(\)/);
+  // ordering the phone is about to pull). It sends implicitPlan() — the plan
+  // minus routeStartDate — see the two tests below.
+  assert.match(worklist, /action\s*:\s*'savePlan'[\s\S]*plan\s*:\s*implicitPlan\(\)/);
+});
+
+// The OFFICE owns the route's calendar date (planner.html's "Route starts"); the
+// phone owns tuning + target. Before the phone could plan a day other than today
+// this never mattered — every push wrote the same derived date back. Now a phone
+// planning tomorrow would re-date the planner's route on every logged stop, so the
+// two IMPLICIT pushes drop the field and only the explicit ⇪ Upload carries it.
+test('implicit pushes omit routeStartDate; the explicit Upload keeps it', () => {
+  assert.match(worklist, /function implicitPlan\(\)\s*\{[\s\S]*?routeStartDate,\s*\.\.\.rest[\s\S]*?\}/);
+  // The post-log sync and the Download-time savePlan both go through it.
+  assert.equal((worklist.match(/plan\s*:\s*implicitPlan\(\)/g) || []).length, 2);
+  // The explicit Upload still publishes the full plan, date included.
+  assert.match(worklist, /async function wlUpload\(\)[\s\S]*?plan\s*:\s*savePlanLocal\(\)/);
+});
+
+test('the spine treats an absent routeStartDate as "keep", not "blank"', () => {
+  // upsertByHeader leaves any header it is not handed exactly as it was, so the
+  // field must be added conditionally rather than defaulted to ''.
+  assert.match(code, /if \(plan\.routeStartDate\) fields\.routeStartDate = String\(plan\.routeStartDate\)/);
+  assert.doesNotMatch(code, /routeStartDate:\s*plan\.routeStartDate \|\| ''/);
 });
 
 test('a Download never overwrites the phone-owned tuning + target', () => {

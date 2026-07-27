@@ -231,6 +231,26 @@ If you drag orders around afterwards the total is marked **· edited**, and if y
 add or remove orders it's marked **· out of date** — in both cases the figure was
 worked out for a different run. Optimize again for a fresh number.
 
+### Planning for a day that isn't today
+
+**Planning for** at the top of the worklist says which day the route is being built
+for. Day 1 is that day, Day 2 the working day after it, and an appointment is placed
+on the day its date falls on — so planning tomorrow's route this evening puts
+tomorrow's 10:00 appointment in **Day 1** where it belongs.
+
+It usually looks after itself. The date moves on to the next working day once today
+is done — either you've closed the day out, or nothing was logged and your
+**Finish by** time has gone past — and the line underneath says so
+(**Tue · tomorrow — today is done**). A day you're still working never jumps to
+tomorrow on you, however late it gets.
+
+To plan further ahead, just pick the day. Weekends aren't routed, so choosing one
+moves you to the Monday. Clear the box and it goes back to deciding for itself.
+
+If an order's appointment falls **before** the day you picked, the route can't be
+worked out and the line turns into a warning naming the work order — either move the
+appointment or plan for the earlier day.
+
 ### Today stays today
 
 The first time you look at your route each day, the app **locks in today's list** —

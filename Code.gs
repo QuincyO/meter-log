@@ -1293,9 +1293,8 @@ function saveWorklistPlan(hNumber, plan) {
   if (!h) return;
   ensureWorklistPlansTab();
   const pace = Number(plan.paceMin);
-  upsertByHeader('WorklistPlans', 'hNumber', h, {
+  const fields = {
     hNumber: h,
-    routeStartDate: plan.routeStartDate || '',
     firstStopTime: plan.firstStopTime || '',
     paceMin: isFinite(pace) && pace > 0 ? Math.round(pace) : '',
     paceSource: plan.paceSource || '',
@@ -1312,7 +1311,16 @@ function saveWorklistPlan(hNumber, plan) {
       return isFinite(n) && n > 0 ? n : '';
     })(),
     updated: now()
-  });
+  };
+  // The OFFICE owns the route's calendar date (planner.html's "Route starts"
+  // picker); the phone owns tuning + target. A phone's IMPLICIT pushes — the
+  // post-log worklist sync and the savePlan that rides Download — deliberately
+  // omit routeStartDate so a logged stop can't silently re-date the planner's
+  // route. upsertByHeader leaves any header it isn't handed exactly as it was,
+  // so an absent field means "keep" and not "blank"; only the installer's
+  // explicit ⇪ Upload carries the date and moves the row.
+  if (plan.routeStartDate) fields.routeStartDate = String(plan.routeStartDate);
+  upsertByHeader('WorklistPlans', 'hNumber', h, fields);
 }
 
 /** Plan-only write: persist one installer's route-plan settings (tuning + target)

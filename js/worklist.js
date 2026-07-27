@@ -12,7 +12,7 @@
 import { $, enc, esc, toast, withActivity } from './dom.js';
 import { idb } from './idb.js';
 import { store, cfg } from './store.js';
-import { stamp, localDate, hhmmMin } from './time.js';
+import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, localRoadGeometry } from './route.js';
 import { activePackId } from './roadpack.js';
@@ -43,6 +43,7 @@ import {
   anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from './route-today.js';
+import { isWorkday, nextWorkday, planDayLabel, resolvePlanDay } from './route-planday.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -89,11 +90,86 @@ function askStartLocation(count, algorithm){
   });
 }
 
-function nextWeekday(date){
-  const d = new Date(`${date}T12:00:00`);
-  while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// ── the plan day (which day the route being built is FOR) ───────────────────
+// This used to be `nextWeekday(localDate())` inlined into planShape — a name that
+// reads like "tomorrow" but is only a weekend clamp, so on any weekday the route
+// was always dated TODAY. See js/route-planday.js for the full story and the pure
+// decision layer; this is the side-effecting half that reads the clock and store.
+//
+// resolvePlanDay needs the day's tally (an async IndexedDB read) but planShape()
+// is called synchronously from a dozen places, so the answer is CACHED here and
+// refreshed at the choke points that already await — applyTodayAnchor above all,
+// which runs at boot and after every mutation. Before the first refresh the
+// accessor answers conservatively, as if the day were under way, so it never
+// rolls on incomplete information: a wrong "today" self-corrects on the next
+// refresh, while a wrong "tomorrow" would silently move the installer's route.
+let _planDay = null;
+
+// dayClosed()/dayStarted() here are about TODAY — is the day the installer is
+// standing in spent? — and never about the day being planned. Do not swap them
+// for the plan-day tally that sizes capacity in applyTodayAnchor; they answer
+// two different questions and reading one for the other is the easy mistake.
+function planDayOpts(extra){
+  return {
+    today: localDate(),
+    nowMin: hhmmMin(clockOf(stamp())),
+    finishByMin: hhmmMin(store.get('wlFinishBy') || '14:00'),
+    dayClosed: dayClosed(),
+    override: store.get('wlPlanDate') || '',
+    ...extra,
+  };
 }
+async function refreshPlanDay(){
+  _planDay = resolvePlanDay(planDayOpts({ dayStarted: await dayStarted() }));
+  return _planDay;
+}
+function planDayInfo(){ return _planDay || resolvePlanDay(planDayOpts({ dayStarted:true })); }
+function planDay(){ return planDayInfo().date; }
+
+// Paint the "Planning for" control from the resolved answer. The hint says which
+// day in words ("Tue · tomorrow") and, when the roll fired, WHY — a route that
+// quietly moved itself to another day is worse than one that says it did.
+// A parked constraint error (wlPlanIssue) takes the line over, because the route
+// on screen is then stale and the reason is the only thing worth reading.
+function paintPlanDate(){
+  const input = $('wlPlanDate'), hint = $('wlPlanDateHint');
+  if(!input || !hint) return;
+  const info = planDayInfo();
+  input.min = localDate();
+  input.value = info.date;
+  const issue = store.get('wlPlanIssue') || '';
+  if(issue){
+    hint.textContent = `⚠ ${issue}`;
+    hint.classList.add('warn');
+    return;
+  }
+  hint.classList.remove('warn');
+  const label = planDayLabel(info.date, localDate());
+  hint.textContent = info.source === 'rolled'
+    ? `${label} — today is done`
+    : label;
+}
+
+// The installer picked a day by hand. A weekend is snapped forward rather than
+// rejected (scheduleRouteConstraints refuses a weekend start outright), and a
+// cleared field drops the override so the automatic answer takes back over.
+async function planDateChanged(){
+  const picked = String($('wlPlanDate').value || '');
+  let next = '';
+  if(picked){
+    next = isWorkday(picked) ? picked : nextWorkday(picked);
+    if(next !== picked) toast(`Weekends aren’t routed — planning for ${next}`);
+  }
+  store.set('wlPlanDate', next);
+  store.set('wlPlanIssue', '');
+  await refreshPlanDay();
+  // A changed day makes anchor.date mismatch, so needsCommit re-freezes on its
+  // own — no replan flag needed.
+  await applyTodayAnchor();
+  await renderWorklist();
+  await planAdvance();
+}
+
 // A commute-pull dial value clamped to the 0–100 integer range; blank/garbage
 // falls back to the 70 default (the tuning screen is the only writer).
 function pullVal(v){
@@ -102,7 +178,7 @@ function pullVal(v){
 }
 function planShape(){
   return {
-    routeStartDate:nextWeekday(localDate()),
+    routeStartDate:planDay(),
     firstStopTime:ROUTE_DEPART_TIME,
     paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
     paceSource:store.get('wlPaceSource') || 'fallback',
@@ -124,6 +200,16 @@ function savePlanLocal(){
   const p = planShape();
   store.set('wlPaceMin', String(p.paceMin));
   return p;
+}
+// The plan as an IMPLICIT push sends it: everything except the route's calendar
+// date. The office owns that (planner.html's "Route starts" picker) and the phone
+// owns tuning + target — the same split loadPlanFields describes below — so a
+// post-log sync or the savePlan that rides Download must not silently re-date the
+// planner's route. Code.gs saveWorklistPlan leaves an omitted field exactly as it
+// was, so absent means "keep". Only the installer's explicit ⇪ Upload sends it.
+function implicitPlan(){
+  const { routeStartDate, ...rest } = savePlanLocal();
+  return rest;
 }
 // Apply a downloaded plan's PLANNER-owned scheduling fields only (pace, variant).
 // The installer's phone is the source of truth for tuning + target (commutePull /
@@ -275,7 +361,7 @@ export async function syncWorklist(){
   if(!items.length) return;
   try {
     await withActivity('Syncing worklist…', () => apiPost({ action:'saveWorklist',
-      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape), plan:savePlanLocal() }));
+      installer:c.name, hNumber:c.hNumber, orders: items.map(wireShape), plan:implicitPlan() }));
   } catch { /* best-effort — the manual ⇪ Upload is the loud fallback */ }
 }
 
@@ -289,7 +375,7 @@ async function wlDownload(){
     // The phone owns tuning + target. Push the local plan UP first (plan-only, so it
     // never touches the ordering we're about to pull) so the office/planner sees the
     // installer's latest weights the next time a route is built for them.
-    try { await apiPost({ action:'savePlan', hNumber: c.hNumber, plan: savePlanLocal() }); } catch { /* best effort */ }
+    try { await apiPost({ action:'savePlan', hNumber: c.hNumber, plan: implicitPlan() }); } catch { /* best effort */ }
     const r = await withActivity('Downloading worklist…', () => apiGet('worklist', { hNumber: c.hNumber }));
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
@@ -804,6 +890,7 @@ export async function renderWorklist(){
     ? [`${pending.length} remaining`,
        ignored.length ? `${ignored.length} set aside` : '',
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
+  paintPlanDate();
   paintVariantSwitch(items);
   paintFillAddr(items);
   paintDedup(items);
@@ -1513,10 +1600,10 @@ async function offerAddTo(){
   const items = await allSorted();
   const pending = pendingOf(items);
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
-  const day1 = (anchor && anchor.date === localDate()) ? anchorDay1Ids(anchor, pending) : [];
+  const day1 = (anchor && anchor.date === planDay()) ? anchorDay1Ids(anchor, pending) : [];
   if(!day1.length){ hideAddTo(); return; }
 
-  const capacity = dayCapacity(targetVal(), await installedToday());
+  const capacity = dayCapacity(targetVal(), (await tallyOn(planDay())).installed);
   const next = await todayWithQueued(anchor, pending, byId);
   const n = addToQueue.length;
   // Under "swap" the day keeps its capacity, so whatever sits past it rolls.
@@ -1627,12 +1714,17 @@ function saveAnchor(a){ store.set('wlTodayAnchor', a ? JSON.stringify(a) : ''); 
 // applyOptimisticCache writes the cache before the queue ever drains. countDay is the
 // shared tally behind the Today sheet and the daily log, so these numbers always match
 // what the crew sees. One read serves both callers below.
-async function todayTally(){
+// Takes the DATE to tally, because the day being planned is not always today: a
+// route built this evening is for tomorrow, which has no stops yet, so the cache
+// miss correctly reports a full day's room. Defaults to today for the callers
+// that really do mean "the day the installer is standing in".
+async function tallyOn(date){
   const c = cfg();
   if(!c.name) return countDay([], []);
-  const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
+  const cached = await idb.get('dayCache', `${c.name}|${date || localDate()}`);
   return countDay((cached && cached.stops) || [], []);
 }
+async function todayTally(){ return tallyOn(localDate()); }
 // The day's capacity input. INSTALLED only — the target is meters/day, so a planned
 // order closed as a UTI leaves the pending list without spending a slot.
 async function installedToday(){ return (await todayTally()).installed; }
@@ -1649,15 +1741,19 @@ async function dayStarted(){
 // the next working day, so it may reshuffle freely — same key paceContext reads.
 function dayClosed(){ return store.get('dayClosedDate') === localDate(); }
 
-// Fold the office's day 1 into today's committed set — the "planner decides, phone
-// obeys" rule. Only fires when the downloaded plan actually STARTS today; a plan for
-// tomorrow (the normal case) leaves the anchor alone and its orders queue behind
-// today's, as before. Unlike an order typed on the phone this asks nothing: the
-// office weighed the day deliberately, so `extend` is raised as far as it takes to
-// hold their whole day 1 rather than trimming it against this phone's capacity.
-// The installer can still set an order aside or drag it out afterwards.
+// Fold the office's day 1 into the committed set — the "planner decides, phone
+// obeys" rule. Only fires when the downloaded plan starts on the day THIS PHONE is
+// planning; a plan for any other day leaves the anchor alone and its orders queue
+// behind, as before. (That comparison was against localDate() when the phone could
+// only ever plan today; it must follow the plan day, or an evening download of
+// tomorrow's route — the normal case now — would stop being adopted.) Unlike an
+// order typed on the phone this asks nothing: the office weighed the day
+// deliberately, so `extend` is raised as far as it takes to hold their whole day 1
+// rather than trimming it against this phone's capacity. The installer can still
+// set an order aside or drag it out afterwards.
 async function adoptPlannerDay1(plan){
-  const today = localDate();
+  await refreshPlanDay();
+  const today = planDay();
   if(String((plan && plan.routeStartDate) || '') !== today) return;
   const pending = pendingOf(await allSorted());
   const officeDay1 = pending.filter(p => Number(p.day) === 1).map(p => String(p.id));
@@ -1673,7 +1769,7 @@ async function adoptPlannerDay1(plan){
   const stillPending = new Set(pending.map(p => String(p.id)));
   const held = ids.filter(id => stillPending.has(id)).length;
   const target = targetVal();
-  const capacity = dayCapacity(target, await installedToday());
+  const capacity = dayCapacity(target, (await tallyOn(today)).installed);
   saveAnchor({ date: today, ids,
     extend: Math.max(anchorExtend(anchor), Math.max(0, held - capacity)),
     target: anchorTarget(anchor) || target });
@@ -1700,14 +1796,23 @@ async function applyTodayAnchor(opts){
   const items = await allSorted();
   const pending = pendingOf(items);
   if(!pending.length) return;
-  const today = localDate();
+  // The day being planned, which is usually but NOT always today — an evening plan
+  // is for tomorrow. Everything below keys on it: the anchor's date, the capacity
+  // tally, and the route's start date via planShape(). Keying the anchor on
+  // localDate() instead would freeze tomorrow's plan under today's date, and
+  // needsCommit's `anchor.date !== today` would then re-plan it at midnight —
+  // throwing away exactly the evening's work this feature exists to allow.
+  await refreshPlanDay();
+  const today = planDay();
   const target = targetVal();
   const pendingSeq = pending.map(p => String(p.id));
 
   // The day's real capacity says how many orders there is room for, so meters the
   // crew installed off-plan push today's tail out to tomorrow on their own. Computed
-  // before the commit decision because a mid-day re-plan is BOUNDED by it.
-  const tally = await todayTally();
+  // before the commit decision because a mid-day re-plan is BOUNDED by it. Tallied on
+  // the PLAN day: a day not yet reached has no stops, so planning ahead correctly
+  // finds a full day's room rather than inheriting what today already spent.
+  const tally = await tallyOn(today);
   const capacity = dayCapacity(target, tally.installed);
   // A day with no installs and no UTIs has not started, and a closed-out day is spent
   // — either way the route on screen is for a day nobody has driven yet, so a re-plan
@@ -1744,7 +1849,18 @@ async function applyTodayAnchor(opts){
   try {
     schedule = scheduleRouteConstraints(pending, seq,
       { ...planShape(), target, day1Count: fits, travel, dwell: dwellShape() });
-  } catch { return; }   // locks/appointments make it impossible — leave days as they are
+    store.set('wlPlanIssue', '');
+  } catch(e) {
+    // Locks/appointments make this impossible — leave the days exactly as they are.
+    // Bare-swallowing it was nearly harmless while the start date was always today;
+    // now that the installer can pick the day, it is one tap away (choose Thursday
+    // with a Wednesday appointment ⇒ "…is dated before the route starts") and a
+    // silently frozen route is the worst way to say so. Park the message for the
+    // plan-date hint to paint.
+    store.set('wlPlanIssue', String((e && e.message) || 'Route constraints cannot be met'));
+    paintPlanDate();
+    return;
+  }
 
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
   let i = 0, wrote = false;
@@ -1993,6 +2109,8 @@ export function initWorklist(opts){
   $('wlAddToLater').onclick  = () => { hideAddTo(); toast('Left for later'); };
   $('wlVariantRoad').onclick = () => switchVariant('road');
   $('wlVariantStraight').onclick = () => switchVariant('straight');
+  $('wlPlanDate').onchange = planDateChanged;
+  paintPlanDate();
   // Meters/day target: restore the saved value (default 24) and persist edits.
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').onchange = () => {

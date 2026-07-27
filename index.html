@@ -181,6 +181,16 @@
       <button class="ghost" id="wlUpload" type="button" style="flex:1">⇪ Upload list</button>
       <button class="ghost" id="wlDownload" type="button" style="flex:1">⇩ Download list</button>
     </div>
+    <!-- Which day this route is FOR. Defaults to the next workable day (it rolls
+         off a day that is closed out, or one nobody logged that is already past
+         the finish-by clock) and can be pointed at any weekday. Appointments are
+         placed relative to it, so planning tonight for tomorrow puts tomorrow's
+         appointment on Day 1 instead of Day 2. -->
+    <div class="wl-plan-date">
+      <label for="wlPlanDate">Planning for</label>
+      <input id="wlPlanDate" type="date">
+      <span class="muted" id="wlPlanDateHint"></span>
+    </div>
     <div class="wl-target">
       <label for="wlTarget">Meters/day</label>
       <input id="wlTarget" type="number" min="1" step="1" inputmode="numeric">
