@@ -237,6 +237,13 @@ with 20 planned. You finish 5 of them and install 5 more you came across: that's
 in, so Day 1 drops to the **next 10** and the rest move to tomorrow on their own. You
 don't have to do anything; the number on screen is always the room you have left.
 
+**Changed your Meters/day? Press Optimize.** Typing a new number on its own doesn't
+disturb the day you're already driving — the next 🧭 Optimize is what re-plans it.
+Before the day starts (nothing installed or UTI'd yet) or after you've closed it out,
+that's a clean re-plan at the new number. Partway through, the day only grows into the
+room it has left: set 24 with 6 already in and today fills to **18 more**, not a fresh
+24. Set the target *lower* and the extra stops roll to tomorrow.
+
 ### Adding orders partway through the day
 
 Add an order after your route is set and the app asks where it goes:

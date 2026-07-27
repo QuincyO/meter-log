@@ -39,7 +39,7 @@ import {
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
-  anchorDay1Ids, anchorExtend, day1Count, dayCapacity, freshAnchorIds,
+  anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from './route-today.js';
 
@@ -573,8 +573,11 @@ async function optimizeRouteHandler(useNetwork){
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
     // Freeze today's set: override the plain target-chunk days so re-optimizing
     // after finishing some orders can't pull tomorrow's up. Real matrix travel keeps
-    // the ETAs exact.
-    await applyTodayAnchor({ travel });
+    // the ETAs exact. `replan` is the ONE thing that can unfreeze today: a deliberate
+    // Optimize whose meters/day target has moved since the set was frozen. The days
+    // were just re-solved at that target above, so the fresh commit reads tags that
+    // match it — which is exactly why the target box itself does not trigger this.
+    await applyTodayAnchor({ travel, replan: true });
     await renderWorklist();
     await planAdvance();
     // Parked = wouldn't map (may still carry its last good pin); ambiguous =
@@ -1471,6 +1474,7 @@ async function acceptAddTo(extend){
     date: anchor.date,
     ids: [...anchor.ids.map(String), ...added],
     extend: anchorExtend(anchor) + (extend ? added.length : 0),
+    target: anchorTarget(anchor) || targetVal(),
   });
   hideAddTo();
 
@@ -1535,19 +1539,33 @@ function loadAnchor(){
 }
 function saveAnchor(a){ store.set('wlTodayAnchor', a ? JSON.stringify(a) : ''); }
 
-// Meters actually installed today, from ANY source — planned orders and the walk-ups
-// a crew finds in the field alike. Read from the same storage-first dayCache the pace
-// projection uses (paceContext), so it is exact offline and correct the instant a stop
-// is logged: applyOptimisticCache writes the cache before the queue ever drains.
-// Counts INSTALLED only — the target is meters/day, so a planned order closed as a UTI
-// leaves the pending list without spending a slot. countDay is the shared tally used by
-// the Today sheet and the daily log, so this number always matches what the crew sees.
-async function installedToday(){
+// Today's real stops, tallied — from ANY source, planned orders and the walk-ups a crew
+// finds in the field alike. Read from the same storage-first dayCache the pace projection
+// uses (paceContext), so it is exact offline and correct the instant a stop is logged:
+// applyOptimisticCache writes the cache before the queue ever drains. countDay is the
+// shared tally behind the Today sheet and the daily log, so these numbers always match
+// what the crew sees. One read serves both callers below.
+async function todayTally(){
   const c = cfg();
-  if(!c.name) return 0;
+  if(!c.name) return countDay([], []);
   const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
-  return countDay((cached && cached.stops) || [], []).installed;
+  return countDay((cached && cached.stops) || [], []);
 }
+// The day's capacity input. INSTALLED only — the target is meters/day, so a planned
+// order closed as a UTI leaves the pending list without spending a slot.
+async function installedToday(){ return (await todayTally()).installed; }
+
+// Has today's work actually begun? Installs OR UTIs — a UTI spends no meter slot
+// (installedToday deliberately ignores it) but it is still a stop the crew drove to,
+// so a day holding one is under way and its route must not be freely reshuffled.
+async function dayStarted(){
+  const t = await todayTally();
+  return Boolean(t.installed || t.uti);
+}
+
+// The day has been closed out (finishDay stamped it). The plan being built now is for
+// the next working day, so it may reshuffle freely — same key paceContext reads.
+function dayClosed(){ return store.get('dayClosedDate') === localDate(); }
 
 // Fold the office's day 1 into today's committed set — the "planner decides, phone
 // obeys" rule. Only fires when the downloaded plan actually STARTS today; a plan for
@@ -1572,9 +1590,11 @@ async function adoptPlannerDay1(plan){
   const ids = [...anchor.ids.map(String), ...added];
   const stillPending = new Set(pending.map(p => String(p.id)));
   const held = ids.filter(id => stillPending.has(id)).length;
-  const capacity = dayCapacity(targetVal(), await installedToday());
+  const target = targetVal();
+  const capacity = dayCapacity(target, await installedToday());
   saveAnchor({ date: today, ids,
-    extend: Math.max(anchorExtend(anchor), Math.max(0, held - capacity)) });
+    extend: Math.max(anchorExtend(anchor), Math.max(0, held - capacity)),
+    target: anchorTarget(anchor) || target });
 }
 
 // The single choke point that keeps "today" frozen. Commits today's set on the
@@ -1590,6 +1610,10 @@ async function adoptPlannerDay1(plan){
 // not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
 // opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
 // exact); otherwise an on-device estimate is used and the "(est.)" marker is set.
+// opts.replan: this is an explicit Optimize, so a CHANGED meters/day target may
+// re-freeze today (only optimize passes it — see needsCommit in route-today.js).
+// Without that, a set frozen at target 6 kept a six-order Day 1 no matter what the
+// target was raised to, on that day and on every day after it.
 async function applyTodayAnchor(opts){
   const items = await allSorted();
   const pending = pendingOf(items);
@@ -1598,18 +1622,39 @@ async function applyTodayAnchor(opts){
   const target = targetVal();
   const pendingSeq = pending.map(p => String(p.id));
 
+  // The day's real capacity says how many orders there is room for, so meters the
+  // crew installed off-plan push today's tail out to tomorrow on their own. Computed
+  // before the commit decision because a mid-day re-plan is BOUNDED by it.
+  const tally = await todayTally();
+  const capacity = dayCapacity(target, tally.installed);
+  // A day with no installs and no UTIs has not started, and a closed-out day is spent
+  // — either way the route on screen is for a day nobody has driven yet, so a re-plan
+  // may reshuffle it freely. Mid-day it may only grow into the room actually left.
+  const freeReplan = !(tally.installed || tally.uti) || dayClosed();
+
   let anchor = loadAnchor();
-  if(needsCommit(anchor, today, pending)){
-    anchor = { date: today, ids: freshAnchorIds(pending, target) };
+  // A target change re-plans today, but only on an explicit Optimize (opts.replan) —
+  // and never into a day with no room left, because committing an empty set would make
+  // needsCommit fire again on every subsequent call. A met target is a FULL day, not an
+  // exhausted one; its leftovers roll rather than tomorrow's rolling in.
+  const replan = Boolean(opts && opts.replan) && (freeReplan || capacity > 0);
+  // A commit that fires while today's frozen set is STILL ALIVE can only be the
+  // target-change re-plan — and that is the one bounded by the room actually left, so
+  // raising the target at noon grows today into the space it has rather than hauling a
+  // whole fresh target up out of tomorrow. The other commit reasons (new day, set
+  // finished, a day nobody has driven yet) stay exactly as unbounded as they were.
+  const midReplan = !freeReplan && anchor && anchor.date === today
+    && anchorDay1Ids(anchor, pending).length > 0;
+  if(needsCommit(anchor, today, pending, { replan, target })){
+    anchor = { date: today,
+      ids: freshAnchorIds(pending, target, { max: midReplan ? capacity : null }),
+      extend: 0, target };
     saveAnchor(anchor);
   }
   const day1 = anchorDay1Ids(anchor, pending);
   const seq = orderAnchorFirst(pendingSeq, day1);
 
-  // How many of today's set still FIT. The frozen ids say which orders are today;
-  // the day's real capacity says how many of them there is room for, so meters the
-  // crew installed off-plan push today's tail out to tomorrow on their own.
-  const capacity = dayCapacity(target, await installedToday());
+  // How many of today's set still FIT.
   const fits = day1Count(anchor, day1, capacity);
 
   const travel = (opts && opts.travel) || estimateTravel(pending);
@@ -1699,7 +1744,7 @@ export async function paceContext(){
     avgLegTravelMin: travel.perStopMin,
     onsitePerStop: onsitePerStopReal(stops),
     finishByMin: hhmmMin(planShape().finishBy),
-    dayClosed: store.get('dayClosedDate') === localDate(),
+    dayClosed: dayClosed(),
   };
 }
 

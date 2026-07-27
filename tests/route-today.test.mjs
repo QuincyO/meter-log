@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  anchorDay1Ids, anchorExtend, day1Count, dayCapacity, freshAnchorIds,
+  anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from '../js/route-today.js';
 
@@ -42,6 +42,45 @@ test('needsCommit: an exhausted set rolls to the next chunk', () => {
   assert.equal(needsCommit({ date:'2026-07-24', ids:['z'] }, '2026-07-24', items(['a', 'b'])), true);
 });
 
+test('anchorTarget reads the frozen target, null for a legacy anchor or junk', () => {
+  assert.equal(anchorTarget({ date:'d', ids:['a'], target:6 }), 6);
+  assert.equal(anchorTarget({ date:'d', ids:['a'], target:'24' }), 24);
+  assert.equal(anchorTarget({ date:'d', ids:['a'] }), null);        // legacy {date, ids}
+  assert.equal(anchorTarget({ target:0 }), null);
+  assert.equal(anchorTarget({ target:'lots' }), null);
+  assert.equal(anchorTarget(null), null);
+});
+
+test('needsCommit: a raised target re-plans today, but only on an explicit Optimize', () => {
+  const anchor = { date:'2026-07-24', ids:['a'], target:6 };
+  const pending = items(['a', 'b']);
+  // The Optimize press is the re-plan; typing a new number in the box is not.
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { target:24 }), false);
+});
+
+test('needsCommit: an Optimize at an UNCHANGED target never unfreezes today', () => {
+  // The whole reason the anchor exists: re-optimizing after finishing a few orders
+  // must not refill Day 1 from the front of what's left.
+  const anchor = { date:'2026-07-24', ids:['a'], target:24 };
+  assert.equal(
+    needsCommit(anchor, '2026-07-24', items(['a', 'b']), { replan:true, target:24 }), false);
+});
+
+test('needsCommit: a legacy anchor re-plans once on the next Optimize', () => {
+  // No stored target ⇒ unknown ⇒ treated as changed, which is what unsticks a day
+  // frozen under a target nobody can recover.
+  const anchor = { date:'2026-07-24', ids:['a'] };
+  const pending = items(['a', 'b']);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
+});
+
+test('needsCommit: opts never overrides "nothing pending"', () => {
+  assert.equal(needsCommit({ date:'d', ids:['a'], target:6 }, 'd', [], { replan:true, target:24 }), false);
+});
+
 test('freshAnchorIds prefers the current day-1 group when days are tagged', () => {
   // a,b are Day 1 (an optimizer time-shrunk day of 2); c,d are Day 2. Freeze Day 1.
   const pending = [
@@ -60,6 +99,26 @@ test('freshAnchorIds falls back to the first target ids for a never-routed list'
 test('freshAnchorIds ignores blank day tags (treated as unrouted)', () => {
   const pending = [{ id:'a', day:'' }, { id:'b', day:'' }, { id:'c', day:'' }];
   assert.deepEqual(freshAnchorIds(pending, 2), ['a', 'b']);
+});
+
+test('freshAnchorIds caps the frozen set at opts.max (the day’s remaining room)', () => {
+  const tagged = [{ id:'a', day:1 }, { id:'b', day:1 }, { id:'c', day:1 }, { id:'d', day:2 }];
+  assert.deepEqual(freshAnchorIds(tagged, 24, { max:2 }), ['a', 'b']);   // tagged group trimmed
+  assert.deepEqual(freshAnchorIds(tagged, 24, { max:9 }), ['a','b','c']); // roomier than the group
+  const untagged = [{ id:'a' }, { id:'b' }, { id:'c' }];
+  assert.deepEqual(freshAnchorIds(untagged, 24, { max:2 }), ['a', 'b']); // fallback capped too
+  assert.deepEqual(freshAnchorIds(untagged, 2, { max:9 }), ['a', 'b']);  // target still binds
+});
+
+test('freshAnchorIds: an absent/null max is UNBOUNDED, not zero', () => {
+  // Number(null) is 0 — a coercion that would silently freeze an empty day on the
+  // very path (a day nobody has driven yet) that means "no limit".
+  const tagged = [{ id:'a', day:1 }, { id:'b', day:1 }];
+  assert.deepEqual(freshAnchorIds(tagged, 24, { max:null }), ['a', 'b']);
+  assert.deepEqual(freshAnchorIds(tagged, 24, {}), ['a', 'b']);
+  assert.deepEqual(freshAnchorIds(tagged, 24), ['a', 'b']);
+  assert.deepEqual(freshAnchorIds(tagged, 24, { max:'lots' }), ['a', 'b']);
+  assert.deepEqual(freshAnchorIds(tagged, 24, { max:0 }), []);   // an explicit 0 IS zero
 });
 
 test('orderAnchorFirst leads with today, preserving each group’s order', () => {

@@ -797,8 +797,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `localStorage['wlTodayAnchor']` — the set of order IDs that made up Day 1 the first
   time the day's route was established. `worklist.js applyTodayAnchor()` is the single
   choke point (run after optimize, Download, a completion, a reset, and first view):
-  it (re)commits the anchor when the date rolls or today's set is exhausted
-  (`needsCommit`), then reorders pending so today's committed orders lead
+  it (re)commits the anchor when the date rolls, today's set is exhausted, or the
+  meters/day target moved under an explicit Optimize (`needsCommit`), then reorders
+  pending so today's committed orders lead
   (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with
   **`opts.day1Count`**, while days 2+ still fill by `target`. The commit snapshots the
   route's **current** Day-1 group (honouring any `timeCapacity` shrink or the office's
@@ -825,8 +826,31 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   today a whole fresh target. `needsCommit` is deliberately keyed on the set's
   *identity*, never on capacity — a full day still owns its unfinished orders, so
   hitting the target pushes today's leftovers out rather than rolling tomorrow's in.
+- **`anchor.target` — the freeze must not outlive the plan that sized it.** Keying the
+  freeze on identity alone meant a set committed at 6 meters/day kept a six-order Day 1
+  forever: raising the target to 24 changed nothing, and re-optimizing could not shift
+  it. Worse, it survived the night — the new day's commit prefers the `day` tags already
+  on the orders, and those were stamped by the target-6 solve, so it re-froze at 6 before
+  Optimize was ever pressed. The anchor now records the target it was frozen under
+  (`anchorTarget`, `null` for a legacy record), and `needsCommit` gains a fourth reason:
+  a **re-plan** (`opts.replan`) whose target differs re-commits. Three things there are
+  deliberate:
+  - **Only an explicit Optimize passes `replan`.** Typing a new number in the box is not
+    a re-plan; the press is — and it is also the moment the days have just been re-solved
+    at the new target, so the fresh commit reads tags that actually match it. A logged
+    stop, a Download, or first view still keep today exactly frozen.
+  - **An Optimize at an *unchanged* target must never re-commit**, or re-optimizing after
+    finishing a few orders refills Day 1 from the front of what's left — the original bug
+    the anchor exists to prevent.
+  - **A mid-day re-plan is bounded by `dayCapacity`** (`freshAnchorIds`' `opts.max`), so
+    raising the target at noon grows today into the room it has left rather than hauling
+    a whole fresh target up out of tomorrow. A day with no installs *and* no UTIs, or one
+    already closed out (`dayClosedDate`), is a day nobody has driven — those reshuffle
+    freely, unbounded. A legacy anchor reads as changed, which is the one-shot that
+    unsticks a day frozen under a target nobody can recover.
 - **`anchor.extend` — working past the target on purpose.** The anchor is
-  `{date, ids, extend}`; a legacy `{date, ids}` reads as extend 0. `extend` counts the
+  `{date, ids, extend, target}`; a legacy `{date, ids}` reads as extend 0 and target
+  unknown. `extend` counts the
   stops the installer *explicitly agreed* to work beyond capacity, and is added on top
   of it. It is written by two paths:
   - **An order added on the phone** (`saveOrder` → `offerAddTo`, `#wlAddTo`) asks,
