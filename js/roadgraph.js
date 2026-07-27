@@ -34,7 +34,10 @@ export const PACK_MAGIC   = 'MLRP';
 // simpler and more honest than carrying a compatibility branch forever. Bump
 // this in BOTH this file and tools/build-roadpack.mjs — tests/roadgraph.test.mjs
 // builds its fixtures through the real writer, so a one-sided change fails there.
-export const PACK_VERSION = 2;
+// v3 adds the road-name table (`roadText`/`roadBlob`) and one name id per
+// segment (`segName`), which is what turns a drawn path into instructions you
+// can read out: without it the router knows the way but cannot name the road.
+export const PACK_VERSION = 3;
 export const HEADER_BYTES = 64;
 export const COORD_SCALE  = 1e6;
 
@@ -212,12 +215,17 @@ function readHeader(view, bytes){
     addrCount:   view.getUint32(44, true),
     strBytes:    view.getUint32(48, true),
     placeBytes:  view.getUint32(52, true),
+    // v3 road names. Both 0 on a pack whose source had no `name` tags at all,
+    // which stays perfectly routable — it just gives unnamed instructions.
+    roadNameCount: view.getUint32(56, true),
+    roadBytes:     view.getUint32(60, true),
   };
 }
 
 // Section layout, in file order. Keep this table and tools/build-roadpack.mjs's
 // writer in lockstep — it is the single description of the format on this side.
-function sectionPlan({ nodeCount, segCount, shapeCount, streetCount, placeCount, addrCount, strBytes, placeBytes }){
+function sectionPlan({ nodeCount, segCount, shapeCount, streetCount, placeCount, addrCount,
+  strBytes, placeBytes, roadNameCount = 0, roadBytes = 0 }){
   return [
     ['nodeLat',  Int32Array,  nodeCount],
     ['nodeLng',  Int32Array,  nodeCount],
@@ -243,6 +251,14 @@ function sectionPlan({ nodeCount, segCount, shapeCount, streetCount, placeCount,
     ['addrNum',    Uint32Array, addrCount],
     ['addrLat',    Int32Array,  addrCount],
     ['addrLng',    Int32Array,  addrCount],
+    // ── v3 road names ──
+    // APPENDED, never inserted — the same rule the Sheet's columns follow, and
+    // for the same reason: every offset above would shift. `segName` is skipped
+    // entirely when there are no names, so a nameless district pays nothing for
+    // a feature it can't use.
+    ['segName',  Uint32Array, roadNameCount ? segCount : 0],
+    ['roadText', Uint32Array, roadNameCount ? roadNameCount + 1 : 0],
+    ['roadBlob', Uint8Array,  roadBytes],
   ];
 }
 
@@ -389,6 +405,22 @@ function buildStreetIndex(g){
 }
 
 export function hasAddresses(g){ return !!(g && g.addrCount > 0); }
+
+// ── road names (v3) ──────────────────────────────────────────────────────────
+// Kept as the RAW OSM name, not the normalized form the address index stores:
+// this one is read aloud to a driver, so "Muskoka Road 3" has to stay
+// "Muskoka Road 3" and not become "muskoka rd 3".
+
+export function hasRoadNames(g){ return !!(g && g.roadNameCount > 0); }
+
+// '' for an unnamed road — which is normal on rural laneways and is why the
+// direction builder falls back to "continue" rather than naming nothing.
+export function roadName(g, seg){
+  if(!g || !g.roadNameCount || !g.segName) return '';
+  if(!(seg >= 0 && seg < g.segCount)) return '';
+  if(!g.roadNames) g.roadNames = decodeStrings(g.roadBlob, g.roadText, g.roadNameCount);
+  return g.roadNames[g.segName[seg]] || '';
+}
 
 // Place a house number among one street's points, which are sorted by number.
 // Exact match wins; otherwise INTERPOLATE between the neighbours that bracket
@@ -757,19 +789,34 @@ export function matrix(g, coords){
 // or nothing connects them — callers draw a straight line in that case, which
 // is the behaviour a missing legGeometry already produces today.
 export function path(g, fromCoord, toCoord){
+  return pathDetail(g, fromCoord, toCoord).points;
+}
+
+// The same drive, with the SEGMENTS it ran over and the direction each was
+// driven in — everything js/directions.js needs to name the roads and measure
+// the turns. `path()` is the thin wrapper, so there is one routing code path
+// rather than two that can disagree.
+//   { points: [[lat,lng], …], legs: [{ seg, forward }, …] }
+// `forward` means driven from the segment's `from` node toward its `to` node,
+// which is what decides where its shape starts and which way it is pointing.
+export function pathDetail(g, fromCoord, toCoord){
+  const none = { points: [], legs: [] };
   const a = snap(g, fromCoord), b = snap(g, toCoord);
-  if(!a || !b) return [];
+  if(!a || !b) return none;
   const ends = snapEnds(g, b);
   const want = new Set([ends.fromNode, ends.toNode]);
   const res = dijkstra(g, a, want, true);
   const viaFrom = res.cost(ends.fromNode) + ends.inFromFrom;
   const viaTo   = res.cost(ends.toNode)   + ends.inFromTo;
   const direct  = sameSegmentDirect(g, a, b);
-  if(!Number.isFinite(Math.min(viaFrom, viaTo, direct.sec))) return [];
+  if(!Number.isFinite(Math.min(viaFrom, viaTo, direct.sec))) return none;
 
   // A straight run along one segment never touches the node graph.
-  if(direct.sec <= viaFrom && direct.sec <= viaTo)
-    return dedupe(betweenOnSegment(g, a.seg, a, b));
+  if(direct.sec <= viaFrom && direct.sec <= viaTo){
+    const pts = betweenOnSegment(g, a.seg, a, b);
+    const forward = shapePosition(g, a.seg, b).at >= shapePosition(g, a.seg, a).at;
+    return { points: dedupe(pts), legs: [{ seg: a.seg, forward }] };
+  }
 
   const endNode = viaFrom <= viaTo ? ends.fromNode : ends.toNode;
   // Walk the predecessor chain back to the source, collecting whole segments.
@@ -787,16 +834,28 @@ export function path(g, fromCoord, toCoord){
   // end of the source segment the path actually left by, so driving order is
   // "toward to" only when that end IS the segment's to-node.
   const out = partialSegment(g, a.seg, a, cur === g.segTo[a.seg]);
+  const legs = [{ seg: a.seg, forward: cur === g.segTo[a.seg] }];
   for(const { seg, to } of chain){
     const pts = segmentPoints(g, seg);
     const ordered = to === g.segTo[seg] ? pts : pts.slice().reverse();
     for(const p of ordered) out.push(p);
+    legs.push({ seg, forward: to === g.segTo[seg] });
   }
   // The part-segment into the target, walked from the arrival node inwards and
   // then reversed so the whole polyline stays in driving order.
   const tail = partialSegment(g, b.seg, b, endNode === g.segTo[b.seg]);
   for(let i = tail.length - 1; i >= 0; i--) out.push(tail[i]);
-  return dedupe(out);
+  // partialSegment walks OUTWARD from the snap toward endNode and the result is
+  // reversed above, so arriving at the segment's `to` node means the last leg is
+  // driven backwards along it.
+  //
+  // Unless the target sits on the segment we ARRIVED along, in which case the
+  // tail is the same segment again — and adding it produced a phantom "make a
+  // U-turn" at the end of a route that never turned round. The polyline is
+  // fine either way; only the leg list would double up.
+  if(legs[legs.length - 1].seg !== b.seg)
+    legs.push({ seg: b.seg, forward: endNode !== g.segTo[b.seg] });
+  return { points: dedupe(out), legs };
 }
 
 // Consecutive identical points make for a fatter polyline and nothing else;

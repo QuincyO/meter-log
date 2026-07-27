@@ -233,6 +233,32 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   during the clip; the moving stripes on the track are what show it is alive.
   A phase renamed on one side only silently stalls the bar —
   `tests/districts.test.mjs` checks every `onPhase` name is in `BUILD_PHASES`.
+- **Directions come from the pack, and the pack has no turn restrictions.**
+  `js/directions.js` builds turn-by-turn from `pathDetail`'s segment list plus
+  pack v3's road names. It can say the geometry turns left; it **cannot** say
+  the left turn is legal — same reason the planner still uses a real OSRM. Any
+  UI that shows these has to say so. Four traps: road names are stored **raw**,
+  not through `normalizeStreet` (a driver reads them, so "Muskoka Road 3" must
+  not become "muskoka rd 3" — the address index's normalization is the opposite
+  requirement); **a road that bends is still one road**, so same-name legs merge
+  through anything short of doubling back, or a curving concession becomes a
+  stack of 30 m "bear right" steps; the three tidying passes in
+  `buildDirections` each came from real output and each has a test, so don't
+  drop one as redundant; and `pathDetail` must not push the arrival segment
+  twice when the target sits on the segment the route arrived along, which
+  produced a phantom U-turn onto the road just joined.
+- **A pack format change means every district is rebuilt and republished.**
+  `PACK_VERSION` is 3 and there is deliberately **no reader for older packs** —
+  a v2 pack now throws on decode, which `roadpack.js` treats as unusable. Bump
+  it only together with rebuilding and publishing every district in `maps/`, or
+  crews lose offline routing until they re-download. The Settings picker's ↻
+  marker is what tells them to.
+- **A truncated road export used to build a smaller district silently.**
+  `eachFeature` counts unparseable lines and `buildPack` threw that count away,
+  so a geojsonseq cut short — suspected cause, a Docker bind mount on Windows
+  not flushed to the host when the container exits — produced a pack missing
+  roads with nothing said. It is fatal now. If a district's node count looks far
+  too low for its area, that is the failure to suspect; rebuild and compare.
 - **A phone can hold several districts and picks one per run.** `loadGraph(coords)`
   scores installed packs on bbox hits (`pickPack`, pure, in `js/districts.js`) and
   decodes only the winner. Three traps: it scores **descriptors, never decoded

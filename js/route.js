@@ -34,6 +34,7 @@ import { stamp, localDate } from './time.js';
 import { onSiteMinutes } from './route-constraints.js';
 import { matrix as roadGraphMatrix, path as roadGraphPath, geocodeAddress, hasAddresses } from './roadgraph.js';
 import { loadGraph, coverage } from './roadpack.js';
+import { directionsBetween, canGiveDirections } from './directions.js';
 
 const GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const MATRIX_URL  = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
@@ -501,6 +502,24 @@ async function osrmMatrix(coords, osrmUrl){
 // the real roads on its map. Returns the encoded string, or '' on any failure —
 // a missing leg just falls back to a straight line, never an error. Same lng,lat
 // GOTCHA as the matrix: OSRM speaks GeoJSON order, the reverse of our {lat,lng}.
+// Turn-by-turn for one drive, entirely on the phone, from the downloaded
+// district pack. Returns [] — never throws — when there is no pack, the pack
+// predates road names (v2), or the two ends don't connect on this graph; every
+// caller already has the "hand off to a maps app" path for that.
+//
+// The stops themselves pick the district, the same way the matrix does, so a
+// crew holding two districts gets directions from whichever covers the drive.
+export async function offlineDirections(from, to){
+  try {
+    const graph = await loadGraph([from, to].filter(Boolean));
+    if(!graph || !canGiveDirections(graph)) return [];
+    return directionsBetween(graph, from, to);
+  } catch(e){
+    console.warn('offline directions failed:', e);
+    return [];
+  }
+}
+
 export async function osrmLegGeometry(from, to, osrmUrl){
   const a = coordsOf(from), b = coordsOf(to);
   if(!a || !b) return '';

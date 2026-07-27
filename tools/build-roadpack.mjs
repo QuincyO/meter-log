@@ -123,6 +123,14 @@ export function encodePack(graph){
   const nodes = graph.nodes, segs = graph.segments;
   const streets = graph.streets || [];
   const places  = graph.places  || [];
+  // v3 road names. Entry 0 is ALWAYS '' so a segment with no name tag can point
+  // at it — the alternative, a sentinel id, means every reader has to remember
+  // the sentinel. A list holding ONLY that sentinel is written as no list at
+  // all: the builder always seeds `['']`, so a district where nothing is named
+  // would otherwise ship a name table that names nothing and report itself as
+  // capable of directions.
+  const roadNames = (graph.roadNames || []).some(n => String(n ?? '').trim())
+    ? graph.roadNames : [];
   // Addresses MUST arrive sorted by (street, house number): the street id of a
   // point is implied by streetOff, and placeOnStreet() binary-searches numbers.
   const addrs = (graph.addresses || []).slice()
@@ -133,9 +141,12 @@ export function encodePack(graph){
   const streetCount = streets.length, placeCount = places.length, addrCount = addrs.length;
   const str = encodeStrings(streets);
   const plc = encodeStrings(places);
+  const roadNameCount = roadNames.length;
+  const road = encodeStrings(roadNames);
 
   const counts = { nodeCount, segCount, shapeCount, streetCount, placeCount, addrCount,
-    strBytes: str.blob.length, placeBytes: plc.blob.length };
+    strBytes: str.blob.length, placeBytes: plc.blob.length,
+    roadNameCount, roadBytes: road.blob.length };
 
   const plan = [
     ['nodeLat',  Int32Array,  nodeCount],
@@ -157,6 +168,11 @@ export function encodePack(graph){
     ['addrNum',    Uint32Array, addrCount],
     ['addrLat',    Int32Array,  addrCount],
     ['addrLng',    Int32Array,  addrCount],
+    // ── v3 road names ── appended; keep in lockstep with sectionPlan() in
+    // js/roadgraph.js, which is the reader's copy of this same table.
+    ['segName',  Uint32Array, roadNameCount ? segCount : 0],
+    ['roadText', Uint32Array, roadNameCount ? roadNameCount + 1 : 0],
+    ['roadBlob', Uint8Array,  counts.roadBytes],
   ];
   let total = HEADER_BYTES;
   const offsets = {};
@@ -182,6 +198,8 @@ export function encodePack(graph){
   view.setUint32(44, addrCount,   true);
   view.setUint32(48, counts.strBytes,   true);
   view.setUint32(52, counts.placeBytes, true);
+  view.setUint32(56, roadNameCount,     true);
+  view.setUint32(60, counts.roadBytes,  true);
 
   const arr = {};
   for(const [name, Ctor, len] of plan) arr[name] = new Ctor(buf, offsets[name], len);
@@ -198,6 +216,7 @@ export function encodePack(graph){
     arr.segLen[s]   = Math.max(1, Math.round(seg.lengthM));
     arr.segSpeed[s] = Math.max(1, Math.min(255, Math.round(seg.speedKph)));
     arr.segFlags[s] = seg.flags | 0;
+    if(roadNameCount) arr.segName[s] = seg.nameId | 0;
     arr.shapeOff[s] = shapeAt;
     for(const [lat, lng] of (seg.shape || [])){
       arr.shapeLat[shapeAt] = Math.round(lat * COORD_SCALE);
@@ -211,6 +230,8 @@ export function encodePack(graph){
   if(counts.strBytes) arr.strBlob.set(str.blob);
   arr.placeText.set(plc.offsets);
   if(counts.placeBytes) arr.placeBlob.set(plc.blob);
+  if(roadNameCount) arr.roadText.set(road.offsets);
+  if(counts.roadBytes) arr.roadBlob.set(road.blob);
 
   // streetOff is the start of each street's run in the sorted address array.
   // Built by counting, so a street with no points gets an empty (equal) range
@@ -296,7 +317,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
   log('Finding junctions…');
   const uses = new Map();
   let ways = 0;
-  await eachFeature(roadsFile, f => {
+  const badRoadLines = await eachFeature(roadsFile, f => {
     const w = usableWay(f);
     if(!w) return;
     ways++;
@@ -307,6 +328,16 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
     }
   });
   log(`${ways.toLocaleString()} drivable ways, ${uses.size.toLocaleString()} distinct coordinates`);
+  // A geojsonseq written by osmium is machine-generated: every line parses, or
+  // the file was cut short. That count used to be computed and thrown away, and
+  // a truncated export therefore produced a SMALLER DISTRICT THAT LOOKED FINE —
+  // roads simply missing from a crew's offline map, with nothing said. It is
+  // fatal now, because "build it again" is cheap and a half-mapped district
+  // discovered on the water is not. (Suspected cause when it happens: a Docker
+  // bind mount on Windows not yet flushed to the host when the container exits.)
+  if(badRoadLines)
+    throw new Error(`the road export is truncated (${badRoadLines} unreadable line`
+      + `${badRoadLines === 1 ? '' : 's'}) — build the district again`);
 
   // Pass 2 — split ways at junctions, collapse the rest into segments.
   onPhase('Building segments');
@@ -314,6 +345,19 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
   const nodeId = new Map();
   const nodes = [];
   const segments = [];
+  // Road names, for directions. Entry 0 is '' so an unnamed way — common on
+  // rural laneways — needs no sentinel. Stored RAW, not through
+  // normalizeStreet: this text is read by a driver, and "Muskoka Road 3" must
+  // not arrive as "muskoka rd 3" the way the address index deliberately does.
+  const roadNames = [''];
+  const roadNameId = new Map([['', 0]]);
+  const nameIdFor = raw => {
+    const name = String(raw ?? '').trim();
+    if(!name) return 0;
+    let id = roadNameId.get(name);
+    if(id === undefined){ id = roadNames.length; roadNameId.set(name, id); roadNames.push(name); }
+    return id;
+  };
   const nodeFor = (lat, lng, k) => {
     let nid = nodeId.get(k);
     if(nid === undefined){ nid = nodes.length; nodeId.set(k, nid); nodes.push([lat, lng]); }
@@ -324,6 +368,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
     if(!w) return;
     const speedKph = parseMaxspeed(w.props.maxspeed) || SPEEDS[w.hw];
     const flags = onewayFlags(w.props);
+    const nameId = nameIdFor(w.props.name);
     let shape = [], lengthM = 0, fromNode = null;
     for(let i = 0; i < w.coords.length; i++){
       const lng = w.coords[i][0], lat = w.coords[i][1];
@@ -336,14 +381,17 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
         // A way that loops back on itself produces a zero-length stub; drop it
         // rather than seeding the graph with a self-edge.
         if(to !== fromNode && lengthM > 0)
-          segments.push({ from: fromNode, to, lengthM, speedKph, flags, shape });
+          segments.push({ from: fromNode, to, lengthM, speedKph, flags, nameId, shape });
         fromNode = to; shape = []; lengthM = 0;
       } else {
         shape.push([lat, lng]);
       }
     }
   });
-  log(`${nodes.length.toLocaleString()} nodes, ${segments.length.toLocaleString()} segments`);
+  const namedSegs = segments.reduce((n, s) => n + (s.nameId ? 1 : 0), 0);
+  log(`${nodes.length.toLocaleString()} nodes, ${segments.length.toLocaleString()} segments`
+    + `, ${(roadNames.length - 1).toLocaleString()} road names`
+    + ` (${Math.round(namedSegs / Math.max(1, segments.length) * 100)}% of segments named)`);
   if(!segments.length) throw new Error('No drivable segments found — wrong input file?');
 
   // Pass 3 — the address index (optional).
@@ -390,7 +438,7 @@ export async function buildPack({ roadsFile, addrFile = '', id, name, bbox, maps
   }
 
   onPhase('Writing the pack');
-  const buf = encodePack({ bbox, nodes, segments, streets, places, addresses });
+  const buf = encodePack({ bbox, nodes, segments, streets, places, addresses, roadNames });
   if(!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
   const packPath = join(mapsDir, `${id}.pack`);
   writeFileSync(packPath, buf);

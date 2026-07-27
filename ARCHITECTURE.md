@@ -576,6 +576,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   a bbox-clipped `osmium` export of the same Ontario `.pbf` already downloaded for
   OSRM, and committed under `maps/` with a published `maps/index.json` catalogue —
   GitHub Pages serves them like everything else. See DEPLOY.md and `maps/README.md`.
+- **Turn-by-turn directions (`js/directions.js`, pack v3).** The graph already knew
+  the way; v3 adds what each road is *called* — a road-name table plus one name id
+  per segment (`segName`/`roadText`/`roadBlob`, appended, ~4 bytes a segment) — and
+  `pathDetail` returns the segments a drive ran over and the direction each was
+  driven. `buildDirections` turns those into instructions: bearings in and out of
+  each segment give a signed turn angle, `TURN_BANDS` classifies it, and the road
+  name says what to turn onto. All pure and DOM-free; `offlineDirections(from, to)`
+  in `js/route.js` is the wiring, and it picks the district from the stops exactly
+  as the matrix does. Names are stored **raw**, deliberately unlike the address
+  index's `normalizeStreet` form — this text is read by a driver, so "Muskoka Road
+  3" must not arrive as "muskoka rd 3". Three tidying passes, each added because
+  the raw list read badly against a real district and each pinned by a test:
+  short steps (< `MIN_STEP_M`) fold into the one before, adjacent steps on the same
+  road rejoin, and a turn onto an unnamed link adopts the name of the road it leads
+  onto ("Turn left onto Highway 11 for 4.4 km", not "Turn left for 430 m" then
+  "Continue on Highway 11"). A road that **bends** stays one instruction — merging
+  only on a dead-straight join produced a stack of unusable 30 m steps on a curving
+  concession. **The pack carries no turn restrictions**, so these are a driver's aid
+  and not something to follow blindly; that is the same reason the desktop planner
+  still routes against a real OSRM, and the UI must say so. A v2 pack routes fine
+  and simply reports `canGiveDirections === false`.
 - **Offline geocoding (the pack's second job).** Forward geocoding was the one part
   of Optimize that still needed signal after on-device routing landed, so pack v2
   carries an address index built from the same extract: a street dictionary, a
