@@ -43,7 +43,9 @@ import {
   anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from './route-today.js';
-import { isWorkday, nextWorkday, planDayLabel, resolvePlanDay } from './route-planday.js';
+import {
+  isWorkday, nextWorkday, planDayLabel, resolvePlanDay, soonestAppointment, staleLockIds,
+} from './route-planday.js';
 
 let fillCapture = () => {};     // set by initWorklist (capture.js)
 let _wlEditId = null;           // null = new order, string = id being edited
@@ -120,8 +122,36 @@ function planDayOpts(extra){
   };
 }
 async function refreshPlanDay(){
-  _planDay = resolvePlanDay(planDayOpts({ dayStarted: await dayStarted() }));
+  // The soonest live appointment holds the roll back: scheduleRouteConstraints
+  // refuses an order dated before the route starts by THROWING, which costs the
+  // whole route rather than that one order.
+  const items = await allSorted();
+  _planDay = resolvePlanDay(planDayOpts({
+    dayStarted: await dayStarted(),
+    soonestAppointment: soonestAppointment(items, localDate()),
+  }));
+  await expireStaleLocks(_planDay.date, items);
   return _planDay;
+}
+
+// Clear position locks pinned to a day that has now passed. `toggleOrderLock`
+// stamps a lock with the order's scheduledDate, so every lock carries whatever
+// the plan day was when it was set — move the plan day forward and they all go
+// unsatisfiable at once. The solver does not skip them, it throws, and that
+// throw lands in optimizeRouteHandler BEFORE the writes for order/day and for
+// legGeometry: the day sizes freeze at their old values and the route map falls
+// back to straight lines. One dead pin must never cost the entire route.
+// Silent by design — the card's lock badge going out is the signal, and a toast
+// on every boot would be noise.
+async function expireStaleLocks(planDay, items){
+  const stale = new Set(staleLockIds(items || await allSorted(), planDay));
+  if(!stale.size) return 0;
+  for(const item of (items || await allSorted())){
+    if(!stale.has(String(item.id))) continue;
+    await idb.put('worklist', Object.assign({}, item,
+      { lockedDate:'', lockedSlot:'', updatedAt:stamp() }));
+  }
+  return stale.size;
 }
 function planDayInfo(){ return _planDay || resolvePlanDay(planDayOpts({ dayStarted:true })); }
 function planDay(){ return planDayInfo().date; }
@@ -145,8 +175,9 @@ function paintPlanDate(){
   }
   hint.classList.remove('warn');
   const label = planDayLabel(info.date, localDate());
-  hint.textContent = info.source === 'rolled'
-    ? `${label} — today is done`
+  hint.textContent =
+      info.source === 'rolled'      ? `${label} — today is done`
+    : info.source === 'appointment' ? `${label} — held here by an appointment`
     : label;
 }
 
@@ -497,6 +528,11 @@ async function crewStartPin(){
 // restrictions, so when its answer looks wrong there has to be a way to ask a
 // router that has them. That is the only thing the gesture decides.
 async function optimizeRouteHandler(useNetwork){
+  // Settle the plan day (and expire any lock pinned to a day now past) before
+  // anything reads planShape() — scheduleRouteConstraints throws on a stale pin,
+  // and that throw lands before this handler writes order/day or legGeometry,
+  // which is how one dead lock froze the day sizes AND emptied the road map.
+  await refreshPlanDay();
   const pending = pendingOf(await allSorted());
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
   // Offline is no longer a flat refusal. With a district downloaded, everything
@@ -1793,17 +1829,19 @@ async function adoptPlannerDay1(plan){
 // Without that, a set frozen at target 6 kept a six-order Day 1 no matter what the
 // target was raised to, on that day and on every day after it.
 async function applyTodayAnchor(opts){
-  const items = await allSorted();
-  const pending = pendingOf(items);
-  if(!pending.length) return;
   // The day being planned, which is usually but NOT always today — an evening plan
   // is for tomorrow. Everything below keys on it: the anchor's date, the capacity
   // tally, and the route's start date via planShape(). Keying the anchor on
   // localDate() instead would freeze tomorrow's plan under today's date, and
   // needsCommit's `anchor.date !== today` would then re-plan it at midnight —
   // throwing away exactly the evening's work this feature exists to allow.
+  // Resolved BEFORE the items are read: it expires locks left pinned to a day that
+  // has passed, so `items` must be the list from after that sweep.
   await refreshPlanDay();
   const today = planDay();
+  const items = await allSorted();
+  const pending = pendingOf(items);
+  if(!pending.length) return;
   const target = targetVal();
   const pendingSeq = pending.map(p => String(p.id));
 

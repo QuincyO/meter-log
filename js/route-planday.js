@@ -82,6 +82,9 @@ export function resolvePlanDay(opts){
   const base = weekdayOnOrAfter(today) || today;
 
   const override = String(o.override || '');
+  // Deliberate and therefore never clamped: if the picked day conflicts with an
+  // appointment, that is surfaced as the "dated before the route starts" warning
+  // rather than silently overruling the installer.
   if(isWorkday(override) && override >= today) return { date: override, source: 'override' };
 
   // `null`/absent is an UNKNOWN clock, and must not coerce to Number(null) === 0 —
@@ -90,9 +93,55 @@ export function resolvePlanDay(opts){
   const min = v => (v == null || v === '') ? null : (isFinite(Number(v)) ? Number(v) : null);
   const nowMin = min(o.nowMin), finishByMin = min(o.finishByMin);
   const pastFinish = nowMin != null && finishByMin != null && nowMin >= finishByMin;
-  if(o.dayClosed || (!o.dayStarted && pastFinish)) return { date: nextWorkday(today), source: 'rolled' };
+  const answer = (o.dayClosed || (!o.dayStarted && pastFinish))
+    ? { date: nextWorkday(today), source: 'rolled' }
+    : { date: base, source: 'today' };
 
-  return { date: base, source: 'today' };
+  // The roll must never jump OVER a live appointment. scheduleRouteConstraints
+  // refuses to place an order dated before the route starts — and it refuses by
+  // throwing, which costs the whole route rather than that one order, so a plan
+  // day past a still-pending commitment breaks everything. Clamp back to it.
+  const soonest = String(o.soonestAppointment || '');
+  if(isWorkday(soonest) && soonest >= today && soonest < answer.date)
+    return { date: soonest, source: 'appointment' };
+  return answer;
+}
+
+/** The earliest appointment still worth planning around: pending orders only,
+ *  dated on or after today. A missed one (dated in the past) is deliberately not
+ *  returned — it cannot be honoured by any plan day, so letting it clamp would
+ *  drag the route onto a dead date. */
+export function soonestAppointment(items, today){
+  const live = (items || [])
+    .filter(x => x && x.wlStatus !== 'done' && !isSetAside(x))
+    .map(x => String((x && x.appointmentDate) || ''))
+    .filter(d => isWorkday(d) && d >= String(today || ''));
+  return live.length ? live.sort()[0] : '';
+}
+
+/** Pending orders whose position lock is pinned to a day before the one being
+ *  planned. A lock is a routing convenience — "hold this at slot 3 that day" —
+ *  and `toggleOrderLock` derives its date from the order's `scheduledDate`, so
+ *  every lock is stamped with the plan day that was current when it was set.
+ *  Move the plan day forward and those become unsatisfiable; the solver then
+ *  throws on them and takes the entire route down with it. They are expired
+ *  rather than honoured: the day they named has gone. */
+export function staleLockIds(items, planDay){
+  const day = String(planDay || '');
+  return (items || [])
+    .filter(x => x && x.wlStatus !== 'done' && !isSetAside(x))
+    .filter(x => {
+      const d = String(x.lockedDate || '');
+      return DATE_RE.test(d) && d < day;
+    })
+    .map(x => String(x.id));
+}
+
+// A local copy of route-variants.js isIgnored — importing it would drag the
+// constraint solver in behind it, and this module is deliberately dependency-free.
+function isSetAside(x){
+  const v = x && x.ignored;
+  return v === true || v === 'TRUE' || v === 'true' || v === 1 || v === '1';
 }
 
 /** Human label for the plan-date hint: "Tue · tomorrow", "today", "Thu · in 3 days".

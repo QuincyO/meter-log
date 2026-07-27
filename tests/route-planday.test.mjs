@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isWorkday, nextWorkday, planDayLabel, resolvePlanDay, weekdayOnOrAfter,
+  isWorkday, nextWorkday, planDayLabel, resolvePlanDay, soonestAppointment,
+  staleLockIds, weekdayOnOrAfter,
 } from '../js/route-planday.js';
 
 // 2026-07-24 Fri · 07-25 Sat · 07-26 Sun · 07-27 Mon · 07-28 Tue · 07-30 Thu
@@ -99,6 +100,64 @@ test('a missing clock never rolls — an unknown finish-by is not a spent day', 
   assert.deepEqual(
     resolvePlanDay({ today: MON, nowMin: null, finishByMin: null }),
     { date: MON, source: 'today' });
+});
+
+// ── the plan day must stay buildable ────────────────────────────────────────
+// Regression: rolling the start date forward made scheduleRouteConstraints throw
+// "<WO> is dated before the route starts" on any order still pinned to an earlier
+// day. That throw aborts the WHOLE route — in optimizeRouteHandler it lands before
+// the writes for order/day AND for legGeometry, so the day sizes froze and the map
+// fell back to straight lines. One stale pin must never cost the entire route.
+
+test('soonestAppointment finds the earliest still-live appointment', () => {
+  const items = [
+    { id:'a', wlStatus:'pending', appointmentDate:THU, appointmentTime:'09:00' },
+    { id:'b', wlStatus:'pending', appointmentDate:TUE, appointmentTime:'10:00' },
+    { id:'c', wlStatus:'pending' },
+  ];
+  assert.equal(soonestAppointment(items, MON), TUE);
+});
+
+test('soonestAppointment ignores done, set-aside and past appointments', () => {
+  assert.equal(soonestAppointment([
+    { id:'a', wlStatus:'done',    appointmentDate:TUE, appointmentTime:'10:00' },
+    { id:'b', wlStatus:'pending', ignored:true, appointmentDate:TUE, appointmentTime:'10:00' },
+    { id:'c', wlStatus:'pending', appointmentDate:FRI, appointmentTime:'10:00' },  // missed
+  ], MON), '');
+  assert.equal(soonestAppointment([], MON), '');
+});
+
+test('the roll never jumps over a live appointment', () => {
+  // Evening of a day nobody worked, but there is an appointment TODAY still on the
+  // list: rolling to tomorrow would make the route unbuildable, so stay put.
+  assert.deepEqual(
+    day({ nowMin: at(17), soonestAppointment: MON }),
+    { date: MON, source: 'appointment' });
+  // An appointment tomorrow is happily satisfied by the rolled day.
+  assert.deepEqual(day({ nowMin: at(17), soonestAppointment: TUE }), { date: TUE, source: 'rolled' });
+  // One further out doesn't hold the route back.
+  assert.deepEqual(day({ nowMin: at(17), soonestAppointment: THU }), { date: TUE, source: 'rolled' });
+});
+
+test('an explicit override still wins over the appointment clamp', () => {
+  // The installer picked the day deliberately; a conflict is surfaced as the
+  // "dated before the route starts" warning rather than silently overruled.
+  assert.deepEqual(
+    day({ nowMin: at(17), override: THU, soonestAppointment: TUE }),
+    { date: THU, source: 'override' });
+});
+
+test('staleLockIds finds pending locks pinned before the day being planned', () => {
+  const items = [
+    { id:'a', wlStatus:'pending', lockedDate:MON, lockedSlot:1 },   // stale once planning TUE
+    { id:'b', wlStatus:'pending', lockedDate:TUE, lockedSlot:2 },   // still good
+    { id:'c', wlStatus:'pending', lockedDate:THU, lockedSlot:1 },   // future, fine
+    { id:'d', wlStatus:'pending' },                                  // no lock
+    { id:'e', wlStatus:'done',    lockedDate:MON, lockedSlot:1 },   // done, not routed
+  ];
+  assert.deepEqual(staleLockIds(items, TUE), ['a']);
+  assert.deepEqual(staleLockIds(items, MON), []);
+  assert.deepEqual(staleLockIds([], TUE), []);
 });
 
 test('planDayLabel reads in calendar days, so tomorrow means tomorrow', () => {

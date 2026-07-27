@@ -817,6 +817,22 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `savePlan` riding Download) omit `routeStartDate`, and `Code.gs saveWorklistPlan`
   only writes the column when the payload carries one, because `upsertByHeader` leaves
   an unlisted header alone. Only the explicit ⇪ Upload re-dates the row.
+  **A moving plan day must stay solvable, and that takes two guards.**
+  `scheduleRouteConstraints` rejects an order dated before the route starts by
+  *throwing*, which costs the whole route rather than that one order — and in
+  `optimizeRouteHandler` the throw lands before the writes for `order`/`day` **and**
+  for `legGeometry*`, so it surfaces as two unrelated-looking bugs at once: day sizes
+  frozen at the last good solve (a raised meters/day target looks ignored) and a route
+  map back on straight lines. So (1) `resolvePlanDay` **clamps** to
+  `soonestAppointment` — the earliest pending appointment on or after today — and the
+  roll never jumps over a live commitment; an explicit override is *not* clamped,
+  because that conflict is the installer's to see rather than have overruled. And
+  (2) `expireStaleLocks` clears any pending `lockedDate` earlier than the plan day.
+  Locks are the ones that bite: `toggleOrderLock` derives `lockedDate` from the order's
+  `scheduledDate`, so every lock carries whatever the plan day was when it was set, and
+  the first roll invalidates all of them at once. A lock is a routing convenience whose
+  day has passed, so expiring it is right; a missed *appointment* stays an error,
+  because it is a promise to a customer and dropping it silently would hide that.
 - **The today anchor — freezing Day 1 so completions don't pull tomorrow up.** The
   chunking above runs over the **pending** list, so as orders are logged (dropped
   from `pending`) a re-optimize/Download refills Day 1 to a full `target` from the

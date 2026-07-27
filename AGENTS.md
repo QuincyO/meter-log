@@ -178,6 +178,24 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   a user-pickable date that is now reachable (pick Thursday, appointment on Wednesday),
   so the message is parked in `wlPlanIssue` and painted — don't restore the bare catch.
   See ARCHITECTURE.md §"The plan day".
+- **One stale pin must never cost the whole route.** `scheduleRouteConstraints`
+  rejects an order dated before the route starts by **throwing**, and that throw takes
+  the entire route with it, not just that order. In `optimizeRouteHandler` it lands
+  *before* the writes for `order`/`day` **and** for `legGeometry*` — so the failure
+  reads as two unrelated bugs: day sizes frozen at whatever the last good solve set
+  (a raised meters/day target appears to do nothing) and a route map that has fallen
+  back to straight lines. It shipped exactly that way when the plan day first moved
+  off today, because `toggleOrderLock` stamps `lockedDate` from the order's
+  `scheduledDate` — so **every existing lock carried the old plan day** and went
+  unsatisfiable the moment the day rolled. Two guards, both required:
+  (1) `resolvePlanDay` **clamps** back to `soonestAppointment` — the roll never jumps
+  over a still-live commitment (an override is deliberately *not* clamped; that
+  conflict surfaces as the warning);
+  (2) `expireStaleLocks` clears any pending `lockedDate` before the plan day, at the
+  top of `refreshPlanDay`, so both the anchor and Optimize see a solvable list. It runs
+  **before** the items are read — an `allSorted()` from before the sweep is stale.
+  A missed *appointment* (dated in the past) is deliberately still an error: it is a
+  customer promise, not a routing hint, so it is surfaced rather than silently dropped.
 - **An ETA has two halves, and `opts.dwell` is as easy to forget as `opts.travel`.**
   `simulateDay` walks `arrival = previous departure + drive`, `departure = arrival +
   on-site`. `opts.travel` answers the drive; `opts.dwell` (`js/route-dwell.js`)
