@@ -38,12 +38,14 @@
 .drive-dest-wo{ font-size:19px; font-weight:800; letter-spacing:.5px; color:var(--accent); }
 .drive-dest-addr{ font-size:15px; font-weight:600; line-height:1.25; }
 
-/* On-pace gauge — two cards (target finish + working hours) pinned under the
-   "Driving to" card, read like a truck instrument cluster. Each card: a horizon
-   eyebrow + state pill, a big projected install count, and a progress track that
-   shows the route spatially — solid = done, softer = will still fit, faint amber =
-   won't be reached by that horizon. Accent (green/blue by work mode) when on pace,
-   amber when short. All colors come from tokens so the cards theme with the app. */
+/* On-pace gauge — one card (working hours) pinned under the "Driving to" card,
+   read like a truck instrument cluster: a horizon eyebrow + state pill, a big
+   projected install count, a progress track that shows the route spatially —
+   solid = done, softer = will still fit, faint amber = won't be reached by that
+   horizon — and the route-finish clock. Accent (green/blue by work mode) when on
+   pace, amber when short. All colors come from tokens so the card themes with the
+   app. The layout stays a flex column because there used to be a second card
+   (target finish, 4:00) and nothing about the card itself assumed it was alone. */
 .drive-pace{
   display:flex; flex-direction:column; gap:8px;
   margin-bottom:10px;
@@ -91,6 +93,13 @@
 .dp-card.on .dp-track{ animation:dpGlow 2.6s ease-in-out infinite; }
 
 .dp-cap{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+
+/* Route-finish clock — "Route done ~4:20". Heavier than the caption above it
+   because it is a number the driver goes looking for, not a footnote. Amber (the
+   same --amber-press the short state pill wears) once it lands past the card's
+   horizon, so "behind" reads as one colour down the whole card. */
+.dp-eta{ font-size:13px; font-weight:700; color:var(--ink-soft); }
+.dp-eta.late{ color:var(--amber-press); }
 
 @keyframes dpGlow{ 0%,100%{ box-shadow:0 0 0 0 transparent; } 50%{ box-shadow:0 0 7px 0 var(--accent-ring); } }
 /* Quiet by default; silent for drivers who ask their OS for reduced motion. The

@@ -53,6 +53,29 @@ test('the gauge reads short-of-target, and keeps the route shortfall as a footno
   assert.doesNotMatch(tuningJs, /\bt\.delta\b/);
 });
 
+// ── one card on the Drive screen, and it says when the route is done ────────
+test('the Drive screen paints one pace card, not two', () => {
+  const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  // The Target card measured against ROUTE_DAY_END (4:00) — fifteen minutes from
+  // the 3:45 working-hours horizon, so it read as the same card twice.
+  assert.doesNotMatch(driveJs, /dpTarget/);
+  assert.doesNotMatch(indexHtml, /dpTarget/);
+  assert.match(driveJs, /fillPaceRow\('dpWork', est\.paces\.work, 'Day', est\)/);
+  // The model still returns paces.target — the plan banner and the tuning what-if
+  // are the callers, and removing it there was NOT part of this change.
+  assert.match(tuningJs, /est\.paces\.target/);
+});
+
+test('the finish clock is derived from the same inputs as the projection', () => {
+  const estimateJs = readFileSync(new URL('../js/compute/estimate.js', import.meta.url), 'utf8');
+  // now + remaining travel + stops × on-site — paceFor's arithmetic read forward.
+  // A separately-sourced clock could disagree with the ~N installs above it.
+  assert.match(estimateJs, /routeFinishMin = pend > 0 \? Math\.round\(now \+ travel \+ pend \* onsitePerStop\) : null/);
+  assert.match(driveJs, /Route done ~\$\{label\}/);
+  // Late is late for THIS card's horizon, not for a wall clock.
+  assert.match(driveJs, /est\.routeFinishMin > pace\.horizonMin/);
+});
+
 // ── the ETAs move as the day is worked ──────────────────────────────────────
 test('a changed ETA is written even when nothing moved position', () => {
   // The skip guard was keyed on position + date, which was safe only while the
