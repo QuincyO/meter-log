@@ -710,11 +710,14 @@ async function optimizeRouteHandler(useNetwork){
     // a downloaded planner route is always real OSRM.
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
     // Freeze today's set: override the plain target-chunk days so re-optimizing
-    // after finishing some orders can't pull tomorrow's up. Real matrix travel keeps
-    // the ETAs exact. `replan` is the ONE thing that can unfreeze today: a deliberate
-    // Optimize whose meters/day target has moved since the set was frozen. The days
-    // were just re-solved at that target above, so the fresh commit reads tags that
-    // match it — which is exactly why the target box itself does not trigger this.
+    // after finishing some orders can't pull tomorrow's up. `replan` is the one
+    // thing that can unfreeze today — a re-plan whose meters/day target has moved
+    // since the set was frozen — and two paths legitimately pass it: this Optimize,
+    // and the meters/day box's own `change` handler. What separates them is the
+    // OTHER argument: only this one has real matrix `travel` to hand, so its ETAs
+    // stay exact. The target box passes `replan` alone, so applyTodayAnchor falls
+    // back to `estimateTravel` and marks the times estimated (`wlTimesEstimated`,
+    // the route view's "(est.)" label). Same re-split, softer times.
     await applyTodayAnchor({ travel, replan: true });
     await renderWorklist();
     await planAdvance();
@@ -1851,10 +1854,13 @@ async function adoptPlannerDay1(plan){
 // not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
 // opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
 // exact); otherwise an on-device estimate is used and the "(est.)" marker is set.
-// opts.replan: this is an explicit Optimize, so a CHANGED meters/day target may
-// re-freeze today (only optimize passes it — see needsCommit in route-today.js).
-// Without that, a set frozen at target 6 kept a six-order Day 1 no matter what the
-// target was raised to, on that day and on every day after it.
+// opts.replan: this is a deliberate re-plan, so a CHANGED meters/day target may
+// re-freeze today (see needsCommit in route-today.js). Without that, a set frozen at
+// target 6 kept a six-order Day 1 no matter what the target was raised to, on that
+// day and on every day after it. Exactly TWO callers pass it — the Optimize press
+// and the meters/day box's `change` — and every other one (planAdvance, Download,
+// first view, markWorklistDone, resetWorklistOrder, the plan-date change) passes
+// nothing and must keep today frozen.
 async function applyTodayAnchor(opts){
   // The day being planned, which is usually but NOT always today — an evening plan
   // is for tomorrow. Everything below keys on it: the anchor's date, the capacity
@@ -1897,9 +1903,19 @@ async function applyTodayAnchor(opts){
   // finished, a day nobody has driven yet) stay exactly as unbounded as they were.
   const midReplan = !freeReplan && anchor && anchor.date === today
     && anchorDay1Ids(anchor, pending).length > 0;
+  // Can the existing `day` tags be trusted to describe the target being frozen at?
+  // After an Optimize, yes — it re-solved them at the new target moments ago, and
+  // preferring them is what honours an appointment day or the office's chunking.
+  // From the meters/day box (`opts.resize`) nothing has re-solved them, so they still
+  // describe the OLD target — and preferring them made a RAISED target do nothing at
+  // all, because `min(capacity, group.length)` stays capped by a group sized for the
+  // smaller number. Lowering still worked through `capacity`, so the control was
+  // silently one-way. Nothing timed is lost by ignoring the tags: the appointment and
+  // lock constraints are re-imposed by scheduleRouteConstraints further down.
+  const fromTags = !(opts && opts.resize);
   if(needsCommit(anchor, today, pending, { replan, target })){
     anchor = { date: today,
-      ids: freshAnchorIds(pending, target, { max: midReplan ? capacity : null }),
+      ids: freshAnchorIds(pending, target, { max: midReplan ? capacity : null, fromTags }),
       extend: 0, target };
     saveAnchor(anchor);
   }
@@ -2202,14 +2218,64 @@ export function initWorklist(opts){
   };
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').oninput = persistTarget;
-  $('wlTarget').onchange = () => {
+  // …and a settled target has to RE-SPLIT the days, not just get stored. Day 1 is
+  // sized `day1Count(anchor, day1Ids, dayCapacity(target, installedToday))` =
+  // min(capacity + extend, anchor.ids.length). LOWERING the target clamps the day
+  // down immediately through `capacity`, but RAISING it did nothing at all: the
+  // frozen anchor set is only re-committed when `needsCommit` (js/route-today.js)
+  // sees `replan` AND a changed target, and until now only an explicit Optimize
+  // passed `replan`. Reported from the field as "I can't even change the amount of
+  // orders that populate the list with the target value. They get stuck on a
+  // different value and never got updated." Reuse `replan` rather than adding a
+  // second unfreeze path — applyTodayAnchor already carries all the guard rails
+  // (`freeReplan`, `midReplan` bounding a started day to its remaining `capacity`,
+  // and the `capacity === 0` skip that refuses to commit an empty set).
+  $('wlTarget').onchange = async () => {
     const v = targetVal();
     $('wlTarget').value = String(v);
     persistTarget();
     paintTargetHint();
+    await applyTodayAnchor({ replan: true, resize: true });
+    await renderWorklist();
+    await planAdvance();
   };
   loadPlanFields();
+  // Pace has the same lost-edit shape the target had, for the same reason:
+  // planShape() and offerAddTo() read $('wlPace').value LIVE, but the store write
+  // hung off `change`, which fires only on blur. A pace typed and then abandoned
+  // (app backgrounded with the field still focused) shaped the route and was then
+  // thrown away. Persist on input like wlTarget — guarded to a finite positive
+  // number so a mid-clear blank writes nothing over a real value.
+  // Read the RAW number before any clamp: Number('') is 0, so a blank box fails
+  // `n > 0` and writes nothing. Clamping first would turn that 0 into a 1 and pin
+  // a one-minute-per-stop override the moment the installer selects-all and types.
+  const persistPace = () => {
+    const n = Number($('wlPace').value);
+    if(isFinite(n) && n > 0){
+      store.set('wlPaceMin', String(Math.max(1, Math.round(n))));
+      store.set('wlPaceSource', 'override');
+    }
+  };
+  $('wlPace').oninput = persistPace;
+  // …and a CLEARED box reverts to the measured pace instead of pinning one.
+  // Blanking it used to land paceMin at the flat 30 fallback flagged as an
+  // 'override', and refreshAvgDay refuses to overwrite an override — so the
+  // installer's real 30-workday pace could never come back, on this device, ever.
+  // This mirrors the on-site override box's documented "leave blank to use it".
+  // It is also what makes persisting on INPUT safe: without a recovery path, a
+  // half-typed number would pin an override that nothing ever heals.
   $('wlPace').onchange = () => {
+    if(!String($('wlPace').value).trim()){
+      store.set('wlPaceSource', wlAvgLogMin ? 'recent30' : 'fallback');
+      $('wlPace').value = String(wlAvgLogMin || 30);
+      savePlanLocal();
+      // The same two strings refreshAvgDay paints, so the hint never claims an
+      // override that is no longer there.
+      $('wlPaceHint').textContent = wlAvgLogMin
+        ? `Recent 30-workday pace: ${wlAvgLogMin} min/stop`
+        : 'No pace history yet — using the editable 30 min/stop fallback.';
+      return;
+    }
     store.set('wlPaceSource', 'override');
     const p = savePlanLocal(); $('wlPace').value = String(p.paceMin);
     $('wlPaceHint').textContent = `Plan override: ${p.paceMin} min/stop`;

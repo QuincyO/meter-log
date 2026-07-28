@@ -63,6 +63,43 @@ test('the meters/day target persists as it is typed, not only on blur', () => {
   assert.match(persist[0], /isFinite\(n\) && n > 0/);
 });
 
+// Storing the typed target was only half of it. Day 1 is sized
+// min(dayCapacity(target, installedToday) + extend, anchor.ids.length): LOWERING the
+// target clamps the day through `capacity` right away, but RAISING it moved nothing,
+// because the frozen anchor set is only re-committed when needsCommit sees `replan`
+// AND a changed target — and only Optimize passed `replan`. Reported as "I can't even
+// change the amount of orders that populate the list with the target value. They get
+// stuck on a different value and never got updated."
+test('the meters/day target re-splits the days, not just the store', () => {
+  const handler = /\$\('wlTarget'\)\.onchange = [\s\S]*?\n  \};/.exec(worklist);
+  assert.ok(handler, 'wlTarget onchange handler is still there');
+  assert.match(handler[0], /applyTodayAnchor\(\{[^}]*replan\s*:\s*true/,
+    'the target box must pass replan — without it a RAISED target never unfreezes today');
+  assert.match(handler[0], /renderWorklist\(\)/, 'the re-split has to reach the screen');
+});
+
+// Same lost-edit defect as the target, in the field beside it: planShape() and
+// offerAddTo() read $('wlPace').value LIVE, but the write hung off `change`, which
+// fires only on blur — so a pace typed and then abandoned shaped the route and was
+// discarded. The blank branch is the other half: without it, clearing the box pinned
+// paceMin at the flat 30 flagged 'override', and refreshAvgDay refuses to overwrite an
+// override, so the installer's measured 30-workday pace could never come back. That
+// recovery path is also what makes persisting on `input` safe.
+test('the pace persists as it is typed, and a cleared box reverts to the measured pace', () => {
+  assert.match(worklist, /\$\('wlPace'\)\.oninput\s*=/,
+    'wlPace must persist on input — change alone loses an unblurred edit');
+  const persist = /const persistPace = \(\) => \{[\s\S]*?\n  \};/.exec(worklist);
+  assert.ok(persist, 'persistPace helper is still there');
+  assert.match(persist[0], /store\.set\('wlPaceMin'/);
+  // A blank/garbage field must write nothing — Number('') is 0, so the guard has to
+  // sit on the RAW value, before any Math.max(1, …) clamp turns it into a real 1.
+  assert.match(persist[0], /isFinite\(n\) && n > 0/);
+  const onchange = /\$\('wlPace'\)\.onchange = \(\) => \{[\s\S]*?\n  \};/.exec(worklist);
+  assert.ok(onchange, 'wlPace onchange handler is still there');
+  assert.match(onchange[0], /wlPaceSource',\s*wlAvgLogMin \? 'recent30' : 'fallback'/,
+    'a blank pace must revert to the MEASURED source, never stay an override');
+});
+
 test('a Download never overwrites the phone-owned tuning + target', () => {
   const fn = worklist.match(/function loadPlanFields\(plan\)\s*\{[\s\S]*?\n\}/)[0];
   for(const key of ['wlCommutePull', 'wlTarget'])

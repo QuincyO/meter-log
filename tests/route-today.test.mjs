@@ -101,6 +101,28 @@ test('freshAnchorIds ignores blank day tags (treated as unrouted)', () => {
   assert.deepEqual(freshAnchorIds(pending, 2), ['a', 'b']);
 });
 
+// The tag preference is right only when something has just re-solved the tags at the
+// target being frozen at — an Optimize does, the meters/day box on its own does not.
+// Preferring stale tags there made a RAISED target do nothing at all: Day 1 is
+// min(capacity, group.length), and the group was still sized for the smaller number,
+// so the control worked downwards only. Reported as "I can't even change the amount
+// of orders … they get stuck on a different value and never got updated."
+test('freshAnchorIds ignores the day tags when told they are stale', () => {
+  const tagged = [
+    { id:'a', day:1 }, { id:'b', day:1 },                       // a Day 1 sized for target 2
+    { id:'c', day:2 }, { id:'d', day:2 }, { id:'e', day:2 },
+  ];
+  // Default and explicit-true keep honouring the group — the Optimize path.
+  assert.deepEqual(freshAnchorIds(tagged, 4), ['a', 'b']);
+  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:true }), ['a', 'b']);
+  // fromTags:false takes the first `target` by count instead, so raising grows.
+  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:false }), ['a', 'b', 'c', 'd']);
+  // Lowering still works either way.
+  assert.deepEqual(freshAnchorIds(tagged, 1, { fromTags:false }), ['a']);
+  // opts.max still binds — a mid-day resize may only grow into the room left.
+  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:false, max:3 }), ['a', 'b', 'c']);
+});
+
 test('freshAnchorIds caps the frozen set at opts.max (the day’s remaining room)', () => {
   const tagged = [{ id:'a', day:1 }, { id:'b', day:1 }, { id:'c', day:1 }, { id:'d', day:2 }];
   assert.deepEqual(freshAnchorIds(tagged, 24, { max:2 }), ['a', 'b']);   // tagged group trimmed

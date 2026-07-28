@@ -183,7 +183,8 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - **Route starts** is the first calendar date, **First stop at** is stop 1's ETA,
   and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
   its driving order is chosen; they do not tell it where you are. Pace uses your
-  latest 30 land workdays when available and remains editable.
+  latest 30 land workdays when available and remains editable — it's kept as you
+  type it, and **clearing the box puts your measured pace back**.
 - **Time on site** is the other half of each ETA: an arrival time is the stop before
   it, plus the drive, plus however long you spend at that stop. The app works your
   on-site time out from your own history — the line under Pace tells you the number
@@ -273,12 +274,19 @@ well, and it quietly overruled you: it worked out how many stops fitted before t
 clock and shortened the day to match, so above that number your target did nothing at
 all. It has been removed. If a day is coming out too long, lower Meters/day.
 
-**Changed your Meters/day? Press Optimize.** Typing a new number on its own doesn't
-disturb the day you're already driving — the next 🧭 Optimize is what re-plans it.
+**Change your Meters/day and the list re-splits on the spot.** Type the new number,
+tap out of the box, and the day dividers move straight away — bigger *or* smaller. You
+don't have to press anything after it. 🧭 Optimize is for re-working the driving
+**order**; it isn't what sets the size of the day.
+
 Before the day starts (nothing installed or UTI'd yet) or after you've closed it out,
 that's a clean re-plan at the new number. Partway through, the day only grows into the
 room it has left: set 24 with 6 already in and today fills to **18 more**, not a fresh
 24. Set the target *lower* and the extra stops roll to tomorrow.
+
+The arrival times shift with it, but they're worked out from estimated driving times
+rather than measured ones, so they show as **(est.)** until the next time you
+Optimize.
 
 ### Adding orders partway through the day
 

@@ -85,10 +85,10 @@ export function day1Count(anchor, day1Ids, capacity){
  *  target is met still owns its unfinished orders, so hitting the target must not
  *  roll tomorrow's work in — it just pushes today's leftovers out to Day 2.
  *
- *  `opts` = `{replan, target}`, passed ONLY by an explicit Optimize. Changing the
- *  meters/day number is not itself a re-plan — the installer's deliberate press is,
- *  which is also the moment the day tags have just been re-solved at the new target,
- *  so the fresh commit reads a route that actually matches it. Every other caller
+ *  `opts` = `{replan, target}`. Exactly TWO callers pass it: an explicit Optimize,
+ *  and the meters/day box's own `change`. They differ in whether the day tags are
+ *  fresh — Optimize has just re-solved them at the new target, the box has not —
+ *  which is what `freshAnchorIds`' `opts.fromTags` exists to say. Every other caller
  *  (a logged stop, a Download, first view) passes nothing and keeps today frozen
  *  exactly as before. An Optimize at an UNCHANGED target must still not re-commit,
  *  or re-optimizing after finishing a few orders pulls tomorrow's work up — the
@@ -119,7 +119,18 @@ export function needsCommit(anchor, today, pending, opts){
  *  size (that stays day1Count's job): without it, changing the target at noon would
  *  haul a whole fresh target's worth of tomorrow's orders into a day that is already
  *  half spent. Omitted ⇒ unbounded, which is the right answer for a day that has not
- *  started or is already closed out. */
+ *  started or is already closed out.
+ *
+ *  `opts.fromTags` (default TRUE) is whether those day tags can be trusted to
+ *  describe the target being frozen at. Preferring them is right after an Optimize,
+ *  which re-solves them at the new target immediately before committing. It is wrong
+ *  when nothing has re-solved them — the meters/day box on its own — because the tags
+ *  then still describe the OLD target, and preferring them makes a RAISED target do
+ *  nothing at all: `min(capacity, group.length)` is capped by a group sized for the
+ *  smaller number. Lowering still worked (capacity clamps it), so the control was
+ *  silently one-way. Pass `false` and the set is taken by count instead; the
+ *  appointment and lock constraints are re-imposed afterwards by
+ *  `scheduleRouteConstraints`, so nothing timed is lost by ignoring the tags here. */
 export function freshAnchorIds(pending, target, opts){
   const t = Math.max(1, Math.floor(Number(target) || 1));
   // `null`/absent is UNBOUNDED, and must not coerce to Number(null) === 0 — that
@@ -128,7 +139,9 @@ export function freshAnchorIds(pending, target, opts){
   const max = isFinite(rawMax) && rawMax >= 0 ? rawMax : null;
   const cap = ids => max == null ? ids : ids.slice(0, max);
   const list = pending || [];
-  const days = list
+  // Absent ⇒ true: every existing caller relies on the tag preference.
+  const fromTags = !(opts && opts.fromTags === false);
+  const days = !fromTags ? [] : list
     .map(p => (p && p.day !== '' && p.day != null && isFinite(Number(p.day))) ? Number(p.day) : null)
     .filter(d => d != null);
   if(days.length){
