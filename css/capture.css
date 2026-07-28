@@ -76,6 +76,12 @@
 .wl-badge{display:inline-flex;align-items:center;min-height:25px;padding:3px 8px;border-radius:999px;
   background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);font-size:11px;font-weight:800}
 .wl-badge.appt{border-color:var(--amber);background:#FEF3E2;color:#754900}
+/* An appointment no slot in the day can reach in time — the crew's call, so it
+   is on the card. Waiting is always preferred to lateness, so this never
+   appears for a route that merely sits around a while. */
+.wl-badge.late{border-color:var(--uti);background:#FEECEC;color:#7A1A00}
+/* An ETA from a route the last solve rejected: shown, but visibly not current. */
+.wl-badge.stale{opacity:.5;text-decoration:line-through}
 .wl-lock{background:none;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;height:38px;
   font-size:16px;cursor:pointer;color:var(--ink-soft)}
 .wl-lock.on{border-color:var(--amber);background:#FEF3E2;color:#754900}
@@ -224,6 +230,11 @@
 .wl-route-main{flex:1;min-width:0;font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
 .wl-route-main strong{color:var(--ink);font-size:14px}
 .wl-route-meta{margin-top:3px;font-size:11px;font-weight:800;color:var(--ink-soft)}
+/* Times left over from a route the solver has since rejected. Still readable —
+   a stale ETA beats none — but never mistakable for a current one. */
+.wl-route-meta.stale{opacity:.5;text-decoration:line-through}
+.wl-route-late{color:var(--uti)}
+#wlRouteWeights.stale{color:var(--amber-press);font-weight:800}
 .wl-route-state{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid var(--line);
   border-radius:999px;background:var(--surface);color:var(--ink-soft);font-size:10px;font-weight:800}
 /* Leaflet divIcon: the route sequence itself is the visual signature. */

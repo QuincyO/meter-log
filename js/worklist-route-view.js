@@ -193,6 +193,17 @@ export function initWorklistRouteView(opts){
   function renderWeights(){
     if(!weightsEl) return;
     const w = (opts.weights && opts.weights()) || null;
+    // The stale note outranks the tuning readout: when the times on this screen
+    // are from a route that no longer solves, that is the only thing worth
+    // reading, and it must say so HERE rather than only on the worklist screen
+    // the installer just navigated away from.
+    const stale = planStale() ? (opts.planIssue && opts.planIssue()) || '' : '';
+    weightsEl.classList.toggle('stale', Boolean(stale));
+    if(stale){
+      weightsEl.classList.remove('hide');
+      weightsEl.textContent = `⚠ Times below are from an earlier route — re-optimize. ${stale}`;
+      return;
+    }
     if(!w){ weightsEl.classList.add('hide'); weightsEl.textContent = ''; return; }
     const pull = Number(w.commutePull);
     weightsEl.classList.remove('hide');
@@ -261,7 +272,21 @@ export function initWorklistRouteView(opts){
   // "~/est." via timesEstimated). Shown whenever an order carries one.
   function showTimes(){ return true; }
   function timesEstimated(){ return Boolean(opts.timesEstimated && opts.timesEstimated()); }
+  // The last constraint solve failed, so every scheduled* field on this screen is
+  // left over from the run before it. This was the whole complaint: the map showed
+  // an ETA that said "on time" while the worklist screen carried two warnings
+  // saying the opposite, because the ETA belonged to a route the solver had since
+  // rejected and nothing marked it. Kept visible but greyed — a stale guide is
+  // still worth something, a stale guide presented as current is not.
+  function planStale(){ return Boolean(opts.planStale && opts.planStale()); }
   function etaText(item){ return `ETA ${timesEstimated() ? '~' : ''}${esc(item.scheduledEta)}`; }
+  // Minutes past a promised appointment time, when the day cannot reach it from
+  // any slot. Never a scheduling preference — waiting always wins over lateness —
+  // so it only ever means "this one is not physically possible; make the call".
+  function lateText(item){
+    const n = Number(item.scheduledLateMin);
+    return (isFinite(n) && n > 0) ? `⚠ ${Math.round(n)}m late` : '';
+  }
   // The on-site half of the ETA, which used to be invisible: a stop's ETA is the
   // one before it plus the drive PLUS this. Shown per stop because it is no longer
   // the same everywhere — a repeat meter at an address the crew is already parked
@@ -274,9 +299,10 @@ export function initWorklistRouteView(opts){
   function markerTooltip(item, position, parked){
     const prefix = parked ? '⚠ Parked — ' : `${position}. `;
     const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
-    const eta = (showTimes() && item.scheduledEta) ? ` · ${etaText(item)}` : '';
+    const eta = (showTimes() && item.scheduledEta) ? ` · ${etaText(item)}${planStale() ? ' (stale)' : ''}` : '';
     const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
-    return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}`;
+    const late = lateText(item) ? ` · ${lateText(item)}` : '';
+    return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}${late}`;
   }
 
   async function renderMap(group){
@@ -360,7 +386,7 @@ export function initWorklistRouteView(opts){
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
         <div>${esc(item.address || 'No address')}</div>
-        <div class="wl-route-meta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && onSiteText(item)) ? ` · ${onSiteText(item)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
+        <div class="wl-route-meta${planStale() ? ' stale' : ''}">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && onSiteText(item)) ? ` · ${onSiteText(item)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${lateText(item) ? ` · <span class="wl-route-late">${lateText(item)}</span>` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
     const handle = card.querySelector('.wl-route-handle');
     if(handle) wireDrag(handle, card);

@@ -272,6 +272,39 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   **before** the items are read — an `allSorted()` from before the sweep is stale.
   A missed *appointment* (dated in the past) is deliberately still an error: it is a
   customer promise, not a routing hint, so it is surfaced rather than silently dropped.
+- **Never schedule a late arrival, and never model the day twice.** Two rules that
+  shipped together because one caused the other.
+  (1) **The crew's rule is "never late, only early"** — a 30–45 minute wait in a
+  driveway is the acceptable price of an out-of-the-way appointment, and being late
+  is not. So `placeAppointments` ranks an on-time arrangement above a late one
+  *whatever the wait it costs*, and only among on-time arrangements does the least
+  waiting win (the latest non-late slot, so the day still stays productive). Invert
+  that and a route quietly trades a customer promise for a few meters.
+  (2) **Lateness is reported, not thrown.** `simulateDay` records `lateMin` on the
+  stop that misses; `errors` is now *only* for input that cannot be scheduled at all
+  (an unparseable appointment time). It used to carry late arrivals too, and every
+  caller treated a non-empty `errors` as fatal — so one appointment nobody could
+  reach took a whole 24-stop route down with it, in `optimizeRouteHandler` **before**
+  any write. An unreachable appointment now takes the earliest slot there is and
+  carries a ⚠ badge; the crew decides what to do about it, not the solver.
+  (3) **`placeAppointments` must price the day the final simulation will walk.** It
+  padded empty slots with `__free_k` placeholders, and `travelLookup` has no matrix
+  row for a placeholder — so every free leg cost the nominal `pace − onSite` fallback
+  and a placeholder in slot 1 cost **zero** drive-out (`simulateDay`'s `i === 0`
+  branch). A day of 30-minute legs was searched as a day of 10-minute ones; the slot
+  it picked then arrived an hour late for real, and an on-time arrangement was never
+  even considered. It takes the day's real free ids now — the anchor set is exactly
+  the constrained items, so the free list is known before the slots are picked. Any
+  second model of a day is a model that can disagree with the first; this one
+  disagreed *optimistically*, which is the direction that fails late instead of early.
+  (4) **`wlPlanIssue` is the single staleness signal.** Every failure path leaves the
+  last good `scheduled*` fields in place on purpose (a stale route beats no route in a
+  truck) — so the flag is what stops them reading as current. It is set by
+  `applyTodayAnchor`'s catch **and** by a failed solve inside `optimizeRouteHandler`,
+  and it greys the ETA badges on the worklist cards *and* the route view, which is the
+  screen the crew actually navigates by. A new surface that shows a `scheduled*` field
+  must consult it; one that doesn't is how "the map says 09:55 but the warning says
+  10:13" happens again.
 - **An ETA has two halves, and `opts.dwell` is as easy to forget as `opts.travel`.**
   `simulateDay` walks `arrival = previous departure + drive`, `departure = arrival +
   on-site`. `opts.travel` answers the drive; `opts.dwell` (`js/route-dwell.js`)

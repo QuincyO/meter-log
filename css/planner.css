@@ -127,6 +127,9 @@ dialog::backdrop{background:rgba(19,23,28,.55)}
 .plrow.locked{background:#FFFBF2}
 .pltag{font-size:12px;font-weight:700;color:var(--amber-press)}
 .pltag-mute{color:var(--line)}
+/* An appointment no slot in the day can reach in time. Never a scheduling
+   choice — waiting always beats lateness — so it always means "not possible". */
+.pllate{padding:1px 7px;border-radius:999px;border:1px solid var(--uti);background:#FEECEC;color:#7A1A00}
 .plchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chip{border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:5px 11px;
       font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}

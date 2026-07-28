@@ -104,7 +104,7 @@ function planShape(){
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
-    commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
+    commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
     target:targetVal()
   };
 }
@@ -120,7 +120,7 @@ function loadPlan(plan){
   store.set('plannerPaceSource:' + hNumber(), p.paceSource || store.get('plannerPaceSource:' + hNumber()) || 'fallback');
   if(p.routeVariant) store.set('plannerVariant:' + hNumber(), p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('plannerStraightSource:' + hNumber(), p.straightDistanceSource);
-  if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
+  if(p.commutePull !== '' && p.commutePull != null) store.set('plannerCommutePull:' + hNumber(), String(p.commutePull));
   // The installer owns their target — a Download of their plan drives the planner's
   // day target so the office plans to the same number the installer set.
   if(p.target !== '' && p.target != null) $('plTarget').value = String(Math.max(1, Math.floor(Number(p.target) || 24)));
@@ -736,6 +736,7 @@ function wireShape(x){
     lockedDate:x.lockedDate||'', lockedSlot:x.lockedSlot||'',
     scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
     scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
+    scheduledLateMin:x.scheduledLateMin||'',
     ignored:isIgnored(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
     homeLegMetersRoad:blank(x.homeLegMetersRoad),
@@ -776,6 +777,7 @@ async function loadList(){
       scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
       scheduledSlot:(o.scheduledSlot===''||o.scheduledSlot==null)?'':Number(o.scheduledSlot),
       scheduledWaitMin:(o.scheduledWaitMin===''||o.scheduledWaitMin==null)?'':Number(o.scheduledWaitMin),
+      scheduledLateMin:(o.scheduledLateMin===''||o.scheduledLateMin==null)?'':Number(o.scheduledLateMin),
       ignored:isIgnored(o),
       orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
       homeLegMetersRoad:blank(o.homeLegMetersRoad),
@@ -964,6 +966,10 @@ async function optimize(pending, health){
       const s = prim.scheduleById[x.id] || {};
       x.scheduledDate=s.date||''; x.scheduledEta=s.eta||'';
       x.scheduledSlot=s.slot||''; x.scheduledWaitMin=s.waitMin||'';
+      // Minutes past a promised appointment the day cannot reach in time. The
+      // solver reports it now rather than throwing, so the office sees the same
+      // number the installer's phone will.
+      x.scheduledLateMin=s.lateMin||'';
       // Only the routes recomputed this run are touched — an earlier one is left
       // exactly as it was rather than quietly deleted.
       for(const v of Object.keys(variantPos)){
@@ -1252,7 +1258,7 @@ function render(){
         <strong>${item.workOrderId ? 'WO ' + esc(item.workOrderId) : '(no WO#)'}</strong>${
           setAside ? ' <span class="pltag pltag-mute" title="Left out of the route — still saved">set aside</span>' : ''}
         <div class="pladdr">${esc(item.address || '')}${setAside ? '' : tag}</div>
-        <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${(showTimes && item.scheduledEta) ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
+        <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${(showTimes && item.scheduledEta) ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${Number(item.scheduledLateMin)>0 ? `<span class="pllate" title="No slot in the day reaches this appointment on time">⚠ ${Math.round(Number(item.scheduledLateMin))}m late</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
         ${isPending(item) ? `<div class="plappt">
           <label>🔔 Date<input data-appt="date" type="date" value="${esc(item.appointmentDate||'')}"></label>
           <label>Time<input data-appt="time" type="time" value="${esc(item.appointmentTime||'')}"></label>
@@ -1284,6 +1290,7 @@ function render(){
       if(Boolean(date) !== Boolean(time)) return;
       item.appointmentDate=date; item.appointmentTime=time; item.updatedAt=stamp();
       item.scheduledDate=''; item.scheduledEta=''; item.scheduledSlot=''; item.scheduledWaitMin='';
+      item.scheduledLateMin='';   // a changed appointment time invalidates the verdict too
       await idb.put('worklist', item); render();
     };
     if(dateInput) dateInput.onchange = saveAppointment;

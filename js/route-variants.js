@@ -100,7 +100,10 @@ export function variantMatchesLive(items, variant){
  *  new order, then done, then ignored) with the live fields rewritten —
  *  callers persist them. Throws the solver's message when the variant cannot
  *  satisfy a lock or appointment, so a caller can toast and leave the current
- *  route untouched instead of half-applying one. */
+ *  route untouched instead of half-applying one. An appointment the day simply
+ *  cannot reach in time is NOT one of those cases any more: it is scheduled as
+ *  early as the drive allows and reported through `scheduledLateMin`, because
+ *  losing the whole route over one unreachable order costs every other stop. */
 export function applyVariant(items, variant, planOpts){
   const f = VARIANT_FIELDS[variant];
   if(!f) throw new Error('Unknown route variant');
@@ -124,6 +127,7 @@ export function applyVariant(items, variant, planOpts){
       day: s ? scheduled.dayOf[id] : '',
       scheduledDate: s ? s.date : '', scheduledEta: s ? s.eta : '',
       scheduledSlot: s ? s.slot : '', scheduledWaitMin: s ? s.waitMin : '',
+      scheduledLateMin: s ? s.lateMin : '',
       scheduledOnSiteMin: s ? s.onSiteMin : '',
     });
   }).filter(Boolean);

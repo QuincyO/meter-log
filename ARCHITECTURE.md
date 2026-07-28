@@ -943,10 +943,25 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   plans a route at zero matrix cost and uploads it for the phone to Download
   (see the planner page bullet under "The three layers").
   After the geographic solve, `js/route-constraints.js` maps route days to weekdays
-  and applies appointments/locks. Appointments are never planned late; arrival may
-  be up to 20 minutes early, and earlier arrival becomes explicit waiting that
-  shifts later ETAs. Invalid weekends, duplicate slots, late locked appointments,
-  and other impossible layouts abort without rewriting the current route.
+  and applies appointments/locks. **Appointments are never planned late, and the crew
+  would rather wait than be late** — arrival may be up to 20 minutes early, earlier
+  arrival becomes explicit waiting that shifts later ETAs, and `placeAppointments`
+  ranks *any* on-time arrangement above *any* late one no matter what the wait costs.
+  Among on-time arrangements the least waiting still wins (the latest non-late slot),
+  so the day stays productive; waiting is the price of avoiding lateness, not a goal.
+  The search simulates the day with the **real** orders that will fill its free slots
+  — it once padded with `__free_k` placeholders the travel lookup had no rows for, so
+  it priced a day of 30-minute legs as one of 10-minute legs and picked slots the
+  final simulation then arrived an hour late for. An appointment that **no** slot can
+  reach in time is not a route-ending error: it takes the earliest slot available and
+  reports `lateMin`, surfaced as a ⚠ badge on the worklist card, the route view and
+  the planner row. Only genuinely unschedulable input still aborts without rewriting
+  the current route — invalid weekends, duplicate locked slots, an unparseable
+  appointment time, an order dated before the route starts. When one does abort, the
+  previous `scheduled*` fields survive by design (a stale route beats none in a
+  truck) and `wlPlanIssue` marks them: the plan-date hint carries the reason and both
+  the cards and the route view grey their ETAs, so a stale time can never read as a
+  current one.
 - **Two-reference, time-aware routing (desktop planner + phone).** The planner
   sources two sheet-backed references per installer instead of the phone's single
   localStorage home pin: the crew's shared **start location** (Teams `startAddress` —
@@ -1111,7 +1126,9 @@ appended `InstallerMetrics` block `onSiteMin` / `extraMeterMin` / `travelMinPerK
   correctly does nothing.
 - **No `Worklist` column.** The per-stop dwell rides in IndexedDB as
   `scheduledOnSiteMin`; `wireShape()` is an explicit allow-list, so it never reaches
-  the sheet.
+  the sheet. `scheduledLateMin` — minutes past an appointment the day cannot reach,
+  see "Route optimization" — is local for the same reason: both are re-derived by the
+  next solve, so syncing them would only let a stale one outlive the route it came from.
 - **Validation (both modes).** An install can't submit without a New J#; a UTI
   can't submit until a reason is picked (the dropdown starts blank).
 

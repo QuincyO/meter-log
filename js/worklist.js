@@ -609,13 +609,24 @@ async function optimizeRouteHandler(useNetwork){
     // measured against the same matrix, which is what makes their totals
     // comparable rather than road-km-versus-crow-flies.
     const computed = {};
-    for(const v of VARIANTS){
-      const variant = base.variants[v];
-      if(!variant) continue;
-      const routedItems = variant.orderedIds.map(id => refreshedById[id]).filter(Boolean);
-      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
-      computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
-        homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
+    try {
+      for(const v of VARIANTS){
+        const variant = base.variants[v];
+        if(!variant) continue;
+        const routedItems = variant.orderedIds.map(id => refreshedById[id]).filter(Boolean);
+        const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
+        computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
+          homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
+      }
+    } catch(e) {
+      // The solver refused this route, and the throw lands before every write —
+      // so the stored schedule now describes a route nothing agrees with. Park it
+      // where applyTodayAnchor parks its own failures, so the plan-date hint AND
+      // the route view's ETAs both learn about it from one place instead of a
+      // toast that scrolls away. Rethrown so the toast still fires.
+      store.set('wlPlanIssue', String((e && e.message) || 'Route constraints cannot be met'));
+      paintPlanDate();
+      throw e;
     }
     const primaryVariant = base.variants.road ? 'road' : 'straight';
     const prim = computed[primaryVariant];
@@ -679,6 +690,7 @@ async function optimizeRouteHandler(useNetwork){
       const patch = {
         order, day, scheduledDate:s.date||'', scheduledEta:s.eta||'',
         scheduledSlot:s.slot||'', scheduledWaitMin:s.waitMin||'',
+        scheduledLateMin:s.lateMin||'',
         // Local-only: wireShape() is an explicit allow-list, so this rides in
         // IndexedDB for the route view to show and never reaches the Worklist tab.
         // That is the whole reason no sheet column was added for it.
@@ -1271,12 +1283,28 @@ function appointmentBadge(item){
   if(!item.appointmentDate || !item.appointmentTime) return '';
   return `<span class="wl-badge appt">🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}</span>`;
 }
+// Is the stored schedule still one the solver stands behind? A parked constraint
+// error means the last solve failed and every scheduled* field on every card is
+// left over from the run before it. Nothing used to say so, which is how the map
+// could show "ETA 09:55" while two warnings on the worklist screen quoted times
+// an hour later — three numbers from three different solves, only one of them
+// ever written to a card. The ETAs stay visible (a stale guide beats none) but
+// they read as stale.
+export function planStale(){ return Boolean(store.get('wlPlanIssue')); }
+
 function scheduleBadge(item){
   // ETAs are only meaningful when they came from real road durations (the road
   // variant); a straight-line route has no travel times, so hide them there.
   if(activeVariant() !== 'road' || !item.scheduledDate || !item.scheduledEta) return '';
   const wait = Number(item.scheduledWaitMin) > 0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : '';
-  return `<span class="wl-badge">ETA ${esc(item.scheduledEta)}${wait}</span>`;
+  const stale = planStale() ? ' stale' : '';
+  const eta = `<span class="wl-badge${stale}"${stale ? ' title="From an earlier route — re-optimize"' : ''}>ETA ${esc(item.scheduledEta)}${wait}</span>`;
+  // Late is never chosen over waiting; it only ever means the drive cannot get
+  // there in time from anywhere in the day, and that is the crew's call to make,
+  // so it has to be on the card rather than buried in a toast.
+  const late = Number(item.scheduledLateMin);
+  return eta + ((isFinite(late) && late > 0)
+    ? `<span class="wl-badge late" title="Cannot reach this appointment on time from any slot today">⚠ ${Math.round(late)}m late</span>` : '');
 }
 async function toggleOrderLock(item){
   const stored = (await idb.get('worklist', item.id)) || item;
@@ -1505,6 +1533,7 @@ async function persistOrderIds(ordered){
       order, day:s ? schedule.dayOf[id] : item.day,
       scheduledDate:s ? s.date : item.scheduledDate, scheduledEta:s ? s.eta : item.scheduledEta,
       scheduledSlot:s ? s.slot : item.scheduledSlot, scheduledWaitMin:s ? s.waitMin : item.scheduledWaitMin,
+      scheduledLateMin:s ? s.lateMin : item.scheduledLateMin,
       scheduledOnSiteMin:s ? s.onSiteMin : item.scheduledOnSiteMin,
       updatedAt: stamp()
     }));
@@ -1987,6 +2016,7 @@ async function applyTodayAnchor(opts){
       order, day,
       scheduledDate:s.date || '', scheduledEta:s.eta || '',
       scheduledSlot:s.slot || '', scheduledWaitMin:s.waitMin || '',
+      scheduledLateMin:s.lateMin || '',
       // The on-site half rides with the ETA it belongs to. Left behind, it kept
       // the last Optimize's value through every re-anchor — and the day divider
       // and the route view both read it.
@@ -2175,6 +2205,11 @@ export function initWorklist(opts){
     // what produced it (the phone owns these; they ride up on the next sync).
     weights: () => ({ commutePull:pullVal(store.get('wlCommutePull')), target:targetVal() }),
     timesEstimated: () => store.get('wlTimesEstimated') === '1',
+    // One parked failure drives three surfaces — the plan-date hint, the route
+    // view's header note, and every ETA on it — so they cannot disagree the way
+    // the map's ETA and the worklist's warnings used to.
+    planStale,
+    planIssue: () => store.get('wlPlanIssue') || '',
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

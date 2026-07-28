@@ -51,12 +51,19 @@ test('switching variants re-honours a locked slot instead of trusting the sequen
   assert.equal(out[1].scheduledSlot, 2);
 });
 
-test('an unsatisfiable appointment throws rather than half-applying', () => {
-  // The crew's first stop is 08:00, so a 07:30 appointment cannot be met from
-  // any slot on that day — the caller must keep the current route untouched.
+test('an unreachable appointment is applied first and flagged, not thrown away', () => {
+  // The crew departs at 08:00, so a 07:30 appointment cannot be met from any slot
+  // on that day. It used to throw, which left every OTHER order in the variant
+  // unapplied over one impossible one. Now it takes the earliest slot it can and
+  // carries the lateness on its own row for the card to badge.
   const items = list().map(x =>
     x.id === 'd' ? { ...x, appointmentDate:'2026-07-27', appointmentTime:'07:30' } : x);
-  assert.throws(() => applyVariant(items, 'road', PLAN), /cannot fit without a late arrival/);
+  const out = applyVariant(items, 'road', PLAN);
+  const d = out.find(x => x.id === 'd');
+  assert.equal(d.scheduledSlot, 1);          // as early as the day allows
+  assert.equal(d.scheduledEta, '08:00');
+  assert.equal(d.scheduledLateMin, 30);      // 08:00 − 07:30, reported not thrown
+  assert.ok(out.every(x => x.scheduledEta)); // and the rest of the route applied
 });
 
 test('distance sums the whole route and a single day, from the variant own days', () => {

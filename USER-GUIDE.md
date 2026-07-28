@@ -207,9 +207,24 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - Appointment stops are placed no later than their entered time, allowing arrival
   up to 20 minutes early. Earlier arrival is shown as waiting time, and that wait
   shifts the ETAs after it. Weekends are not route days.
+- **Early and waiting always beats late.** If the only way to make an appointment is
+  to drive out of your way and then sit for half an hour, that's what the route does
+  — the wait is shown on the card so you can see it coming. Where the day *can* make
+  the appointment comfortably it still picks the latest stop that does, so you're not
+  waiting for no reason.
+- If a promised time genuinely can't be reached — it's an hour's drive and the
+  appointment is before you'd even get there — the stop is put as early in the day as
+  possible and marked **⚠ 39m late** (or whatever the shortfall is) on its card and on
+  the route view. The rest of the route still plans normally. That badge is your cue
+  to call the customer or move the appointment; the app won't quietly plan you late.
 - Locked stops keep their exact date and slot while the remaining stops optimize
   around them. If two constraints conflict, the route is left unchanged and the
   message names the affected work order.
+- **When a route can't be worked out, the times you're looking at go grey and struck
+  through**, and the route view says *"Times below are from an earlier route —
+  re-optimize"* with the reason. They're the times from the last route that worked, so
+  they're still a rough guide — but they are not what the app would plan now, and it
+  will always tell you which you're looking at.
 
 - Each address is looked up and matched **near where you are** (within the app's search radius), so "Main St" means *your* Main St, not one in another city.
 - With a **Home address** in Settings, normal routing ends heading toward home — the first stop is the far end of the day, and you work your way back. With no Home, and when you answered **Yes** to the meeting-location question, whatever order is first in your list stays the starting point.

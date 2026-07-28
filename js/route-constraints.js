@@ -123,6 +123,14 @@ export function currentRoutePlacement(items, itemId, target){
 // (measured on-site time, cut to `extraMeterMin` for a repeat meter at an address
 // the crew is already parked at, scaled by a site's history); absent ⇒ the flat
 // pace-derived `onSiteMinutes(pace)` every stop got before, unchanged.
+//
+// Lateness is REPORTED, never thrown. An appointment the day cannot reach in time
+// records `lateMin` on its own schedule entry and accrues into the day's total, so
+// the caller can rank arrangements by it (placeAppointments) and the UI can badge
+// the one stop that misses. `errors` is now only for input that cannot be scheduled
+// at all — an unparseable appointment time. It used to carry the late arrivals too,
+// and every caller treated a non-empty `errors` as fatal, which is how one
+// unreachable appointment took an entire 24-stop route down with it.
 function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
   const schedule = {}, errors = [];
   const flatOnSite = onSiteMinutes(pace);
@@ -132,6 +140,7 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
   const baseOnSite = dwell ? dwell.base : flatOnSite;
   const moveFallback = Math.max(1, pace - baseOnSite);
   let delayed = 0;         // total appointment wait (flat model + return value)
+  let lateTotal = 0;       // total appointment overshoot, for ranking arrangements
   let departClock = firstMin;   // running departure clock (time model)
   let prevId = null, prevItem = null;
   slotIds.forEach((id, i) => {
@@ -143,11 +152,11 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
     } else {
       raw = firstMin + i * pace + delayed;
     }
-    let eta = raw, waitMin = 0;
+    let eta = raw, waitMin = 0, lateMin = 0;
     if(item && item.appointmentTime){
       const deadline = timeMin(item.appointmentTime);
       if(deadline == null) errors.push(`${label(item)} has an invalid appointment time`);
-      else if(raw > deadline) errors.push(`${label(item)} would arrive at ${clock(raw)}, after ${item.appointmentTime}`);
+      else if(raw > deadline){ lateMin = raw - deadline; lateTotal += lateMin; }
       else {
         const windowStart = deadline - 20;
         if(raw < windowStart){ waitMin = windowStart - raw; delayed += waitMin; eta = windowStart; }
@@ -158,18 +167,36 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
     // read as a repeat meter of the last stop of the day before.
     const onSite = dwell ? dwell.forItem(item, prevItem) : flatOnSite;
     schedule[id] = { slot:i + 1, eta:clock(eta), waitMin:Math.round(waitMin),
-      onSiteMin:Math.round(onSite) };
+      lateMin:Math.round(lateMin), onSiteMin:Math.round(onSite) };
     departClock = eta + onSite;   // leave after the on-site work
     prevId = id; prevItem = item;
   });
-  return { schedule, errors, waitMin:delayed };
+  return { schedule, errors, waitMin:delayed, lateMin:lateTotal };
 }
 
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell){
+// `freeIds` are the unconstrained orders that will actually fill this day's empty
+// slots, in the order scheduleRouteConstraints will hand them out. Passing them in
+// is what makes the search honest: it used to pad with `__free_k` placeholders,
+// and `travelLookup` has no matrix row for a placeholder, so every free leg priced
+// at the nominal `pace − onSite` fallback and the drive OUT of the muster point at
+// **zero** (simulateDay's `i === 0` branch). A day of 30-minute drives was
+// therefore searched as a day of 10-minute ones; a slot that looked comfortably
+// on time arrived an hour late in the real simulation right after, which threw and
+// took the whole route with it — while an on-time arrangement (the appointment
+// first, then a long wait) sat there unconsidered. The search and the final
+// simulation must price the identical day or the choice means nothing.
+//
+// Ranking, in order: an on-time arrangement always beats a late one, however long
+// the wait it costs — sitting 70 minutes in a driveway is the acceptable outcome
+// and missing the appointment is not. Among on-time arrangements the least waiting
+// still wins (the latest non-late slot, so the day stays productive). Only when NO
+// arrangement is on time does the least-late one carry the day, and then it is
+// reported through `lateMin` rather than thrown.
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
-  let best = null;
+  let best = null, late = null;
   const occupied = new Set(Object.keys(fixed).map(Number));
   const chosen = {...fixed};
 
@@ -177,12 +204,21 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
     if(i === ordered.length){
       const slots = Array(count).fill(null);
       Object.keys(chosen).forEach(k => { slots[Number(k) - 1] = chosen[k]; });
-      // Empty slots still consume one cadence interval; use stable placeholders
-      // for simulation, then discard their schedule entries.
-      for(let k = 0; k < count; k++) if(!slots[k]) slots[k] = `__free_${k}`;
+      // Empty slots take the real orders that will occupy them. The `__free_k`
+      // placeholder survives only as a backstop for a caller that supplied no free
+      // list (or too short a one); simulateDay still prices it at the dwell base.
+      let f = 0;
+      for(let k = 0; k < count; k++)
+        if(!slots[k]) slots[k] = (freeIds && freeIds[f] != null) ? freeIds[f++] : `__free_${k}`;
       const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
+      if(sim.lateMin > 0){
+        if(!late || sim.lateMin < late.lateMin
+            || (sim.lateMin === late.lateMin && sim.waitMin < late.waitMin))
+          late = { anchors:{...chosen}, waitMin:sim.waitMin, lateMin:sim.lateMin, vector };
+        return;
+      }
       if(!best || sim.waitMin < best.waitMin ||
           (sim.waitMin === best.waitMin && vector.join(',') > best.vector.join(',')))
         best = { anchors:{...chosen}, waitMin:sim.waitMin, vector };
@@ -203,8 +239,11 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
     }
   }
   visit(0, 0);
-  if(!best) throw new Error(`Timed appointments on ${date} cannot fit without a late arrival: ${ordered.map(label).join(', ')}`);
-  return best;
+  // Nothing at all was placeable — not "everything was late" (that lands in `late`),
+  // but no arrangement existed: locks out of order, or an unparseable appointment
+  // time on every candidate. That is still a hard error.
+  if(!best && !late) throw new Error(`Timed appointments on ${date} cannot be placed in order: ${ordered.map(label).join(', ')}`);
+  return best || late;
 }
 
 export function scheduleRouteConstraints(items, geographicIds, opts={}){
@@ -242,7 +281,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const dwell = opts.dwell || null;
 
   let latestDay = Math.max(0, Math.ceil(route.length / target) - 1);
-  const constrainedByDay = {}, minByDay = {};
+  const constrainedByDay = {}, minByDay = {}, constrainedIds = new Set();
   for(const item of orderedItems){
     const apptDate = String(item.appointmentDate || ''), apptTime = String(item.appointmentTime || '');
     if(Boolean(apptDate) !== Boolean(apptTime)) throw new Error(`${label(item)} needs both appointment date and time`);
@@ -257,6 +296,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
     const day = workdayOffset(startDate, date);
     if(day < 0) throw new Error(`${label(item)} is dated before the route starts`);
     latestDay = Math.max(latestDay, day);
+    constrainedIds.add(item.id);
     (constrainedByDay[day] = constrainedByDay[day] || []).push(item);
     minByDay[day] = Math.max(
       minByDay[day] || 0,
@@ -275,7 +315,14 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   }
   while(remaining){ const add = Math.min(remaining, target); counts.push(add); remaining -= add; }
 
+  // Every anchor is a constrained item and every constrained item becomes an anchor
+  // (placeAppointments only ever chooses from `fixed` + this day's appointments), so
+  // the free list is known BEFORE the slots are picked — which is what lets each
+  // day's search simulate the orders that will really fill it. `freeCursor` hands
+  // them out in the same day order the final loop below consumes them.
+  const freeAll = route.filter(id => !constrainedIds.has(id));
   const anchorsByDay = {};
+  let freeCursor = 0;
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), fixed = {}, appts = [];
     for(const item of (constrainedByDay[day] || [])){
@@ -287,7 +334,11 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       }
       if(item.appointmentDate) appts.push(item);
     }
-    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId, firstMin, pace, travel, dwell).anchors;
+    const freeForDay = freeAll.slice(freeCursor,
+      freeCursor + Math.max(0, counts[day] - (constrainedByDay[day] || []).length));
+    freeCursor += freeForDay.length;
+    anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId,
+      firstMin, pace, travel, dwell, freeForDay).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));

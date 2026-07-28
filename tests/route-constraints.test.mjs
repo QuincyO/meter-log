@@ -249,6 +249,78 @@ test('free-slot placeholders consume the base dwell while placing appointments',
   assert.equal(r.scheduleById.appt.waitMin, 35);
 });
 
+// A travel lookup shaped like the real one (js/route.js travelLookup): it knows
+// only the ids that were in the matrix, and returns null for anything else — which
+// is exactly what the `__free_k` slot placeholders are.
+const realTravel = (ids, fromStart, between) => {
+  const known = new Set(ids);
+  return {
+    fromStart: id => known.has(id) ? fromStart : null,
+    between: (f, t) => (known.has(f) && known.has(t)) ? between : null,
+  };
+};
+
+test('appointment slots are chosen against the real day, not a placeholder one', () => {
+  // The bug: placeAppointments padded the day with `__free_k` ids the travel
+  // lookup has no row for, so the search priced every free leg at the nominal
+  // `pace − onSite` fallback (10 min here) and the drive OUT at zero. On those
+  // optimistic numbers a late slot looked fine; the real simulation then arrived
+  // at 11:00 and the whole route died. Real drives are 30 out and 30 between, so
+  // the only on-time arrangement is the appointment FIRST — and it must be found.
+  const items = [item('a'), item('b'), item('c'), item('appt', {
+    appointmentDate:'2026-07-24', appointmentTime:'10:00'
+  })];
+  // 30 out then 90 between: only the FIRST slot arrives before 10:00, and it costs
+  // 70 minutes of sitting in the driveway. That is the trade the crew wants taken.
+  const travel = realTravel(['a','b','c','appt'], 30, 90);
+  const r = scheduleRouteConstraints(items, ['a','b','c','appt'], opts({ target:4, travel }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '09:40');    // the 20-min early window
+  assert.equal(r.scheduleById.appt.waitMin, 70);     // sit and wait rather than be late
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});
+
+test('an on-time day still takes the latest non-late slot, not the earliest', () => {
+  // The other half of the same rule: waiting is what you accept to avoid being
+  // late, not something to seek out. With 30-minute legs throughout, slot 2 is the
+  // last one that still arrives before 10:00 (slot 3 lands at 10:10), so it wins on
+  // 20 minutes of waiting instead of slot 1's 70 — the day stays productive.
+  const items = [item('a'), item('b'), item('c'), item('appt', {
+    appointmentDate:'2026-07-24', appointmentTime:'10:00'
+  })];
+  const travel = realTravel(['a','b','c','appt'], 30, 30);
+  const r = scheduleRouteConstraints(items, ['a','b','c','appt'], opts({ target:4, travel }));
+  assert.equal(r.scheduleById.appt.slot, 2);
+  assert.equal(r.scheduleById.appt.eta, '09:40');
+  assert.equal(r.scheduleById.appt.waitMin, 20);
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});
+
+test('an appointment that cannot be met on time is scheduled first and flagged late', () => {
+  // Never-late is the rule, but it is not always physically available: a 08:15
+  // appointment 90 minutes from the muster point cannot be reached before 09:30
+  // from an 08:00 departure. Killing the entire route over it (the old behaviour)
+  // costs every other order; scheduling it as early as possible and reporting the
+  // lateness lets the crew see the real number and make the call.
+  const items = [item('a'), item('b'), item('appt', {
+    appointmentDate:'2026-07-24', appointmentTime:'08:15'
+  })];
+  const travel = realTravel(['a','b','appt'], 90, 20);
+  const r = scheduleRouteConstraints(items, ['a','b','appt'], opts({ target:3, travel }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '09:30');    // 08:00 + the 90-min drive out
+  assert.equal(r.scheduleById.appt.lateMin, 75);     // 09:30 − 08:15, reported not thrown
+  assert.equal(r.scheduleById.a.date, '2026-07-24'); // the rest of the day still routes
+});
+
+test('an on-time day reports no lateness on any stop', () => {
+  const items = [item('a'), item('b')];
+  const travel = realTravel(['a','b'], 10, 10);
+  const r = scheduleRouteConstraints(items, ['a','b'], opts({ target:2, travel }));
+  assert.equal(r.scheduleById.a.lateMin, 0);
+  assert.equal(r.scheduleById.b.lateMin, 0);
+});
+
 test('day duration reads back the schedule it was written from', () => {
   // The day divider's number must equal what the ETA badges under it say: from
   // the departure clock to the last stop's departure. Drive out 15, then 10 and
