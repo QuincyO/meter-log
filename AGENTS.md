@@ -335,20 +335,35 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   starts from the driveway the crew is parked in, not the depot. That one is
   gated on `planDay() === localDate()`: an evening plan for tomorrow starts at
   the depot like any morning does.
-- **The pace gauge's denominator is the TARGET, because the route moves.**
-  `js/compute/estimate.js paceFor` measured "will I finish the stops left on
-  today's route?" — and today's route is Day 1, which `dayCapacity(target,
-  installedToday)` re-sizes to `target − installed` after every stop. The day
-  shrank by exactly what had been done, so the gauge asked a question that
-  answered itself and could not report being behind. Reported from the field as
-  *"it just sets the target to be the remaining metres — it always says I'm on
-  pace"*, which was literally true. `onPace` is now `targetShort === 0`;
-  `routeShort` survives as the caption's second half, the one thing the target
-  cannot say ("I'll hit 24, but two of these stops aren't getting done").
-  Two traps: the meters/day number is returned **once, at the top level** —
+- **The pace gauge's denominator is the ROUTE. The target sizes the day; it does
+  not judge it.** `js/compute/estimate.js paceFor` has `onPace: routeShort <= 0`,
+  full stop — "will I finish the stops in front of me?" `targetShort` survives as
+  the caption's quiet second half ("· 6 under your 24"), the one thing the route
+  cannot say. This is the same rule as the meters/day bullet above, applied to the
+  gauge: the target's whole job is upstream, deciding via `dayCapacity(target,
+  installedToday)` how many orders sit on Day 1.
+  **It was briefly the other way round, and the reasoning was wrong — don't redo
+  it.** The argument was that Day 1 "moves underneath the answer" because it is
+  re-sized to `target − installed`. Check the arithmetic: Day 1 is
+  `min(capacity + extend, |anchor.ids ∩ pending|)` and a completed install drops
+  **both** terms by one, so the stop just moves from `pendingCount` into `done` and
+  their **sum holds still all day**. `routeShort` reports being behind perfectly
+  well. Worse, the two readings are the *same number* whenever the list is long
+  enough to fill the target (`target − done − willDo = pendingCount − willDo`), so
+  the change bought nothing except in the one case where it actively hurt: a route
+  **shorter** than the target, where it announced "16 short of 24" to a crew with
+  four orders left in the world. The field report behind the detour — *"it always
+  says I'm on pace"* — had a second and sufficient cause, the next bullet.
+  Three traps: the meters/day number is returned **once, at the top level** —
   `paces.target` is already the finish-by *horizon*, and `paces.target.target`
-  would be two meanings of the word one dot apart; and `done` can exceed the
-  target (walk-ups, or a good day), which is on pace and a bar clamped at 100%.
+  would be two meanings of the word one dot apart; `done` (PRINTABLE, so UTIs and
+  walk-ups count) can exceed the stops the route ever held, which is a good day and
+  a bar clamped at 100%; and **`todayPending` filters to `day === 1` strictly, not
+  the lowest day present** — once the target is met with orders left, `dayCapacity`
+  is 0, `day1Count` is 0, and every remaining order is stamped day 2+, so a min-day
+  read hands the gauge *tomorrow's* chunk (today's installs captioned against a
+  route nobody is driving, and a "Route done ~" clock for it). Empty is correct
+  there: `drivePace` returns null and the card hides.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection — and `dayCapacity`'s `installedToday` — reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at

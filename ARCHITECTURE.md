@@ -1194,8 +1194,8 @@ screen, not just `#drive`.
   **Drive screen shows only the working-hours card**. The target card was fifteen
   minutes from it and said the same thing twice; `paces.target` survives for the
   plan-mode banner and the `#tuning` what-if, which are the model's other two
-  callers. The card reads `~N` with an *on pace ✓* / *N short of `target`* note
-  (green when the meters/day target is met by that horizon, amber when short).
+  callers. The card reads `~N` with an *on pace ✓* / *N stops short* note (green
+  when today's remaining route lands by that horizon, amber when it doesn't).
 - **The route-finish clock** (`projectDayReal`'s top-level `routeFinishMin` /
   `routeFinishLabel`, painted under the card's caption as *"Route done ~4:20"*).
   What time the **last stop still on today's route** is finished, on the current
@@ -1207,12 +1207,18 @@ screen, not just `#drive`.
   real clock — landing at 5:40 is exactly what the driver is asking — turning
   **amber** (`.dp-eta.late`) once it passes the card's own `horizonMin`. Null when
   nothing is pending.
-  **The denominator is the meters/day target, never the stops left on the route** —
-  the route is Day 1 and `dayCapacity` re-sizes it to `target − installedToday`
-  after every stop, so measuring against it asked a question that answered itself
-  and the gauge could never report being behind (see AGENTS.md). `paceFor` returns
-  both shortfalls: `targetShort` is the headline, `routeShort` the caption's second
-  half ("· 2 stops won't fit"), which is the one thing the target cannot say.
+  **The denominator is the ROUTE — the stops still on today's Day 1 — and the
+  meters/day target is the footnote.** `onPace` is `routeShort <= 0`; the caption
+  reads "12 of 18 stops", with "· 6 under your 24" appended only when the route
+  falls short of the target. The target's job is upstream: `dayCapacity(target,
+  installedToday)` is what decided how many orders are on the route at all. This was
+  briefly inverted; AGENTS.md carries the arithmetic showing the "the route re-sizes
+  underneath you" worry doesn't hold (`done + pendingCount` is stable, and the two
+  readings coincide on any list long enough to fill the target).
+  **`todayPending` is `day === 1` strictly, not the lowest day present** — once the
+  target is met with orders still pending, `day1Count` is 0 and every remaining
+  order is stamped day 2+, so a min-day read would pace *tomorrow's* chunk. Empty
+  there is correct: `drivePace` returns null and the card hides.
   Sourced by worklist.js `paceContext`/`drivePace` (owns the route + dayCache) and
   passed into `initDrive` like `getPending`; recomputed on open/refresh and
   throttled to a few seconds while the recorder ticks. `drivePace` also re-pulls
