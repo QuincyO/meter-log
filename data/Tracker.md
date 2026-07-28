@@ -1,6 +1,6 @@
 # Tracker
 
-_50 rows · exported 2026-07-27 03:52 America/Toronto_
+_51 rows · exported 2026-07-28 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -54,3 +54,4 @@ _50 rows · exported 2026-07-27 03:52 America/Toronto_
 | 2026-07-23 00:00:00 | Quincy Orta | 20 | 0 | 100 | 30 | 0 | 0 | 35 | 15 | 0 | 0 | 0 | 0 | 20 |  |  | 0 | 0 |  | 324 |  | land |
 | 2026-07-23 00:00:00 | Phillip Monteiro | 11 | 0 | 165 | 30 | 0 | 0 | 15 | 15 | 90 | 15 | 0 | 0 | 0 | Clear · SW 16 km/h · 20°C | Algonquin cottages lots of walking trails lots of travel time between cottages and looking for hard to find meters | 0 | 0 |  | 111 |  | land |
 | 2026-07-24 00:00:00 | Quincy Orta | 19 | 0 | 60 | 30 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 373 |  | land |
+| 2026-07-27 00:00:00 | Phillip Monteiro | 23 | 0 | 115 | 30 | 20 | 0 | 15 | 15 | 35 | 0 | 0 | 0 | 0 | Overcast · S 12 km/h · 26°C |  | 0 | 0 |  | 251 |  | land |

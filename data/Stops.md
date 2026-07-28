@@ -1,6 +1,6 @@
 # Stops
 
-_457 rows · exported 2026-07-27 03:52 America/Toronto_
+_480 rows · exported 2026-07-28 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -461,3 +461,26 @@ _457 rows · exported 2026-07-27 03:52 America/Toronto_
 | 1784920869369-ant708 | 2026-07-24 15:21:09 | Quincy Orta | 693884 |  | 135 Boundary Rd, Huntsville, ON P1H 2J4, Canada | 45.447825 | -79.253761 | J4646722 | J2547148 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1784921484022-kupvem | 2026-07-24 15:31:24 | Quincy Orta | 693878 |  | 12 George St, Novar, ON P0A 1R0, Canada | 45.450463 | -79.249116 | J4646721 | J2736843 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1784921956799-oequzk | 2026-07-24 15:39:16 | Quincy Orta | 693881 |  | 71 Novar Rd, Novar, ON P0A 1R0, Canada | 45.44803 | -79.248249 | J4646723 | J3535599 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785159987016-x11791 | 2026-07-27 9:46:27 | Phillip Monteiro | 694334 |  | 145 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.77488 | -79.406791 | J4642048 | J3326942 | 63144 | INSTALLED |  |  |  |  |  | land |
+| 1785160363990-bgss3z | 2026-07-27 9:52:43 | Phillip Monteiro | 694760 |  | 151 Oakridge Dr | 45.77499 | -79.407223 | J4642045 | J3194664 | 59754 | INSTALLED |  |  |  |  |  | land |
+| 1785160844862-i7ky9i | 2026-07-27 10:00:44 | Phillip Monteiro | 694311 |  | 150 Oakridge Dr | 45.774759 | -79.40753 | J4642046 | J3187173 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785162654893-nionrr | 2026-07-27 10:30:54 | Phillip Monteiro | 696152 |  | 144 Oakridge Dr | 45.774735 | -79.407436 | J4642047 | J3270986 | 43548 | INSTALLED |  |  |  |  |  | land |
+| 1785163244345-zo93jl | 2026-07-27 10:40:44 | Phillip Monteiro | 695053 |  | 138 Oakridge Dr | 45.774425 | -79.407205 | J4647384 | J3194385 | 79812 | INSTALLED |  |  |  |  |  | land |
+| 1785163548809-p890vc | 2026-07-27 10:45:48 | Phillip Monteiro | 694217 |  | 132 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.774159 | -79.40713 | J4647381 | J3299709 | 62415 | INSTALLED |  |  |  |  |  | land |
+| 1785163930509-sgy0of | 2026-07-27 10:52:10 | Phillip Monteiro | 694815 |  | 135 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.774372 | -79.406447 | J4647383 | J3326941 | 6316 | INSTALLED |  |  |  |  |  | land |
+| 1785164363210-qnfkdx | 2026-07-27 10:59:23 | Phillip Monteiro | 695416 |  | 123 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.773895 | -79.406348 | J4647382 | J3385361 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785164838757-iepsm8 | 2026-07-27 11:07:18 | Phillip Monteiro | 694889 |  | 18 Hillcrest St, Sundridge, ON P0A 1Z0, Canada | 45.773934 | -79.405994 | J4647376 | J3193311 | 8598 | INSTALLED |  |  |  |  |  | land |
+| 1785165250112-4y3uar | 2026-07-27 11:14:10 | Phillip Monteiro | 694219 |  | 17 Hillcrest St, Sundridge, ON P0A 1Z0, Canada | 45.773486 | -79.405789 | J4647373 | J3180383 | 4414 | INSTALLED |  |  |  |  |  | land |
+| 1785166152635-cw1pb6 | 2026-07-27 11:29:12 | Phillip Monteiro | 694888 |  | 99 Oakridge Dr | 45.773088 | -79.405875 | J4647375 | J3195417 | 87141 | INSTALLED |  |  |  |  |  | land |
+| 1785166506545-eparbp | 2026-07-27 11:35:06 | Phillip Monteiro | 695049 |  | 102 Oakridge Dr | 45.772877 | -79.406794 | J4647374 | J4444467 | 2058 | INSTALLED |  |  |  |  |  | land |
+| 1785166905739-1oz33x | 2026-07-27 11:41:45 | Phillip Monteiro | 696039 |  | 94 Oakridge Dr | 45.772378 | -79.406479 | J4647378 | J3195408 | 63694 | INSTALLED |  |  |  |  |  | land |
+| 1785167631640-k6g2ro | 2026-07-27 11:53:51 | Phillip Monteiro | 694754 |  | 87 Oakridge Dr | 45.772245 | -79.405849 | J4647379 | J3715088 | 7416 | INSTALLED |  |  |  |  |  | land |
+| 1785168615177-pdhjc0 | 2026-07-27 12:10:15 | Phillip Monteiro | 695720 |  | 20 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.771647 | -79.404968 | J4647380 | J3876240 | 87614 | INSTALLED |  |  |  |  |  | land |
+| 1785169075347-kncuze | 2026-07-27 12:17:55 | Phillip Monteiro | 694333 |  | 21 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.771122 | -79.40469 | J4647377 | J3355468 | 30760 | INSTALLED |  |  |  |  |  | land |
+| 1785174378574-5r3qvp | 2026-07-27 13:46:18 | Phillip Monteiro | 694338 |  | 37 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.770429 | -79.4049 | J4647390 | J3860225 | 95649 | INSTALLED |  |  |  |  |  | land |
+| 1785174979596-jmepjs | 2026-07-27 13:56:19 | Phillip Monteiro | 695629 |  | 53 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.770987 | -79.405485 | J4647392 | J4215809 | 21946 | INSTALLED |  |  |  |  |  | land |
+| 1785175392816-52e1al | 2026-07-27 14:03:12 | Phillip Monteiro | 695583 |  | 65 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.77114 | -79.405486 | J4647391 | J3180288 | 8509 | INSTALLED |  |  |  |  |  | land |
+| 1785175921825-g9qrz7 | 2026-07-27 14:12:01 | Phillip Monteiro | 696340 |  | 72 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.771317 | -79.407216 | J4647389 | J3221303 | 61361 | INSTALLED |  |  |  |  |  | land |
+| 1785176985278-rntb95 | 2026-07-27 14:29:45 | Phillip Monteiro | 695062 |  | 200 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774279 | -79.405306 | J4647388 | J3262727 | 31169 | INSTALLED |  |  |  |  |  | land |
+| 1785177504650-z90j4i | 2026-07-27 14:38:24 | Phillip Monteiro | 694195 |  | 206 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774394 | -79.405531 | J4647387 | J3697697 | 75476 | INSTALLED |  |  |  |  |  | land |
+| 1785178063896-6ljjmb | 2026-07-27 14:47:43 | Phillip Monteiro | 694330 |  | 222 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.775079 | -79.405779 | J4647386 | J3179373 | 8903 | INSTALLED |  |  |  |  |  | land |
