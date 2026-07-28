@@ -156,3 +156,57 @@ card action row is tight at 320 px.
 - IndexedDB is easy to seed directly for worklist work: `indexedDB.open('meterlog')`,
   then `put` into the `worklist` store. Faster and more controllable than driving the UI
   to build a list.
+
+## 6. Getting real state off a real phone
+
+Most reports come from a crew phone whose state you cannot see, and guessing which of
+several plausible causes is live has cost this project more time than any bug in it
+(see `AGENTS.md` §"Standing workflow rules"). Nearly all of that state is exportable,
+so ask for it.
+
+**The sheet — the office half.** File ▸ Download ▸ CSV on the `Worklist` tab (or the
+whole workbook as `.xlsx`; the tabs are readable with `unzip` + a little XML). It gives
+you every order with `wlStatus`, `order`, `day`, the saved `dayRoad`/`orderRoad`
+variant, `scheduledDate`, appointments and locks. Read it **per installer** — the tab
+holds everyone, keyed on `hNumber`, and mixing two crews' rows invents problems.
+
+What it answers immediately, without a single line of code being read:
+
+- **pending vs pinned vs done vs set-aside** — the day count is often just the list size
+- `day` vs `dayRoad` — `dayRoad` is the optimizer's own output, so if the two agree the
+  anchor is not the cause and the router really did produce that split
+- **`scheduledDate` disagreeing with itself inside one `day` group** — always a bug;
+  a day group has exactly one date
+- `WorklistPlans` — the installer's saved pace/target/variant. **Confirm it wasn't
+  deleted by hand before chasing a sync bug**; that has already been a red herring once.
+
+**The phone — the local half.** The today anchor, the meters/day target and the plan
+date live in `localStorage`/IndexedDB and are **never synced**, so the sheet cannot show
+them. This dump is the fastest way to get them; it needs a browser console, so it is a
+desktop/laptop job unless the phone is attached to one:
+
+```js
+(async () => {
+  const db  = await new Promise(r => { const q = indexedDB.open('meterlog',5); q.onsuccess = e => r(e.target.result); });
+  const all = await new Promise(r => { const q = db.transaction('worklist','readonly').objectStore('worklist').getAll(); q.onsuccess = e => r(e.target.result); });
+  const pend = all.filter(x => x.wlStatus !== 'done' && !x.ignored);
+  console.log(JSON.stringify({
+    target:   localStorage.wlTarget,
+    anchor:   JSON.parse(localStorage.wlTodayAnchor || 'null'),
+    planDate: localStorage.wlPlanDate,
+    issue:    localStorage.wlPlanIssue,
+    pack:     localStorage.roadPackActive,
+    counts:   { all: all.length, pending: pend.length },
+    days:     pend.reduce((m,x) => { const d = x.day || '-'; m[d] = (m[d]||0)+1; return m; }, {}),
+  }, null, 2));
+})()
+```
+
+`anchor.ids.length` vs `counts.pending` vs `target` is usually the whole answer: Day 1
+is `min(target − installed today, anchor.ids.length)`, so a frozen set smaller than the
+target is the day size, whatever the box says.
+
+**Then reproduce against the shipped commit before changing anything** — `git stash`,
+run the repro, confirm you see the reported symptom, `git stash pop`. Without that you
+cannot tell a fix from a coincidence, and the two rounds where that step was skipped
+both shipped a fix for the wrong cause.

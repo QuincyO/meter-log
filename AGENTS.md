@@ -52,6 +52,25 @@ another. Two consequences that matter more than they sound:
 - **Verify before claiming something works.** `node --test "tests/*.test.mjs"` runs the
   suite; `VERIFY.md` has the recipe for driving the real pages in a headless browser,
   including how to exercise write paths **without writing to the production Sheet**.
+- **When a field report needs a guess, ask for the data instead.** The crew reports
+  symptoms from a phone whose state you cannot see, and this codebase makes almost all
+  of that state *exportable* — the `Worklist` tab as CSV, and the phone's own
+  localStorage/IndexedDB via the dump in `VERIFY.md` §6. Reasoning from source about
+  which of several plausible causes is live has cost this project real time: a
+  "why is my day 20 stops" report burned three rounds of code-reading and two wrong
+  fixes, and one `Worklist` export then settled it in minutes — the pending count and
+  the `day`/`dayRoad` columns said "this route was built for a target of 20", which
+  turned the question into "why does the box say 24" and named the actual bug (a
+  `change`-only store write). Two rules follow:
+  1. **One hypothesis, then ask.** Forming a theory from the code is fine and cheap.
+     *Shipping* a fix for it without evidence that it is the live cause is not — a
+     wrong fix costs a deploy, muddies the next report, and can look like a new bug.
+     If the state that would confirm it is observable, ask for it and wait.
+  2. **Ask for the smallest thing that discriminates**, and say what each answer would
+     mean. "How many orders does the header say are remaining?" beats "send me
+     everything"; `VERIFY.md` §6 has the ready-made dump for the phone-local half.
+  Reproduce against the *shipped* commit before changing anything, so you know you are
+  looking at the reported bug and not a different one — `git stash` is enough.
 
 ## What this is
 
