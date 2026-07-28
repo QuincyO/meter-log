@@ -190,6 +190,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   become a routing input again; if a day is too long, the number to change is the
   target. `WorklistPlans.finishBy` stays as a **blank column** because `ensureTab` only
   appends and removing a header would shift every one after it.
+- **A field the route reads live must be persisted live.** `targetVal()` reads
+  `$('wlTarget').value` straight from the DOM, but the store write hung off `onchange`,
+  which fires only on **blur**. Type a new meters/day, background the app, and the
+  route was built at the typed number while the box restored the old one — reported as
+  "I set it to 20 and it isn't saving", with a route demonstrably built for 20. Any
+  control whose value is read live needs its write on `input`. **`wlPace` still has
+  this shape** and was left alone on purpose: its handler also sets
+  `paceSource: 'override'`, which tangles with `refreshAvgDay`'s don't-overwrite rule.
 - **`havePack` has to mean what the router will do, not what a pointer says.** It was
   `!!activePackId()` — one localStorage id — while `loadGraph` scores every district in
   `installedPacks()` and picks whichever covers the run, *setting* the active id as a

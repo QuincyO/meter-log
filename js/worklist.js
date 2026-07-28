@@ -2184,11 +2184,28 @@ export function initWorklist(opts){
   $('wlPlanDate').onchange = planDateChanged;
   paintPlanDate();
   // Meters/day target: restore the saved value (default 24) and persist edits.
+  //
+  // Persisted on INPUT as well as change. `change` fires only on blur, and
+  // `targetVal()` reads the LIVE field — so an installer who typed a new number and
+  // then backgrounded the app, or left the screen with the field still focused, got
+  // a route built at the number they typed and a box that said the old one again on
+  // the next open. Reported exactly that way: "I set it to 20 and it isn't saving",
+  // with a route that was demonstrably built for 20.
+  //
+  // Clamping stays on `change` only: rewriting the field mid-keystroke fights the
+  // typing. A partial number can therefore be stored if the app is abandoned
+  // between keystrokes — but that leaves a visible wrong number in the box rather
+  // than silently discarding the edit, which is the better of the two failures.
+  const persistTarget = () => {
+    const n = Math.floor(Number($('wlTarget').value));
+    if(isFinite(n) && n > 0) store.set('wlTarget', String(n));
+  };
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
+  $('wlTarget').oninput = persistTarget;
   $('wlTarget').onchange = () => {
-    const v = Math.max(1, Math.floor(Number($('wlTarget').value) || 24));
-    $('wlTarget').value = String(v); store.set('wlTarget', String(v));
-    // Say straight away when the number just typed is above what the day can hold.
+    const v = targetVal();
+    $('wlTarget').value = String(v);
+    persistTarget();
     paintTargetHint();
   };
   loadPlanFields();

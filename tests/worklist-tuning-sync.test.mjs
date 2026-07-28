@@ -47,6 +47,22 @@ test('the spine treats an absent routeStartDate as "keep", not "blank"', () => {
   assert.doesNotMatch(code, /routeStartDate:\s*plan\.routeStartDate \|\| ''/);
 });
 
+// `change` fires only on blur, and targetVal() reads the LIVE field — so a number
+// typed and then abandoned (app backgrounded, screen closed with focus still in the
+// box) built a route at the new target and restored the old one on the next open.
+// Reported as "I set it to 20 and it isn't saving", with a route demonstrably built
+// for 20. The store write has to hang off `input`, not `change` alone.
+test('the meters/day target persists as it is typed, not only on blur', () => {
+  assert.match(worklist, /\$\('wlTarget'\)\.oninput\s*=/,
+    'wlTarget must persist on input — change alone loses an unblurred edit');
+  const persist = /const persistTarget = \(\) => \{[\s\S]*?\n  \};/.exec(worklist);
+  assert.ok(persist, 'persistTarget helper is still there');
+  assert.match(persist[0], /store\.set\('wlTarget'/);
+  // A blank or zero field must not be written — that is how the 24 default sneaks
+  // back in over a real value mid-edit.
+  assert.match(persist[0], /isFinite\(n\) && n > 0/);
+});
+
 test('a Download never overwrites the phone-owned tuning + target', () => {
   const fn = worklist.match(/function loadPlanFields\(plan\)\s*\{[\s\S]*?\n\}/)[0];
   for(const key of ['wlCommutePull', 'wlTarget'])
