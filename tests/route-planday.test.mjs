@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   isWorkday, nextWorkday, planDayLabel, resolvePlanDay, soonestAppointment,
   staleLockIds, weekdayOnOrAfter,
@@ -158,6 +159,20 @@ test('staleLockIds finds pending locks pinned before the day being planned', () 
   assert.deepEqual(staleLockIds(items, TUE), ['a']);
   assert.deepEqual(staleLockIds(items, MON), []);
   assert.deepEqual(staleLockIds([], TUE), []);
+});
+
+// Seen in a real export: one Day 1 holding 20 orders with TWO scheduled dates —
+// 5 on 2026-07-27 and 15 on 2026-07-28 — because applyTodayAnchor skipped the
+// write for any stop whose order/day had not changed. Position alone was a safe
+// key while the plan day was always today; once it rolls, a stop that sits still
+// keeps a date that has passed, and the day divider (which reads the first pending
+// order's scheduledDate) shows yesterday over tomorrow's route.
+test('a stop that has not moved is still rewritten when its date changes', () => {
+  const src = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
+  const skip = /if\(item\.order === order && item\.day === day[\s\S]{0,220}?\) continue;/.exec(src);
+  assert.ok(skip, 'the keep-exact-ETA skip is still in applyTodayAnchor');
+  assert.match(skip[0], /scheduledDate[\s\S]*?s\.date/,
+    'the skip must compare the scheduled DATE too, not just order and day');
 });
 
 test('planDayLabel reads in calendar days, so tomorrow means tomorrow', () => {

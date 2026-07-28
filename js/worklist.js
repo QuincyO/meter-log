@@ -1933,8 +1933,14 @@ async function applyTodayAnchor(opts){
     const item = byId[id]; if(!item) continue;
     const order = (i++) * 10;
     const day = schedule.dayOf[id] || '';
-    if(item.order === order && item.day === day) continue;   // unchanged → keep exact ETA
     const s = schedule.scheduleById[id] || {};
+    // Keep the exact ETA only when the stop has not moved AND still belongs to the
+    // same calendar day. Position alone was enough while the plan day was always
+    // today; now that it rolls, an order sitting still keeps a scheduledDate for a
+    // day that has passed — which is how a Day 1 ends up holding two different
+    // dates and its divider showing yesterday.
+    if(item.order === order && item.day === day
+       && String(item.scheduledDate || '') === String(s.date || '')) continue;
     await idb.put('worklist', Object.assign({}, item, {
       order, day,
       scheduledDate:s.date || '', scheduledEta:s.eta || '',
