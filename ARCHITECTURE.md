@@ -1049,9 +1049,27 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   handed `opts.travel`; without it (the bug that showed "8:15, no drive-out") it
   silently uses the flat `firstStopTime + (slot-1) × pace` cadence. The main Optimize
   passes `travelLookup(base.measure)`; the matrix-less **variant flip** and **drag
-  reschedule** pass `estimateTravelFromCoords(items, crewStart, home)` — a haversine
+  reschedule** pass `estimateTravelFromCoords(items, start, home)` — a haversine
   estimate over the saved pins, so those paths keep realistic ETAs on-device without
-  a fetch. A downloaded planner route is always real OSRM (no "(est.)").
+  a fetch. A downloaded planner route is always real OSRM (no "(est.)"). **That
+  `start` follows the crew:** `js/worklist.js estimateTravel` anchors on
+  `lastDonePin` — the pin of the most recently completed order — falling back to the
+  muster point, because after the day's first stop the next drive begins in the
+  driveway the crew is parked in. Gated on `planDay() === localDate()`; an evening
+  plan for tomorrow starts at the depot like any morning.
+- **Day 1 departs on the clock the crew is actually on** (`opts.day1FirstStopTime`).
+  `ROUTE_DEPART_TIME` (08:15) is where the *day* starts, not where every re-solve of
+  it starts — `scheduleRouteConstraints` applied one `firstStopTime` to every day, so
+  a route re-optimized at 11:40 arrived everywhere at breakfast and `placeAppointments`
+  searched an afternoon against a morning clock. `firstMinFor(day)` overrides day 0
+  alone; days 2+ keep the constant, and omitting it is byte-identical to before.
+  `js/worklist.js day1DepartTime` decides when it applies, and **the rule is about the
+  anchor, not the hour**: an Optimize staged at the muster point keeps 08:15 (that
+  press means "the day as planned from the depot"), while "Start from here" and every
+  rolling re-schedule (`applyTodayAnchor` after each logged stop, the variant flip, the
+  drag) use the current time. **ETAs only** — nothing in day sizing reads it, or the
+  finish-by clock is back under a new name. `applyTodayAnchor`'s write guard compares
+  `scheduledEta` too, since a moving clock re-times a stop that has not moved.
 - **The day divider's length is read back from the schedule, not modelled twice.**
   `dayDurationMin(items, firstStopTime, fallbackOnSite)` (`js/route-constraints.js`)
   spans the departure clock to the last stop's **departure** — its `scheduledEta`
@@ -1172,11 +1190,22 @@ screen, not just `#drive`.
   **two paces** (`js/compute/estimate.js` `projectDayReal`): the installer's **target
   finish** (`WorklistPlans.finishBy`) and **regular working hours** — 3:45 PM,
   escalating to **4:45 PM OT** once past 4:00 PM **while the day is still open**
-  (`workHorizon`). Each row reads `~N` with an *on pace ✓* / *N behind* note (green
-  when the whole route lands by that horizon, amber when short). Sourced by
-  worklist.js `paceContext`/`drivePace` (owns the route + dayCache) and passed into
-  `initDrive` like `getPending`; recomputed on open/refresh and throttled to a few
-  seconds while the recorder ticks. Visible whenever there's a route to project,
+  (`workHorizon`). Each row reads `~N` with an *on pace ✓* / *N short of `target`*
+  note (green when the meters/day target is met by that horizon, amber when short).
+  **The denominator is the meters/day target, never the stops left on the route** —
+  the route is Day 1 and `dayCapacity` re-sizes it to `target − installedToday`
+  after every stop, so measuring against it asked a question that answered itself
+  and the gauge could never report being behind (see AGENTS.md). `paceFor` returns
+  both shortfalls: `targetShort` is the headline, `routeShort` the caption's second
+  half ("· 2 stops won't fit"), which is the one thing the target cannot say.
+  Sourced by worklist.js `paceContext`/`drivePace` (owns the route + dayCache) and
+  passed into `initDrive` like `getPending`; recomputed on open/refresh and
+  throttled to a few seconds while the recorder ticks. `drivePace` also re-pulls
+  today's stops (`cacheRecentDays(1)`) on a **3-minute** throttle of its own,
+  because a phone the crew only *drives* by never logs anything and so never
+  invalidates the dayCache the whole projection reads — the second-device case
+  where it reported "0 of N · on pace" all day. `wlDownload` pulls the same thing,
+  **before** `applyTodayAnchor` so the day is sized off the fresh copy. Visible whenever there's a route to project,
   **tracking or not** (drive tracking only sharpens the travel pricing). The **same
   `projectDayReal` model is the single source** for the landing estimate everywhere:
   the **plan-mode banner** (`renderPlanEstimate`, compacted to one line) and a

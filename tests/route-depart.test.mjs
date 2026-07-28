@@ -24,6 +24,29 @@ test('the phone plan anchors first-stop time to the departure constant', () => {
   assert.doesNotMatch(worklistJs, /\$\('wlRouteTime'\)/);
 });
 
+// 08:15 is where the day STARTS, not where every re-solve of it starts. A route
+// re-optimized at 11:40 from where the crew is standing has to depart at 11:40, or
+// every ETA on it is a morning ETA — reported from the field as "it always begins
+// from 8:15 and never takes into account what time it is now".
+test('the day-1 clock follows the crew, and only when it is the crew standing there', () => {
+  // The rule is about the ANCHOR: the muster point is a morning anchor and keeps
+  // the constant; "start from here" and every rolling in-day re-schedule do not.
+  assert.match(worklistJs, /function day1DepartTime\(fromCurrent\)/);
+  assert.match(worklistJs, /if\(!fromCurrent \|\| planDay\(\) !== localDate\(\)\) return ''/);
+  // Only ever forward — a run before 08:15 keeps the constant.
+  assert.match(worklistJs, /hhmmMin\(now\) > hhmmMin\(ROUTE_DEPART_TIME\) \? now : ''/);
+  // Optimize passes the START-LOCATION answer, never a bare true.
+  assert.match(worklistJs, /day1FirstStopTime:\s*day1DepartTime\(startFromCurrent\)/);
+  // The re-schedule after every logged stop is by definition where the crew is.
+  assert.match(worklistJs, /day1FirstStopTime:\s*day1DepartTime\(true\)/);
+});
+
+// The office plans ahead — its route starts on the date its own picker names, so a
+// desk clock must never leak into it.
+test('the desktop planner keeps the constant and gains no day-1 clock', () => {
+  assert.doesNotMatch(plannerJs, /day1FirstStopTime/);
+});
+
 test('the phone reads its dial and feeds it into optimize', () => {
   assert.match(worklistJs, /commutePull:\s*pullVal\(store\.get\('wlCommutePull'\)\)/);
   assert.match(worklistJs, /optimizeRoute\([^;]*\bcommutePull:\s*planShape\(\)\.commutePull/s);

@@ -123,22 +123,38 @@ export function initDrive(opts){
   }
 
   // Paint one gauge card. hide short-circuits it (used to drop the Target card once
-  // its horizon is already in the past — see paintPace). Track widths are the route
-  // split done | will-fit | won't-fit as % of the whole route (done + pending).
+  // its horizon is already in the past — see paintPace).
+  //
+  // The bar is measured against the METERS/DAY TARGET: done | will-fit | short of
+  // it. The route was the denominator once, and the route MOVES — Day 1 is re-sized
+  // to `target − installed` after every stop (js/route-today.js dayCapacity), so the
+  // bar filled itself however the day was going and "on pace" was unfalsifiable.
+  // The route shortfall survives as the second half of the caption, because it is
+  // the one thing the target cannot say: "I'll hit 24, but two of these stops are
+  // not getting done today."
   function fillPaceRow(id, pace, prefix, est, hide){
     const row = $(id);
     if(!row) return;
     if(!pace || hide){ row.classList.add('hide'); return; }
     row.classList.remove('hide');
     const done = est.done || 0;
-    const total = done + (est.pendingCount || 0);
+    // est.target is the meters/day number; est.paces.target is the finish-by
+    // horizon. Different things, and the only place they meet is right here.
+    const target = est.target || 0;
+    // No target set ⇒ fall back to the route as the denominator, exactly as before.
+    const total = target || (done + (est.pendingCount || 0));
     const willDo = Math.max(0, pace.projected - done);
-    const short = Math.max(0, pace.delta || 0);
-    const pct = v => total > 0 ? (v / total) * 100 : 0;
+    const short = Math.max(0, (target ? pace.targetShort : pace.routeShort) || 0);
+    const routeShort = Math.max(0, pace.routeShort || 0);
+    // A day can beat its target (walk-ups, or just a good one). That is on pace,
+    // and the bar clamps at 100% rather than running off the end of the track.
+    const pct = v => total > 0 ? Math.min(100, (v / total) * 100) : 0;
     $(id + 'Lab').textContent = `${prefix} · ${pace.label}`;
-    $(id + 'State').textContent = pace.onPace ? 'on pace' : `${pace.delta} short`;
+    $(id + 'State').textContent = pace.onPace ? 'on pace'
+      : (target ? `${short} short of ${target}` : `${short} short`);
     $(id + 'Unit').textContent = `installs by ${pace.label}`;
-    $(id + 'Cap').textContent = `${done} of ${total} stops`;
+    $(id + 'Cap').textContent = (target ? `${done} of ${target} installs` : `${done} of ${total} stops`)
+      + (routeShort ? ` · ${routeShort} stop${routeShort === 1 ? '' : 's'} won’t fit` : '');
     $(id + 'Done').style.width = pct(done) + '%';
     $(id + 'More').style.width = pct(willDo) + '%';
     $(id + 'Short').style.width = pct(short) + '%';

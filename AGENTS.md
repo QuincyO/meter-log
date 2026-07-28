@@ -305,6 +305,61 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   screen the crew actually navigates by. A new surface that shows a `scheduled*` field
   must consult it; one that doesn't is how "the map says 09:55 but the warning says
   10:13" happens again.
+- **The day-1 clock is an ETA input and must never become a sizing input.**
+  `ROUTE_DEPART_TIME` is where the day *starts*, not where every re-solve of it
+  starts — `scheduleRouteConstraints` read `opts.firstStopTime` once and applied
+  it to every day, so a route re-optimized at 11:40 arrived everywhere at
+  breakfast and `placeAppointments` searched an afternoon against a morning
+  clock (the optimistic direction, which fails late instead of early).
+  `opts.day1FirstStopTime` overrides day 1 alone, and `js/worklist.js
+  day1DepartTime` decides when it applies. Four things to keep straight:
+  (1) **the rule is about the ANCHOR, not the hour.** The muster point is a
+  *morning* anchor, so an Optimize staged there keeps 08:15 however late it is
+  pressed — that press means "show me the day as planned from the depot".
+  "Start from here" and every rolling in-day re-schedule are happening *now*.
+  This is the installer's call, not an inference;
+  (2) **it is `opts.day1Count`'s twin and shares its trap** — absent is unset,
+  and `0` is midnight, a real value. Test against null, never truthiness;
+  (3) **nothing about day SIZING may read it.** `counts[]`/`capFor`/`dayCapacity`
+  are deliberately untouched. A clock that reaches sizing is the finish-by dial
+  coming back under a new name — see the meters/day bullet above;
+  (4) **the day divider must use the same clock its badges did**
+  (`wlDayEta` → `dayDurationMin`), or the header announces ~8h over a route the
+  ETAs under it plainly show as four.
+  The rolling half needs two more things, and each fails silently alone:
+  `applyTodayAnchor`'s write guard now compares `scheduledEta` as well as
+  position and date (a moving clock changes the ETA of a stop that has not
+  moved, and the old guard skipped exactly that write); and `estimateTravel`
+  anchors on `lastDonePin` — the pin of the most recently completed order —
+  rather than the muster point, because after the first stop the next drive
+  starts from the driveway the crew is parked in, not the depot. That one is
+  gated on `planDay() === localDate()`: an evening plan for tomorrow starts at
+  the depot like any morning does.
+- **The pace gauge's denominator is the TARGET, because the route moves.**
+  `js/compute/estimate.js paceFor` measured "will I finish the stops left on
+  today's route?" — and today's route is Day 1, which `dayCapacity(target,
+  installedToday)` re-sizes to `target − installed` after every stop. The day
+  shrank by exactly what had been done, so the gauge asked a question that
+  answered itself and could not report being behind. Reported from the field as
+  *"it just sets the target to be the remaining metres — it always says I'm on
+  pace"*, which was literally true. `onPace` is now `targetShort === 0`;
+  `routeShort` survives as the caption's second half, the one thing the target
+  cannot say ("I'll hit 24, but two of these stops aren't getting done").
+  Two traps: the meters/day number is returned **once, at the top level** —
+  `paces.target` is already the finish-by *horizon*, and `paces.target.target`
+  would be two meanings of the word one dot apart; and `done` can exceed the
+  target (walk-ups, or a good day), which is on pace and a bar clamped at 100%.
+- **A second device logs nothing, so nothing on it invalidates the day cache.**
+  The whole pace projection — and `dayCapacity`'s `installedToday` — reads
+  `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at
+  page load and on reconnect only. The crew logs on a work phone and drives by a
+  second one; the drive phone believed all day that zero meters were installed,
+  which is the other half of "0 of N · on pace". `wlDownload` now refreshes
+  **before** `applyTodayAnchor` (a refresh after it would size the day off the
+  stale copy), and `drivePace` refreshes on its own 3-minute throttle — drive.js
+  repaints every 4s, and re-fetching that often is as wrong as never. **The cache
+  key is `${cfg().name}|${date}`**, so the whole thing is inert if the two phones'
+  Settings ▸ name differ by a space; check that before debugging anything else.
 - **An ETA has two halves, and `opts.dwell` is as easy to forget as `opts.travel`.**
   `simulateDay` walks `arrival = previous departure + drive`, `departure = arrival +
   on-site`. `opts.travel` answers the drive; `opts.dwell` (`js/route-dwell.js`)

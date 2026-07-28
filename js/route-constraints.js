@@ -257,6 +257,20 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   if(weekend(startDate)) throw new Error('Route start date must be a weekday');
   const firstMin = timeMin(opts.firstStopTime);
   if(firstMin == null) throw new Error('First-stop time is invalid');
+  // The clock DAY 1 departs on, when it differs from every other day's. A route
+  // re-solved at 11:40 from where the crew is standing is a route that departs at
+  // 11:40, and pricing it from 08:15 makes every ETA on it a morning ETA — and
+  // makes placeAppointments search an afternoon against a morning clock, which is
+  // the optimistic direction that fails late instead of early.
+  // Absent/unparseable ⇒ null ⇒ every day keeps `firstMin`, byte-identical to
+  // before. Same null-is-unset trap as `opts.day1Count` below: `0` is midnight,
+  // a real value, so this must be tested against null and never truthiness.
+  // ETAs ONLY. Nothing about day SIZING may read it — `counts[]`/`capFor` below
+  // are deliberately untouched, or the finish-by clock AGENTS.md buried is back
+  // under a new name.
+  const rawDay1First = opts.day1FirstStopTime == null || opts.day1FirstStopTime === ''
+    ? null : timeMin(opts.day1FirstStopTime);
+  const firstMinFor = day => (day === 0 && rawDay1First != null) ? rawDay1First : firstMin;
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');
   const target = Math.max(1, Math.floor(Number(opts.target) || 1));
@@ -338,7 +352,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       freeCursor + Math.max(0, counts[day] - (constrainedByDay[day] || []).length));
     freeCursor += freeForDay.length;
     anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId,
-      firstMin, pace, travel, dwell, freeForDay).anchors;
+      firstMinFor(day), pace, travel, dwell, freeForDay).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));
@@ -348,7 +362,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), ids = [];
     for(let slot = 1; slot <= counts[day]; slot++) ids.push(anchorsByDay[day][slot] || free[freeAt++]);
-    const sim = simulateDay(ids, byId, firstMin, pace, travel, dwell);
+    const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell);
     if(sim.errors.length) throw new Error(sim.errors.join('; '));
     ids.forEach(id => {
       finalIds.push(id); dayOf[id] = day + 1;

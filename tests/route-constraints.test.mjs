@@ -161,6 +161,53 @@ test('day1Count restarts the ETA clock on Day 2 morning', () => {
   assert.equal(result.scheduleById.c.eta, '08:00');
 });
 
+// ── day1FirstStopTime: the clock a mid-day re-solve actually departs on ──────
+test('day1FirstStopTime moves Day 1 and leaves later days on the morning clock', () => {
+  const items = ['a','b','c'].map(id => item(id));
+  const result = scheduleRouteConstraints(items, ['a','b','c'],
+    opts({ target:2, firstStopTime:'08:00', day1FirstStopTime:'11:40' }));
+  assert.equal(result.scheduleById.a.eta, '11:40');   // re-solved at 11:40
+  assert.equal(result.scheduleById.b.eta, '12:10');   // + one 30-min pace step
+  // c is the first stop of Day 2 — a different calendar day, so it departs at the
+  // constant. The override is day 1's alone.
+  assert.equal(result.dayOf.c, 2);
+  assert.equal(result.scheduleById.c.eta, '08:00');
+});
+
+test('day1FirstStopTime omitted or blank leaves every ETA exactly as before', () => {
+  const items = ['a','b','c'].map(id => item(id));
+  const base = scheduleRouteConstraints(items, ['a','b','c'], opts({ target:2 }));
+  for(const day1FirstStopTime of [undefined, '', null]){
+    const r = scheduleRouteConstraints(items, ['a','b','c'], opts({ target:2, day1FirstStopTime }));
+    assert.deepEqual(r.scheduleById, base.scheduleById);
+    assert.deepEqual(r.orderedIds, base.orderedIds);
+  }
+});
+
+test('day1FirstStopTime does not resize the day — only the target sizes a day', () => {
+  // The trap AGENTS.md documents: a clock that reaches day sizing is the finish-by
+  // dial coming back. A late start must move the ETAs and nothing else, even when
+  // the whole day now lands after knock-off.
+  const items = ['a','b','c','d'].map(id => item(id));
+  const late = scheduleRouteConstraints(items, ['a','b','c','d'],
+    opts({ target:4, day1FirstStopTime:'15:30' }));
+  assert.deepEqual([late.dayOf.a, late.dayOf.b, late.dayOf.c, late.dayOf.d], [1, 1, 1, 1]);
+  assert.equal(late.scheduleById.d.eta, '17:00');   // reported, not trimmed away
+});
+
+test('an afternoon Day 1 is late for a morning appointment rather than pretending', () => {
+  // Priced from 08:00 the 10:00 appointment is comfortably reachable; priced from
+  // the clock the crew is actually on, it is not — and lateness is REPORTED.
+  const items = [item('a'), item('appt', {
+    appointmentDate:'2026-07-24', appointmentTime:'10:00'
+  })];
+  const r = scheduleRouteConstraints(items, ['a','appt'],
+    opts({ target:2, firstStopTime:'08:00', day1FirstStopTime:'11:40' }));
+  assert.ok(r.scheduleById.appt.lateMin > 0);
+  const onTime = scheduleRouteConstraints(items, ['a','appt'], opts({ target:2 }));
+  assert.equal(onTime.scheduleById.appt.lateMin, 0);
+});
+
 test('opts.dwell charges each stop its own on-site time', () => {
   const items = [
     item('a', { address:'1 First St' }),

@@ -70,8 +70,11 @@ function render(){
   if(paceCtx && paceCtx.pendingCount){
     const est = projectDayReal({ ...paceCtx, finishByMin: hhmmMin(ROUTE_DAY_END) });
     const t = est.ready ? est.paces.target : null;
+    // Short of the TARGET, not short of the route — see js/compute/estimate.js
+    // paceFor. paceCtx carries the target, so this reads the same number the
+    // Drive-screen gauge shows.
     if(t) lines.push(`Projected to land ~${t.projected} by ${ROUTE_DAY_END}`
-      + `${t.onPace ? ' ✓' : ` · ${t.delta} short`}`);
+      + `${t.onPace ? ' ✓' : ` · ${(t.targetShort == null ? t.routeShort : t.targetShort)} short`}`);
   }
   $('tuneReadout').innerHTML = lines.map(esc).join('<br>');
 }

@@ -374,6 +374,10 @@ Tap **🚗 Drive** on the worklist to open a clean, one-card driving screen. It 
 - **Back and Next only change what you're looking at.** They do not mark anything done and do not change your list. An order is still completed the normal way — when you log its meter.
 - **Navigate** opens Google Maps for the current address (and copies the address, like the 🧭 button on the worklist). When you're done, switch back to the app and your card is still there.
 
+**The pace cards** under the order tell you where the day is heading. Each one projects how many meters you'll have installed by a time — **Day · 3:45** (or **4:45 OT** once it's past four and the day is still open), and a **Target** card for earlier in the day. They read against your **meters/day target**: "12 of 24 installs" with **on pace**, or **4 short of 24** if the hours left won't get you there. If some of the stops still on your route won't fit either way, the caption adds "· 2 stops won't fit" — you can be on pace for 24 and still not reach every house on the list.
+
+The projection uses real numbers off your day: how long your stops have actually been taking today, and how far the rest of the route still has to drive at the speed you've actually been driving. It also refreshes what's been logged from the sheet every few minutes, so it stays right on a phone you're only driving by while someone else logs the meters.
+
 While the Drive screen is open, the app records your driving route and speed for the office. A small **🛰 Location on** chip shows when it's recording. You can turn it off with the **Record this drive** switch — it turns back on the next day. **Keep screen awake** stops the phone from locking while you drive (it uses more battery, so it's off unless you turn it on).
 
 Recording only happens while the Drive screen is in front. When you open Google Maps to navigate, recording pauses and picks back up when you return — the office sees those as gaps, not missing data. **Ending your day (Finish/Close) turns Drive mode off automatically.**
@@ -383,6 +387,8 @@ Recording only happens while the Drive screen is in front. When you open Google 
 ### Moving the list between devices
 
 **⇪ Upload list** saves your list to the sheet; **⇩ Download list** replaces the phone's list with the saved copy (matched on your H number, so set up Settings first). Use it to plan on one device and run the route on another. Both need signal, both replace the whole list, and both confirm before doing it.
+
+**Logging on one phone and driving by another?** Download also pulls down the meters already logged today, so the driving phone's pace cards and day sizes know what the other phone has done. For that to work both phones need the **same name in Settings** — the day's work is filed under it, and a different spelling reads as a different person.
 
 If the office plans your day on the computer, your Download may already arrive **in optimized driving order** with every address pinned — just start at #1 and work down; no need to tap 🧭 Optimize yourself.
 

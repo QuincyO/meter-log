@@ -35,13 +35,70 @@ test('projects both paces against their own horizons', () => {
   // Target 2:00: (180 - 40)/20 = 7 more → 11 projected, 3 short of the 14-stop route.
   assert.equal(r.paces.target.label, '2:00');
   assert.equal(r.paces.target.projected, 11);
-  assert.equal(r.paces.target.delta, 3);
+  assert.equal(r.paces.target.routeShort, 3);
   assert.equal(r.paces.target.onPace, false);
   // Work 3:45: (285 - 40)/20 = 12 more, capped at the 10 pending → lands the whole route.
   assert.equal(r.paces.work.label, '3:45');
   assert.equal(r.paces.work.projected, 14);
-  assert.equal(r.paces.work.delta, 0);
+  assert.equal(r.paces.work.routeShort, 0);
   assert.equal(r.paces.work.onPace, true);
+});
+
+// ── the meters/day target is what "on pace" means ───────────────────────────
+// The route is NOT a stable denominator: Day 1 is re-sized to `target − installed`
+// after every stop (js/route-today.js dayCapacity), so measuring against it asks a
+// question that answers itself — the field report this fixes was "it just sets the
+// target to be the remaining metres, it always says I'm on pace".
+test('on pace is measured against the meters/day target, not the stops left', () => {
+  // The exact shape of the bug: 4 installed, only 3 orders left on the (shrunken)
+  // route, and all 3 will land — so the ROUTE is satisfied while a 24-meter target
+  // is nowhere near met.
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
+    finishByMin: 14 * 60, target: 24, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.target, 24);
+  assert.equal(r.paces.work.projected, 7);      // 4 done + all 3 pending
+  assert.equal(r.paces.work.routeShort, 0);     // the route lands in full…
+  assert.equal(r.paces.work.targetShort, 17);   // …and the day is still 17 short
+  assert.equal(r.paces.work.onPace, false);     // which is the answer that matters
+  // The meters/day number is returned ONCE, at the top level — `paces.target` is
+  // the finish-by horizon, so a `paces.target.target` would be two meanings of the
+  // word one dot apart.
+  assert.equal(r.paces.work.target, undefined);
+});
+
+test('a day that beats its target reads on pace, and never goes negative', () => {
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 6, remainingTravelMin: 0, onsitePerStop: 10,
+    finishByMin: 14 * 60, target: 5, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.paces.work.projected, 10);     // 4 done + 6 more
+  assert.equal(r.paces.work.targetShort, 0);    // clamped, not -5
+  assert.equal(r.paces.work.onPace, true);
+});
+
+test('both shortfalls are reported, so a met target can still miss stops', () => {
+  // Target met (4 + 2 = 6 ≥ 6) but two of the route's four remaining stops won't
+  // be reached — the caption's second half is the only place that can say so.
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 4, remainingTravelMin: 0, onsitePerStop: 60,
+    finishByMin: 13 * 60, target: 6, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.paces.target.projected, 6);
+  assert.equal(r.paces.target.targetShort, 0);
+  assert.equal(r.paces.target.onPace, true);
+  assert.equal(r.paces.target.routeShort, 2);
+});
+
+test('with no target set, on pace falls back to the route comparison unchanged', () => {
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
+    finishByMin: 14 * 60, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.target, null);
+  assert.equal(r.paces.work.targetShort, null);
+  assert.equal(r.paces.work.onPace, true);      // the old meaning, for old callers
 });
 
 test('never projects more than the stops left in the route', () => {

@@ -17,6 +17,7 @@ import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
 import { liveMetrics } from './drive-recorder.js';
+import { cacheRecentDays } from './daycache.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
 import { projectDayReal } from './compute/estimate.js';
@@ -218,6 +219,26 @@ function planShape(){
     commutePull:pullVal(store.get('wlCommutePull')),
     target:targetVal()
   };
+}
+
+// The clock DAY 1 departs on, as `scheduleRouteConstraints`' `day1FirstStopTime`
+// — blank means "use ROUTE_DEPART_TIME like every other day", which is what every
+// run that isn't happening right now wants.
+//
+// The rule is about the ANCHOR, not the hour: the muster point is a *morning*
+// anchor, so a route staged there is the morning's route however late it is
+// pressed, and it keeps 08:15. A route staged where the crew is actually standing
+// — the Optimize "Start from here" choice, and every rolling re-schedule after a
+// logged stop — is happening NOW, and pricing it from 08:15 makes every ETA on it
+// a morning ETA. Only ever forward: a run before 08:15 keeps the constant rather
+// than promising a 06:40 start nobody is driving.
+//
+// Days 2+ are untouched by construction (route-constraints.js firstMinFor), and
+// nothing here reaches day SIZING — see the ETAs-only note over there.
+function day1DepartTime(fromCurrent){
+  if(!fromCurrent || planDay() !== localDate()) return '';
+  const now = clockOf(stamp());
+  return hhmmMin(now) > hhmmMin(ROUTE_DEPART_TIME) ? now : '';
 }
 
 // Which saved route is live. The office picks one and it rides down with the
@@ -454,6 +475,15 @@ async function wlDownload(){
     // The one exception is a plan that STARTS today: there the office deliberately
     // decided what today holds, and the phone obeys it (adoptPlannerDay1).
     await adoptPlannerDay1(r.plan);
+    // Pull today's stops down before re-anchoring. On a SECOND device — the phone
+    // the crew drives by, while the orders are logged on another — the dayCache is
+    // only ever filled by cacheRecentDays at page load and on reconnect, so a phone
+    // that has been open since morning believes nothing has been installed today.
+    // Everything downstream reads that: dayCapacity hands Day 1 a full fresh
+    // target, and the pace gauge's `done` sits at 0 — which is why the Drive screen
+    // said "0 of N" and could never report being behind. The Download is exactly
+    // the moment the installer is asking "what has been done?", so answer it.
+    await cacheRecentDays(1);
     await applyTodayAnchor();
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
@@ -496,11 +526,33 @@ function cachedCoord(latKey, lngKey){
   const lat = Number(store.get(latKey)), lng = Number(store.get(lngKey));
   return (isFinite(lat) && isFinite(lng) && (lat || lng)) ? { lat, lng } : null;
 }
+// Where the crew actually is: the pin of the most recently completed order. The
+// muster point is only the right origin before the day's FIRST stop — after that
+// the drive to the next order starts from the driveway they are standing in, and
+// pricing it from the depot inflates every remaining ETA for the rest of the day.
+// `updatedAt` is the completion stamp (markWorklistDone writes it), and done
+// orders are pruned to the day they were logged, so the latest one is today's.
+// Deliberately not a GPS fix: this is free, needs no permission, and is available
+// with the radio off.
+function lastDonePin(items){
+  const done = (items || []).filter(x => x && x.wlStatus === 'done' && coordsOf(x));
+  if(!done.length) return null;
+  return coordsOf(done.reduce((a, b) =>
+    String(b.updatedAt || '') > String(a.updatedAt || '') ? b : a));
+}
+
 // The on-device estimate travel lookup for a set of orders (no matrix fetched):
 // haversine over the saved pins + cached crew start/home → estimated drive times.
-function estimateTravel(items){
+// `all` (optional) is the full list including DONE orders, so the day's origin can
+// follow the crew — see lastDonePin. Omitted ⇒ the muster point, as before.
+function estimateTravel(items, all){
+  // Only for the day the crew is STANDING in. An evening plan for tomorrow starts
+  // at the depot like any morning does, so today's last driveway is the wrong
+  // origin for it — the same today-vs-plan-day split day1DepartTime makes.
+  const here = planDay() === localDate() ? lastDonePin(all) : null;
   return estimateTravelFromCoords(items,
-    cachedCoord('crewStartLat', 'crewStartLng'), cachedCoord('homeLat', 'homeLng'));
+    here || cachedCoord('crewStartLat', 'crewStartLng'),
+    cachedCoord('homeLat', 'homeLng'));
 }
 
 async function crewStartPin(){
@@ -603,7 +655,12 @@ async function optimizeRouteHandler(useNetwork){
     // ORS/OSRM), or the estimate route.js derived from distances — either way the
     // first stop's ETA now includes the crew-start drive and the day fits the clock.
     const travel = travelLookup(base.measure);
-    const planOpts = { ...planShape(), target: base.dayTarget || target, travel, dwell };
+    // "Start from here" moves the route's origin to where the crew is standing;
+    // it has to move the route's CLOCK too, or a run pressed at 11:40 arrives
+    // everywhere at breakfast. Starting from the muster point deliberately keeps
+    // 08:15 — that press means "show me the day as planned from the depot".
+    const planOpts = { ...planShape(), target: base.dayTarget || target, travel, dwell,
+      day1FirstStopTime: day1DepartTime(startFromCurrent) };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals
@@ -985,7 +1042,7 @@ export async function renderWorklist(){
       const count = dayItems.length;
       const date = (dayItems[0] || {}).scheduledDate || '';
       const km = liveDayMeters(items, variant, d);
-      const eta = wlDayEta(dayItems, count);
+      const eta = wlDayEta(dayItems, count, d);
       const div = document.createElement('div');
       div.className = 'wl-day';
       div.title = eta.title;
@@ -1108,7 +1165,8 @@ async function switchVariant(v){
   const items = await allSorted();
   if(!variantSelectable(items, v)) return;
   let next;
-  try { next = applyVariant(items, v, { ...planShape(), target:targetVal(), travel: estimateTravel(pendingOf(items)) }); }
+  try { next = applyVariant(items, v, { ...planShape(), target:targetVal(),
+    travel: estimateTravel(pendingOf(items), items), day1FirstStopTime: day1DepartTime(true) }); }
   catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
   const now = stamp();
   for(const item of next) await idb.put('worklist', Object.assign({}, item, { updatedAt:now }));
@@ -1168,8 +1226,14 @@ function hoursText(mins){
 // a simulated span must not, or the header would announce a finish the last ETA
 // badge contradicts — one model, or the two disagree again.
 const DAY_KM_TIP = 'Distance covers the drive out and between stops, not the drive home.';
-function wlDayEta(dayItems, count){
-  const mins = dayDurationMin(dayItems, planShape().firstStopTime, dwellShape().base);
+// `day` is the divider's day number. Day 1 must be measured from the same clock
+// its ETAs were built on (day1DepartTime) — read an afternoon's remaining route
+// off an 08:15 start and the header announces ~8h over what the badges under it
+// clearly show as four. Days 2+ take the constant, as they always did.
+function wlDayEta(dayItems, count, day){
+  const shape = planShape();
+  const start = (day === 1 && day1DepartTime(true)) || shape.firstStopTime;
+  const mins = dayDurationMin(dayItems, start, dwellShape().base);
   if(mins != null) return { text:` · ${hoursText(mins)}`,
     title:`${DAY_KM_TIP} Time is this day's route: the drive out, the driving between stops and the time on site — no lunch or breaks.` };
   if(!wlAvgLogMin || !count) return { text:'', title:DAY_KM_TIP };
@@ -1519,7 +1583,8 @@ async function persistOrderIds(ordered){
     try{
       const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
       schedule = scheduleRouteConstraints(pending, pendingIds,
-        { ...planShape(), target:targetVal(), travel: estimateTravel(pending), dwell: dwellShape() });
+        { ...planShape(), target:targetVal(), travel: estimateTravel(pending, items),
+          dwell: dwellShape(), day1FirstStopTime: day1DepartTime(true) });
       ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
   }
@@ -1980,11 +2045,15 @@ async function applyTodayAnchor(opts){
   // How many of today's set still FIT.
   const fits = day1Count(anchor, day1, capacity);
 
-  const travel = (opts && opts.travel) || estimateTravel(pending);
+  const travel = (opts && opts.travel) || estimateTravel(pending, items);
   let schedule;
   try {
+    // This runs after every logged stop, so it is the re-schedule that keeps the
+    // remaining ETAs honest as the day is worked — and it is by definition
+    // happening from where the crew is now, never from the muster point at 08:15.
     schedule = scheduleRouteConstraints(pending, seq,
-      { ...planShape(), target, day1Count: fits, travel, dwell: dwellShape() });
+      { ...planShape(), target, day1Count: fits, travel, dwell: dwellShape(),
+        day1FirstStopTime: day1DepartTime(true) });
     store.set('wlPlanIssue', '');
   } catch(e) {
     // Locks/appointments make this impossible — leave the days exactly as they are.
@@ -2010,8 +2079,16 @@ async function applyTodayAnchor(opts){
     // today; now that it rolls, an order sitting still keeps a scheduledDate for a
     // day that has passed — which is how a Day 1 ends up holding two different
     // dates and its divider showing yesterday.
+    // The ETA is part of that comparison now. It was keyed on position + date
+    // alone, which was safe only while the day's clock was the constant 08:15:
+    // with a clock that moves, a stop can sit at the same position on the same
+    // date and still be due at a different time, and the skip threw exactly the
+    // update the installer asked for ("every time I complete an order the ETA
+    // should update"). It fires on the paths where nothing shifts — a walk-up
+    // logged off-list, a Download landing the same sequence.
     if(item.order === order && item.day === day
-       && String(item.scheduledDate || '') === String(s.date || '')) continue;
+       && String(item.scheduledDate || '') === String(s.date || '')
+       && String(item.scheduledEta || '') === String(s.eta || '')) continue;
     await idb.put('worklist', Object.assign({}, item, {
       order, day,
       scheduledDate:s.date || '', scheduledEta:s.eta || '',
@@ -2093,13 +2170,32 @@ export async function paceContext(){
     avgLegTravelMin: travel.perStopMin,
     onsitePerStop: onsitePerStopReal(stops),
     finishByMin: hhmmMin(ROUTE_DAY_END),
+    // What "on pace" is measured against. Read live from the box like everywhere
+    // else — the same value that sized the day, so the gauge and the route agree.
+    target: targetVal(),
     dayClosed: dayClosed(),
   };
+}
+
+// A second device logs nothing itself, so nothing on it ever invalidates the
+// dayCache — and the whole pace projection is read off that cache. drive.js
+// repaints every few seconds, which would just re-read the same stale copy, so
+// the pull is throttled here on its own much slower clock. Best-effort and
+// online-only inside cacheRecentDays; a failure leaves the last good copy.
+const PACE_REFRESH_MS = 3 * 60 * 1000;
+let paceCacheAt = 0;
+async function refreshPaceCache(){
+  const now = Date.now();
+  if(now - paceCacheAt < PACE_REFRESH_MS) return;
+  paceCacheAt = now;                       // stamped BEFORE the await, so a slow
+  try { await cacheRecentDays(1); }        // call can't stack up behind itself
+  catch { /* keep the last good cache */ }
 }
 
 // Drive-mode provider: the live two-pace projection, or null when there's no route
 // left to project (nothing pending today). drive.js formats it.
 async function drivePace(){
+  await refreshPaceCache();
   const ctx = await paceContext();
   if(!ctx.pendingCount) return null;
   const est = projectDayReal(ctx);
