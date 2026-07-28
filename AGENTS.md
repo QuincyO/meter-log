@@ -278,7 +278,7 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   answers the on-site — and like `travel`, a caller that omits it **silently** gets
   the old flat `pace − 10` guess with no error to notice. Every optimize path passes
   both, and `timeCapacity` must take the same model's `average()` as `opts.onSiteMin`,
-  or the day target stops describing the ETAs it sized. Four traps:
+  or the day target stops describing the ETAs it sized. Five traps:
   (1) **`extraMeterMin` is not floored at `MIN_ONSITE_MIN`** — a 2nd meter at an
   address the crew is already parked at really does take a couple of minutes, and
   flooring it re-introduces most of the error the tier exists to remove;
@@ -293,7 +293,22 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   it up another, no error and no wrong number, the feature just never fires.
   `tests/route-dwell-parity.test.mjs` evaluates the real Apps Script source to stop
   that. Adding a dwell column also means adding it to `installerMetricsRead`'s
-  `boat*`/`land*` projection, which the phone reads *through*.
+  `boat*`/`land*` projection, which the phone reads *through*;
+  (5) **a column appended to a live `InstallerMetrics` sheet arrives
+  date-formatted**, because Sheets copies the format of the column it lands beside
+  and on that tab the neighbour is `updated`, a datetime. This is not cosmetic —
+  `getValues()` returns a **Date** for a date-formatted cell, so a stored `28` left
+  `doGet` as `"1900-01-27T…"`, `Number()`'d to `NaN` in `route-dwell.js`, and the
+  phone silently kept the pace guess. The entire measured-dwell block shipped that
+  way, and the repair in `setupSheets()` had already been written *once* for the
+  recent-30 block — as a literal list of three header names that nobody extended.
+  It is a deny-list now (`INSTALLER_METRICS_DATE_HEADERS`: every column but the
+  three real dates), so the next appended block is covered on arrival. Keep it that
+  way; a number format on a text cell is a no-op, so over-reaching is the safe
+  direction and naming the numeric columns is the direction that fails silently.
+  Anything appended still needs `setupSheets()` run once to repair rows already
+  there — the values are correct, only the format is wrong, so there is nothing to
+  backfill.
   See ARCHITECTURE.md §"On-site time (dwell)".
 - **The phone measures its own roads now — and the press picks the ladder.**
   There are three entry points into `optimizeRoute` and each has its own order:

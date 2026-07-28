@@ -193,6 +193,23 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
            'travelMinPerKm','boatTravelMinPerKm','landTravelMinPerKm',
            'onSiteSource','boatOnSiteSource','landOnSiteSource']);
 
+// The only InstallerMetrics columns that hold a real date/time. Everything else is a
+// plain number (or a short text tag), and must never carry a date format — see the
+// repair in setupSheets() for what a date-formatted number actually costs.
+const INSTALLER_METRICS_DATE_HEADERS = ['firstDay', 'lastDay', 'updated'];
+
+/** 1-based InstallerMetrics columns that must NOT be date-formatted, read off the
+ *  sheet's own header row. A deny-list on purpose: a number format on a text cell is
+ *  a no-op, so over-reaching is harmless while a column left out is silent. */
+function installerMetricsNumberCols(headers) {
+  const out = [];
+  headers.forEach((h, i) => {
+    const name = String(h);
+    if (name && INSTALLER_METRICS_DATE_HEADERS.indexOf(name) === -1) out.push(i + 1);
+  });
+  return out;
+}
+
 // One row per planned worklist order, keyed per installer on the employee
 // H number (names can collide, H numbers can't; installer is a readable label
 // filled from the roster at upload time). A flat copy of the phone's IndexedDB
@@ -288,16 +305,28 @@ function setupSheets() {
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
-  // These values are minute counts, not Sheets date serials. Find their columns
-  // by header so schema additions/reordering cannot turn a fixed column into one.
+  // These values are minute counts and rates, not Sheets date serials — but a column
+  // appended to a live sheet inherits the format of the one it lands beside, and the
+  // one it lands beside is `updated`, a datetime. So every appended block arrives
+  // date-formatted, and that is NOT cosmetic: getValues() hands back a Date for a
+  // date-formatted cell (the same coercion the Days/Stops text pins below exist for),
+  // so a stored 28 leaves doGet as "1900-01-27T…", Number()s to NaN in
+  // js/route-dwell.js, and the phone silently keeps using the old pace guess.
+  // Find the columns by header so schema additions/reordering cannot turn a fixed
+  // column into one, and repair by EXCLUDING the real dates rather than by naming the
+  // numeric ones: the old allow-list named the three recent-30 columns literally, was
+  // never extended when the measured-dwell block was appended, and so that whole block
+  // shipped broken. A number format on a text cell ('fit', an H number) is a no-op,
+  // which makes over-reaching the safe direction and under-reaching the silent one.
   const installerMetrics = ss.getSheetByName('InstallerMetrics');
   const metricHeaders = installerMetrics.getRange(1, 1, 1, installerMetrics.getLastColumn())
     .getValues()[0].map(v => String(v));
   const metricDataRows = installerMetrics.getMaxRows() - 1;
   if (metricDataRows > 0) {
-    ['recent30AvgLogMin', 'boatRecent30AvgLogMin', 'landRecent30AvgLogMin'].forEach(header => {
-      const col = metricHeaders.indexOf(header);
-      if (col !== -1) installerMetrics.getRange(2, col + 1, metricDataRows, 1).setNumberFormat('0');
+    // '0.##########', not '0': hoursWorked (142.5), avgPerHour (0.7) and
+    // travelMinPerKm (7.2) are fractional, and an integer format displays them rounded.
+    installerMetricsNumberCols(metricHeaders).forEach(col => {
+      installerMetrics.getRange(2, col, metricDataRows, 1).setNumberFormat('0.##########');
     });
   }
   // Keep entered bookend times as literal text so Sheets can't coerce "08:30"

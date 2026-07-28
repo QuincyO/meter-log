@@ -457,9 +457,28 @@ re-close never double-counts), so no trigger is needed.
 **Timed appointments + locked route slots.** After deploying this change, run
 `setupSheets()` once. It appends the appointment/lock/scheduled fields to
 `Worklist`, appends the recent-30-workday pace fields to `InstallerMetrics`, and
-creates `WorklistPlans`. It also repairs those recent-30 minute columns to the
-integer `0` format, so existing numeric values no longer render as 1900 dates.
-Existing rows remain intact: this repair needs no deletion and no backfill.
+creates `WorklistPlans`. It also repairs those recent-30 minute columns, so
+existing numeric values no longer render as 1900 dates. Existing rows remain
+intact: this repair needs no deletion and no backfill.
+
+**`InstallerMetrics` numbers showing as dates (the measured-dwell block).** If any
+metric column reads as a 1900-something date instead of a number — `onSiteMin`,
+`extraMeterMin` and `travelMinPerKm` all shipped that way — **run `setupSheets()`
+once and the whole tab is repaired.** No deletion, no backfill: the stored values
+were always correct numbers, only the number format was wrong. A column appended
+to a live sheet inherits the format of the one it lands beside, and on this tab
+that neighbour is `updated`, a datetime. The repair now covers **every** column
+except the three real dates (`firstDay`, `lastDay`, `updated`), so the next
+appended block is fixed on arrival rather than shipping broken.
+
+Worth knowing why it mattered: `getValues()` returns a **Date** for a
+date-formatted cell, so `?action=installerMetrics` was serving
+`"1900-01-27T05:00:00.000Z"` where the phone expected `28`. `js/route-dwell.js`
+does `Number(opts.onSiteMin)`, got `NaN`, and fell back to the old `pace − 10`
+guess — no error, no wrong number on screen, just a measured model that never
+applied. Check it with
+`?action=installerMetrics&hNumber=<H…>&workType=land`: `onSiteMin` must come back
+as a bare number.
 
 ## Troubleshooting
 
