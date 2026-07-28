@@ -44,15 +44,16 @@ test('projects both paces against their own horizons', () => {
   assert.equal(r.paces.work.onPace, true);
 });
 
-// ── the meters/day target is what "on pace" means ───────────────────────────
-// The route is NOT a stable denominator: Day 1 is re-sized to `target − installed`
-// after every stop (js/route-today.js dayCapacity), so measuring against it asks a
-// question that answers itself — the field report this fixes was "it just sets the
-// target to be the remaining metres, it always says I'm on pace".
-test('on pace is measured against the meters/day target, not the stops left', () => {
-  // The exact shape of the bug: 4 installed, only 3 orders left on the (shrunken)
-  // route, and all 3 will land — so the ROUTE is satisfied while a 24-meter target
-  // is nowhere near met.
+// ── the ROUTE is what "on pace" means ───────────────────────────────────────
+// The meters/day target's job is upstream — dayCapacity(target, installedToday)
+// decides how many orders are on Day 1. Once it has, the driver's question is
+// "will I finish the route in front of me?". See js/compute/estimate.js paceFor
+// for why the "the route re-sizes underneath you" objection doesn't hold.
+test('on pace is measured against the stops left on the route, not the target', () => {
+  // The reading the installer objected to: 4 installed, 3 orders left in the world,
+  // all 3 will land. The route is satisfied — that is on pace. A 24-meter target
+  // being 17 away is real, but it is not a pace the driver can do anything about,
+  // so it is the footnote and not the verdict.
   const r = projectDayReal({
     stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
     finishByMin: 14 * 60, target: 24, nowMin: 11 * 60, dayClosed: false,
@@ -60,15 +61,15 @@ test('on pace is measured against the meters/day target, not the stops left', ()
   assert.equal(r.target, 24);
   assert.equal(r.paces.work.projected, 7);      // 4 done + all 3 pending
   assert.equal(r.paces.work.routeShort, 0);     // the route lands in full…
-  assert.equal(r.paces.work.targetShort, 17);   // …and the day is still 17 short
-  assert.equal(r.paces.work.onPace, false);     // which is the answer that matters
+  assert.equal(r.paces.work.onPace, true);      // …which is the answer that matters
+  assert.equal(r.paces.work.targetShort, 17);   // still reported, as the footnote
   // The meters/day number is returned ONCE, at the top level — `paces.target` is
   // the finish-by horizon, so a `paces.target.target` would be two meanings of the
   // word one dot apart.
   assert.equal(r.paces.work.target, undefined);
 });
 
-test('a day that beats its target reads on pace, and never goes negative', () => {
+test('the target footnote clamps at zero on a day that beats it', () => {
   const r = projectDayReal({
     stops: doneStops, pendingCount: 6, remainingTravelMin: 0, onsitePerStop: 10,
     finishByMin: 14 * 60, target: 5, nowMin: 11 * 60, dayClosed: false,
@@ -78,27 +79,27 @@ test('a day that beats its target reads on pace, and never goes negative', () =>
   assert.equal(r.paces.work.onPace, true);
 });
 
-test('both shortfalls are reported, so a met target can still miss stops', () => {
-  // Target met (4 + 2 = 6 ≥ 6) but two of the route's four remaining stops won't
-  // be reached — the caption's second half is the only place that can say so.
+test('a met target does not excuse stops that will not be reached', () => {
+  // Target met (4 + 2 = 6 ≥ 6) but two of the route's four remaining stops won't be
+  // reached by 1:00. Behind — the target cannot vote the route off the gauge.
   const r = projectDayReal({
     stops: doneStops, pendingCount: 4, remainingTravelMin: 0, onsitePerStop: 60,
     finishByMin: 13 * 60, target: 6, nowMin: 11 * 60, dayClosed: false,
   });
   assert.equal(r.paces.target.projected, 6);
   assert.equal(r.paces.target.targetShort, 0);
-  assert.equal(r.paces.target.onPace, true);
   assert.equal(r.paces.target.routeShort, 2);
+  assert.equal(r.paces.target.onPace, false);
 });
 
-test('with no target set, on pace falls back to the route comparison unchanged', () => {
+test('with no target set there is simply no footnote', () => {
   const r = projectDayReal({
     stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
     finishByMin: 14 * 60, nowMin: 11 * 60, dayClosed: false,
   });
   assert.equal(r.target, null);
   assert.equal(r.paces.work.targetShort, null);
-  assert.equal(r.paces.work.onPace, true);      // the old meaning, for old callers
+  assert.equal(r.paces.work.onPace, true);      // the route, target or no target
 });
 
 test('never projects more than the stops left in the route', () => {

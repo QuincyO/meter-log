@@ -2118,13 +2118,21 @@ async function applyTodayAnchor(opts){
 // same decomposition the route planner uses, so the screens agree.
 const FALLBACK_SPEED_MPS = ESTIMATE_SPEED_KMH / 3.6;
 
-// Today's pending stops = the first day-group of the live route; a multi-day route
-// only counts day 1 toward today's landing. Blank day sorts as day 1.
+// Today's pending stops = the DAY-1 group of the live route; a multi-day route only
+// counts day 1 toward today's landing. Blank day sorts as day 1.
+//
+// Day 1 strictly, not "the lowest day number present". Once the meters/day target is
+// met with orders still on the list, `dayCapacity` returns 0, `day1Count` is 0, and
+// scheduleRouteConstraints stamps EVERY remaining order day 2+ — a full day, with
+// the rest rolled to tomorrow (js/route-today.js). The lowest day present is then 2,
+// and a min-day read would quietly hand the pace gauge tomorrow's chunk: today's
+// installs captioned against a route nobody is driving today, and a "Route done ~"
+// clock for it. Empty is the honest answer — drivePace returns null and the card
+// hides, because the router has declared today finished.
 function todayPending(pending){
   if(!pending.length) return pending;
   const dayOf = p => Number(p.day) || 1;
-  const minDay = Math.min(...pending.map(dayOf));
-  return pending.filter(p => dayOf(p) === minDay);
+  return pending.filter(p => dayOf(p) === 1);
 }
 
 // Real remaining route travel (minutes) + its per-stop average, priced at the

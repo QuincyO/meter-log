@@ -31,21 +31,33 @@ export function clockLabel(min){
 // One horizon's projection: how many installs land before H, and how that lands
 // against the two things worth being short of.
 //
-// `targetShort` is the headline and `routeShort` is the footnote, and they answer
+// `routeShort` is the headline and `targetShort` is the footnote, and they answer
 // different questions:
-//   targetShort — projected installs vs the installer's METERS/DAY TARGET.
 //   routeShort  — projected installs vs the stops still on today's route.
+//   targetShort — projected installs vs the installer's METERS/DAY TARGET.
 //
-// `onPace` used to mean routeShort, and that made it a question that answers
-// itself. Today's route is Day 1, and Day 1 is sized `dayCapacity(target,
-// installedToday)` = target − what's already installed (js/route-today.js) — so
-// the day shrinks by exactly what has been done and the gauge then asks "will I
-// finish what's left?". Reported from the field as "it just sets the target to be
-// the remaining metres — it always says I'm on pace", which was literally true.
-// The target is the only denominator that doesn't move underneath the answer.
+// **`onPace` is the ROUTE**, because the target's job is upstream. The meters/day
+// number is what SIZES the day — `dayCapacity(target, installedToday)` decides how
+// many orders sit on Day 1 (js/route-today.js) — and once it has, the driver's
+// question is "am I going to finish the route in front of me?".
 //
-// `target` absent/0 ⇒ there is no target to be short of, so onPace falls back to
-// the route comparison unchanged. Nothing else is a valid reading of "no target".
+// This was briefly the other way round, on the theory that Day 1 "moves underneath
+// the answer" as it is re-sized to `target − installed`. It does not: Day 1 is
+// `min(capacity + extend, |anchor.ids ∩ pending|)`, and a completed install drops
+// BOTH terms by one, so the finished stop simply moves from `pendingCount` into
+// `done` and their sum holds still all day. The two readings are in fact the same
+// number whenever the list is long enough to fill the target —
+// `targetShort = target − done − willDo = pendingCount − willDo = routeShort`. They
+// diverge in exactly one case, a route SHORTER than the target, and there the
+// target reading is the useless one: "16 short of 24" when there are four orders
+// left in the world is not a pace the driver can do anything about.
+//
+// (The field report that prompted the detour — "it always says I'm on pace" — had a
+// second and sufficient cause, fixed in the same commit: a phone the crew only
+// drives by never invalidates the dayCache, so `done` was 0 all day. That fix is
+// the load-bearing one and it stays. See AGENTS.md.)
+//
+// `target` absent/0 ⇒ `targetShort` is null and there is simply no footnote.
 function paceFor(horizonMin, label, ctx){
   const { done, pendingCount, remainingTravelMin, onsitePerStop, now, target } = ctx;
   const installTimeLeft = horizonMin - now - remainingTravelMin;
@@ -59,14 +71,14 @@ function paceFor(horizonMin, label, ctx){
   // level, and callers read it from there.
   const targetShort = target > 0 ? Math.max(0, target - projected) : null;
   return { label, horizonMin, projected, routeShort, targetShort,
-    onPace: target > 0 ? targetShort === 0 : routeShort <= 0 };
+    onPace: routeShort <= 0 };
 }
 
 // stops: today's cached stop records (any status). pendingCount: stops left in the
 // route. remainingTravelMin: real remaining route travel. onsitePerStop: real
 // on-site minutes per stop (travel excluded). finishByMin: installer's target
-// finish-by clock (null → no target pace). target: the meters/day target, which is
-// what "on pace" is measured against (see paceFor). nowMin: minutes-of-day
+// finish-by clock (null → no target pace). target: the meters/day target — the
+// caption's footnote, NOT what "on pace" means (see paceFor). nowMin: minutes-of-day
 // override for tests. dayClosed: whether the day has been closed out.
 // Returns { done, pendingCount, target, ready, routeFinishMin, routeFinishLabel,
 // paces:{ target, work } } — paces.target is null when no finish-by is set; both

@@ -33,24 +33,47 @@ test('the drive-mode pace refreshes the cache on its own slow clock', () => {
   assert.match(worklistJs, /paceCacheAt = now;[\s\S]{0,200}?await cacheRecentDays\(1\)/);
 });
 
-// ── the target is the denominator ───────────────────────────────────────────
+// ── the route is the denominator ────────────────────────────────────────────
 test('paceContext carries the meters/day target into the projection', () => {
   assert.match(worklistJs, /target:\s*targetVal\(\),\s*\n\s*dayClosed:/);
 });
 
-test('the gauge reads short-of-target, and keeps the route shortfall as a footnote', () => {
+test('the gauge reads short-of-route, and keeps the target as a footnote', () => {
   // est.target (meters/day) — never pace.target, which would collide with
   // est.paces.target, the finish-by horizon.
   assert.match(driveJs, /const target = est\.target \|\| 0/);
   assert.doesNotMatch(driveJs, /pace\.target\b/);
-  assert.match(driveJs, /short of \$\{target\}/);
-  assert.match(driveJs, /\$\{done\} of \$\{target\} installs/);
-  assert.match(driveJs, /won.t fit/);
-  // A day that beats its target must not run the bar off the end of the track.
+  // The route is the denominator AND the verdict; the target only ever appears as
+  // the caption's second half. "N of <target> installs" is the shape that was wrong.
+  assert.match(driveJs, /const total = done \+ \(est\.pendingCount \|\| 0\)/);
+  assert.match(driveJs, /\$\{done\} of \$\{total\} stops/);
+  assert.doesNotMatch(driveJs, /of \$\{target\} installs/);
+  assert.doesNotMatch(driveJs, /short of \$\{target\}/);
+  assert.match(driveJs, /under your \$\{target\}/);
+  // Walk-ups can carry `done` past the route without the bar leaving the track.
   assert.match(driveJs, /Math\.min\(100, \(v \/ total\) \* 100\)/);
+  // The tuning what-if reads the same shortfall, or the two screens disagree about
+  // what "short" counts.
+  assert.match(tuningJs, /\$\{t\.routeShort\} short/);
   // The renamed field: `delta` meant the route, and nothing may still read it.
   assert.doesNotMatch(driveJs, /pace\.delta/);
   assert.doesNotMatch(tuningJs, /\bt\.delta\b/);
+});
+
+test('onPace is the route shortfall, unconditionally', () => {
+  const estimateJs = readFileSync(new URL('../js/compute/estimate.js', import.meta.url), 'utf8');
+  assert.match(estimateJs, /onPace: routeShort <= 0/);
+  // The branch that made a set target change the MEANING of on pace, not just the
+  // footnote. Its return is why "4 orders left, all of them landing" read as behind.
+  assert.doesNotMatch(estimateJs, /onPace: target > 0/);
+});
+
+test('today’s route is day 1 strictly, not the lowest day present', () => {
+  // Target met with orders left ⇒ dayCapacity 0 ⇒ every remaining order is stamped
+  // day 2+. A min-day read would hand the gauge tomorrow's chunk and clock a "Route
+  // done ~" for a route nobody is driving today.
+  assert.match(worklistJs, /return pending\.filter\(p => dayOf\(p\) === 1\);/);
+  assert.doesNotMatch(worklistJs, /const minDay = Math\.min/);
 });
 
 // ── one card on the Drive screen, and it says when the route is done ────────

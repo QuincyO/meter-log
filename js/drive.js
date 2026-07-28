@@ -129,13 +129,16 @@ export function initDrive(opts){
 
   // Paint the gauge card.
   //
-  // The bar is measured against the METERS/DAY TARGET: done | will-fit | short of
-  // it. The route was the denominator once, and the route MOVES — Day 1 is re-sized
-  // to `target − installed` after every stop (js/route-today.js dayCapacity), so the
-  // bar filled itself however the day was going and "on pace" was unfalsifiable.
-  // The route shortfall survives as the second half of the caption, because it is
-  // the one thing the target cannot say: "I'll hit 24, but two of these stops are
-  // not getting done today."
+  // The bar is the ROUTE: done | will-fit | won't-fit, as a share of today's day-1
+  // stops. That is the question the driver is actually asking, and the meters/day
+  // target has already done its job upstream by deciding how many orders are on the
+  // route at all (js/route-today.js dayCapacity). The target survives as the
+  // caption's quiet second half — the one thing the route cannot say: "I'll finish
+  // this route and still land under 24."
+  //
+  // It was briefly the other way round; js/compute/estimate.js paceFor carries the
+  // full account of why, including why the "the route re-sizes underneath you"
+  // worry doesn't hold up.
   function fillPaceRow(id, pace, prefix, est){
     const row = $(id);
     if(!row) return;
@@ -145,20 +148,19 @@ export function initDrive(opts){
     // est.target is the meters/day number; est.paces.target is the finish-by
     // horizon. Different things, and the only place they meet is right here.
     const target = est.target || 0;
-    // No target set ⇒ fall back to the route as the denominator, exactly as before.
-    const total = target || (done + (est.pendingCount || 0));
+    const total = done + (est.pendingCount || 0);
     const willDo = Math.max(0, pace.projected - done);
-    const short = Math.max(0, (target ? pace.targetShort : pace.routeShort) || 0);
-    const routeShort = Math.max(0, pace.routeShort || 0);
-    // A day can beat its target (walk-ups, or just a good one). That is on pace,
-    // and the bar clamps at 100% rather than running off the end of the track.
+    const short = Math.max(0, pace.routeShort || 0);
+    const under = Math.max(0, pace.targetShort || 0);
+    // Walk-ups can carry `done` past the stops the route ever held. That is a good
+    // day, and the bar clamps at 100% rather than running off the end of the track.
     const pct = v => total > 0 ? Math.min(100, (v / total) * 100) : 0;
     $(id + 'Lab').textContent = `${prefix} · ${pace.label}`;
     $(id + 'State').textContent = pace.onPace ? 'on pace'
-      : (target ? `${short} short of ${target}` : `${short} short`);
+      : `${short} stop${short === 1 ? '' : 's'} short`;
     $(id + 'Unit').textContent = `installs by ${pace.label}`;
-    $(id + 'Cap').textContent = (target ? `${done} of ${target} installs` : `${done} of ${total} stops`)
-      + (routeShort ? ` · ${routeShort} stop${routeShort === 1 ? '' : 's'} won’t fit` : '');
+    $(id + 'Cap').textContent = `${done} of ${total} stops`
+      + (target && under ? ` · ${under} under your ${target}` : '');
     $(id + 'Done').style.width = pct(done) + '%';
     $(id + 'More').style.width = pct(willDo) + '%';
     $(id + 'Short').style.width = pct(short) + '%';
