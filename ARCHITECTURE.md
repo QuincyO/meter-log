@@ -1037,6 +1037,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   reschedule** pass `estimateTravelFromCoords(items, crewStart, home)` — a haversine
   estimate over the saved pins, so those paths keep realistic ETAs on-device without
   a fetch. A downloaded planner route is always real OSRM (no "(est.)").
+- **The day divider's length is read back from the schedule, not modelled twice.**
+  `dayDurationMin(items, firstStopTime, fallbackOnSite)` (`js/route-constraints.js`)
+  spans the departure clock to the last stop's **departure** — its `scheduledEta`
+  plus its own `scheduledOnSiteMin` — so the header and the ETA badges under it can
+  never disagree. It replaced `count × recent30AvgLogMin + 60`, a historical
+  log-to-log cadence blind to both the distance printed beside it and the dwell
+  model; that figure survives only as the fallback for a list with no ETAs yet, and
+  is the only path that still adds the lunch hour (a simulated span must not, or the
+  header announces a finish the last badge contradicts). `scheduledOnSiteMin` is
+  therefore written by **every** path that writes `scheduledEta` — optimize, the
+  today-anchor re-lead, the drag re-persist, and `applyVariant` — or the divider
+  prices the last stop with the previous run's on-site minutes.
 
 ### On-site time (dwell)
 

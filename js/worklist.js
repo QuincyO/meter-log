@@ -33,7 +33,7 @@ import {
 } from './worklist-address-fill.js';
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
-import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
+import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -969,15 +969,17 @@ export async function renderWorklist(){
     const d = (isPending(item) && !noAddrHead) ? (item.day || null) : null;
     if(d && d !== curDay){
       curDay = d;
-      const count = pending.filter(p => (p.day || null) === d).length;
-      const date = (pending.find(p => (p.day || null) === d) || {}).scheduledDate || '';
+      const dayItems = pending.filter(p => (p.day || null) === d);
+      const count = dayItems.length;
+      const date = (dayItems[0] || {}).scheduledDate || '';
       const km = liveDayMeters(items, variant, d);
+      const eta = wlDayEta(dayItems, count);
       const div = document.createElement('div');
       div.className = 'wl-day';
-      div.title = 'Distance covers the drive out and between stops, not the drive home.';
+      div.title = eta.title;
       div.innerHTML = `<span class="wl-day-dot"></span>Day ${d}${date ? ` · ${esc(date)}` : ''} · ${count} meter${count === 1 ? '' : 's'}`
         + (km == null ? '' : ` · ${esc(fmtKm(km))}`)
-        + `<span class="wl-day-eta">${esc(wlDayEta(count))}</span>`;
+        + `<span class="wl-day-eta">${esc(eta.text)}</span>`;
       list.appendChild(div);
     }
     list.appendChild(makeWlCard(item));
@@ -1133,11 +1135,34 @@ function paintTargetHint(){
   if(!el) return;
   el.textContent = wlAvgPerDay ? `your avg ${wlAvgPerDay}/day` : '';
 }
-function wlDayEta(count){
-  if(!wlAvgLogMin || !count) return '';
-  const mins = count * wlAvgLogMin + 60;   // + lunch + break
+// "~6h 40m" / "~40m". The old figure was a count times a cadence plus an hour of
+// lunch, so it could never land under an hour and always printed the hours; a
+// simulated day of one stop can, and "~0h 25m" reads like a bug.
+function hoursText(mins){
   const h = Math.floor(mins / 60), m = Math.round(mins % 60);
-  return ` · ~${h}h${m ? ' ' + m + 'm' : ''}`;
+  if(!h) return `~${m}m`;
+  return `~${h}h${m ? ' ' + m + 'm' : ''}`;
+}
+// The day divider's duration. Read back from the day's OWN schedule
+// (`dayDurationMin`) so it tells the same story as the ETA badges under it: the
+// drive out, this route's real road time between stops, and each stop's measured
+// on-site minutes. It carried `count × avgLogMin + 60` for every day — the
+// installer's historical log-to-log cadence plus an hour for lunch, which ignored
+// both the distance printed beside it and the dwell model, so a tight day and a
+// scattered one of the same length read identically.
+//
+// That old figure survives as the FALLBACK, for a list that has never been
+// routed (no ETAs to read). It is the only path that still adds the lunch hour:
+// a simulated span must not, or the header would announce a finish the last ETA
+// badge contradicts — one model, or the two disagree again.
+const DAY_KM_TIP = 'Distance covers the drive out and between stops, not the drive home.';
+function wlDayEta(dayItems, count){
+  const mins = dayDurationMin(dayItems, planShape().firstStopTime, dwellShape().base);
+  if(mins != null) return { text:` · ${hoursText(mins)}`,
+    title:`${DAY_KM_TIP} Time is this day's route: the drive out, the driving between stops and the time on site — no lunch or breaks.` };
+  if(!wlAvgLogMin || !count) return { text:'', title:DAY_KM_TIP };
+  return { text:` · ${hoursText(count * wlAvgLogMin + 60)}`,   // + lunch + break
+    title:`${DAY_KM_TIP} Time is your average per meter plus an hour for lunch and breaks — optimize the route for a timed estimate.` };
 }
 // Pull the installer's avg/day + cadence (installerMetrics) into the hint beside
 // the target field. Online best-effort — silent offline; keeps the last value.
@@ -1480,6 +1505,7 @@ async function persistOrderIds(ordered){
       order, day:s ? schedule.dayOf[id] : item.day,
       scheduledDate:s ? s.date : item.scheduledDate, scheduledEta:s ? s.eta : item.scheduledEta,
       scheduledSlot:s ? s.slot : item.scheduledSlot, scheduledWaitMin:s ? s.waitMin : item.scheduledWaitMin,
+      scheduledOnSiteMin:s ? s.onSiteMin : item.scheduledOnSiteMin,
       updatedAt: stamp()
     }));
   }
@@ -1961,6 +1987,10 @@ async function applyTodayAnchor(opts){
       order, day,
       scheduledDate:s.date || '', scheduledEta:s.eta || '',
       scheduledSlot:s.slot || '', scheduledWaitMin:s.waitMin || '',
+      // The on-site half rides with the ETA it belongs to. Left behind, it kept
+      // the last Optimize's value through every re-anchor — and the day divider
+      // and the route view both read it.
+      scheduledOnSiteMin:s.onSiteMin || '',
       updatedAt:stamp(),
     }));
     wrote = true;

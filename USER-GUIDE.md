@@ -224,9 +224,17 @@ Re-running it any time is safe — completed orders stay done, and only what's l
 ### How far is the day?
 
 Once a route has been worked out, the day dividers show the driving distance
-alongside the meter count (**Day 1 · 2026-07-27 · 24 meters · 138 km**), and the
-line under the buttons gives the whole route's total. The distance covers the
-drive out and between stops; it doesn't add the drive home at the end.
+alongside the meter count (**Day 1 · 2026-07-27 · 24 meters · 138 km · ~7h 10m**),
+and the line under the buttons gives the whole route's total. The distance covers
+the drive out and between stops; it doesn't add the drive home at the end.
+
+The time beside it is that day's route: the drive out, the driving between the
+stops, and your own measured time on site at each one. It's the same arithmetic
+as the **ETA** on the cards, so the day's length and the last ETA always agree —
+start at 08:15, finish the last meter at 15:25, and the divider says ~7h 10m.
+It counts no lunch and no breaks, so allow for those on top. Until a route has
+been worked out there are no ETAs to add up, and the divider falls back to your
+average time per meter plus an hour for lunch and a break.
 
 If you drag orders around afterwards the total is marked **· edited**, and if you
 add or remove orders it's marked **· out of date** — in both cases the figure was

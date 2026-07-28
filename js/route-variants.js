@@ -124,6 +124,7 @@ export function applyVariant(items, variant, planOpts){
       day: s ? scheduled.dayOf[id] : '',
       scheduledDate: s ? s.date : '', scheduledEta: s ? s.eta : '',
       scheduledSlot: s ? s.slot : '', scheduledWaitMin: s ? s.waitMin : '',
+      scheduledOnSiteMin: s ? s.onSiteMin : '',
     });
   }).filter(Boolean);
 }

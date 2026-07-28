@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentRoutePlacement, scheduleRouteConstraints, workdayOffset, onSiteMinutes } from '../js/route-constraints.js';
+import { currentRoutePlacement, scheduleRouteConstraints, workdayOffset, onSiteMinutes, dayDurationMin } from '../js/route-constraints.js';
 import { dwellLookup } from '../js/route-dwell.js';
 
 const item = (id, extra={}) => ({ id, workOrderId:id.toUpperCase(), ...extra });
@@ -247,6 +247,40 @@ test('free-slot placeholders consume the base dwell while placing appointments',
   assert.equal(r.scheduleById.appt.slot, 4);       // latest non-late slot
   assert.equal(r.scheduleById.appt.eta, '09:50');  // still the 20-min early window
   assert.equal(r.scheduleById.appt.waitMin, 35);
+});
+
+test('day duration reads back the schedule it was written from', () => {
+  // The day divider's number must equal what the ETA badges under it say: from
+  // the departure clock to the last stop's departure. Drive out 15, then 10 and
+  // 25 between, 25 on site each ⇒ 08:15, 08:50, 09:40, + 25 on site = 10:05.
+  const items = [item('a'), item('b'), item('c')];
+  const travel = {
+    fromStart: id => (({ a:15 })[id] ?? null),
+    between: (f, t) => (({ 'a|b':10, 'b|c':25 })[f + '|' + t] ?? null),
+  };
+  const dwell = dwellLookup({ paceMin:30, onSiteMin:25 });
+  const r = scheduleRouteConstraints(items, ['a','b','c'], opts({ target:3, travel, dwell }));
+  const scheduled = items.map(x => ({
+    scheduledEta: r.scheduleById[x.id].eta,
+    scheduledOnSiteMin: r.scheduleById[x.id].onSiteMin,
+  }));
+  assert.equal(r.scheduleById.c.eta, '09:40');
+  assert.equal(dayDurationMin(scheduled, '08:00', 25), 125);   // 08:00 → 10:05
+});
+
+test('day duration falls back to the dwell base and survives a shuffled day', () => {
+  const day = [
+    { scheduledEta:'09:30' },                              // no saved on-site
+    { scheduledEta:'08:15', scheduledOnSiteMin:20 },
+  ];
+  assert.equal(dayDurationMin(day, '08:00', 25), 115);     // 09:30 + 25 − 08:00
+  assert.equal(dayDurationMin(day, '08:00', 0), 90);       // nothing to fall back on
+});
+
+test('day duration is null when the day has no ETAs to read', () => {
+  assert.equal(dayDurationMin([{ workOrderId:'A' }, null], '08:00', 25), null);
+  assert.equal(dayDurationMin([], '08:00', 25), null);
+  assert.equal(dayDurationMin([{ scheduledEta:'08:30' }], 'not a time', 25), null);
 });
 
 test('locking after a manual reorder uses the current slot, not an old ETA slot', () => {

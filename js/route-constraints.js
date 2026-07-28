@@ -48,6 +48,41 @@ export function addWorkdays(start, offset){
   return dateText(d);
 }
 
+// How long a scheduled day actually runs, in minutes: the plan's start clock
+// through the last stop's DEPARTURE (its ETA plus its own on-site minutes).
+// The inverse of `simulateDay` — it reads back the schedule that function wrote
+// instead of modelling the day a second way, which is the whole point. The
+// worklist's day divider used to carry `count × avgLogMin + 60`, a historical
+// log-to-log cadence that knew nothing about this route's distance or this
+// installer's measured on-site time, so the header and the ETA badges under it
+// could disagree by an hour with nothing on screen explaining which to believe.
+//
+// Three things worth keeping:
+//   - the span starts at `firstStopTime`, the DEPARTURE clock simulateDay starts
+//     from, so the drive out from the muster point is inside the number;
+//   - the last departure is taken as a MAX rather than "the last element", so a
+//     caller that hands the day over in any order still gets the right answer;
+//   - a stop with no saved `scheduledOnSiteMin` falls back to the run's dwell
+//     base rather than costing nothing, which would quietly shorten the day.
+// Returns null when the day carries no ETAs at all (never optimized, or an
+// unroutable list) — the caller decides what to show instead.
+export function dayDurationMin(items, firstStopTime, fallbackOnSiteMin){
+  const start = timeMin(firstStopTime);
+  if(start == null) return null;
+  const fallback = Number(fallbackOnSiteMin);
+  let last = null;
+  (items || []).forEach(x => {
+    if(!x) return;
+    const eta = timeMin(x.scheduledEta);
+    if(eta == null) return;
+    const onSite = Number(x.scheduledOnSiteMin);
+    const depart = eta + ((isFinite(onSite) && onSite > 0) ? onSite
+      : (isFinite(fallback) && fallback > 0 ? fallback : 0));
+    if(last == null || depart > last) last = depart;
+  });
+  return last == null ? null : Math.max(0, Math.round(last - start));
+}
+
 export function workdayOffset(start, target){
   const a = dateAtUtc(start), b = dateAtUtc(target);
   if(!a || !b || b < a) return -1;
