@@ -54,7 +54,24 @@ Remember to stop it when you're done — a backgrounded server runs until killed
 
 ## 3. Drive a page (headless Edge + CDP)
 
-No Playwright installed. Headless Edge works.
+No Playwright installed **on the Windows dev box**. Headless Edge works.
+
+**In an agent's Linux cloud sandbox, use Playwright instead** — that environment ships
+Chromium at `/opt/pw-browsers/chromium-*/chrome-linux/chrome` (`PLAYWRIGHT_BROWSERS_PATH`
+is already set) and `npm i playwright-core` into a scratch dir is enough; do **not** run
+`playwright install`. Three sessions in a row wrote "couldn't launch a browser, so this is
+covered by source assertions only" — it launches fine. Two things that recipe needs:
+
+- **Block the spine at the browser, not by being careful.** One line —
+  `ctx.route('**/*', r => r.request().url().startsWith('http://localhost:8731')
+  ? r.continue() : r.abort())` — makes it structurally impossible to touch the production
+  Sheet, which beats §4's don't-click-Save discipline.
+- **Pin the clock in an `addInitScript`, before any module runs**, or a pace/ETA screen is
+  untestable. `stamp()` is Toronto-pinned while the container runs UTC, so a `Date` frozen
+  at 18:00 reads as **14:00** in the app — set the fake wall clock in UTC and expect the
+  readouts in Toronto time. Seed `dayCache` + `worklist` straight through `indexedDB.open
+  ('meterlog', 5)` (the store shapes are in `js/idb.js`), then reload so the modules pick
+  them up.
 
 **Quick smoke** — post-JS DOM in one shot:
 

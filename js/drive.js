@@ -11,7 +11,6 @@
 // imports worklist.js back (that would be circular), exactly like the route view.
 import { $, esc } from './dom.js';
 import { store } from './store.js';
-import { clockOf, hhmmMin, stamp } from './time.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
@@ -92,11 +91,17 @@ export function initDrive(opts){
     $('dmMax').textContent = Math.round(m.maxSpeed * KMH_PER_MS);
   }
 
-  // ── on-pace line (two paces: the installer's target finish + working hours) ──
+  // ── on-pace line (one card: regular working hours + the route-finish clock) ──
   // Real-data landing projection sourced by worklist.js (opts.getPace) — see
   // js/compute/estimate.js projectDayReal. Recomputed on open/refresh and, while
   // the recorder ticks, at most every few seconds (it changes slowly and reads
   // the dayCache). Visible whenever there's a route to project, tracking or not.
+  //
+  // There were two cards, and the second one measured against ROUTE_DAY_END (4:00)
+  // — fifteen minutes from the 3:45 working-hours horizon, so it read as the same
+  // card twice in the truck. The model still returns `paces.target`; the plan-mode
+  // banner and the #tuning what-if use it. This screen shows one horizon and the
+  // one thing the horizon can't say: what time the route itself is done.
   let paceAt = 0, paceBusy = false;
   const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -122,8 +127,7 @@ export function initDrive(opts){
     countTimers[id] = requestAnimationFrame(step);
   }
 
-  // Paint one gauge card. hide short-circuits it (used to drop the Target card once
-  // its horizon is already in the past — see paintPace).
+  // Paint the gauge card.
   //
   // The bar is measured against the METERS/DAY TARGET: done | will-fit | short of
   // it. The route was the denominator once, and the route MOVES — Day 1 is re-sized
@@ -132,10 +136,10 @@ export function initDrive(opts){
   // The route shortfall survives as the second half of the caption, because it is
   // the one thing the target cannot say: "I'll hit 24, but two of these stops are
   // not getting done today."
-  function fillPaceRow(id, pace, prefix, est, hide){
+  function fillPaceRow(id, pace, prefix, est){
     const row = $(id);
     if(!row) return;
-    if(!pace || hide){ row.classList.add('hide'); return; }
+    if(!pace){ row.classList.add('hide'); return; }
     row.classList.remove('hide');
     const done = est.done || 0;
     // est.target is the meters/day number; est.paces.target is the finish-by
@@ -161,6 +165,17 @@ export function initDrive(opts){
     row.classList.toggle('on', pace.onPace);
     row.classList.toggle('behind', !pace.onPace);
     setCount(id + 'Val', pace.projected);
+    // What time the route itself is done, on this pace. Measured against THIS
+    // card's own horizon rather than a wall clock — the row is the only horizon on
+    // screen, so "late" has to mean late for it. It always shows the real clock,
+    // amber or not: landing at 5:40 is exactly the thing worth knowing.
+    const eta = $(id + 'Eta');
+    if(eta){
+      const label = est.routeFinishLabel;
+      eta.textContent = label ? `Route done ~${label}` : '';
+      eta.classList.toggle('hide', !label);
+      eta.classList.toggle('late', !!label && est.routeFinishMin > pace.horizonMin);
+    }
   }
   async function paintPace(force){
     const el = $('drivePace');
@@ -173,13 +188,7 @@ export function initDrive(opts){
       paceAt = Date.now();
       if(!openState) return;
       if(!est){ el.classList.add('hide'); return; }
-      // Once the installer's target time has passed, its projection freezes at what's
-      // already done and reads as nonsense — hide it and let the Day card carry on.
-      const nowMin = hhmmMin(clockOf(stamp()));
-      const t = est.paces.target;
-      const targetPast = !!(t && nowMin != null && t.horizonMin != null && t.horizonMin <= nowMin);
-      fillPaceRow('dpTarget', t, 'Target', est, targetPast);
-      fillPaceRow('dpWork', est.paces.work, 'Day', est, false);
+      fillPaceRow('dpWork', est.paces.work, 'Day', est);
       el.classList.remove('hide');
     } finally { paceBusy = false; }
   }

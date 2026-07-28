@@ -1186,12 +1186,27 @@ screen, not just `#drive`.
   drive stripped (`onSiteMinutes`, the same decomposition the route planner uses);
   remaining travel is the pending route's `legMetres` priced at the truck's **real
   measured moving speed** (`liveMetrics().avgMovingSpeed`, or 50 km/h before any
-  drive is logged); the count is **capped at the stops left in the route**. It shows
-  **two paces** (`js/compute/estimate.js` `projectDayReal`): the installer's **target
-  finish** (`WorklistPlans.finishBy`) and **regular working hours** — 3:45 PM,
-  escalating to **4:45 PM OT** once past 4:00 PM **while the day is still open**
-  (`workHorizon`). Each row reads `~N` with an *on pace ✓* / *N short of `target`*
-  note (green when the meters/day target is met by that horizon, amber when short).
+  drive is logged); the count is **capped at the stops left in the route**.
+  `projectDayReal` (`js/compute/estimate.js`) returns **two paces** — the installer's
+  **target finish** (`finishByMin`, which the phone passes as the fixed
+  `ROUTE_DAY_END`) and **regular working hours**, 3:45 PM escalating to **4:45 PM
+  OT** once past 4:00 PM **while the day is still open** (`workHorizon`) — but the
+  **Drive screen shows only the working-hours card**. The target card was fifteen
+  minutes from it and said the same thing twice; `paces.target` survives for the
+  plan-mode banner and the `#tuning` what-if, which are the model's other two
+  callers. The card reads `~N` with an *on pace ✓* / *N short of `target`* note
+  (green when the meters/day target is met by that horizon, amber when short).
+- **The route-finish clock** (`projectDayReal`'s top-level `routeFinishMin` /
+  `routeFinishLabel`, painted under the card's caption as *"Route done ~4:20"*).
+  What time the **last stop still on today's route** is finished, on the current
+  pace: `now + remainingTravelMin + pendingCount × onsitePerStop` — the same three
+  terms `paceFor` inverts, read forward instead of against a horizon. Deriving it
+  from the identical inputs is the point; a separately-sourced clock could disagree
+  with the `~N installs` number directly above it. It has **no horizon of its own**,
+  so it sits at the top level rather than inside a pace, and it always reports the
+  real clock — landing at 5:40 is exactly what the driver is asking — turning
+  **amber** (`.dp-eta.late`) once it passes the card's own `horizonMin`. Null when
+  nothing is pending.
   **The denominator is the meters/day target, never the stops left on the route** —
   the route is Day 1 and `dayCapacity` re-sizes it to `target − installedToday`
   after every stop, so measuring against it asked a question that answered itself

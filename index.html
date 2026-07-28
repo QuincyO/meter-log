@@ -329,27 +329,14 @@
       <span class="drive-dest-wo mono" id="driveDestWo"></span>
       <span class="drive-dest-addr" id="driveDestAddr"></span>
     </button>
-    <!-- On-pace: how many of today's remaining route stops land by each horizon,
-         from real working data (today's cadence + the route priced at the truck's
-         actual speed). Two paces — the installer's own target finish, and regular
-         working hours (3:45, 4:45 OT past 4). Hidden until there's a route to project. -->
+    <!-- On-pace: how many of today's remaining route stops land by regular working
+         hours (3:45, 4:45 OT past 4), from real working data (today's cadence + the
+         route priced at the truck's actual speed), plus the clock the route itself
+         finishes at. ONE card — there used to be a second one for the installer's
+         target finish (ROUTE_DAY_END, 4:00), fifteen minutes from this one and
+         saying the same thing twice. The model still returns that pace for the plan
+         banner and the tuning what-if. Hidden until there's a route to project. -->
     <div class="drive-pace hide" id="drivePace" aria-live="polite">
-      <div class="dp-card hide" id="dpTarget">
-        <div class="dp-top">
-          <span class="dp-lab" id="dpTargetLab"></span>
-          <span class="dp-state" id="dpTargetState"></span>
-        </div>
-        <div class="dp-read">
-          <span class="dp-val" id="dpTargetVal">~0</span>
-          <span class="dp-unit" id="dpTargetUnit"></span>
-        </div>
-        <div class="dp-track" aria-hidden="true">
-          <span class="dp-seg dp-done" id="dpTargetDone"></span>
-          <span class="dp-seg dp-more" id="dpTargetMore"></span>
-          <span class="dp-seg dp-short" id="dpTargetShort"></span>
-        </div>
-        <span class="dp-cap" id="dpTargetCap"></span>
-      </div>
       <div class="dp-card hide" id="dpWork">
         <div class="dp-top">
           <span class="dp-lab" id="dpWorkLab"></span>
@@ -365,6 +352,7 @@
           <span class="dp-seg dp-short" id="dpWorkShort"></span>
         </div>
         <span class="dp-cap" id="dpWorkCap"></span>
+        <span class="dp-eta hide" id="dpWorkEta"></span>
       </div>
     </div>
     <div class="drive-card-wrap">

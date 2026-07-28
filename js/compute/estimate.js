@@ -21,8 +21,9 @@ export function workHorizon(nowMin, dayClosed){
   return { min: WORK_MIN, label: '3:45' };
 }
 
-// Minutes-of-day → bare 12-hour clock label ("2:00", "3:45").
-function clockLabel(min){
+// Minutes-of-day → bare 12-hour clock label ("2:00", "3:45"). Exported because
+// the route-finish clock (routeFinishLabel below) is the same kind of readout.
+export function clockLabel(min){
   const h = ((Math.floor(min / 60) + 11) % 12) + 1;
   return h + ':' + String(min % 60).padStart(2, '0');
 }
@@ -67,14 +68,24 @@ function paceFor(horizonMin, label, ctx){
 // finish-by clock (null → no target pace). target: the meters/day target, which is
 // what "on pace" is measured against (see paceFor). nowMin: minutes-of-day
 // override for tests. dayClosed: whether the day has been closed out.
-// Returns { done, pendingCount, target, ready, paces:{ target, work } } — paces.target
-// is null when no finish-by is set; both paces are null when there's no usable pace yet.
+// Returns { done, pendingCount, target, ready, routeFinishMin, routeFinishLabel,
+// paces:{ target, work } } — paces.target is null when no finish-by is set; both
+// paces are null when there's no usable pace yet.
+//
+// routeFinishMin is when the LAST stop still on today's route is done: the same
+// three terms paceFor inverts (now + remaining travel + stops × on-site), read
+// forward instead of against a horizon. Deriving it from the identical inputs is
+// the point — a separately-sourced clock could disagree with the "~N installs"
+// number sitting right above it on the gauge. It does not belong to a horizon, so
+// it sits at the top level rather than inside a pace; null when there is no route
+// left to finish.
 export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsitePerStop,
                                  finishByMin, target, nowMin, dayClosed }){
   const done = (stops || []).filter(s => PRINTABLE[s.status]).length;
   const pend = Math.max(0, pendingCount || 0);
   const goal = Math.max(0, Math.floor(Number(target) || 0));
-  if(!(onsitePerStop > 0)) return { done, pendingCount: pend, target: goal || null, ready: false, paces: { target: null, work: null } };
+  if(!(onsitePerStop > 0)) return { done, pendingCount: pend, target: goal || null, ready: false,
+    routeFinishMin: null, routeFinishLabel: null, paces: { target: null, work: null } };
 
   const now = (nowMin == null) ? hhmmMin(clockOf(stamp())) : nowMin;
   const travel = Math.max(0, remainingTravelMin || 0);
@@ -85,5 +96,8 @@ export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsite
     target: (finishByMin != null) ? paceFor(finishByMin, clockLabel(finishByMin), ctx) : null,
     work: paceFor(wh.min, wh.label, ctx),
   };
-  return { done, pendingCount: pend, target: goal || null, ready: true, paces };
+  const routeFinishMin = pend > 0 ? Math.round(now + travel + pend * onsitePerStop) : null;
+  return { done, pendingCount: pend, target: goal || null, ready: true, paces,
+    routeFinishMin,
+    routeFinishLabel: routeFinishMin == null ? null : clockLabel(routeFinishMin) };
 }

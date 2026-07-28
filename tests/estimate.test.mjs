@@ -136,4 +136,41 @@ test('not ready without a usable on-site pace', () => {
   });
   assert.equal(r.ready, false);
   assert.equal(r.done, 4);
+  assert.equal(r.routeFinishMin, null);      // nothing to project the clock from
+  assert.equal(r.routeFinishLabel, null);
+});
+
+// ── the route-finish clock (the Drive screen's "Route done ~4:20") ──────────
+// The same three terms paceFor inverts, read forward. It has no horizon of its
+// own, which is exactly why it lives at the top level and not inside a pace.
+test('projects what time the route itself is finished', () => {
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 4, remainingTravelMin: 30, onsitePerStop: 25,
+    finishByMin: 14 * 60, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.routeFinishMin, 11 * 60 + 30 + 4 * 25);   // 790
+  assert.equal(r.routeFinishLabel, '1:10');
+});
+
+test('the finish clock lands past the horizon rather than being clamped to it', () => {
+  // 5 stops × 40 min + 45 min of driving from 2 PM is 6:05 PM — well past both the
+  // 3:45 horizon and the 4:45 OT ceiling. Landing at 6:05 is the thing worth
+  // knowing, so it is reported as-is (drive.js paints it amber).
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 5, remainingTravelMin: 45, onsitePerStop: 40,
+    finishByMin: 14 * 60, nowMin: 14 * 60, dayClosed: false,
+  });
+  assert.equal(r.routeFinishMin, 18 * 60 + 5);
+  assert.equal(r.routeFinishLabel, '6:05');
+  assert.ok(r.routeFinishMin > r.paces.work.horizonMin);
+});
+
+test('no route left ⇒ no finish clock', () => {
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 0, remainingTravelMin: 0, onsitePerStop: 25,
+    finishByMin: 14 * 60, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.ready, true);
+  assert.equal(r.routeFinishMin, null);
+  assert.equal(r.routeFinishLabel, null);
 });
