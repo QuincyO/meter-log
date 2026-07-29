@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v38';
+const CACHE = 'meterlog-v39';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -30,6 +30,9 @@ const SHELL = [
   './js/api.js', './js/daycache.js', './js/queue.js', './js/queue-policy.js', './js/geocode.js',
   './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
   './js/worklist-dedup.js', './js/worklist-tuning.js',
+  // jdup.js is a HARD import of pages/capture.js — missing here is not a
+  // degraded warning, it is a capture page that will not load offline.
+  './js/jdup.js',
   './js/drive.js', './js/drive-track.js', './js/drive-recorder.js',
   './js/drag-autoscroll.js', './js/press-hold.js',
   './js/route.js', './js/route-constraints.js', './js/route-variants.js', './js/route-today.js',

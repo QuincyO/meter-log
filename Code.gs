@@ -576,21 +576,27 @@ function addStop(b) {
     normWorkType(b.workType)
   ];
 
-  // Dedup: only INSTALLED stops with both a WO# and a new J# are checked.
-  // UTI/DONE entries are always appended without restriction.
+  // Duplicate detection — WARN ONLY. Nothing below may return before the append:
+  // a stop is never rejected for being a duplicate, because which of the two
+  // entries is wrong is the installer's call, not ours. This used to return
+  // { ok:false, duplicate:true } on an exact WO#+newJ match and the phone said
+  // "Entry discarded" — real field work was thrown away by it.
+  //
+  // Two independent checks:
+  //   1. J# conflict (the main one) — the same New J# or the same Old J# on any
+  //      of this installer's stops in the last J_DUP_DAYS days. Same-field only;
+  //      see jConflicts() below and js/jdup.js for why cross-matching is wrong.
+  //   2. The older WO#-keyed flag — same WO#, different New J# — kept because
+  //      it catches a different mistake (one order, two meters).
+  const jHits = jConflictsFor(b);
+
   let flagged = false, hist = null;
   if (b.status === 'INSTALLED' && b.workOrderId && b.newJNumber) {
     const norm = v => String(v == null ? '' : v).trim().toUpperCase();
     const history = rows('Stops').filter(r =>
       norm(r.workOrderId) === norm(b.workOrderId) && r.status === 'INSTALLED'
+      && norm(r.newJNumber) !== norm(b.newJNumber)
     );
-
-    // Exact duplicate: same WO# + same newJNumber → reject without writing.
-    if (history.some(r => norm(r.newJNumber) === norm(b.newJNumber))) {
-      return { ok: false, duplicate: true, history: history };
-    }
-
-    // J# conflict: same WO# but a different newJNumber → write and warn.
     if (history.length > 0) { flagged = true; hist = history; }
   }
 
@@ -602,11 +608,128 @@ function addStop(b) {
   // (?action=idle → dispatchSuggestMin), and the hourly avgDispatchTime trigger
   // keeps the running average + matched Dispatch rows fresh off the hot path.
   const res = { ok: true, id: id };
+  if (jHits.length) {
+    res.jConflicts = jHits;
+    // Legacy shape for a phone still running cached pre-jConflicts modules: it
+    // renders `flagged` + `history` as the amber "New entry saved" banner, which
+    // is imprecise but true and in the right direction. A current phone reads
+    // jConflicts first and never falls through to it.
+    flagged = true;
+    hist = (hist || []).concat(jHits.map(function (h) { return h.stop; }));
+  }
   if (flagged) { res.flagged = true; res.history = hist; }
   // Whole-boat dispatch + team header for the phone's offline daily-log cache.
   // One team-scoped read per log — keeps a value in cache as the crew works.
   if (b.installerId) res.boatMeta = boatMetaFor(b.installerId, dateOf(b.timestamp));
   return res;
+}
+
+// ── Duplicate J numbers ──────────────────────────────────────────────────────
+// A J number is a meter serial: New J# is the meter going in, Old J# the one
+// coming out. The same serial twice means a mistype or a double-log — but which
+// entry is wrong is a judgement call the installer makes on site, so this only
+// ever FINDS conflicts. Nothing here rejects or merges a stop.
+//
+// The four functions below (normalizeJ / stopDate / inWindowFrom / jConflicts)
+// are a hand copy of js/jdup.js — Apps Script cannot import an ES module, and
+// the phone runs the same rule locally so it can warn offline. A silent drift
+// between the two would be near-invisible in the field (the phone warns and the
+// spine doesn't, or the reverse), so tests/jdup-parity.test.mjs evaluates this
+// source and holds both to the same output. Change one, change the other.
+
+/** How far back a J# is considered a duplicate — this installer's own stops. */
+const J_DUP_DAYS = 7;
+
+/** Match key for a J number: trimmed, upper-cased. Also used on installer names. */
+function normalizeJ(v) {
+  return String(v == null ? '' : v).trim().toUpperCase();
+}
+
+/** Calendar date of a stop timestamp string ("2026-07-29 14:02:11" →
+ *  "2026-07-29"); '' when it isn't a recognisable stamp. Callers hand this
+ *  already-stringified timestamps (see jConflictsFor) — a Sheets Date object
+ *  would not match the regex. */
+function stopDate(ts) {
+  const m = String(ts == null ? '' : ts).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+
+/** On or after `fromDate` (inclusive, "YYYY-MM-DD")? Blank = no window. A row we
+ *  can't date is treated as OUTSIDE — it could never be shown to the installer
+ *  as "logged on …", and a match with no date beside it is worse than a miss. */
+function inWindowFrom(ts, fromDate) {
+  if (!fromDate) return true;
+  const d = stopDate(ts);
+  return d !== '' && d >= fromDate;
+}
+
+/** Every stop sharing a J number with `candidate`, one entry per matching
+ *  (stop, field) pair, in the order given. SAME-FIELD ONLY: New J# against New
+ *  J#, Old J# against Old J#, never across the two — a meter installed at one
+ *  house and legitimately pulled from another later carries that serial in both
+ *  columns by design, and cross-matching would flag every one of those.
+ *  A blank J# never matches (or every UTI would collide with every other UTI),
+ *  a stop never matches itself by id, and no status is excluded.
+ *  ONE carve-out: an Old J# repeated on the SAME work order is not a conflict —
+ *  a UTI records the old meter's serial, the crew comes back and installs, same
+ *  site, same meter, correctly. Without it every revisit would false-alarm.
+ *  Two real installs on one order still surface via the New J# rule or the
+ *  WO#-keyed flag; an Old J# across two DIFFERENT orders still fires. */
+function jConflicts(candidate, stops, opts) {
+  const o = opts || {};
+  const fields = ['newJNumber', 'oldJNumber'];
+  const out = [];
+  if (!candidate) return out;
+  const selfId = candidate.id == null ? '' : String(candidate.id);
+  const who = normalizeJ(o.installer);
+  const wo = normalizeJ(candidate.workOrderId);
+  (stops || []).forEach(function (stop) {
+    if (!stop) return;
+    if (selfId && String(stop.id) === selfId) return;
+    if (who && normalizeJ(stop.installer) !== who) return;
+    if (!inWindowFrom(stop.timestamp, o.from)) return;
+    const sameOrder = wo !== '' && normalizeJ(stop.workOrderId) === wo;
+    fields.forEach(function (field) {
+      if (field === 'oldJNumber' && sameOrder) return;
+      const key = normalizeJ(candidate[field]);
+      if (!key) return;
+      if (normalizeJ(stop[field]) !== key) return;
+      out.push({ stop: stop, field: field, value: key });
+    });
+  });
+  return out;
+}
+
+/** The J# conflicts for a stop being logged, newest first, ready to ride back on
+ *  the addStop response. Scoped to the same installer and the last J_DUP_DAYS
+ *  days, anchored on the STOP's own date rather than "today" so a leg logged
+ *  offline and synced days later is still checked against the right week.
+ *  Reuses the one cached `rows('Stops')` read the WO# flag already does. */
+function jConflictsFor(b) {
+  if (!normalizeJ(b.newJNumber) && !normalizeJ(b.oldJNumber)) return [];
+  const anchor = dateOf(b.timestamp);
+  const anchorMs = new Date(anchor + 'T12:00:00Z').getTime();
+  if (isNaN(anchorMs)) return [];
+  const from = Utilities.formatDate(
+    new Date(anchorMs - (J_DUP_DAYS - 1) * 86400000), 'UTC', 'yyyy-MM-dd');
+  // Project each row to a display-safe shape: the phone renders these rows
+  // verbatim in the notice banner, and a Sheets Date object stringifies as
+  // "Fri Jun 19 …", which neither stopDate() nor the installer can read.
+  const stops = rows('Stops').map(function (r) {
+    return {
+      id: r.id, workOrderId: r.workOrderId, address: r.address,
+      newJNumber: r.newJNumber, oldJNumber: r.oldJNumber,
+      status: r.status, installer: r.installer,
+      timestamp: (r.timestamp instanceof Date)
+        ? Utilities.formatDate(r.timestamp, TIMEZONE, 'yyyy-MM-dd HH:mm:ss')
+        : String(r.timestamp == null ? '' : r.timestamp)
+    };
+  });
+  const hits = jConflicts(b, stops, { from: from, installer: b.installer });
+  hits.sort(function (a, c) {
+    return String(c.stop.timestamp).localeCompare(String(a.stop.timestamp));
+  });
+  return hits.slice(0, 5);   // the installer needs the offending order, not a report
 }
 
 /** Append one Drive-mode driving leg (see DRIVETRACKS_HEADERS). Client-generated

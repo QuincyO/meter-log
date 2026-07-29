@@ -152,6 +152,16 @@
     <button class="ac-opt" id="acGps" type="button"></button>
   </div>
 
+  <!-- Duplicate J#: this meter number is already on one of the installer's own
+       stops from the last 7 days. The stop is NEVER discarded — this only offers
+       the fix before it's sent, and "Log it anyway" is always one tap away. -->
+  <div class="j-conflict hide" id="jConflict">
+    <div class="ac-title" id="jcTitle"></div>
+    <div class="jc-rows" id="jcRows"></div>
+    <button class="ac-opt" id="jcFix" type="button">Go back and fix it</button>
+    <button class="ac-opt" id="jcAnyway" type="button">Log it anyway — both stops are kept</button>
+  </div>
+
   <button class="primary" id="logStop">Log stop</button>
 
   <div class="row2">
