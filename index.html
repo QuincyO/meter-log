@@ -205,6 +205,12 @@
          real road time, measured rather than guessed. -->
     <div class="muted" id="wlOnSiteHint"></div>
     <button class="ghost" id="wlOptimize" type="button" style="width:100%;margin-top:10px">🧭 Optimize route</button>
+    <!-- Why the button is greyed: a tap measures real roads from a downloaded
+         district, so with no district there is nothing to measure with and the
+         run is refused rather than silently falling back to crow-flies. Painted
+         by paintOptimizeGate(); the button stays pressable so the two-second
+         hold (network road distances) still works. -->
+    <div class="muted hide" id="wlOptimizeGate" style="margin-top:6px"></div>
     <div class="muted hide" id="wlRouteProgress" style="margin-top:6px"></div>
     <!-- Which saved route is live. A road-matrix optimize works out both a road
          and a straight-line order for the same stops and prices both on real

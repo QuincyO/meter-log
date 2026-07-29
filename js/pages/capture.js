@@ -15,7 +15,7 @@ import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, openTuning, markWorklistDone, resetWorklistOrder, planAdvance, syncWorklist, planActive, exitPlan } from '../worklist.js';
+import { initWorklist, openWorklist, openTuning, markWorklistDone, resetWorklistOrder, planAdvance, syncWorklist, planActive, exitPlan, paintOptimizeGate } from '../worklist.js';
 import {
   initDriveRecorder, finishAndUpload, isRecording, armedToday,
   startRecording, stopRecording, subscribe as subscribeDrive,
@@ -1555,6 +1555,12 @@ async function paintRoadPacks(){
     ? `Using ${mine.name} — ${mb(mine.bytes)}${mine.builtAt ? ', built ' + mine.builtAt : ''}`
     : 'No map downloaded.';
   $('packDrop').disabled = !mine;
+  // Optimize is gated on having a district, and the ☰ nav lives outside
+  // captureMain — so Settings can be opened OVER the worklist screen and closed
+  // again without that screen ever re-rendering. Repaint the gate from here (the
+  // one place both download and delete funnel through) or a crew that just
+  // downloaded a map goes back to a button still greyed out and telling them to.
+  paintOptimizeGate();
 
   // Installed districts always appear, even with no signal; the catalogue adds
   // the ones not yet downloaded.
@@ -1621,7 +1627,7 @@ async function deleteRoadPack(){
   const installed = await installedPacks();
   const mine = installed.find(p => p.id === activePackId()) || installed[0];
   if(!mine) return;
-  if(!confirm(`Delete the ${mine.name} map (${mb(mine.bytes)})?\n\nRoutes go back to straight-line estimates until you download one again.`)) return;
+  if(!confirm(`Delete the ${mine.name} map (${mb(mine.bytes)})?\n\n🧭 Optimize stops working on this phone until you download one again.`)) return;
   await deletePack(mine.id);
   toast('Map deleted');
   paintRoadPacks();

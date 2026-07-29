@@ -586,12 +586,6 @@ async function optimizeRouteHandler(useNetwork){
   await refreshPlanDay();
   const pending = pendingOf(await allSorted());
   if(pending.length < 2){ toast('Need at least 2 pending orders to optimize'); return; }
-  // Offline is no longer a flat refusal. With a district downloaded, everything
-  // that matters runs on the phone — the only thing that still needs signal is
-  // geocoding an address we've never pinned, and those just park. So the gate
-  // asks the real question: can this run actually measure anything?
-  // A HOLD skips the pack by definition, so offline it can measure nothing at
-  // all — it is refused, pointing at the tap that would have worked.
   // What the ROUTER will actually try, not what the settings pointer happens to say.
   // This was `!!activePackId()` — a single localStorage id — while loadGraph scores
   // every district in installedPacks() and picks whichever covers this run, setting
@@ -600,22 +594,38 @@ async function optimizeRouteHandler(useNetwork){
   // road graph while the sheet announced "straight-line algorithm" — and, worse,
   // the offline gate below refused the run outright for want of a map it had.
   const havePack = ((await installedPacks()) || []).length > 0;
+  // The phone's Optimize measures real roads or it does not run. A tap with no
+  // district downloaded used to fall back to straight-line distances silently —
+  // a route that looks solved and is blind to every river, dead end and bridge,
+  // with nothing on screen saying so. The district is a precondition now, and
+  // paintOptimizeGate says so on the button before anyone presses it.
+  // The HOLD is deliberately still allowed: it skips the pack by design
+  // (opts.noLocalGraph) and asks the network, and it is the only way to get a
+  // second opinion from a router that has the turn restrictions the pack lacks.
+  // The desktop planner is not gated at all — it routes against a local OSRM.
+  if(!useNetwork && !havePack){
+    toast('Download your district first — Settings ▸ Offline road map');
+    return;
+  }
+  // Offline is no longer a flat refusal. With a district downloaded, everything
+  // that matters runs on the phone — the only thing that still needs signal is
+  // geocoding an address we've never pinned, and those just park. So the gate
+  // asks the real question: can this run actually measure anything?
+  // A HOLD skips the pack by definition, so offline it can measure nothing at
+  // all — it is refused, pointing at the tap that would have worked (or, with no
+  // district on the phone, at the download that would make that tap work).
   const alreadyPinned = pending.filter(x => coordsOf(x)).length;
   if(!navigator.onLine && (useNetwork || !(havePack && alreadyPinned >= 2))){
     toast(useNetwork
       ? (havePack
         ? 'Offline — holding needs signal; tap Optimize to use the offline map'
-        : 'Offline — road distances need signal; tap Optimize for straight-line')
-      : havePack
-        ? 'Offline — needs at least 2 orders with pins'
-        : 'Offline — route optimization needs signal or an offline map');
+        : 'Offline — road distances need signal; download your district on wifi first')
+      : 'Offline — needs at least 2 orders with pins');
     return;
   }
   const algorithm = useNetwork
     ? 'Google road distances (then OpenRouteService, then straight-line)'
-    : havePack
-      ? 'offline road map on this phone'
-      : 'straight-line algorithm';
+    : 'offline road map on this phone';
   // One gate, and it carries the decision that matters: a mid-day re-optimize from
   // out in the field must not re-plan as if the crew were back at the muster point.
   const startChoice = await askStartLocation(pending.length, algorithm);
@@ -1011,6 +1021,7 @@ export async function renderWorklist(){
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
   paintPlanDate();
   paintTargetHint();
+  await paintOptimizeGate();
   paintVariantSwitch(items);
   paintFillAddr(items);
   paintDedup(items);
@@ -1131,6 +1142,39 @@ async function afterAddressFill(){
   await planAdvance();
   if(blanks && !wasLast)
     toast(`${blanks} order${blanks === 1 ? '' : 's'} without an address moved to the bottom`);
+}
+
+// Optimize needs a downloaded district (optimizeRouteHandler refuses the tap
+// without one). Say so on the button rather than only at press time, so nobody
+// stands in a driveway discovering it.
+//
+// Two things are load-bearing:
+//  1. **`btn.disabled` is never touched here.** A disabled button fires no
+//     pointer events at all, which would kill the two-second HOLD — the one
+//     press that legitimately still works with no district — along with the
+//     tap's own explanatory toast. `disabled` on this button belongs to the run
+//     (optimizeRouteHandler sets it while a route is being worked out); a paint
+//     that also wrote it would fight that, and could re-enable a button
+//     mid-solve. Greying is CSS (`#wlOptimize.gated`) plus `aria-disabled`.
+//  2. It reads `installedPacks()`, like every other "do we have a map" test —
+//     never `activePackId()`, which can point at nothing on a phone that holds
+//     a perfectly good district. See AGENTS.md.
+// Exported because Settings can be opened OVER the worklist screen (the ☰ nav
+// lives outside captureMain), so a district downloaded there must clear the
+// notice on a list that is never re-rendered. paintRoadPacks() calls it.
+export async function paintOptimizeGate(){
+  const btn = $('wlOptimize'), line = $('wlOptimizeGate');
+  if(!btn) return;
+  const have = ((await installedPacks()) || []).length > 0;
+  btn.classList.toggle('gated', !have);
+  btn.setAttribute('aria-disabled', have ? 'false' : 'true');
+  btn.title = have ? 'Put the pending orders in the best driving order'
+    : 'Download your district in Settings ▸ Offline road map to optimize';
+  if(line){
+    line.textContent = have ? ''
+      : 'Download your district in Settings ▸ Offline road map to optimize.';
+    line.classList.toggle('hide', have);
+  }
 }
 
 // The road / straight-line switch. A variant with no saved sequence — or one

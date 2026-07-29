@@ -254,6 +254,22 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   road graph while the sheet announced "straight-line algorithm", and — the part that
   actually cost something — the offline gate refused the run for want of a map it had.
   It reads `installedPacks()` now. Any new "do we have a map" test belongs there too.
+  **It is a precondition, not just a message.** A phone Optimize **tap** with no
+  district downloaded is refused outright — it used to fall back to straight-line
+  distances, which is a route that looks solved and is blind to every river, dead end
+  and bridge, with nothing on screen saying so. `paintOptimizeGate` greys `#wlOptimize`
+  and explains why *before* it is pressed. Three things are load-bearing:
+  (1) **the two-second HOLD is deliberately exempt** — it skips the pack by design
+  (`opts.noLocalGraph`) and asks a router that has the turn restrictions the pack
+  lacks, so it is the only second opinion there is; gate it too and a suspect
+  on-device route has nothing to check it against;
+  (2) **the paint must never set `btn.disabled`** — a disabled button fires no pointer
+  events at all, which kills the hold *and* the tap's own explanatory toast. Greying is
+  `#wlOptimize.gated` in `css/capture.css` (opacity only, never `pointer-events:none`)
+  plus `aria-disabled`; `disabled` on that button belongs to the run in flight;
+  (3) **the desktop planner is not gated** — it routes against a local OSRM and has no
+  concept of a pack, so `js/pages/planner.js` must stay free of `installedPacks`.
+  Pinned by `tests/worklist-optimize-gate.test.mjs`.
 - **One stale pin must never cost the whole route.** `scheduleRouteConstraints`
   rejects an order dated before the route starts by **throwing**, and that throw takes
   the entire route with it, not just that order. In `optimizeRouteHandler` it lands
