@@ -409,6 +409,8 @@ Recording only happens while the Drive screen is in front. When you open Google 
 
 **Want to see your own numbers?** Turn on **Show driving stats in Drive mode** on the **Route tuning** screen (this switch stays on your phone and isn't sent to the office). While you're recording, the Drive screen then shows your current speed, total distance, average moving speed (idle time excluded so it reflects how fast you actually drive), top speed, and idle time. Because the phone can't track while you're in Google Maps, these count only what it recorded on the app — so they read low if you navigate on the same phone; the card says "Maps gaps not counted" as a reminder.
 
+That same switch also keeps the Drive screen **up to date on its own**. With it on, while you're recording and sitting on the Drive screen, the app re-checks the sheet **every 5 minutes** — your saved list, and the meters logged today — and re-times the rest of your route from where you are now. So the card, the arrival times and the "Route done ~" clock stay right without you going back to tap **⇩ Download**, which matters most when someone else on the crew is logging the meters. It needs signal; with no bars it quietly keeps the last good copy and tries again. An order you've already logged never comes back, even if the sheet hasn't caught up yet.
+
 ### Moving the list between devices
 
 **⇪ Upload list** saves your list to the sheet; **⇩ Download list** replaces the phone's list with the saved copy (matched on your H number, so set up Settings first). Use it to plan on one device and run the route on another. Both need signal, both replace the whole list, and both confirm before doing it.

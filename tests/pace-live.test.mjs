@@ -27,7 +27,10 @@ test('Download pulls today down before the day is re-anchored', () => {
 test('the drive-mode pace refreshes the cache on its own slow clock', () => {
   // drive.js repaints every few seconds; re-reading the same stale cache that
   // often is free and useless, and re-fetching it that often is neither.
-  assert.match(worklistJs, /const PACE_REFRESH_MS = 3 \* 60 \* 1000/);
+  // Five minutes, matching drive.js AUTO_SYNC_MS — the Drive screen's automatic
+  // refresh is the one on a real clock, and two periods would be two clocks
+  // disagreeing about how fresh "fresh" is (tests/drive-auto-refresh.test.mjs).
+  assert.match(worklistJs, /const PACE_REFRESH_MS = 5 \* 60 \* 1000/);
   assert.match(worklistJs, /async function drivePace\(\)\{\s*await refreshPaceCache\(\);/);
   // Stamped before the await, or a slow call stacks up behind itself.
   assert.match(worklistJs, /paceCacheAt = now;[\s\S]{0,200}?await cacheRecentDays\(1\)/);

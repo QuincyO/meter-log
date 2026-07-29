@@ -1334,6 +1334,46 @@ screen, not just `#drive`.
   blended-average `projectDay` is gone.) **Closing out
   the day** (`finishDay`) stamps `localStorage['dayClosedDate']` — which drops the
   4:45 OT escalation — and **exits plan mode** (`exitPlan`), since the plan is spent.
+- **The automatic refresh (`js/drive.js` `tickAutoSync` → `js/worklist.js` `autoSync`).**
+  Nothing on this screen was ever on a clock: the only repaint driver is the
+  recorder's `subscribe()`, which fires per GPS fix, so the card and the ETAs froze
+  the moment fixes stopped (a Maps hand-off, GPS denied, a phone not recording) and
+  only a trip back to the worklist to tap ⇩ Download unfroze them. `drive.js` now
+  runs a `setInterval` while the screen is open and refreshes on a **5-minute**
+  timestamp throttle (`AUTO_SYNC_MS`; the interval itself ticks every 30 s, which is
+  retry granularity, not the period — a tick that lands while the driver is in Maps
+  then costs seconds of staleness rather than a whole further period). `syncAt = 0`
+  means "never synced", so the first tick after opening refreshes at once; the stamp
+  is module-scoped and deliberately **not** reset by `open()`, because the crew hops
+  between the worklist and this screen constantly and a re-entry inside the window
+  must not re-fetch.
+  **Three gates, all required, and the middle one is the consent.** `isRecording()`
+  (drive tracking armed — the per-day per-device opt-in), `showMetricsPref()` (the
+  `#tuning` *Show driving stats* toggle), and the screen being open — plus not
+  backgrounded and `navigator.onLine`. `driveShowMetrics` was only ever the HUD's
+  switch; it is the fetch's switch too now, on the reasoning that consenting to see
+  live driving numbers is what consents to fetching them. The toggle's hint in
+  `index.html` and USER-GUIDE.md say so — a gate the driver can't read isn't consent.
+  **What it pulls, and the half that actually matters.** `autoSync` re-runs the
+  ⇩ Download landing (`applyDownloadedList`, shared with `wlDownload` so a sheet row
+  can never be normalized two ways) then `cacheRecentDays(1)` then
+  **`applyTodayAnchor()`**. That last call is the answer to "why do my times only get
+  right after a Download": nothing in the pull rewrites `order`/`day`/`scheduledEta`
+  — `applyTodayAnchor` does, by re-running `scheduleRouteConstraints` from where the
+  crew is now. A day-cache refresh alone (`refreshPaceCache`) moves the gauge's
+  `done` count and nothing else. `PACE_REFRESH_MS` was raised 3 → 5 min to match, so
+  the two pulls share one period rather than being two clocks disagreeing about how
+  fresh "fresh" is.
+  **Four things it must never do**, each a way an unattended timer goes wrong: no
+  `confirm` (nobody can answer one at 80 km/h), no `toast` (a "check signal" popping
+  every five minutes through a dead zone is worse than the staleness it reports — a
+  failure keeps the last good copy silently), no `savePlan` push (nothing changed
+  locally), and no `planAdvance()` (it ends in `fillCapture`, and a background timer
+  must not overwrite a half-typed capture form; plan mode re-advances on the next
+  logged stop). It also skips the pull entirely while the offline queue is non-empty
+  — an un-drained queue means the phone is *ahead* of the sheet — and passes
+  `preserveDone:true`, which is the trap AGENTS.md carries. `refresh()` re-matches
+  the card by `destKey` so a re-ordered route can't swap the house under the driver.
 - **Office-facing (silent, `js/drive-recorder.js`):** records the driving leg — GPS
   points `{lat,lng,t,spd}` (device `coords.speed`, else derived) — the whole time the
   PWA is open and armed, **holding it on the phone** and uploading to the `DriveTracks`
