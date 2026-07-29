@@ -169,16 +169,21 @@ An order checks itself off automatically when its work order # is actually logge
 
 Tap **🧭 Optimize route** to put the pending orders in the best driving order for you:
 
-- **A tap is the everyday press, and it is free.** With an offline road map
-  downloaded (Settings ▸ Offline road map) it measures real roads with no signal at
-  all; without one it falls back to straight-line distances, which is still a good
-  order, just blind to rivers and detours.
+- **You need your district downloaded first.** Go to Settings ▸ **Offline road map**,
+  pick your district and Download it — once, on wifi. Until you do, the Optimize
+  button is greyed out with a line under it telling you so, and a tap just repeats
+  the message. This is deliberate: without the map the app can only measure
+  straight-line distances, which puts your orders in an order that ignores rivers,
+  dead ends and bridges and gives you no way of knowing it did.
+- **A tap is the everyday press, and it is free.** With the map downloaded it
+  measures real roads with no signal at all — no data, no cost, works on the water.
 - **Holding it for two seconds** looks the road distances up over the internet
   instead of using your downloaded map. That is the one to use when the offline map
   routes you somewhere odd — it doesn't know about no-left-turns and one-way streets
   the way the online one does. It needs signal, and with none it says so and asks you
-  to tap instead. The message before the run always tells you which one you're about
-  to get.
+  to tap instead. It is the one press that still works before you've downloaded a
+  district — but it needs signal every time, so download the map anyway. The message
+  before the run always tells you which one you're about to get.
 
 - **Route starts** is the first calendar date, **First stop at** is stop 1's ETA,
   and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
@@ -346,9 +351,9 @@ and Plan mode all follow it immediately, and it works with no signal. The office
 picks one for you, but you can always switch from the truck.
 
 A button is greyed out when there's nothing to switch to: either that route was
-never worked out (an Optimize tap with no offline map downloaded only produces the
-straight-line one), or your orders have changed since, so the saved route no longer
-matches the work in hand. Optimize again and both come back.
+never worked out (the office sent the list down without optimizing it), or your
+orders have changed since, so the saved route no longer matches the work in hand.
+Optimize again and both come back.
 
 ### View and adjust the route
 

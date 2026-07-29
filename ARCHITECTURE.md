@@ -535,7 +535,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   without anything downstream changing, and `path()` feeds the existing
   `encodePolyline` so the **phone can finally produce `legGeometryRoad` itself**
   rather than only decoding the planner's.
-  A ~150 km district lands at a few MB. Things that are load-bearing here:
+  A ~150 km district lands at a few MB. **The phone's 🧭 Optimize tap requires one**
+  — no district, no on-device optimize (the two-second network hold is exempt); see
+  §"Work modes" ▸ "Route optimization". Things that are load-bearing here:
   - **The route map measures its legs at draw time, and that is what keeps the
     roads on screen.** `offlineRoutePaths(legs)` (`js/route.js`) takes the legs
     the map is about to draw and returns a path per leg from the pack — one
@@ -977,17 +979,28 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   one-run GPS start, which stays a real ordering anchor (its first leg is a charged
   driven leg).
   **Which matrix is used is the press, not a menu.** A normal tap on 🧭 Optimize
-  measures **on this phone** — the district pack when one covers the run, crow-flies
-  otherwise — and costs nothing either way. Holding it two seconds **skips the pack**
-  and asks the network instead (Google → ORS → straight-line). The tap is therefore
-  the everyday press even for a road-accurate route, and the crew never has to
-  remember which one costs money; the hold is there for the case the pack cannot
-  serve, because the pack has **no turn restrictions** and can route you the wrong
-  way up a street a real router knows about. That is also why the hold has to skip
-  the graph rather than rank below it: while it merely ranked below, holding changed
-  nothing at all inside a downloaded district. A hold with no signal is refused
-  outright (it has nothing left to measure with) and the toast points back at the
-  tap. Both presses now request `compareVariants`, so a pack-routed tap saves the
+  measures **on this phone**, against the district pack, and costs nothing. Holding
+  it two seconds **skips the pack** and asks the network instead (Google → ORS →
+  straight-line). The tap is therefore the everyday press even for a road-accurate
+  route, and the crew never has to remember which one costs money; the hold is there
+  for the case the pack cannot serve, because the pack has **no turn restrictions**
+  and can route you the wrong way up a street a real router knows about. That is also
+  why the hold has to skip the graph rather than rank below it: while it merely ranked
+  below, holding changed nothing at all inside a downloaded district. A hold with no
+  signal is refused outright (it has nothing left to measure with) and the toast
+  points back at the tap.
+  **A downloaded district is a precondition for the tap.** With no pack the tap used
+  to fall back to crow-flies distances — a plausible-looking order blind to rivers,
+  dead ends and bridges, and nothing on screen said so. It is refused now, and
+  `paintOptimizeGate` (`js/worklist.js`, called from every `renderWorklist`) greys
+  `#wlOptimize` and prints the reason in `#wlOptimizeGate` before anyone presses it:
+  *download your district in Settings ▸ Offline road map*. The **hold stays exempt**
+  — it is the only second opinion a suspect on-device route has — so the button is
+  greyed by a CSS class and `aria-disabled`, never by the `disabled` property, which
+  would suppress the pointer events the hold gesture (and the tap's own toast) runs
+  on. **The desktop planner is not gated**: it routes against a local OSRM and never
+  holds a pack. Straight-line ordering survives only as the network ladder's last
+  rung and as the comparison variant, never as an unannounced substitute for roads. Both presses now request `compareVariants`, so a pack-routed tap saves the
   road **and** straight-line routes for the toggle to compare — it costs one extra
   local solve and can never trigger a matrix call (`route.js` only reads the flag
   inside `if(onRoad)`). The recognizer is `js/press-hold.js` — pure, injectable timers,

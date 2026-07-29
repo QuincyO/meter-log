@@ -95,6 +95,11 @@
    press already judged stationary; a touchmove guard cannot kill a pan that has
    begun. `manipulation` still allows panning; it only drops double-tap zoom. */
 #wlOptimize{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+/* No district downloaded — the tap is refused (js/worklist.js paintOptimizeGate).
+   Greyed, NOT disabled and deliberately without `pointer-events:none`: the
+   two-second hold still routes over the network, and the tap has to reach the
+   handler to say why it won't run. */
+#wlOptimize.gated{opacity:.55}
 /* day-group dividers synced from the office planner (Day 1 / Day 2 …) */
 .wl-day{display:flex;align-items:center;gap:8px;margin:16px 2px 4px;font-size:12px;font-weight:800;
         letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
