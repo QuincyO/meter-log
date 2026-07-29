@@ -416,6 +416,62 @@ export async function syncWorklist(){
   } catch { /* best-effort — the manual ⇪ Upload is the loud fallback */ }
 }
 
+// Land a downloaded order list into the local store, replacing what is there.
+// Shared by the manual ⇩ Download and the Drive screen's automatic refresh
+// (autoSync), so the two can never normalize a sheet row differently — this is the
+// ONLY place a Worklist row becomes a local record.
+//
+// `preserveDone` is the automatic path's single deviation, and it is load-bearing
+// rather than defensive. `syncWorklist()` pushes this phone's list up only right
+// after a log (js/pages/capture.js) and no-ops offline, and nothing re-runs it on
+// reconnect — so a stop logged in a dead zone leaves the sheet's Worklist row
+// saying `pending` long after the meter has reached the Stops tab. An unattended
+// pull would then resurrect a finished order and the Drive card would send the
+// driver back to a house they already did. A local `done` therefore wins over the
+// sheet's copy. The manual Download keeps taking the sheet verbatim: the installer
+// asked for it, was warned by the confirm, and can see what landed.
+async function applyDownloadedList(list, opts){
+  const preserveDone = Boolean(opts && opts.preserveDone);
+  // Read BEFORE the store is wiped, or there is nothing left to preserve.
+  const doneIds = new Set();
+  if(preserveDone)
+    for(const x of await allSorted()) if(x.wlStatus === 'done') doneIds.add(String(x.id));
+  for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
+  // Normalize each sheet row back to the exact local record shape (drop the
+  // sheet-only installer/hNumber columns, re-type wlStatus + lat/lng) so
+  // sorting, plan mode, and markWorklistDone keep working after a round trip.
+  // `order` is renumbered by array position: the spine returns rows sorted
+  // (and renumbers on upload), and even against a stale spine the sheet's
+  // physical row order is the last upload's display order — so a Download
+  // always lands a clean 0,10,20… locally, healing any historical
+  // duplicate/blank order values.
+  for(let i = 0; i < list.length; i++){
+    const o = list[i];
+    await idb.put('worklist', {
+      id:String(o.id), workOrderId:String(o.workOrderId||''), unit:String(o.unit||''),
+      address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
+      wlStatus: (o.wlStatus === 'done' || doneIds.has(String(o.id))) ? 'done' : 'pending',
+      order: i * 10,
+      lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
+      lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
+      createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
+      day: (o.day === '' || o.day == null) ? '' : Number(o.day),
+      appointmentDate:String(o.appointmentDate||''), appointmentTime:String(o.appointmentTime||''),
+      lockedDate:String(o.lockedDate||''),
+      lockedSlot:(o.lockedSlot === '' || o.lockedSlot == null) ? '' : Number(o.lockedSlot),
+      scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
+      scheduledSlot:(o.scheduledSlot === '' || o.scheduledSlot == null) ? '' : Number(o.scheduledSlot),
+      scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin),
+      ignored:isIgnored(o),
+      orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
+      homeLegMetersRoad:blank(o.homeLegMetersRoad),
+      orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
+      legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
+      legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || ''),
+      homeLegGeometryRoad:String(o.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(o.homeLegGeometryStraight || '') });
+  }
+}
+
 async function wlDownload(){
   const c = cfg();
   if(!c.hNumber){ toast('Set your employee number in Settings first'); return; }
@@ -429,41 +485,7 @@ async function wlDownload(){
     try { await apiPost({ action:'savePlan', hNumber: c.hNumber, plan: implicitPlan() }); } catch { /* best effort */ }
     const r = await withActivity('Downloading worklist…', () => apiGet('worklist', { hNumber: c.hNumber }));
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
-    for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
-    // Normalize each sheet row back to the exact local record shape (drop the
-    // sheet-only installer/hNumber columns, re-type wlStatus + lat/lng) so
-    // sorting, plan mode, and markWorklistDone keep working after a round trip.
-    // `order` is renumbered by array position: the spine returns rows sorted
-    // (and renumbers on upload), and even against a stale spine the sheet's
-    // physical row order is the last upload's display order — so a Download
-    // always lands a clean 0,10,20… locally, healing any historical
-    // duplicate/blank order values.
-    const list = r.orders || [];
-    for(let i = 0; i < list.length; i++){
-      const o = list[i];
-      await idb.put('worklist', {
-        id:String(o.id), workOrderId:String(o.workOrderId||''), unit:String(o.unit||''),
-        address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
-        wlStatus: o.wlStatus === 'done' ? 'done' : 'pending',
-        order: i * 10,
-        lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
-        lng: (o.lng === '' || o.lng == null) ? undefined : Number(o.lng),
-        createdAt:String(o.createdAt||''), updatedAt:String(o.updatedAt||''),
-        day: (o.day === '' || o.day == null) ? '' : Number(o.day),
-        appointmentDate:String(o.appointmentDate||''), appointmentTime:String(o.appointmentTime||''),
-        lockedDate:String(o.lockedDate||''),
-        lockedSlot:(o.lockedSlot === '' || o.lockedSlot == null) ? '' : Number(o.lockedSlot),
-        scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
-        scheduledSlot:(o.scheduledSlot === '' || o.scheduledSlot == null) ? '' : Number(o.scheduledSlot),
-        scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin),
-        ignored:isIgnored(o),
-        orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
-        homeLegMetersRoad:blank(o.homeLegMetersRoad),
-        orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
-        legMetersStraight:blank(o.legMetersStraight), homeLegMetersStraight:blank(o.homeLegMetersStraight),
-        legGeometryRoad:String(o.legGeometryRoad || ''), legGeometryStraight:String(o.legGeometryStraight || ''),
-        homeLegGeometryRoad:String(o.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(o.homeLegGeometryStraight || '') });
-    }
+    await applyDownloadedList(r.orders || [], { preserveDone: false });
     if(r.plan) loadPlanFields(r.plan);
     // A downloaded route was planned on the desktop (real OSRM durations), so its
     // ETAs are exact — clear the phone's local "(est.)" marker.
@@ -488,6 +510,52 @@ async function wlDownload(){
     await renderWorklist();
     await planAdvance();   // the first pending order may have changed
   } catch { toast('Download failed — check signal'); }
+}
+
+// The Drive screen's automatic refresh: the same landing as ⇩ Download, minus
+// everything that needs a human. js/drive.js owns the clock and the gate (see
+// AUTO_SYNC_MS there — armed + stats opt-in + screen in front); this half only
+// knows how to refresh without asking.
+//
+// Four things it deliberately does NOT do:
+//   • no `confirm` — there is nobody to answer it at 80 km/h;
+//   • no `toast` — a timer that pops "Download failed — check signal" every five
+//     minutes through a dead zone is worse than the staleness it is fixing. Every
+//     failure here leaves the last good copy in place and says nothing;
+//   • no `savePlan` push — nothing changed locally, and this runs all day;
+//   • no `planAdvance()` — it ends in fillCapture, and a background timer must
+//     never overwrite a half-typed capture form. Plan mode re-advances on the
+//     next logged stop, which is the moment it actually matters.
+export async function autoSync(){
+  const c = cfg();
+  if(!c.hNumber || !navigator.onLine) return;
+  // An un-drained queue means this phone is AHEAD of the sheet — logs that haven't
+  // landed yet, so the Worklist rows up there describe a day that has moved on.
+  // Skip the replace; the stops + re-anchor half below is always safe to run.
+  const queued = ((await idb.all('queue')) || []).length;
+  if(!queued){
+    let r = null;
+    try { r = await apiGet('worklist', { hNumber: c.hNumber }); } catch { r = null; }
+    if(r && r.ok){
+      await applyDownloadedList(r.orders || [], { preserveDone: true });
+      if(r.plan) loadPlanFields(r.plan);
+      // A downloaded route was planned on the desktop against real OSRM durations,
+      // so its ETAs are exact — clear the phone's local "(est.)" marker, exactly as
+      // the manual Download does.
+      store.set('wlTimesEstimated', '');
+      await adoptPlannerDay1(r.plan);
+    }
+  }
+  // Today's stops BEFORE the re-anchor: dayCapacity and the pace projection both
+  // read the cache, so anchoring first would size the day off the stale copy —
+  // the same ordering wlDownload is pinned to.
+  try { await cacheRecentDays(1); } catch { /* keep the last good cache */ }
+  // The piece that actually makes the route and the ETAs accurate. Nothing in the
+  // pull above rewrites order/day/scheduledEta — applyTodayAnchor does, by
+  // re-running scheduleRouteConstraints from where the crew is now. It is why a
+  // manual Download "fixes the times" and a plain day-cache refresh does not.
+  await applyTodayAnchor();
+  if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
 }
 
 // ── route optimization (land mode) ──────────────────────────────────────────
@@ -2234,7 +2302,13 @@ export async function paceContext(){
 // repaints every few seconds, which would just re-read the same stale copy, so
 // the pull is throttled here on its own much slower clock. Best-effort and
 // online-only inside cacheRecentDays; a failure leaves the last good copy.
-const PACE_REFRESH_MS = 3 * 60 * 1000;
+//
+// It matches drive.js's AUTO_SYNC_MS on purpose. This is the GPS-fix-driven pull —
+// it fires as a side effect of a repaint, so it stalls whenever fixes stop (a Maps
+// hand-off, GPS denied, a phone that isn't recording); autoSync is the one on a
+// real clock. Two refresh paths with two different periods would just be two
+// clocks disagreeing about how fresh "fresh" is, so there is one number.
+const PACE_REFRESH_MS = 5 * 60 * 1000;
 let paceCacheAt = 0;
 async function refreshPaceCache(){
   const now = Date.now();
@@ -2382,6 +2456,7 @@ export function initWorklist(opts){
   driveView = initDrive({
     getPending: async () => pendingOf(await allSorted()),
     getPace: drivePace,
+    autoSync,
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });

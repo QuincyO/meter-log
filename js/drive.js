@@ -7,8 +7,11 @@
 // opt-in gate is per-device — it prevents two phones double-recording a drive).
 //
 // worklist.js owns the worklist data and calls initDrive() once, handing in a
-// pending-orders accessor and the shared openDirections() — this module never
-// imports worklist.js back (that would be circular), exactly like the route view.
+// pending-orders accessor, the pace projection, the automatic sheet refresh
+// (opts.autoSync) and the shared openDirections() — this module never imports
+// worklist.js back (that would be circular), exactly like the route view. The
+// clock and the gate for the refresh live here (AUTO_SYNC_MS); knowing HOW to
+// refresh stays with the module that owns the data.
 import { $, esc } from './dom.js';
 import { store } from './store.js';
 import {
@@ -195,6 +198,60 @@ export function initDrive(opts){
     } finally { paceBusy = false; }
   }
 
+  // ── automatic refresh from the sheet (every 5 minutes, while driving) ───────
+  // Nothing on this screen was ever on a clock: the only repaint driver is the
+  // recorder's subscribe(), which fires per GPS fix — so the moment fixes stop
+  // (a Google-Maps hand-off backgrounds the PWA, GPS is denied) the card and the
+  // ETAs freeze at whatever they last said, and the driver has to go back to the
+  // worklist and tap ⇩ Download to unfreeze them.
+  //
+  // The gate is the whole feature, and all three parts were asked for explicitly:
+  //   • isRecording()     — the driver tapped ▶ Start drive tracking. They are
+  //                         driving, and this phone is the day's recorder;
+  //   • showMetricsPref() — the #tuning "Show driving stats" opt-in. It already
+  //                         gates the stats HUD; consenting to see live driving
+  //                         numbers is what consents to fetching them;
+  //   • openState         — the Drive screen is actually in front.
+  // Plus the two the network demands: not backgrounded (an OS-suspended tab's
+  // timers are unreliable and the fetch is wasted), and online.
+  const AUTO_SYNC_MS = 5 * 60 * 1000;
+  // Tick often, throttle on the timestamp. The 30s cadence is NOT the period — the
+  // five minutes live in AUTO_SYNC_MS — it is the retry granularity, so a tick that
+  // lands while the driver is in Maps costs 30 seconds of staleness rather than a
+  // whole further period. Same throttle-by-timestamp shape as paintPace below and
+  // worklist.js refreshPaceCache, rather than making an interval load-bearing.
+  const AUTO_SYNC_TICK_MS = 30 * 1000;
+  // syncAt = 0 means "never synced", so the FIRST tick after the screen opens
+  // refreshes right away rather than making the driver wait out a period — opening
+  // Drive is exactly the moment they are asking what the route looks like. It is
+  // deliberately module-scoped, not reset by open(): the crew hops between the
+  // worklist and this screen constantly, and re-entering inside the window must
+  // not re-fetch. Re-entering after five idle minutes does, on the first tick.
+  let syncAt = 0, syncBusy = false, syncTimer = null;
+
+  const autoSyncOn = () =>
+    openState && isRecording() && showMetricsPref()
+    && document.visibilityState === 'visible' && navigator.onLine;
+
+  async function tickAutoSync(){
+    if(!opts.autoSync || !autoSyncOn()) return;
+    const now = Date.now();
+    if(syncBusy || now - syncAt < AUTO_SYNC_MS) return;
+    syncBusy = true;
+    syncAt = now;                  // stamped BEFORE the await, so a slow refresh
+    try {                          // on a weak signal can't stack up behind itself
+      await opts.autoSync();
+      if(openState) await refresh();
+    } catch { /* stale beats a toast in a truck — try again next tick */ }
+    finally { syncBusy = false; }
+  }
+  function startAutoSync(){
+    if(!syncTimer) syncTimer = setInterval(tickAutoSync, AUTO_SYNC_TICK_MS);
+  }
+  function stopAutoSync(){
+    if(syncTimer){ clearInterval(syncTimer); syncTimer = null; }
+  }
+
   // ── locked "Driving to" card (top of screen) ──
   // Shows the destination the driver last pressed Navigate on, so they always
   // know where they're headed even after the stepper has advanced or they've
@@ -241,7 +298,16 @@ export function initDrive(opts){
   }
 
   async function refresh(){
+    // Hold the card the driver is looking at. The list can be re-ordered under us
+    // — a background auto-refresh re-anchors the route, and a logged stop shifts
+    // everything up — and `idx` is a bare position, so without this the card
+    // silently becomes a different house mid-drive. Match the same order back by
+    // destKey and only fall back to the positional clamp when it is gone (logged
+    // or archived), which is what the post-log refresh wants anyway.
+    const was = pending[idx];
     pending = await opts.getPending();
+    const again = was ? pending.findIndex(p => destKey(p) === destKey(was)) : -1;
+    if(again >= 0) idx = again;
     if(idx >= pending.length) idx = Math.max(0, pending.length - 1);
     // Clear the locked destination once its order is no longer pending (logged or
     // archived) — don't keep telling the driver to drive somewhere they finished.
@@ -259,19 +325,31 @@ export function initDrive(opts){
   async function open(){
     openState = true;
     idx = 0;
+    // Opening is a fresh start at the top of the route, so drop the previous
+    // session's snapshot too — refresh() holds the card by matching against it,
+    // and left in place it would restore the last-viewed order over the `idx = 0`
+    // this line just set.
+    pending = [];
     screen.classList.remove('hide');
     if(!unsub) unsub = subscribe(paintAll);
     await refresh();
     paintAll();
+    // The interval only runs while the screen is open; the gate is re-checked on
+    // every tick, so arming/disarming tracking mid-drive needs no wiring of its own.
+    // syncAt survives the close, so re-entering the screen after five idle minutes
+    // refreshes on the first tick rather than waiting out a fresh period.
+    startAutoSync();
     window.scrollTo(0, 0);
     $('driveBack').focus();
   }
   async function close(){
     openState = false;
+    stopAutoSync();
     screen.classList.add('hide');
   }
   async function teardown(){
     if(openState){ openState = false; screen.classList.add('hide'); }
+    stopAutoSync();
     if(location.hash === '#drive') history.back();
   }
 
