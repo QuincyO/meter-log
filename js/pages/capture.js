@@ -23,10 +23,14 @@ import {
 import { geocodeOne } from '../route.js';
 import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPack, deletePack } from '../roadpack.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
+import { jConflicts, normalizeJ, J_LABEL } from '../jdup.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
 // conflict surfaces even for a stop that synced long after it was logged.
+// The spine's check is the wider of the two: the phone only holds ~a week of its
+// OWN stops, so a J# the crew logged from another device only turns up here.
+// Nothing is ever discarded — every branch below describes a stop that IS saved.
 setQueueHooks({ onResult: (body, item) => {
   if (body.parked) {
     showNotice('flag',
@@ -34,14 +38,21 @@ setQueueHooks({ onResult: (body, item) => {
       []);
     return;
   }
-  if (!body.duplicate && !body.flagged) return;
+  const jHits = body.jConflicts || [];
   const wo = item.workOrderId || '?';
-  const newJ = item.newJNumber || '';
-  if (body.duplicate) {
+  if (jHits.length) {
+    // The chooser already asked about this exact entry and the installer chose
+    // "Log anyway" — repeating it as a banner is nagging, not information. A hit
+    // the phone's own week couldn't see (another device) still lands here.
+    if (jAlreadyWarned(item)) return;
+    const first = jHits[0];
     showNotice('dup',
-      `Duplicate — WO# ${wo} with J# ${newJ} was already logged. Entry discarded.`,
-      body.history || []);
-  } else if (body.flagged) {
+      `Duplicate ${J_LABEL[first.field] || 'J#'} — ${first.value} is already on WO# ${first.stop.workOrderId || '?'}. `
+      + `Both stops are saved; fix whichever is wrong from Today's orders.`,
+      jHits.map(h => h.stop));
+    return;
+  }
+  if (body.flagged) {
     showNotice('flag',
       `J# conflict — WO# ${wo} was previously logged with a different J#. New entry saved.`,
       body.history || []);
@@ -57,7 +68,9 @@ function showNotice(type, msg, history) {
     `<div class="notice-row">WO# ${esc(r.workOrderId)||'?'} · J# ${esc(r.newJNumber)||'—'} · ${esc(r.status)} · ${esc(r.installer)} · ${esc(r.timestamp)}</div>`
   ).join('');
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => el.classList.remove('show'), 15000);
+  // A duplicate is something the installer has to ACT on, so it stays until it's
+  // dismissed. Everything else is FYI and clears itself.
+  noticeTimer = type === 'dup' ? undefined : setTimeout(() => el.classList.remove('show'), 15000);
 }
 $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
 // Tapping the sync pill opens the "Stuck uploads" review when something is parked,
@@ -313,6 +326,56 @@ function showAddrConflict(planned, gps){
 // Hand-editing the field is itself a decision — drop the chooser.
 $('addr').addEventListener('input', hideAddrConflict);
 
+// ── duplicate J# chooser (pre-submit, offline) ──────────────────────────────
+// The same meter serial logged twice is a mistype or a double-log, and the
+// cheapest moment to fix it is before the stop is sent. The rule lives in
+// js/jdup.js (shared with the spine's hand copy); this half is the screen.
+//
+// NOTHING here can discard a stop. The chooser blocks the tap, names the order
+// the number is already on, and offers "Log anyway" — the installer decides.
+//
+// The index is PRELOADED rather than awaited inside the tap handler on purpose:
+// $('logStop').onclick must stay synchronous or the clipboard copy loses its
+// user gesture (see the note at the copy). loadRecentDays(7) is exactly the
+// agreed scope — this installer's own stops, last 7 days — and reads only
+// IndexedDB, so the check still fires with no signal.
+let recentJStops = [];
+async function refreshJIndex(){
+  try { recentJStops = (await loadRecentDays(7)).flatMap(d => d.stops || []); }
+  catch { /* keep the last good index — a stale check beats no check */ }
+}
+
+// Signature of the entry the installer said "Log anyway" to. Keyed on the three
+// fields the question was about, so changing any of them asks again.
+let jAckedSigs = [];
+const jSignature = b => [b.workOrderId, b.newJNumber, b.oldJNumber].map(normalizeJ).join('|');
+const jAlreadyWarned = b => jAckedSigs.indexOf(jSignature(b)) !== -1;
+function ackJConflict(sig){ jAckedSigs = jAckedSigs.concat([sig]).slice(-8); }
+
+function hideJConflict(){ $('jConflict').classList.add('hide'); }
+function showJConflict(hits, sig){
+  const first = hits[0];
+  $('jcTitle').textContent =
+    `${J_LABEL[first.field] || 'J#'} ${first.value} is already on another order`;
+  $('jcRows').innerHTML = hits.map(h => {
+    const s = h.stop;
+    const bits = [
+      `WO# ${esc(s.workOrderId) || '—'}`,
+      `${J_LABEL[h.field]} ${esc(s[h.field]) || '—'}`,
+      esc(s.status) || '—',
+      esc(s.address) || '',
+      esc(s.timestamp) || ''
+    ].filter(Boolean);
+    return `<div class="jc-row">${bits.join(' · ')}</div>`;
+  }).join('');
+  $('jcAnyway').onclick = () => { ackJConflict(sig); hideJConflict(); $('logStop').click(); };
+  $('jcFix').onclick    = () => hideJConflict();
+  $('jConflict').classList.remove('hide');
+}
+// Re-typing a J# is a new question — drop both the chooser and the ack.
+['newJ','installOldJ','oldJ','otherOldJ'].forEach(id =>
+  $(id).addEventListener('input', () => { hideJConflict(); jAckedSigs = []; }));
+
 function fillCapture(item){
   if(!item){
     // Plan turned off / list emptied: clear only the fields the plan filled
@@ -328,7 +391,7 @@ function fillCapture(item){
         if($(id).value.trim() === String(filled[id]).trim()) $(id).value = '';
       });
     }
-    lastPlanFill = null; planAddr = null; hideAddrConflict();
+    lastPlanFill = null; planAddr = null; hideAddrConflict(); hideJConflict(); jAckedSigs = [];
     return;
   }
   $('wo').value          = item.workOrderId || '';
@@ -341,6 +404,9 @@ function fillCapture(item){
   planAddr = item.address || '';
   lastPlanFill = item;
   hideAddrConflict();
+  // A new order's J#s are a new question — the plan fills them programmatically,
+  // which fires no `input` event, so drop the chooser and the ack here too.
+  hideJConflict(); jAckedSigs = [];
 }
 // The plan-mode banner's landing estimate now comes from the shared real-data
 // model inside worklist.js (renderPlanEstimate → drivePace), the same one the
@@ -460,7 +526,22 @@ $('logStop').onclick = () => {
       meterRead:null, meterReadReceived:null, newJNumber:null,
       oldJNumber: otherJ || null, noReadReason:null, utiReason:null });
   }
+  // Duplicate J# — check before sending, against this installer's own last 7
+  // days held in IndexedDB (so it works with no signal). A hit blocks the tap and
+  // names the order the number is already on; the entry stays in the form until
+  // the installer chooses. "Log anyway" re-enters here with the signature acked.
+  const jSig = jSignature(base);
+  if(!jAlreadyWarned(base)){
+    const hits = jConflicts(base, recentJStops)
+      .sort((a, b2) => String(b2.stop.timestamp||'').localeCompare(String(a.stop.timestamp||'')));
+    if(hits.length){ showJConflict(hits, jSig); return; }
+  }
+  hideJConflict();
+
   enqueue(base);
+  // Fold the stop we just logged into the index — applyOptimisticCache has
+  // written it to today's dayCache, so the very next tap can see it.
+  refreshJIndex();
   // In plan mode the WO# came from the planned worklist — copy it to the
   // clipboard so it can be pasted straight into the meter-install app (no
   // re-typing → no typos). Fired synchronously inside the tap handler so the
@@ -492,6 +573,9 @@ $('logStop').onclick = () => {
                              'Unaccounted logged ✓')
     + (woCopied ? ' · WO# copied 📋' : ''));
   ['read','readRecv','newJ','installOldJ','wo','unit','addr','oldJ','utiOther','nrOther','otherOldJ','stopNotes'].forEach(id => $(id).value='');
+  // Clearing the fields programmatically fires no `input` event, so drop the
+  // "log anyway" ack by hand — it must never carry to the next order.
+  jAckedSigs = [];
   $('utiReason').value=''; $('utiOther').classList.add('hide'); $('utiOtherLabel').classList.add('hide');
   setNoRead(false); setSolar(false); setRequested(false); setNoGps(false);
   // Manual GPS: don't auto-fetch for the next order. Clear the last fix so it
@@ -1355,7 +1439,7 @@ async function openRecent(){
   // Sheet in the background and repaint — opening the sheet never waits on the
   // `range` round-trip.
   await renderRecent();
-  if(navigator.onLine) cacheRecentDays(7).then(renderRecent).catch(()=>{});
+  if(navigator.onLine) cacheRecentDays(7).then(() => { renderRecent(); refreshJIndex(); }).catch(()=>{});
 }
 
 async function renderRecent(){
@@ -1737,7 +1821,10 @@ $('saveSettings').onclick = () => {
 
 // When signal returns: flush the queue, backfill any addresses captured offline,
 // and refresh the recent-days cache.
-function onReconnect(){ flush(); backfillAddresses(enqueue); cacheRecentDays(7); }
+function onReconnect(){
+  flush(); backfillAddresses(enqueue);
+  cacheRecentDays(7).then(refreshJIndex).catch(refreshJIndex);
+}
 window.addEventListener('online', onReconnect);
 window.addEventListener('offline', paint);
 // also try to sync whenever the app comes back to the foreground
@@ -1748,7 +1835,13 @@ window.addEventListener('focus', flush);
 // addresses + pre-cache the recent days so they're viewable with no signal.
 migrateLegacyQueue().then(() => {
   paint(); flush(); pruneDayCache();
-  if(store.get('name') && navigator.onLine){ backfillAddresses(enqueue); cacheRecentDays(7); }
+  // Seed the duplicate-J# index from whatever is already stored, so the check
+  // works on a cold offline start; a successful pull refreshes it below.
+  refreshJIndex();
+  if(store.get('name') && navigator.onLine){
+    backfillAddresses(enqueue);
+    cacheRecentDays(7).then(refreshJIndex).catch(()=>{});
+  }
 });
 if(!store.get('name')) setTimeout(()=>openSheet('settingsSheet'), 400);
 

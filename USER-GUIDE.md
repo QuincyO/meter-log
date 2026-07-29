@@ -97,6 +97,24 @@ There's also the one-tap **Already installed here · mark spot** button: it drop
 - No signal? The stop keeps its GPS position with a blank address, and the app fills the address in by itself once you're back online. Spots you've been to before resolve even offline.
 - **No GPS at all?** If the phone can't get a fix (denied or no signal), tap **No GPS here? Log without coordinates** below the location line, then log as usual — the stop saves with a blank position (type an address so it's still findable). The toggle resets after each log, so it only affects the one stop.
 
+### If a J number is already on another order
+
+Tap **Log stop** and, if the **New J#** or **Old J#** you typed is already on one of your own stops from the last week, an amber card appears just above the button instead of logging. It names the number and lists the order it's already on — work order #, address, status and when it was logged — so you can see straight away which one to look at.
+
+You get two buttons, and **nothing is thrown away either way**:
+
+- **Go back and fix it** — closes the card and leaves everything you typed exactly where it was. Correct the J number and tap **Log stop** again.
+- **Log it anyway — both stops are kept** — logs this stop as normal. Use it when the match is fine, or when you'd rather sort it out later.
+
+The check works with no signal, and the app never deletes a stop because of a duplicate — if two really are wrong, you fix one yourself from **Today's orders** (tap the stop → **Edit** → **Save changes**).
+
+Two things it deliberately stays quiet about, so the warning stays worth reading:
+
+- The **same Old J#** on the **same work order** — that's a normal revisit (you logged a UTI, came back and installed the meter), so it never interrupts you.
+- A **New J#** on one stop that matches an **Old J#** on another — that's just a meter you put in somewhere and later took out somewhere else.
+
+The same warning can also turn up **after** a stop syncs, as a banner at the top of the screen — that's the office copy catching a match your phone couldn't see (a J# a crewmate logged on their own phone). The stop is already saved; the banner stays until you dismiss it with **✕**.
+
 ---
 
 ## Logging downtime
@@ -551,6 +569,7 @@ Land installers each run their own route, so they aren't paired as partners and 
 
 - **"Add your name first"** — Settings isn't filled in. ☰ → ⚙︎ Settings, enter name + H number, Save.
 - **"Work order # is required" / "New J# is required" / "Pick a UTI reason"** — a required field is empty; fill it and log again.
+- **An amber card says a J# is already on another order** — the number you typed matches one of your own stops from the last week. Fix it, or tap **Log it anyway** — the stop is never thrown away. See "If a J number is already on another order".
 - **The pill says "N waiting — offline" for a long time** — normal with no signal; the phone is holding the logs and sends them the moment it can. If it stays stuck *with* good signal, open the app fresh and give it a minute.
 - **The address is blank on a stop I logged offline** — expected; it fills itself in after you're back online. The GPS position was captured either way.
 - **Wrong address or a typo on a logged stop** — Today's orders (or Look up) → tap the stop → Edit → Save changes. The office can do the same from Edit & Daily Log.

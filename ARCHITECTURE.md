@@ -214,6 +214,10 @@ database, `meterlog`, with **four** object stores:
   `saveEmployee` etc. is appended here first; `flush()` POSTs the head to the
   spine and only deletes it on a genuine success (`resp.ok` **and** a recognized
   `{ok|duplicate|flagged}` body), so a busy-window failure is kept and retried.
+  (`addStop` no longer answers with `ok:false, duplicate` — a duplicate J# is a
+  warning on an `ok:true` ack now, see §"Duplicate J numbers". `duplicate` stays
+  in the accept list because `saveDriveTrack` still uses it for an idempotent
+  re-send, and because an old spine must never wedge the FIFO.)
   The auto-increment `_seq` preserves FIFO order; `_seq` is internal and stripped
   before the POST. Append writes carry a client-generated `id` so a
   timed-out-but-succeeded retry is idempotent (`idExists` on the spine).
@@ -328,6 +332,10 @@ point in `js/pages/`. Shared modules in `js/`:
 - **`queue.js`** (offline queue; UI side-effects via `setQueueHooks`),
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
+- **`jdup.js`** — the pure duplicate-J# rule (`normalizeJ`, `jConflicts`), shared
+  by the capture page's pre-submit chooser and — as a hand copy pinned by
+  `tests/jdup-parity.test.mjs` — by the spine. It finds conflicts and nothing
+  else; see §"Duplicate J numbers (warn, never discard)".
 - **`worklist.js`** (the worklist screen + plan mode),
   **`worklist-route-view.js`** (the phone's selected-day Leaflet route editor),
   **`worklist-address-fill.js`** (the one-at-a-time address walkthrough, plus the
@@ -430,6 +438,83 @@ note straddled the removed stop no longer match a gap after the merge — re-ope
 the day's travel review if it had been reviewed; a boat **partner's** closed day
 isn't regenerated (their merged-timeline gaps changed) — re-close their day from
 edit.html; a removed stop's worklist order stays marked done.
+
+---
+
+## Duplicate J numbers (warn, never discard)
+
+A J number is a meter's serial: **New J#** is the meter going in, **Old J#** the
+one coming out. The same serial twice means somebody mistyped it or logged the
+stop twice — but *which* of the two entries is wrong is a judgement call the
+installer makes standing in the driveway. So the system only ever **finds**
+conflicts. It never rejects, merges or deletes a stop.
+
+**This replaced a reject path, and that history is the point of the section.**
+`addStop` used to `return { ok:false, duplicate:true, history }` on an exact
+WO#+New J# match — *before* `sh.appendRow(row)` — and the phone rendered
+"Duplicate — … Entry discarded." Real field work was destroyed by it, at the
+moment the crew is least able to notice. The row is written first now, always;
+the warning rides back on an otherwise ordinary `{ok:true}` ack.
+`tests/stop-never-discarded.test.mjs` fails the build if an early return
+reappears in `addStop` before the append.
+
+### The rule
+
+`js/jdup.js` — pure, DOM-free, unit-tested (`tests/jdup.test.mjs`).
+`jConflicts(candidate, stops, {from, installer})` returns one `{stop, field,
+value}` per matching (stop, field) pair.
+
+- **Same-field only.** New J# against New J#, Old J# against Old J#, never
+  across the two. A meter installed at one house and legitimately pulled out of
+  another later carries that serial in *both* columns by design — cross-matching
+  would flag every ordinary swap and train the crew to dismiss the warning.
+- **A blank J# never matches.** Every UTI has a blank New J# and most rows have
+  a blank Old J#; blank-vs-blank would flag the whole week. This is the single
+  most important guard in the module.
+- **An Old J# repeated on the SAME work order is not a conflict.** The revisit:
+  a UTI records the old meter's serial, the crew comes back and installs — same
+  site, same meter, two correct rows. Nothing is lost by the carve-out, because
+  two real installs on one order still surface through the New J# rule (same
+  meter) or the WO#-keyed `flagged` warning (different meter); an Old J# across
+  two *different* orders — the actual mistype — still fires.
+- **Self-exclusion by id**, and **no status filter** (a duplicated Old J# on a
+  UTI or a Visit is as real as one on an install). Removed stops are out of
+  scope on both sides for free — the spine keeps them in `StopsArchive`, and
+  `applyOptimisticCache`/`mergePendingRows` drop them from `dayCache`.
+- **Scope: this installer's own stops, the last `J_DUP_DAYS` = 7 days**, and the
+  window is anchored on the **stop's own date**, not "today", so a leg logged
+  offline and synced days later is still checked against the right week.
+
+### Where it runs — twice, on purpose
+
+1. **On the phone, before the stop is sent** (`js/pages/capture.js`). A hit
+   blocks the **Log stop** tap and shows the `#jConflict` chooser naming the
+   order the number is already on — *Go back and fix it* / *Log it anyway*. The
+   entry stays in the form either way. The index it checks against comes from
+   `loadRecentDays(7)`, which is exactly the agreed scope and reads only
+   IndexedDB, so the check fires **with no signal**. It is **preloaded into
+   `recentJStops` rather than awaited inside the handler**: `$('logStop').onclick`
+   must stay synchronous or the plan-mode WO# clipboard copy loses its user
+   gesture. "Log it anyway" acks the entry's `jSignature` (status-free: WO# +
+   New J# + Old J#) and re-enters the same handler, so it is scoped to the exact
+   question asked — editing a J#, filling from the plan, or logging the stop
+   clears it.
+2. **On the spine, on the ack** (`Code.gs jConflictsFor` → `res.jConflicts`).
+   Wider than the phone can be: it sees stops the crew logged from another
+   device, and anything the phone's week missed. Surfaced by the queue's
+   `onResult` hook as the amber notice banner, which — unlike every other notice
+   — does **not** auto-dismiss, because it is something to act on. Suppressed
+   when the chooser already asked about that exact entry.
+
+`Code.gs` carries a hand copy of the four rule functions (Apps Script cannot
+import an ES module). `tests/jdup-parity.test.mjs` evaluates the real `Code.gs`
+source and holds both to the same output — without it the two drift silently,
+and the feature just behaves at random. **Change one, change the other.**
+
+The response is additive (`res.jConflicts`), and the older WO#-keyed
+`flagged`/`history` pair is still set alongside it, so a phone running cached
+pre-`jConflicts` modules still shows *something* and still keeps the stop. **No
+schema change** — no new `Stops` column, so no `setupSheets()` re-run.
 
 ---
 

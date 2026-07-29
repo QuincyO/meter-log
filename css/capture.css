@@ -300,6 +300,16 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
         font-size:15px;font-weight:600;cursor:pointer}
 .ac-opt:active{border-color:var(--accent)}
 
+/* duplicate J# chooser — same shape as .addr-conflict (and reuses .ac-title /
+   .ac-opt), in amber rather than the mode accent so it reads as stop-and-check
+   and can't be mistaken for the blue/green address question sitting above it.
+   Never add pointer-events:none here — a button that fires no pointer events
+   swallows the tap AND the explanation (see AGENTS.md on #wlOptimize.gated). */
+.j-conflict{background:#FFF3CD;border:1.5px solid var(--amber);border-radius:var(--r);
+            padding:12px;margin-top:10px}
+.jc-rows{margin:8px 0 2px;font-size:13px}
+.jc-row{padding:4px 0;border-top:1px solid rgba(0,0,0,.08)}
+
 /* Big tappable choices inside a .sheet card (the start-location question). Same
    two-line shape as the add-order chooser below, sized for a gloved thumb. */
 .wl-ask-opt{display:block;width:100%;min-height:56px;margin-top:10px;padding:12px 14px;text-align:left;

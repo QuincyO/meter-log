@@ -173,6 +173,35 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 ## Things that are easy to get wrong
 
+- **A duplicate is a WARNING. It must never be a rejection.** `addStop` used to
+  `return { ok:false, duplicate:true, history }` on an exact WO#+New J# match —
+  *before* `sh.appendRow(row)` — and the phone rendered "Duplicate — … Entry
+  discarded." That is a real stop destroyed, at the moment the crew is least able
+  to notice it happened. The row is appended first now, always, and the warning
+  rides back on an ordinary `{ok:true}` ack as `res.jConflicts`; the phone's
+  pre-submit chooser blocks the tap but keeps every field and always offers
+  **Log it anyway**. `tests/stop-never-discarded.test.mjs` fails the build if an
+  early return reappears in `addStop` before the append. Three things that look
+  optional and are not:
+  (1) **same-field only, and a blank J# never matches** — a meter installed at
+  one house and legitimately pulled from another later carries that serial in
+  *both* the New and Old columns by design, and most rows have a blank Old J#
+  while every UTI has a blank New J#. Cross-matching flags every ordinary swap;
+  blank-vs-blank flags the whole week. Either one trains the crew to dismiss the
+  warning, which costs more than not having it;
+  (2) **an Old J# repeated on the SAME work order is deliberately not a
+  conflict** — the UTI-then-revisit is the crew's most ordinary day, and without
+  the carve-out every one of them would block the log. Nothing is lost: two real
+  installs on one order still surface via the New J# rule or the WO#-keyed flag;
+  (3) **`$('logStop').onclick` must stay synchronous.** The plan-mode WO#
+  clipboard copy depends on being inside the user gesture, so the duplicate check
+  reads a preloaded `recentJStops` index rather than `await`ing
+  `loadRecentDays(7)` in the handler. An `await` before `enqueue` breaks the copy
+  silently.
+  The rule lives in `js/jdup.js` **and** as a hand copy in `Code.gs` (Apps Script
+  can't import an ES module), held together only by
+  `tests/jdup-parity.test.mjs` — change one, change the other, or the feature
+  starts behaving at random. See ARCHITECTURE.md §"Duplicate J numbers".
 - **"Today" and "the day being planned" are two different dates.** The phone can
   plan a route for a day that isn't today (`js/route-planday.js`, the `#wlPlanDate`
   "Planning for" control), and `worklist.js` keys the whole planning path on that
