@@ -1,6 +1,6 @@
 # Stops
 
-_480 rows · exported 2026-07-28 03:52 America/Toronto_
+_500 rows · exported 2026-07-29 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -484,3 +484,23 @@ _480 rows · exported 2026-07-28 03:52 America/Toronto_
 | 1785176985278-rntb95 | 2026-07-27 14:29:45 | Phillip Monteiro | 695062 |  | 200 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774279 | -79.405306 | J4647388 | J3262727 | 31169 | INSTALLED |  |  |  |  |  | land |
 | 1785177504650-z90j4i | 2026-07-27 14:38:24 | Phillip Monteiro | 694195 |  | 206 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774394 | -79.405531 | J4647387 | J3697697 | 75476 | INSTALLED |  |  |  |  |  | land |
 | 1785178063896-6ljjmb | 2026-07-27 14:47:43 | Phillip Monteiro | 694330 |  | 222 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.775079 | -79.405779 | J4647386 | J3179373 | 8903 | INSTALLED |  |  |  |  |  | land |
+| 1785242539281-wsiy55 | 2026-07-28 08:42:19 | Quincy Orta | 693980 |  | Town of, 556 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.405921 | -79.273778 | J4780707 | J3080984 | 79062 | INSTALLED |  |  |  |  |  | land |
+| 1785244339325-x3pg2k | 2026-07-28 09:12:19 | Quincy Orta | 693955 |  | 1025 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.39829 | -79.290838 | J4780706 | J3247620 | 36775 | INSTALLED |  |  |  |  |  | land |
+| 1785246915800-q75e6t | 2026-07-28 09:55:15 | Quincy Orta | 693867 |  | 49 George St, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.488156 | -79.460804 | J4780709 | J4044011 | 46482 | INSTALLED |  |  |  |  |  | land |
+| 1785250008328-evzsz9 | 2026-07-28 10:46:48 | Quincy Orta | 693982 |  | Town of, 1366 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.39803 | -79.272329 | J4780708 | J3134954 | 21460 | INSTALLED |  |  |  |  |  | land |
+| 1785250473856-ymzzvm | 2026-07-28 10:54:33 | Quincy Orta | 693976 |  | Town of, 1448 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.394359 | -79.271666 | J4780743 | J3134905 | 51942 | INSTALLED |  |  |  |  |  | land |
+| 1785250912514-1wc31k | 2026-07-28 11:01:52 | Quincy Orta | 693829 |  | Town of, 1569 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.390948 | -79.267992 | J4780744 | J3261122 | 85661 | INSTALLED |  |  |  |  |  | land |
+| 1785251297192-61ajst | 2026-07-28 11:08:17 | Quincy Orta | 693978 |  | Town of, 34 Fish Rock Rd, Huntsville, ON P1H 2N5, Canada | 45.391218 | -79.265662 | J4780745 | J2084998 | 56615 | INSTALLED |  |  |  |  |  | land |
+| 1785252821123-rl479i | 2026-07-28 11:33:41 | Quincy Orta | 693790 |  | Town of, 722 E Fox Lake Rd, Huntsville, ON P1H 2J2, Canada | 45.389277 | -79.349086 | J4780742 | J3299480 | 80929 | INSTALLED |  |  |  |  |  | land |
+| 1785254064519-l3j6ke | 2026-07-28 11:54:24 | Quincy Orta | 693994 |  | Town of, 698 E Fox Lake Rd, Huntsville, ON P1H 2J2, Canada | 45.388523 | -79.350455 | J4780737 | J3299479 | 46491 | INSTALLED |  |  |  |  |  | land |
+| 1785254769145-sd4p4g | 2026-07-28 12:06:09 | Quincy Orta | 693943 |  | 578 East Fox Lake Rd | 45.383203 | -79.353126 | J4780736 | J3242206 | 4528 | INSTALLED |  |  |  |  |  | land |
+| 1785255248864-l30cn9 | 2026-07-28 12:14:08 | Quincy Orta | 693941 |  | Town of, 564 E Fox Lake Rd, Huntsville, ON P1H 2J2, Canada | 45.383226 | -79.352205 | J4780734 | J3246464 | 13722 | INSTALLED |  |  |  |  |  | land |
+| 1785255816468-bqjut4 | 2026-07-28 12:23:36 | Quincy Orta | 693944 |  | 480 East Fox Lake Rd | 45.381842 | -79.348896 | J4780735 | J3168103 | 21798 | INSTALLED |  |  |  |  |  | land |
+| 1785256598499-w70vis | 2026-07-28 12:36:38 | Quincy Orta | 693947 |  | 343 West Fox Lake Rd | 45.376292 | -79.355016 | J4780769 | J3273663 | 26350 | INSTALLED |  |  |  |  |  | land |
+| 1785257033112-c92dy8 | 2026-07-28 12:43:53 | Quincy Orta | 693960 |  | 275 West Fox Lake Rd | 45.373722 | -79.353719 | J4780768 | J2196035 | 80271 | INSTALLED |  |  |  |  |  | land |
+| 1785258911948-5zqfkq | 2026-07-28 13:15:11 | Quincy Orta | 693948 |  | 1317 Etwell Rd | 45.335666 | -79.334742 | J4780767 | J3134779 | 90309 | INSTALLED |  |  |  |  |  | land |
+| 1785260075699-ztnuru | 2026-07-28 13:34:35 | Quincy Orta | 693946 |  | Town of, 32 Brennan Cir, Huntsville, ON P1H 2J2, Canada | 45.326472 | -79.330225 | J4780766 | J3168194 | 36561 | INSTALLED |  |  |  |  |  | land |
+| 1785261894989-zf04bx | 2026-07-28 14:04:54 | Quincy Orta | 693936 |  | Town of, 1186 S Lancelot Rd, Utterson, ON P0B 1M0, Canada | 45.26144 | -79.36361 | J4780739 | J2804248 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785262303151-6guec3 | 2026-07-28 14:11:43 | Quincy Orta | 693796 |  | 1160 S Lancelot Rd, Utterson, ON P0B 1M0, Canada | 45.261348 | -79.361935 | J4647949 | J2690248 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785264641209-cguoab | 2026-07-28 14:50:41 | Quincy Orta | 693912 | 31 | 1119 Skeleton Lake Road 2, Utterson, ON P0B 1M0, Canada | 45.236431 | -79.457105 | J4647950 | J3164389 | 15922 | INSTALLED |  |  |  |  |  | land |
+| 1785265790863-2q7wb1 | 2026-07-28 15:09:50 | Quincy Orta | 693822 |  | 1255 Skeleton Lake Road 2, Utterson, ON P0B 1M0, Canada | 45.231465 | -79.437381 | J4647951 | J3138228 |  | INSTALLED |  |  | Missing segments |  |  | land |
