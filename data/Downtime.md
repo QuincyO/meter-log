@@ -1,6 +1,6 @@
 # Downtime
 
-_169 rows · exported 2026-07-29 03:52 America/Toronto_
+_176 rows · exported 2026-07-30 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -173,3 +173,10 @@ _169 rows · exported 2026-07-29 03:52 America/Toronto_
 | 1785178787324-ryy34w | 2026-07-27 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 695062 | gap 14:12–14:29 |  |
 | 1785268099559-9yvbny | 2026-07-28 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693980 | gap 08:42–08:42 |  |
 | 1785268099559-dd9ybp | 2026-07-28 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693980 | gap 08:42–08:42 |  |
+| 1785354323446-g2a1ll | 2026-07-29 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 695047 | gap 10:07–10:07 |  |
+| 1785354323447-mssgvj | 2026-07-29 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 695047 | gap 10:07–10:07 |  |
+| 1785354323447-m1cf2r | 2026-07-29 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 695047 | gap 10:07–10:07 |  |
+| 1785354323447-gnlnnv | 2026-07-29 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 695047 | gap 10:07–10:07 |  |
+| 1785354323447-sv51je | 2026-07-29 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 694328 | gap 14:46–14:53 |  |
+| 1785354871355-4w454b | 2026-07-29 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693919 | gap 09:00–09:00 |  |
+| 1785354871355-f0v9et | 2026-07-29 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693919 | gap 09:00–09:00 |  |
