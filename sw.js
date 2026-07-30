@@ -50,6 +50,8 @@ const SHELL = [
   './js/roadgraph.js', './js/roadpack.js', './js/districts.js', './js/directions.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',
   './js/compute/summary.js', './js/compute/estimate.js',
+  // cadence.js is a HARD import of worklist.js — same rule as route-dwell.js above.
+  './js/compute/cadence.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)
   './js/dailylog.js', './js/vendor/jspdf.umd.min.js',
   // vendored Leaflet + Chart.js (map.html — no more CDN, so the map shell

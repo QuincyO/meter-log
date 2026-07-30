@@ -20,6 +20,7 @@ import { liveMetrics } from './drive-recorder.js';
 import { cacheRecentDays } from './daycache.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
+import { observedOnSiteMin } from './compute/cadence.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
 import { initWorklistTuning } from './worklist-tuning.js';
@@ -2230,6 +2231,28 @@ async function applyTodayAnchor(opts){
 // same decomposition the route planner uses, so the screens agree.
 const FALLBACK_SPEED_MPS = ESTIMATE_SPEED_KMH / 3.6;
 
+// The slowest day-average that is still believable as DRIVING (25 km/h). Below it
+// the measurement is rejected and the nominal ESTIMATE_SPEED_KMH prices the route.
+//
+// `avgMovingSpeed` is distance ÷ (elapsed − idle) over the whole day, and "idle" is
+// anything at or under drive-track.js IDLE_SPEED_MS — 0.5 m/s, i.e. 1.8 km/h. The
+// recorder runs whenever the PWA is open, INCLUDING while the crew is on foot at a
+// meter, and walking a property at 4 km/h clears that bar comfortably. So dooryard
+// and on-foot minutes land in the numerator as "moving" and drag the average down
+// without bound: a real rural day, driving 60–80 on the concessions, reported 18.
+// The old guard was `speed > 1` m/s — 3.6 km/h — which catches a phone that never
+// moved and nothing else, so 18 km/h sailed through and priced 18 remaining legs at
+// 2¼ hours instead of 45 minutes. That is ~90 minutes stolen from the afternoon,
+// about three stops off the projection and 90 minutes onto the finish clock.
+//
+// 25 is chosen to sit under any honest day's driving (so a genuinely slow day still
+// measures itself) and over the contamination band. Deliberately NOT fixed by
+// changing avgMovingSpeed itself: that number is also the office-side leg summary
+// uploaded to DriveTracks, read by the map viewer and installerOnSiteFromTracks, so
+// redefining it reaches well past this projection. The floor is local to the route
+// pricing and leaves every other consumer alone.
+const MIN_BELIEVABLE_SPEED_MPS = 25 / 3.6;
+
 // Today's pending stops = the DAY-1 group of the live route; a multi-day route only
 // counts day 1 toward today's landing. Blank day sorts as day 1.
 //
@@ -2253,23 +2276,31 @@ function routeTravel(pending){
   const f = VARIANT_FIELDS[activeVariant()];
   const metres = pending.reduce((a, p) => a + (Number(p[f.legMeters]) || 0), 0);
   const speed = liveMetrics().avgMovingSpeed;
-  const spd = speed > 1 ? speed : FALLBACK_SPEED_MPS;   // >1 m/s ⇒ a real drive is logged
+  // A believable driving average is used; anything slower is on-foot contamination
+  // rather than a slow truck, and the nominal prices the route instead.
+  const spd = speed >= MIN_BELIEVABLE_SPEED_MPS ? speed : FALLBACK_SPEED_MPS;
   const totalMin = metres > 0 ? (metres / spd) / 60 : pending.length * NOMINAL_TRAVEL_MIN;
   return { totalMin, perStopMin: pending.length ? totalMin / pending.length : NOMINAL_TRAVEL_MIN };
 }
 
-// Real on-site minutes/stop: today's observed WO→WO gap average with the nominal
-// between-stop drive stripped, falling back to the saved pace before there are two
-// stops to measure.
-function onsitePerStopReal(stops){
+// Real on-site minutes/stop: today's observed WO→WO cadence, net of logged delay
+// and with the nominal between-stop drive stripped, falling back to the measured
+// dwell before there are two stops to measure.
+//
+// The arithmetic — netting the allocations out and taking the MEDIAN rather than
+// the mean, which is what stops one hold-up wrecking the rest of the day — lives in
+// js/compute/cadence.js observedOnSiteMin, with the full account of why.
+//
+// Today's own cadence still beats any historical average once there is some: it is
+// the only thing that knows about today's weather, ferry, or bad access. Before the
+// second stop of the day there is none, and the measured dwell is a far better
+// stand-in than pace-minus-a-guess.
+function onsitePerStopReal(stops, downtime, pending){
   const printable = (stops || []).filter(s => PRINTABLE[s.status]);
-  const gaps = computeGapsLocal(printable, [], null, false);
-  // Today's own cadence beats any historical average once there is some — it is the
-  // only thing that knows about today's weather, ferry, or bad access. Before the
-  // second stop of the day there is none, and the measured dwell is a far better
-  // stand-in than pace-minus-a-guess.
-  if(!gaps.length) return dwellShape().base;
-  return onSiteMinutes(gaps.reduce((a, g) => a + g.idleMin, 0) / gaps.length);
+  const observed = observedOnSiteMin(
+    computeGapsLocal(printable, downtime || [], pending, false));
+  if(observed == null) return dwellShape().base;
+  return onSiteMinutes(observed);
 }
 
 // Assemble the real inputs. Async — reads the dayCache + worklist. `finishByMin`
@@ -2288,7 +2319,12 @@ export async function paceContext(){
     pendingCount: pending.length,
     remainingTravelMin: travel.totalMin,
     avgLegTravelMin: travel.perStopMin,
-    onsitePerStop: onsitePerStopReal(stops),
+    // The day's logged delays ride along so they aren't charged as install time.
+    // Both already sit in the record opened above; `eodTravel` is the offline
+    // review's not-yet-synced allocations and wins over the synced rows, exactly
+    // as it does in capture.js's end-of-day editor.
+    onsitePerStop: onsitePerStopReal(stops, (cached && cached.downtime) || [],
+                                     (cached && cached.eodTravel) || null),
     finishByMin: hhmmMin(ROUTE_DAY_END),
     // What "on pace" is measured against. Read live from the box like everywhere
     // else — the same value that sized the day, so the gauge and the route agree.

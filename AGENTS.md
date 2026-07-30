@@ -409,6 +409,50 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   read hands the gauge *tomorrow's* chunk (today's installs captioned against a
   route nobody is driving, and a "Route done ~" clock for it). Empty is correct
   there: `drivePace` returns null and the card hides.
+- **A CONSTANT may be printed by `clockLabel`. Anything DERIVED may not.**
+  `js/compute/estimate.js clockLabel` is a bare 12-hour readout — no meridiem, no
+  day. That is fine for the two horizons it was written for (`3:45`, `4:45 OT`),
+  which are compile-time constants that cannot leave the afternoon. It is wrong for
+  `routeFinishMin` (`now + travel + stops × on-site`), which has **no ceiling**: it
+  shipped that way and a real **23:29** printed as `11:29` on a card the crew was
+  reading at 11:36 in the **morning**, reported as the finish clock running
+  backwards. 24:15 printed `12:15`; 35:29 would print `11:29` again. Derived clocks
+  go through **`finishLabel`** (am/pm always, `+Nd` past 24 h). Two things to keep
+  straight: the rest of that card was **already honest** — `routeFinishMin >
+  pace.horizonMin` fired and painted it amber against the true 23:29, so the styling
+  is not a cross-check on the text and never was; and the clock is **reported, not
+  clamped** (`tests/estimate.test.mjs`) — landing at 5:40 is the thing worth knowing,
+  so a fix that hides a late number is the wrong fix.
+- **Today's cadence is a MEDIAN, because a day is a handful of gaps and one of them
+  is the hold-up.** `onsitePerStopReal` averaged the day's WO→WO gaps, so a morning
+  of `[25, 25, 175]` — three installs, then a long wait, then the 4th at 10:30 —
+  measured **75 min/stop** for a crew doing 25. It does not settle, either: every
+  later projection re-reads the same day, so one wait wrecks the gauge until
+  midnight. Reported as *"at 10:30 it said I'd only get 3 more done, when I'd already
+  done 3 and had the whole day left."* The arithmetic lives in
+  `js/compute/cadence.js` (pure, so it is unit-tested against a real day rather than
+  regex'd out of `worklist.js`). Three things: **the median must not become a mean
+  again with a trim bolted on** — the spine trims by *residual* against distance
+  (`installerOnSiteFit`), which needs a regression this has no room for; **logged
+  downtime is netted out first but is NOT the fix** — the call used to pass `[]`
+  where `computeGapsLocal` takes the day's rows, which was a plain inconsistency with
+  `capture.js`, but a hold-up is usually only written down at end of day if at all,
+  so the median has to stand alone; and **today still beats history** — the fallback
+  when there are no gaps yet is `dwellShape().base`, never a zero.
+- **`avgMovingSpeed` is not a driving speed, and the guard that assumed it was cost
+  three stops.** `routeTravel` priced the remaining legs at
+  `liveMetrics().avgMovingSpeed` behind a `speed > 1` m/s check — 3.6 km/h, which
+  catches a phone that never moved and nothing else. But that average is distance ÷
+  (elapsed − idle) with "idle" at or under `IDLE_SPEED_MS` = **1.8 km/h**, and the
+  recorder runs whenever the PWA is open, *including while the crew is on foot at a
+  meter*. Walking a property at 4 km/h counts as moving, so a rural day driven at
+  60–80 reported **18 km/h** and priced 18 remaining legs at 2¼ hours instead of 45
+  minutes — ~90 minutes off the afternoon and onto the finish clock.
+  `MIN_BELIEVABLE_SPEED_MPS` (25 km/h) is the floor; below it the nominal
+  `ESTIMATE_SPEED_KMH` prices the route. **Do not "fix" this in `avgMovingSpeed`
+  itself** — raising `IDLE_SPEED_MS` or gating the recorder changes the leg summary
+  uploaded to `DriveTracks`, which the map viewer and `installerOnSiteFromTracks`
+  both read. The floor is local to the projection on purpose.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection — and `dayCapacity`'s `installedToday` — reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at

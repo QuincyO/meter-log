@@ -1281,10 +1281,15 @@ screen, not just `#drive`.
   landing projection built from **real working data**, not a single blended average:
   it reprojects **today's remaining route** and separates travel from on-site time.
   On-site minutes/stop come from today's observed WO→WO cadence with the nominal
-  drive stripped (`onSiteMinutes`, the same decomposition the route planner uses);
-  remaining travel is the pending route's `legMetres` priced at the truck's **real
-  measured moving speed** (`liveMetrics().avgMovingSpeed`, or 50 km/h before any
-  drive is logged); the count is **capped at the stops left in the route**.
+  drive stripped (`onSiteMinutes`, the same decomposition the route planner uses) —
+  the **median** of the day's gaps, net of any logged downtime
+  (`js/compute/cadence.js observedOnSiteMin`), because a day is a handful of gaps and
+  a mean lets one hold-up stand in for every stop; remaining travel is the pending
+  route's `legMetres` priced at the truck's **real measured moving speed**
+  (`liveMetrics().avgMovingSpeed`) — but only while that average is still believable
+  as *driving* (`MIN_BELIEVABLE_SPEED_MPS`, 25 km/h), since the recorder counts
+  on-foot minutes at a meter as moving; below the floor, and before any drive is
+  logged, it is 50 km/h. The count is **capped at the stops left in the route**.
   `projectDayReal` (`js/compute/estimate.js`) returns **two paces** — the installer's
   **target finish** (`finishByMin`, which the phone passes as the fixed
   `ROUTE_DAY_END`) and **regular working hours**, 3:45 PM escalating to **4:45 PM
@@ -1295,7 +1300,7 @@ screen, not just `#drive`.
   callers. The card reads `~N` with an *on pace ✓* / *N stops short* note (green
   when today's remaining route lands by that horizon, amber when it doesn't).
 - **The route-finish clock** (`projectDayReal`'s top-level `routeFinishMin` /
-  `routeFinishLabel`, painted under the card's caption as *"Route done ~4:20"*).
+  `routeFinishLabel`, painted under the card's caption as *"Route done ~4:20 pm"*).
   What time the **last stop still on today's route** is finished, on the current
   pace: `now + remainingTravelMin + pendingCount × onsitePerStop` — the same three
   terms `paceFor` inverts, read forward instead of against a horizon. Deriving it
@@ -1304,7 +1309,11 @@ screen, not just `#drive`.
   so it sits at the top level rather than inside a pace, and it always reports the
   real clock — landing at 5:40 is exactly what the driver is asking — turning
   **amber** (`.dp-eta.late`) once it passes the card's own `horizonMin`. Null when
-  nothing is pending.
+  nothing is pending. Because it is unbounded it is formatted by **`finishLabel`**,
+  not `clockLabel`: am/pm always, plus a `+Nd` marker past 24 hours. `clockLabel`
+  stays the bare 12-hour readout and is only ever safe for the fixed horizons —
+  through it, a real 23:29 printed as `11:29` on a card being read at 11:36 in the
+  morning.
   **The denominator is the ROUTE — the stops still on today's Day 1 — and the
   meters/day target is the footnote.** `onPace` is `routeShort <= 0`; the caption
   reads "12 of 18 stops", with "· 6 under your 24" appended only when the route

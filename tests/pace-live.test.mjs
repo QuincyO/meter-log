@@ -100,6 +100,36 @@ test('the finish clock is derived from the same inputs as the projection', () =>
   assert.match(driveJs, /Route done ~\$\{label\}/);
   // Late is late for THIS card's horizon, not for a wall clock.
   assert.match(driveJs, /est\.routeFinishMin > pace\.horizonMin/);
+  // The DERIVED clock is unbounded and must carry am/pm. clockLabel is the bare
+  // 12-hour readout and belongs to the fixed horizons alone — through it, a real
+  // 23:29 printed "11:29" on a card being read at 11:36 in the morning.
+  assert.match(estimateJs, /routeFinishLabel: finishLabel\(routeFinishMin\)/);
+  assert.doesNotMatch(estimateJs, /routeFinishLabel:.*clockLabel/);
+});
+
+// ── the inputs the projection is built from ─────────────────────────────────
+test('the observed cadence is a median, and logged delay is netted out of it', () => {
+  // A day is a handful of gaps and a hold-up is one of them, so the MEAN let a
+  // single wait stand in for every stop — and it never washed out, because every
+  // later projection re-read the same day. The arithmetic is unit-tested in
+  // tests/cadence.test.mjs; this is the wiring.
+  assert.match(worklistJs, /import \{ observedOnSiteMin \} from '\.\/compute\/cadence\.js'/);
+  assert.match(worklistJs, /observedOnSiteMin\(\s*computeGapsLocal\(printable, downtime \|\| \[\], pending, false\)\)/);
+  // The gap model must receive the day's downtime. `[]` here charged a delay the
+  // crew had logged as time spent installing.
+  assert.doesNotMatch(worklistJs, /computeGapsLocal\(printable, \[\]/);
+  assert.match(worklistJs, /onsitePerStopReal\(stops, \(cached && cached\.downtime\)/);
+  // No measurement yet ⇒ the modelled dwell, not a zero.
+  assert.match(worklistJs, /if\(observed == null\) return dwellShape\(\)\.base;/);
+});
+
+test('a day-average too slow to be driving does not price the route', () => {
+  // avgMovingSpeed counts anything over 1.8 km/h as moving, and the recorder runs
+  // while the crew is on foot at a meter — so a real rural day reported 18 km/h and
+  // priced 18 remaining legs at 2¼ hours. The old guard was 1 m/s (3.6 km/h).
+  assert.match(worklistJs, /const MIN_BELIEVABLE_SPEED_MPS = 25 \/ 3\.6/);
+  assert.match(worklistJs, /speed >= MIN_BELIEVABLE_SPEED_MPS \? speed : FALLBACK_SPEED_MPS/);
+  assert.doesNotMatch(worklistJs, /speed > 1 \? speed/);
 });
 
 // ── the ETAs move as the day is worked ──────────────────────────────────────

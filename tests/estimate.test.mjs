@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectDayReal, workHorizon } from '../js/compute/estimate.js';
+import { projectDayReal, workHorizon, clockLabel, finishLabel } from '../js/compute/estimate.js';
 
 // ── workHorizon: regular-hours tiers ────────────────────────────────────────
 test('workHorizon is 3:45 before 4 PM', () => {
@@ -150,7 +150,7 @@ test('projects what time the route itself is finished', () => {
     finishByMin: 14 * 60, nowMin: 11 * 60, dayClosed: false,
   });
   assert.equal(r.routeFinishMin, 11 * 60 + 30 + 4 * 25);   // 790
-  assert.equal(r.routeFinishLabel, '1:10');
+  assert.equal(r.routeFinishLabel, '1:10 pm');
 });
 
 test('the finish clock lands past the horizon rather than being clamped to it', () => {
@@ -162,7 +162,7 @@ test('the finish clock lands past the horizon rather than being clamped to it', 
     finishByMin: 14 * 60, nowMin: 14 * 60, dayClosed: false,
   });
   assert.equal(r.routeFinishMin, 18 * 60 + 5);
-  assert.equal(r.routeFinishLabel, '6:05');
+  assert.equal(r.routeFinishLabel, '6:05 pm');
   assert.ok(r.routeFinishMin > r.paces.work.horizonMin);
 });
 
@@ -174,4 +174,49 @@ test('no route left ⇒ no finish clock', () => {
   assert.equal(r.ready, true);
   assert.equal(r.routeFinishMin, null);
   assert.equal(r.routeFinishLabel, null);
+});
+
+// ── the finish clock must not read as a time that has already passed ────────
+// clockLabel is a BARE 12-hour readout and is only safe for the fixed horizons.
+// The finish clock is derived and unbounded, so it gets finishLabel.
+test('clockLabel stays bare — the horizons depend on it', () => {
+  assert.equal(clockLabel(15 * 60 + 45), '3:45');
+  assert.equal(clockLabel(16 * 60 + 45), '4:45');
+});
+
+test('finishLabel carries am/pm so an evening clock cannot read as morning', () => {
+  assert.equal(finishLabel(11 * 60 + 29), '11:29 am');
+  assert.equal(finishLabel(23 * 60 + 29), '11:29 pm');   // the reported case
+  assert.equal(finishLabel(12 * 60), '12:00 pm');
+  assert.equal(finishLabel(0), '12:00 am');
+  assert.equal(finishLabel(18 * 60 + 5), '6:05 pm');
+  assert.equal(finishLabel(null), null);
+});
+
+test('finishLabel marks the day once the clock runs past midnight', () => {
+  // Inside today, tonight included, it is the plain meridiem clock. Past 24 h a
+  // meridiem alone is the same ambiguity in a new hat, so the day is named.
+  assert.equal(finishLabel(25 * 60 + 10), '1:10 am +1d');
+  assert.equal(finishLabel(35 * 60 + 29), '11:29 am +1d');
+  assert.equal(finishLabel(50 * 60), '2:00 am +2d');
+});
+
+// The exact screenshot from the field report: 11:36 AM, 6 installs done, 18 stops
+// still on the route, ~137 min of remaining driving and ~32 min/stop on site. Every
+// number on the card is reproduced; the finish clock was a real 23:29 that printed
+// as "11:29" and read as seven hours in the past.
+test('the reported card reads as 11:29 PM, not 11:29', () => {
+  const stops = Array.from({ length: 6 }, () => ({ status: 'INSTALLED' }));
+  const r = projectDayReal({
+    stops, pendingCount: 18, remainingTravelMin: 137, onsitePerStop: 32,
+    finishByMin: null, target: 24, nowMin: 11 * 60 + 36, dayClosed: false,
+  });
+  assert.equal(r.done, 6);
+  assert.equal(r.pendingCount, 18);
+  assert.equal(r.paces.work.projected, 9);          // "~9 installs by 3:45"
+  assert.equal(r.paces.work.routeShort, 15);        // "15 STOPS SHORT"
+  assert.equal(r.paces.work.targetShort, 15);       // "15 under your 24"
+  assert.equal(r.routeFinishMin, 23 * 60 + 29);     // 1409 — tonight, not this morning
+  assert.equal(r.routeFinishLabel, '11:29 pm');
+  assert.ok(r.routeFinishMin > r.paces.work.horizonMin);   // still painted amber
 });
