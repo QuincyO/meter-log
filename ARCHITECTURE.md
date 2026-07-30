@@ -948,35 +948,57 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   questions; reading one for the other is the easy mistake here.
   `worklist.js applyTodayAnchor()` is the single
   choke point (run after optimize, Download, a completion, a reset, and first view):
-  it (re)commits the anchor when the date rolls, today's set is exhausted, or the
-  meters/day target moved under an explicit Optimize (`needsCommit`), then reorders
-  pending so today's committed orders lead
+  it (re)commits the anchor when the date rolls, or when an **explicit re-plan** asks
+  it to — a re-plan whose meters/day target moved, or one on a day whose set is spent
+  (`needsCommit`) — then reorders pending so today's committed orders lead
   (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with
   **`opts.day1Count`**, while days 2+ still fill by `target`. The commit snapshots the
   route's **current** Day-1 group (honouring any `timeCapacity` shrink or the office's
   chunking), falling back to the first `target` orders only for a never-routed list.
   The anchor is never synced (no sheet/schema change); `day1Count` omitted ⇒ the
   scheduler behaves exactly as before.
-- **The frozen set says *which* orders are today; `dayCapacity` says how many *fit*.**
-  Sizing Day 1 to the committed count alone over-corrected: it could only ever shrink,
-  and only as its own planned orders were finished. Two things went wrong. Meters the
-  crew installed **off-plan** — the walk-ups they find in the field, which
-  `markWorklistDone` never sees — consumed none of the day's target, so the route kept
-  showing more work than there was room for; and an order added mid-day couldn't join
-  today at all, sinking to the bottom of the **last** day. So Day 1 is now sized by
-  `day1Count(anchor, day1Ids, dayCapacity(target, installedToday))` —
-  `dayCapacity` = the meters/day target minus **every** meter installed today, counted
-  with the shared `countDay()` over the `dayCache` (offline, exact the instant a stop
-  is logged). Whatever sits past that capacity rolls to Day 2 on its own. Worked
-  example: target 20, 5 planned done + 5 walk-ups ⇒ 10 installed ⇒ Day 1 shows the
-  next **10**, and 5 of the 15 still-pending orders roll to tomorrow, no prompt.
-  This must run after **every** logged stop, not just a planned one — `planAdvance`
-  is that call site, above its plan-mode guard.
-  **Zero is a real `day1Count`, not "unset"** (`route-constraints.js` tests it against
-  `null`): a met target means Day 1 takes no stops, where truthiness would have handed
-  today a whole fresh target. `needsCommit` is deliberately keyed on the set's
-  *identity*, never on capacity — a full day still owns its unfinished orders, so
-  hitting the target pushes today's leftovers out rather than rolling tomorrow's in.
+- **The frozen set IS the day. Nothing re-sizes it in the background.** Day 1 is
+  `day1Count(day1Ids)` — today's committed set intersected with pending, entire. It
+  shrinks as its orders are finished and by nothing else, and it grows only when the
+  installer says so. **This is the second correction to this rule, and the shape of the
+  first one is worth keeping in mind.**
+
+  The first correction was right about the symptom and wrong about the cure. Sizing
+  Day 1 to the committed count alone over-corrected: meters the crew installed
+  **off-plan** — walk-ups, which `markWorklistDone` never sees — consumed none of the
+  day's target, so the route kept showing more work than there was room for, and an
+  order added mid-day couldn't join today at all. The fix was to size Day 1 as
+  `min(dayCapacity(target, installedToday) + anchor.extend, |set ∩ pending|)`. **That
+  made the meters/day target a live governor on a set the installer had already
+  committed to, and it shuffled the day all day long:**
+  - the target counts **meters** and the set counts **orders**. An order carrying two
+    meters, or any walk-up, spent the room faster than it spent the list, so the tail
+    of a committed day was stamped Day 2 by mid-morning;
+  - once the target was **met** with orders still pending, capacity hit 0, `day1Count`
+    was 0, and every remaining order was stamped Day 2+ — a full afternoon's work
+    silently declared tomorrow's, and the pace gauge (which reads Day 1 strictly)
+    vanished off the Drive screen with the crew still working;
+  - `needsCommit` re-committed the moment the set emptied, hauling the next chunk up
+    into today;
+  - and the Drive screen's 5-minute refresh re-ran all of it on a timer.
+
+  Reported from the field as *"the next day's work orders are shuffling up every time
+  … I download the WORK list when I start my day, I say that I'm going to do X, and I
+  want it to stay at that unless I manually add more for the same day."* The whole
+  mechanism is gone. What replaces it:
+  - **the target sizes the day when the day is PLANNED, then lets go.** Installing past
+    it now reads as being ahead — `targetOver` on the pace gauge, and a `Route done ~`
+    clock that moves later — instead of as a shorter list;
+  - **an exhausted set stays exhausted.** A finished day is finished until an explicit
+    re-plan (`opts.replan`) asks for more;
+  - **work joins a day already under way only by hand** — the `#wlAddTo` sheet, an
+    Optimize press, or the office's own day 1 on a Download.
+
+  `dayCapacity` survives for exactly one job: bounding how far a *deliberate* mid-day
+  target raise may grow the day (`freshAnchorIds`' `opts.max`). It can no longer trim
+  anything. **Zero is still a real `day1Count`, not "unset"** (`route-constraints.js`
+  tests it against `null`) — a finished day genuinely holds no stops, and truthiness
+  there would hand it a whole fresh target.
 - **`anchor.target` — the freeze must not outlive the plan that sized it.** Keying the
   freeze on identity alone meant a set committed at 6 meters/day kept a six-order Day 1
   forever: raising the target to 24 changed nothing, and re-optimizing could not shift
@@ -986,41 +1008,48 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (`anchorTarget`, `null` for a legacy record), and `needsCommit` gains a fourth reason:
   a **re-plan** (`opts.replan`) whose target differs re-commits. Three things there are
   deliberate:
-  - **Only an explicit Optimize passes `replan`.** Typing a new number in the box is not
-    a re-plan; the press is — and it is also the moment the days have just been re-solved
-    at the new target, so the fresh commit reads tags that actually match it. A logged
-    stop, a Download, or first view still keep today exactly frozen.
-  - **An Optimize at an *unchanged* target must never re-commit**, or re-optimizing after
-    finishing a few orders refills Day 1 from the front of what's left — the original bug
-    the anchor exists to prevent.
+  - **Only two callers pass `replan`** — the Optimize press and the meters/day box's own
+    `change`. They are the two moments the installer has said "re-size the day". A logged
+    stop, a Download, first view, and the Drive screen's 5-minute refresh pass nothing and
+    keep today exactly frozen. (The box also passes `resize` → `freshAnchorIds`'
+    `opts.fromTags: false`, because unlike Optimize it has not re-solved the day tags, and
+    preferring stale tags makes a *raised* target do nothing at all.)
+  - **An Optimize at an *unchanged* target must never re-commit a set that is still
+    LIVE**, or re-optimizing after finishing a few orders refills Day 1 from the front of
+    what's left — the original bug the anchor exists to prevent. On a **spent** set the
+    press re-commits whatever the target says: there is nothing left to protect, and the
+    press is how the installer asks for more work after finishing the day they committed
+    to. That ask used to happen by itself, which is what this change removed.
   - **A mid-day re-plan is bounded by `dayCapacity`** (`freshAnchorIds`' `opts.max`), so
     raising the target at noon grows today into the room it has left rather than hauling
     a whole fresh target up out of tomorrow. A day with no installs *and* no UTIs, or one
     already closed out (`dayClosedDate`), is a day nobody has driven — those reshuffle
     freely, unbounded. A legacy anchor reads as changed, which is the one-shot that
     unsticks a day frozen under a target nobody can recover.
-- **`anchor.extend` — working past the target on purpose.** The anchor is
-  `{date, ids, extend, target}`; a legacy `{date, ids}` reads as extend 0 and target
-  unknown. `extend` counts the
-  stops the installer *explicitly agreed* to work beyond capacity, and is added on top
-  of it. It is written by two paths:
+- **Joining a day that is already under way — by hand, or by the office.** The anchor is
+  `{date, ids, target}`; a legacy record reads target unknown, and a legacy `extend` is
+  ignored (that field is gone with the capacity clamp it existed to buy room back from).
+  Two paths add to a committed set, and both are somebody's deliberate act:
   - **An order added on the phone** (`saveOrder` → `offerAddTo`, `#wlAddTo`) asks,
-    because nobody else has weighed in on it: **Add to today** (`extend += 1`, the day
-    runs longer), **Add to today, keep the day's size** (capacity holds, so the day's
-    tail rolls to tomorrow — the option names which WOs), or **Leave for later**. The
-    chooser only appears when the choice is real: an anchor committed for today that
-    still holds work. Accepted orders are slotted into today by **cheapest insertion**
-    (`insertByProximity`, pure, over saved pins via `haversine`) so they land beside
-    their nearest neighbours instead of at the end of the day, then written back
+    because nobody else has weighed in on it: **Add to today** (the day runs longer) or
+    **Leave for later**. There was a third — *Add to today, keep the day's size*, which
+    rolled the tail to tomorrow — and it went with the capacity clamp: an option whose
+    job is to shuffle the tail down is the reported behaviour with a button in front of
+    it. The sheet appears whenever an anchor is committed for the day being planned,
+    **including a day whose work is finished**: with the automatic roll gone, adding by
+    hand is the only way work joins a finished day, so bailing there would send the
+    order silently to tomorrow. Accepted orders are slotted into today by **cheapest
+    insertion** (`insertByProximity`, pure, over saved pins via `haversine`) so they land
+    beside their nearest neighbours instead of at the end of the day, then written back
     through the same `persistOrderIds` the drag uses so locks/appointments still get
     their say. Ids accumulate across a burst of adds — the form's copy-street-forward
     flow makes that the normal case — so one answer covers the whole burst.
   - **Download** (`adoptPlannerDay1`) asks nothing: *the planner decides, the phone
-    obeys*. When the downloaded `WorklistPlans.routeStartDate` **is today**, every
-    order the office tagged `day === 1` joins the committed set and `extend` is raised
-    as far as it takes to hold their whole day 1, rather than being trimmed against
-    this phone's capacity. A plan for tomorrow (the normal case) leaves the anchor
-    alone and its orders queue behind today's, as before.
+    obeys*. When the downloaded `WorklistPlans.routeStartDate` **is the day being
+    planned**, every order the office tagged `day === 1` joins the committed set. A plan
+    for another day leaves the anchor alone and its orders queue behind, as before. This
+    also runs on the Drive screen's 5-minute `autoSync`, where it is a no-op unless the
+    office genuinely re-planned mid-day — every id is already in the anchor.
 
   See `js/route-today.js`, `tests/route-today.test.mjs`, and the `day1Count` cases in
   `tests/route-constraints.test.mjs`.
@@ -1315,17 +1344,23 @@ screen, not just `#drive`.
   through it, a real 23:29 printed as `11:29` on a card being read at 11:36 in the
   morning.
   **The denominator is the ROUTE — the stops still on today's Day 1 — and the
-  meters/day target is the footnote.** `onPace` is `routeShort <= 0`; the caption
-  reads "12 of 18 stops", with "· 6 under your 24" appended only when the route
-  falls short of the target. The target's job is upstream: `dayCapacity(target,
-  installedToday)` is what decided how many orders are on the route at all. This was
-  briefly inverted; AGENTS.md carries the arithmetic showing the "the route re-sizes
-  underneath you" worry doesn't hold (`done + pendingCount` is stable, and the two
-  readings coincide on any list long enough to fill the target).
-  **`todayPending` is `day === 1` strictly, not the lowest day present** — once the
-  target is met with orders still pending, `day1Count` is 0 and every remaining
-  order is stamped day 2+, so a min-day read would pace *tomorrow's* chunk. Empty
-  there is correct: `drivePace` returns null and the card hides.
+  meters/day target is the footnote, read in both directions.** `onPace` is
+  `routeShort <= 0`; the caption reads "12 of 18 stops", plus "· 6 under your 24"
+  (`targetShort`) when the day projects short of the target, or "· 4 over your 24"
+  (`targetOver`) when it projects past it. At most one of the pair is non-zero. The
+  target's job is upstream: it decided how many orders went on the route when the day
+  was **planned**, and it does not govern the day after that — so a crew that installs
+  extra keeps its whole list and reads as ahead, which is what `targetOver` exists to
+  say. This was briefly inverted, and the arithmetic that rebutted it (`done +
+  pendingCount` is stable) was itself only true at one meter per order; see
+  `js/compute/estimate.js paceFor`, which keeps the whole account. It is true now,
+  because Day 1 no longer re-sizes at all.
+  **`todayPending` is `day === 1` strictly, not the lowest day present** — a day whose
+  committed set is finished leaves Day 1 empty with days 2+ still full, and a min-day
+  read would pace *tomorrow's* chunk. Empty there is correct: `drivePace` returns null
+  and the card hides. (It used to arrive the other way too: target met ⇒ everything
+  stamped day 2+ ⇒ the card gone mid-afternoon with work still in front of the crew.
+  That path is closed.)
   Sourced by worklist.js `paceContext`/`drivePace` (owns the route + dayCache) and
   passed into `initDrive` like `getPending`; recomputed on open/refresh and
   throttled to a few seconds while the recorder ticks. `drivePace` also re-pulls

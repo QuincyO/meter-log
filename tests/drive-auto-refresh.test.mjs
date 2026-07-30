@@ -116,9 +116,42 @@ test('the refresh re-anchors, and pulls today down before it does', () => {
   const anchor = autoSyncBody.indexOf('await applyTodayAnchor()');
   assert.ok(refresh > -1, 'autoSync must refresh the day cache');
   assert.ok(anchor > -1, 'autoSync must re-anchor, or the ETAs never move');
-  // Same ordering wlDownload is pinned to: dayCapacity and the pace projection
-  // both read the cache, so anchoring first would size the day off a stale copy.
+  // Same ordering wlDownload is pinned to: the pace projection and the re-plan bound
+  // both read the cache, so anchoring first would work off a stale copy.
   assert.ok(refresh < anchor, 'the refresh must land before applyTodayAnchor');
+});
+
+// ── the tick RE-TIMES the day; it must never RE-SIZE it ─────────────────────
+// The installer works two devices: a work phone that logs each install and pushes the
+// completed work order to the sheet, and this one, which pulls a refreshed list every
+// five minutes and re-prices the rest of the day off the real finish times. That is
+// the feature. What it must not do is move work between days — and it used to, on
+// every tick, because Day 1 was re-sized to `min(dayCapacity + extend, |set|)` and the
+// meters the work phone logged kept shrinking the capacity half. Reported as *"the
+// next day's work orders are shuffling up every time"*.
+test('a tick re-times the day without re-sizing it', () => {
+  // Day 1 is today's committed set, entire — nothing capacity-shaped reaches it.
+  assert.match(worklistJs, /const fits = day1Count\(day1\);/);
+  assert.doesNotMatch(worklistJs, /day1Count\(anchor,/);
+  // …and an exhausted set does not roll the next chunk up. autoSync passes no opts,
+  // so `replan` is false and needsCommit leaves a finished day finished.
+  assert.doesNotMatch(autoSyncBody, /applyTodayAnchor\(\s*\{/);
+  const routeToday = readFileSync(new URL('../js/route-today.js', import.meta.url), 'utf8');
+  assert.match(routeToday,
+    /if\(anchorDay1Ids\(anchor, pending\)\.length === 0\) return Boolean\(opts && opts\.replan\);/);
+});
+
+test('a tick still learns what the work phone finished', () => {
+  // The one shrink that stays: an order logged on the OTHER phone comes back
+  // `wlStatus:'done'` and drops out of anchorDay1Ids, so Day 1 gets shorter by
+  // completion. Without preserveDone the replace would also have to not lose the
+  // completions this phone already knew about.
+  assert.match(autoSyncBody, /applyDownloadedList\(r\.orders \|\| \[\], \{ preserveDone: true \}\)/);
+  assert.match(worklistJs, /wlStatus: \(o\.wlStatus === 'done' \|\| doneIds\.has\(String\(o\.id\)\)\) \? 'done' : 'pending'/);
+  // The anchor holds ids and lives in localStorage, so it survives the wholesale
+  // rewrite of the worklist store that the pull performs. If ids stopped round-
+  // tripping verbatim, today's set would be lost on the first tick of every day.
+  assert.match(worklistJs, /idb\.put\('worklist', \{\s*\n\s*id:String\(o\.id\)/);
 });
 
 test('the two refresh clocks agree', () => {

@@ -15,13 +15,31 @@
 // and how to order the pending list so today's set leads. No DOM, no storage, no
 // network — unit-tested in tests/route-today.test.mjs.
 //
-// The frozen set says WHICH orders are today; it does not say how many FIT. That is
-// `dayCapacity` below: the meters/day target minus the meters actually installed
-// today, counted from the day's real stops — so the walk-up meters a crew finds in
-// the field consume the day's room just like planned ones do, and the tail of today's
-// set rolls to tomorrow on its own. `anchor.extend` is the installer's override: the
-// count of stops they explicitly agreed to work past that capacity ("add it to today,
-// the day runs later"). A legacy `{date, ids}` anchor reads as extend 0.
+// THE FROZEN SET IS THE DAY. Its membership changes on an explicit act and on
+// nothing else: a new day, a Download, an Optimize press, a target change, or the
+// installer tapping "Add to today". It shrinks as its orders are finished, and that
+// is the only shrink there is.
+//
+// It did not used to be. Day 1 was sized `min(dayCapacity + extend, |set ∩ pending|)`,
+// where `dayCapacity` was the meters/day target minus the meters actually installed
+// today — so the day RE-SIZED ITSELF all day long, and `anchor.extend` existed to buy
+// the room back when the installer agreed to work past it. Two things were wrong with
+// that, and the field found both:
+//   • the target is in METERS and the set is in ORDERS. An order carrying two meters
+//     burns capacity twice as fast as it burns membership, so the tail of a list the
+//     installer had committed to was stamped day 2 by mid-morning — and every walk-up
+//     found in the field did the same thing to orders nobody had touched;
+//   • once the target was MET with orders still pending, capacity hit 0, Day 1 held
+//     nothing, and every remaining order was stamped day 2+ — a full day's work
+//     silently declared tomorrow's.
+// Reported as *"the next day's work orders are shuffling up every time … I download
+// the WORK list when I start my day, I say I'm going to do X, and I want it to stay
+// at that."* The 5-minute Drive refresh re-ran the whole thing on a timer, which is
+// what made it constant. Installing extra now reads as being AHEAD OF PACE with a
+// later finish clock (js/compute/estimate.js `targetOver`), never as a shorter list.
+//
+// `dayCapacity` survives for one narrow job — bounding an explicit mid-day target
+// raise, see below. `anchor.extend` is gone; a legacy anchor carrying it is ignored.
 //
 // The anchor also remembers the meters/day `target` it was frozen under, because the
 // freeze is keyed on the set's identity and would otherwise outlive the plan that
@@ -41,13 +59,6 @@ export function anchorDay1Ids(anchor, pending){
   return (pending || []).filter(p => p && set.has(String(p.id))).map(p => String(p.id));
 }
 
-/** Stops the installer has explicitly agreed to work past today's capacity.
- *  Absent/garbage (a legacy anchor) reads as none. */
-export function anchorExtend(anchor){
-  const n = Math.floor(Number(anchor && anchor.extend));
-  return isFinite(n) && n > 0 ? n : 0;
-}
-
 /** The meters/day target this set was frozen under. `null` for a legacy `{date, ids}`
  *  anchor written before the field existed — which needsCommit deliberately reads as
  *  "unknown, so re-plan on the next Optimize", the one-shot that unsticks a day frozen
@@ -57,33 +68,40 @@ export function anchorTarget(anchor){
   return isFinite(n) && n > 0 ? n : null;
 }
 
-/** Room left in the day: the meters/day target minus every meter already installed
- *  today — planned orders and walk-ups alike. Zero once the target is met, which is
- *  a FULL day, not an exhausted one: today's remaining orders roll to tomorrow but
- *  the anchor keeps its identity (see needsCommit). */
+/** Room a DELIBERATE mid-day re-plan may grow the day into: the meters/day target
+ *  minus every meter already installed today, planned orders and walk-ups alike.
+ *
+ *  This is NOT the day's size — nothing here trims a set the installer has already
+ *  committed to (see the header). Its one caller is `freshAnchorIds`' `opts.max` on
+ *  the path where the installer raises the target at noon: growing today is their
+ *  call to make, but growing it by a whole fresh target would haul up work the
+ *  afternoon plainly cannot hold. Zero means a day already at its target, so an
+ *  explicit re-plan adds nothing — it does not take anything away either. */
 export function dayCapacity(target, installedToday){
   const t = Math.max(1, Math.floor(Number(target) || 1));
   const done = Math.max(0, Math.floor(Number(installedToday) || 0));
   return Math.max(0, t - done);
 }
 
-/** How many of today's committed orders actually fit — capacity plus whatever the
- *  installer chose to work past it, never more orders than today's set holds.
- *  Feeds scheduleRouteConstraints' `opts.day1Count`; the overflow falls to Day 2. */
-export function day1Count(anchor, day1Ids, capacity){
-  const room = Math.max(0, Math.floor(Number(capacity) || 0)) + anchorExtend(anchor);
-  return Math.min(room, (day1Ids || []).length);
+/** How many stops Day 1 holds: today's committed set, entire. Feeds
+ *  scheduleRouteConstraints' `opts.day1Count`.
+ *
+ *  It used to take a capacity and return `min(capacity + extend, |set|)`, which is
+ *  the re-sizing the header is about. Nothing overflows to Day 2 any more: an order
+ *  leaves today by being finished, or because the installer moved it. */
+export function day1Count(day1Ids){
+  return (day1Ids || []).length;
 }
 
 /** Do we need to (re)commit today's set?
- *   - nothing pending            → no (nothing to anchor)
- *   - no anchor / a stale date    → yes (first route of a new day)
- *   - today's committed set empty → yes (all finished → roll to the next chunk)
+ *   - nothing pending             → no (nothing to anchor)
+ *   - no anchor / a stale date     → yes (first route of a new day)
+ *   - today's committed set empty  → only on an explicit re-plan (see below)
  *   - a re-plan whose target moved → yes (see below)
  *  Otherwise the frozen set still has work on it, so leave it exactly as it is.
  *  Deliberately keyed on the set's IDENTITY, never on dayCapacity: a day whose
- *  target is met still owns its unfinished orders, so hitting the target must not
- *  roll tomorrow's work in — it just pushes today's leftovers out to Day 2.
+ *  target is met still owns its unfinished orders, and hitting the target neither
+ *  rolls tomorrow's work in nor pushes today's leftovers out.
  *
  *  `opts` = `{replan, target}`. Exactly TWO callers pass it: an explicit Optimize,
  *  and the meters/day box's own `change`. They differ in whether the day tags are
@@ -98,7 +116,15 @@ export function day1Count(anchor, day1Ids, capacity){
 export function needsCommit(anchor, today, pending, opts){
   if(!(pending && pending.length)) return false;
   if(!anchor || anchor.date !== today) return true;
-  if(anchorDay1Ids(anchor, pending).length === 0) return true;
+  // An exhausted set does NOT roll to the next chunk by itself. "I said I'd do X"
+  // means the day ends at X; pulling tomorrow's orders up is the installer's call,
+  // and an explicit re-plan (the Optimize press, or adding an order by hand) is how
+  // they make it. Every PASSIVE caller — a logged stop, a Download, first view, the
+  // 5-minute Drive refresh — leaves today finished and empty, which is the honest
+  // reading of a completed day. `replan` here is deliberately not also conditioned on
+  // a changed target: with the set spent there is nothing left to protect, so the
+  // press means "give me more work today" whatever the target says.
+  if(anchorDay1Ids(anchor, pending).length === 0) return Boolean(opts && opts.replan);
   if(opts && opts.replan){
     const was = anchorTarget(anchor);
     const now = Math.max(1, Math.floor(Number(opts.target) || 1));
@@ -114,12 +140,13 @@ export function needsCommit(anchor, today, pending, opts){
  *  all) falls back to the first `target` orders by count. `pending` is the pending
  *  items in list order.
  *
- *  `opts.max` caps how many orders may be frozen — the day's REMAINING room, used when
- *  a mid-day re-plan raises the target. It bounds MEMBERSHIP, not the day's displayed
- *  size (that stays day1Count's job): without it, changing the target at noon would
- *  haul a whole fresh target's worth of tomorrow's orders into a day that is already
- *  half spent. Omitted ⇒ unbounded, which is the right answer for a day that has not
- *  started or is already closed out.
+ *  `opts.max` caps how many orders may be frozen — the day's REMAINING room
+ *  (`dayCapacity`), used when a mid-day re-plan raises the target. Without it,
+ *  changing the target at noon would haul a whole fresh target's worth of tomorrow's
+ *  orders into a day that is already half spent. It is now the ONLY place capacity
+ *  touches the day at all, and it only ever bounds GROWTH the installer asked for —
+ *  it can never trim a set already committed. Omitted ⇒ unbounded, which is the right
+ *  answer for a day that has not started or is already closed out.
  *
  *  `opts.fromTags` (default TRUE) is whether those day tags can be trusted to
  *  describe the target being frozen at. Preferring them is right after an Optimize,

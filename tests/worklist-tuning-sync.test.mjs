@@ -63,13 +63,15 @@ test('the meters/day target persists as it is typed, not only on blur', () => {
   assert.match(persist[0], /isFinite\(n\) && n > 0/);
 });
 
-// Storing the typed target was only half of it. Day 1 is sized
-// min(dayCapacity(target, installedToday) + extend, anchor.ids.length): LOWERING the
-// target clamps the day through `capacity` right away, but RAISING it moved nothing,
-// because the frozen anchor set is only re-committed when needsCommit sees `replan`
-// AND a changed target — and only Optimize passed `replan`. Reported as "I can't even
-// change the amount of orders that populate the list with the target value. They get
-// stuck on a different value and never got updated."
+// Storing the typed target was only half of it. Day 1 is today's committed set, and
+// the only thing that re-commits it is needsCommit seeing `replan` — which, back then,
+// only Optimize passed. Reported as "I can't even change the amount of orders that
+// populate the list with the target value. They get stuck on a different value and
+// never got updated." (At the time Day 1 was `min(dayCapacity + extend, |set|)`, so
+// LOWERING the target did clamp the day through `capacity` while raising it moved
+// nothing — a silently one-way control. That capacity clamp is gone: it was also what
+// shuffled a committed day's tail into tomorrow. Now neither direction moves without
+// this handler, which is why it has to keep passing `replan`.)
 test('the meters/day target re-splits the days, not just the store', () => {
   const handler = /\$\('wlTarget'\)\.onchange = [\s\S]*?\n  \};/.exec(worklist);
   assert.ok(handler, 'wlTarget onchange handler is still there');

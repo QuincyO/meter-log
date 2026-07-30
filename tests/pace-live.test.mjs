@@ -72,11 +72,36 @@ test('onPace is the route shortfall, unconditionally', () => {
 });
 
 test('today’s route is day 1 strictly, not the lowest day present', () => {
-  // Target met with orders left ⇒ dayCapacity 0 ⇒ every remaining order is stamped
-  // day 2+. A min-day read would hand the gauge tomorrow's chunk and clock a "Route
-  // done ~" for a route nobody is driving today.
+  // A finished day leaves Day 1 empty with days 2+ still full. A min-day read would
+  // hand the gauge tomorrow's chunk and clock a "Route done ~" for a route nobody is
+  // driving today. (It used to arrive the other way too — target met ⇒ capacity 0 ⇒
+  // everything stamped day 2+ — which no longer happens; see the next test.)
   assert.match(worklistJs, /return pending\.filter\(p => dayOf\(p\) === 1\);/);
   assert.doesNotMatch(worklistJs, /const minDay = Math\.min/);
+});
+
+test('meeting the target does not take the card off the screen', () => {
+  // The card is fed by todayPending, i.e. by whatever Day 1 holds — and Day 1 is now
+  // the committed set entire, never `min(dayCapacity + extend, …)`. Installing past
+  // the meters/day target used to zero capacity, zero day1Count, stamp every
+  // remaining order day 2+, and so empty todayPending mid-afternoon with work still
+  // in front of the crew. Pin the call that made that possible as gone.
+  assert.match(worklistJs, /const fits = day1Count\(day1\);/);
+  assert.doesNotMatch(worklistJs, /day1Count\(anchor,/);
+  // `anchor.extend` is gone with the clamp it existed to buy room back from. The one
+  // surviving mention is the header explaining why — it is spelled `anchor.extend`,
+  // so a bare `extend:` write would still fail here.
+  assert.doesNotMatch(worklistJs, /\bextend\s*:/);
+  assert.doesNotMatch(worklistJs, /anchorExtend/);
+});
+
+// ── the gauge says AHEAD, not just short ────────────────────────────────────
+test('a day past the meters/day target reads as over it, not as a blank footnote', () => {
+  const estimateJs = readFileSync(new URL('../js/compute/estimate.js', import.meta.url), 'utf8');
+  assert.match(estimateJs, /const targetOver = target > 0 \? Math\.max\(0, projected - target\) : null;/);
+  assert.match(driveJs, /\$\{over\} over your \$\{target\}/);
+  // Both halves of the footnote, or the card goes quiet on one side of the line.
+  assert.match(driveJs, /\$\{under\} under your \$\{target\}/);
 });
 
 // ── one card on the Drive screen, and it says when the route is done ────────

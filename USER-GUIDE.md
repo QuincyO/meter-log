@@ -301,18 +301,24 @@ appointment or plan for the earlier day.
 ### Today stays today
 
 The first time you look at your route each day, the app **locks in today's list** —
-the orders under the **Day 1** header at that moment. Optimizing again, or downloading
-a fresh plan, can reshuffle the driving order but **won't pull tomorrow's orders up
-into today**. Only once you've cleared today's list does Day 1 roll forward to the
-next batch. So if you set out to do 24 and get 10 done, your Day 1 still shows the
-**14 you have left** — not 4 of tomorrow's houses tacked on the end.
+the orders under the **Day 1** header at that moment. From then on that list is yours:
+it gets shorter as you finish orders and it changes in no other way. Optimizing again,
+downloading a fresh plan, or logging a stop can reshuffle the driving **order**, but
+nothing moves work between days on its own. So if you set out to do 24 and get 10
+done, your Day 1 still shows the **14 you have left** — not 4 of tomorrow's houses
+tacked on the end, and not 3 of yours pushed off the bottom.
 
-**Meters you install off the list count too.** Day 1 is sized by your **Meters/day**
-target minus everything you've actually installed today — including meters you find
-in the field that were never on the plan. Say your target is 20 and the day starts
-with 20 planned. You finish 5 of them and install 5 more you came across: that's 10
-in, so Day 1 drops to the **next 10** and the rest move to tomorrow on their own. You
-don't have to do anything; the number on screen is always the room you have left.
+**Install extra and you're just ahead.** Meters you find in the field that were never
+on the plan don't eat into your list. Say your target is 20, you finish 5 planned
+orders and install 5 more you came across: your remaining 15 all stay on today. The
+pace card says **"· 10 over your 20"** and the *Route done ~* time moves later to
+account for the extra work. Your Meters/day target decides how big the day is when the
+day is **planned**, and then it leaves the list alone.
+
+**When today's list is done, it's done.** Clear the last order and Day 1 goes empty —
+tomorrow's orders stay tomorrow's. If you want more work today, that's your call to
+make: tap **🧭 Optimize** and the next batch comes in, or add the orders by hand
+(below).
 
 **Meters/day is the whole answer.** It is the only thing that decides how many stops a
 day holds — set 24 and you get days of 24. There used to be a **Finish by** time as
@@ -328,7 +334,8 @@ don't have to press anything after it. 🧭 Optimize is for re-working the drivi
 Before the day starts (nothing installed or UTI'd yet) or after you've closed it out,
 that's a clean re-plan at the new number. Partway through, the day only grows into the
 room it has left: set 24 with 6 already in and today fills to **18 more**, not a fresh
-24. Set the target *lower* and the extra stops roll to tomorrow.
+24. Set the target *lower* and the extra stops move to tomorrow. Either way it takes
+the typed number to make it happen — nothing re-splits the days behind your back.
 
 The arrival times shift with it, but they're worked out from estimated driving times
 rather than measured ones, so they show as **(est.)** until the next time you
@@ -340,16 +347,19 @@ Add an order after your route is set and the app asks where it goes:
 
 - **Add to today** — it joins today's run and the day goes a bit longer. The app
   slots it in next to its nearest neighbours rather than tacking it on the end.
-- **Add to today, keep the day's size** — it joins today, but the day stays the
-  length it was, so the last stop or two roll to tomorrow. The button names which
-  ones.
 - **Leave for later** — it stays on the list, after today's work.
 
-Add several in a row and you're asked once for the lot.
+Add several in a row and you're asked once for the lot. This works on a day you've
+already finished, too — it's how you put more work on a cleared list without
+re-optimizing.
 
-When the **office** sends you a plan that starts today, whatever they put on their
-Day 1 simply becomes your today — no question asked. A plan for a later date leaves
-today alone.
+(There used to be a third answer, *Add to today, keep the day's size*, which pushed
+the last stop or two off the bottom to make room. It's gone: nothing takes work off
+your day now except you.)
+
+When the **office** sends you a plan that starts on the day you're planning, whatever
+they put on their Day 1 simply becomes your today — no question asked. A plan for a
+later date leaves today alone.
 
 ### Two routes: road matrix and straight-line
 
@@ -397,7 +407,7 @@ Tap **🚗 Drive** on the worklist to open a clean, one-card driving screen. It 
 - **Back and Next only change what you're looking at.** They do not mark anything done and do not change your list. An order is still completed the normal way — when you log its meter.
 - **Navigate** opens Google Maps for the current address (and copies the address, like the 🧭 button on the worklist). When you're done, switch back to the app and your card is still there.
 
-**The pace card** under the order tells you where the day is heading. It projects how many meters you'll have installed by **Day · 3:45** (or **4:45 OT** once it's past four and the day is still open), read against **today's route**: "12 of 18 stops" with **on pace**, or **4 stops short** if the hours left won't get you to the end of the list. Your meters/day target isn't the yardstick here — it already did its job when it decided how many orders went on today's route. It shows up only as a quiet note, "· 6 under your 24", when the route you've got won't add up to it.
+**The pace card** under the order tells you where the day is heading. It projects how many meters you'll have installed by **Day · 3:45** (or **4:45 OT** once it's past four and the day is still open), read against **today's route**: "12 of 18 stops" with **on pace**, or **4 stops short** if the hours left won't get you to the end of the list. Your meters/day target isn't the yardstick here — it already did its job when it decided how many orders went on today's route. It shows up only as a quiet note at the end of the line — "· 6 under your 24" when the route you've got won't add up to it, or "· 4 over your 24" on a day you've run ahead of it.
 
 **"Route done ~4:20 pm"** at the bottom of the card is the other question: what time you actually finish the route, on the pace you're going. It's the drive still ahead of you plus your own on-site time for the stops that are left, added to the clock right now. It always shows the real time — if the day is landing at 5:40 it says 5:40 pm, in amber, rather than pretending it stops at knock-off. It carries **am or pm** for a reason: it used to show a bare "11:29" for a route that was really landing at 11:29 *at night*, which read like a time that had already gone by. If the route is so far behind that it runs past midnight, you'll see the next day marked on it too ("~1:10 am +1d"). There used to be a second **Target** card here; it sat fifteen minutes from the Day one and told you the same thing twice, so it's gone.
 

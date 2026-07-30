@@ -45,10 +45,11 @@ test('projects both paces against their own horizons', () => {
 });
 
 // ── the ROUTE is what "on pace" means ───────────────────────────────────────
-// The meters/day target's job is upstream — dayCapacity(target, installedToday)
-// decides how many orders are on Day 1. Once it has, the driver's question is
-// "will I finish the route in front of me?". See js/compute/estimate.js paceFor
-// for why the "the route re-sizes underneath you" objection doesn't hold.
+// The meters/day target's job is upstream — it decides how many orders go on Day 1
+// when the day is PLANNED, and then lets go (js/route-today.js). Once it has, the
+// driver's question is "will I finish the route in front of me?". See
+// js/compute/estimate.js paceFor for why the "the route re-sizes underneath you"
+// objection no longer holds — and why its original rebuttal was wrong too.
 test('on pace is measured against the stops left on the route, not the target', () => {
   // The reading the installer objected to: 4 installed, 3 orders left in the world,
   // all 3 will land. The route is satisfied — that is on pace. A 24-meter target
@@ -63,10 +64,40 @@ test('on pace is measured against the stops left on the route, not the target', 
   assert.equal(r.paces.work.routeShort, 0);     // the route lands in full…
   assert.equal(r.paces.work.onPace, true);      // …which is the answer that matters
   assert.equal(r.paces.work.targetShort, 17);   // still reported, as the footnote
+  assert.equal(r.paces.work.targetOver, 0);     // …and nothing to be over by
   // The meters/day number is returned ONCE, at the top level — `paces.target` is
   // the finish-by horizon, so a `paces.target.target` would be two meanings of the
   // word one dot apart.
   assert.equal(r.paces.work.target, undefined);
+});
+
+// ── the footnote reads BOTH ways ────────────────────────────────────────────
+// The target no longer trims the day, so a crew that installs extra keeps its whole
+// list and lands past the target. *"If I install extra this should just show that I'm
+// ahead of pace and my estimates for today will increase."* Before `targetOver` the
+// footnote simply vanished at the moment it had the best news to give.
+test('a day projected past the meters/day target reports how far OVER it lands', () => {
+  const r = projectDayReal({
+    stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
+    finishByMin: 14 * 60, target: 5, nowMin: 11 * 60, dayClosed: false,
+  });
+  assert.equal(r.paces.work.projected, 7);      // 4 done + all 3 pending
+  assert.equal(r.paces.work.targetOver, 2);     // 7 against a target of 5
+  assert.equal(r.paces.work.targetShort, 0);    // and nothing short
+});
+
+test('short and over are mutually exclusive, and both vanish without a target', () => {
+  const at = target => projectDayReal({
+    stops: doneStops, pendingCount: 3, remainingTravelMin: 0, onsitePerStop: 20,
+    finishByMin: 14 * 60, target, nowMin: 11 * 60, dayClosed: false,
+  }).paces.work;
+  // Projected 7 either side of the line, and exactly on it.
+  assert.deepEqual([at(9).targetShort, at(9).targetOver], [2, 0]);
+  assert.deepEqual([at(7).targetShort, at(7).targetOver], [0, 0]);
+  assert.deepEqual([at(4).targetShort, at(4).targetOver], [0, 3]);
+  // No target ⇒ no footnote at all, in either direction.
+  assert.equal(at(0).targetShort, null);
+  assert.equal(at(0).targetOver, null);
 });
 
 test('the target footnote clamps at zero on a day that beats it', () => {
