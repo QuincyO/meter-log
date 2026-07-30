@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
+  anchorDay1Ids, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from '../js/route-today.js';
 
@@ -37,9 +37,26 @@ test('needsCommit: a live set with work still on it is kept frozen', () => {
   assert.equal(needsCommit({ date:'2026-07-24', ids:['a'] }, '2026-07-24', items(['a', 'b'])), false);
 });
 
-test('needsCommit: an exhausted set rolls to the next chunk', () => {
-  // every committed id is done/gone → time to move to the next day's orders.
-  assert.equal(needsCommit({ date:'2026-07-24', ids:['z'] }, '2026-07-24', items(['a', 'b'])), true);
+test('needsCommit: an exhausted set does NOT roll to the next chunk by itself', () => {
+  // Every committed id is done/gone. The day as planned is finished, and finished is
+  // where it stays: *"I don't want to shuffle the next day into the end of today."*
+  // Every passive caller lands here — a logged stop, a Download, first view, and the
+  // Drive screen's 5-minute refresh, which is what made it feel constant.
+  const anchor = { date:'2026-07-24', ids:['z'], target:24 };
+  const pending = items(['a', 'b']);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending), false);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, {}), false);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
+});
+
+test('needsCommit: an exhausted set DOES roll on an explicit re-plan', () => {
+  // The Optimize press on a finished day means "give me more work today" — the manual
+  // ask that replaces the automatic roll. Deliberately not also conditioned on a
+  // changed target: with the set spent there is nothing left to protect.
+  const anchor = { date:'2026-07-24', ids:['z'], target:24 };
+  const pending = items(['a', 'b']);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
+  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:6 }), true);
 });
 
 test('anchorTarget reads the frozen target, null for a legacy anchor or junk', () => {
@@ -153,12 +170,12 @@ test('orderAnchorFirst is a no-op when today already leads', () => {
   assert.deepEqual(orderAnchorFirst(['a', 'b', 'c'], ['a', 'b']), ['a', 'b', 'c']);
 });
 
-// ── day capacity (target − meters actually installed today) ─────────────────
+// ── day capacity: bounds a re-plan's GROWTH, and nothing else ───────────────
 
 test('dayCapacity is the target less every meter installed today', () => {
   assert.equal(dayCapacity(20, 0), 20);
   assert.equal(dayCapacity(20, 5), 15);
-  // The brief's case: 5 planned + 5 walk-ups both spend the day's room.
+  // 5 planned + 5 walk-ups both spend the room a deliberate re-plan could grow into.
   assert.equal(dayCapacity(20, 10), 10);
 });
 
@@ -174,34 +191,39 @@ test('dayCapacity coerces junk: target floors at 1, installs at 0', () => {
   assert.equal(dayCapacity(20.7, 5.9), 15);
 });
 
-test('anchorExtend reads 0 for a legacy {date, ids} anchor or junk', () => {
-  assert.equal(anchorExtend(null), 0);
-  assert.equal(anchorExtend({ date:'d', ids:['a'] }), 0);
-  assert.equal(anchorExtend({ extend:-3 }), 0);
-  assert.equal(anchorExtend({ extend:'x' }), 0);
-  assert.equal(anchorExtend({ extend:2 }), 2);
+// ── Day 1 is today's committed set, entire ─────────────────────────────────
+// It used to be min(dayCapacity + anchor.extend, |set ∩ pending|), which re-sized
+// the day all day long. The tests below are the field report, as arithmetic.
+
+test('day1Count is the whole committed set', () => {
+  assert.equal(day1Count(['a','b','c','d','e']), 5);
+  assert.equal(day1Count(['a','b']), 2);
 });
 
-test('day1Count sizes today to the room left, not to the frozen count', () => {
-  const anchor = { date:'d', ids:['a','b','c','d','e'] };
-  // 5 orders still frozen for today, but only 3 meters of room left → 2 roll over.
-  assert.equal(day1Count(anchor, ['a','b','c','d','e'], 3), 3);
+test('day1Count of an empty or missing set is 0', () => {
+  assert.equal(day1Count([]), 0);
+  assert.equal(day1Count(null), 0);
+  assert.equal(day1Count(undefined), 0);
 });
 
-test('day1Count never exceeds the orders today actually holds', () => {
-  const anchor = { date:'d', ids:['a','b'] };
-  assert.equal(day1Count(anchor, ['a','b'], 20), 2);
+test('two-meter orders no longer drop the tail of a committed day', () => {
+  // The report: 12 orders downloaded at a 24 meters/day target, each order carrying
+  // two meters. Six done ⇒ 12 meters installed ⇒ the old capacity was 24 − 12 = 12
+  // against 6 remaining orders, which still looked fine… until the orders ran three
+  // meters, or a walk-up landed. The general failure is capacity (METERS) racing
+  // membership (ORDERS); here 18 meters installed against 6 orders left.
+  const day1 = ['g','h','i','j','k','l'];
+  assert.equal(day1Count(day1), 6);
+  assert.equal(dayCapacity(24, 18), 6);   // the old min() would still say 6…
+  assert.equal(dayCapacity(24, 22), 2);   // …and this is where it dropped four.
+  assert.equal(day1Count(day1), 6);       // the committed set does not care.
 });
 
-test('day1Count adds the installer’s explicit extend on top of capacity', () => {
-  const anchor = { date:'d', ids:['a','b','c','d'], extend:2 };
-  // 1 meter of room + 2 the installer agreed to work past it = 3.
-  assert.equal(day1Count(anchor, ['a','b','c','d'], 1), 3);
-});
-
-test('day1Count returns 0 once the target is met with no extend', () => {
-  // A full day: today keeps its identity, but no order fits — all roll to Day 2.
-  assert.equal(day1Count({ date:'d', ids:['a','b'] }, ['a','b'], 0), 0);
+test('meeting the meters/day target leaves today’s remaining orders on today', () => {
+  // Old behaviour: dayCapacity 0 ⇒ day1Count 0 ⇒ every remaining order stamped day 2+
+  // and the pace card gone from the screen with work still in front of the crew.
+  assert.equal(dayCapacity(24, 24), 0);
+  assert.equal(day1Count(['x','y','z']), 3);
 });
 
 // ── cheapest-insertion of a new order into a solved day ────────────────────

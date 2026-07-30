@@ -134,10 +134,10 @@ export function initDrive(opts){
   //
   // The bar is the ROUTE: done | will-fit | won't-fit, as a share of today's day-1
   // stops. That is the question the driver is actually asking, and the meters/day
-  // target has already done its job upstream by deciding how many orders are on the
-  // route at all (js/route-today.js dayCapacity). The target survives as the
+  // target has already done its job upstream by deciding how many orders were put on
+  // the route when the day was planned (js/route-today.js). The target survives as the
   // caption's quiet second half — the one thing the route cannot say: "I'll finish
-  // this route and still land under 24."
+  // this route and still land under 24", or, on a day that ran ahead, "over 24".
   //
   // It was briefly the other way round; js/compute/estimate.js paceFor carries the
   // full account of why, including why the "the route re-sizes underneath you"
@@ -155,6 +155,11 @@ export function initDrive(opts){
     const willDo = Math.max(0, pace.projected - done);
     const short = Math.max(0, pace.routeShort || 0);
     const under = Math.max(0, pace.targetShort || 0);
+    // …and the same reading the other way, for the day that lands PAST the target.
+    // The target no longer trims the route, so installing extra is meant to read as
+    // being ahead — before this the footnote just disappeared once `under` hit 0.
+    // At most one of the two can be non-zero (js/compute/estimate.js paceFor).
+    const over = Math.max(0, pace.targetOver || 0);
     // Walk-ups can carry `done` past the stops the route ever held. That is a good
     // day, and the bar clamps at 100% rather than running off the end of the track.
     const pct = v => total > 0 ? Math.min(100, (v / total) * 100) : 0;
@@ -163,7 +168,8 @@ export function initDrive(opts){
       : `${short} stop${short === 1 ? '' : 's'} short`;
     $(id + 'Unit').textContent = `installs by ${pace.label}`;
     $(id + 'Cap').textContent = `${done} of ${total} stops`
-      + (target && under ? ` · ${under} under your ${target}` : '');
+      + (target && under ? ` · ${under} under your ${target}` : '')
+      + (target && over ? ` · ${over} over your ${target}` : '');
     $(id + 'Done').style.width = pct(done) + '%';
     $(id + 'More').style.width = pct(willDo) + '%';
     $(id + 'Short').style.width = pct(short) + '%';

@@ -42,7 +42,7 @@ import {
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
-  anchorDay1Ids, anchorExtend, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
+  anchorDay1Ids, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
   insertByProximity, needsCommit, orderAnchorFirst,
 } from './route-today.js';
 import {
@@ -859,9 +859,13 @@ async function optimizeRouteHandler(useNetwork){
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
     // Freeze today's set: override the plain target-chunk days so re-optimizing
     // after finishing some orders can't pull tomorrow's up. `replan` is the one
-    // thing that can unfreeze today — a re-plan whose meters/day target has moved
-    // since the set was frozen — and two paths legitimately pass it: this Optimize,
-    // and the meters/day box's own `change` handler. What separates them is the
+    // thing that can unfreeze today, and it does so in exactly two situations — a
+    // re-plan whose meters/day target has moved since the set was frozen, and a day
+    // whose set is SPENT, where the press means "give me more work today" (the manual
+    // ask that replaced the automatic roll; js/route-today.js needsCommit). Two paths
+    // legitimately pass it: this Optimize, and the meters/day box's own `change`
+    // handler — an Optimize at an unchanged target on a LIVE set still moves nothing,
+    // which is the whole reason the anchor exists. What separates them is the
     // OTHER argument: only this one has real matrix `travel` to hand, so its ETAs
     // stay exact. The target box passes `replan` alone, so applyTodayAnchor falls
     // back to `estimateTravel` and marks the times estimated (`wlTimesEstimated`,
@@ -1855,27 +1859,18 @@ async function wlSave(){
 // ── "where does this new order go?" — the add-to-today chooser ──────────────
 // Today's set is frozen (route-today.js), so an order added after the day's route
 // is established used to sink to the bottom of the LAST day — the thing installers
-// actually complained about. Rather than guess, ask. The three answers map onto the
-// anchor directly: join today and work past the target (`extend`), join today at the
-// day's real capacity so its tail rolls to tomorrow, or stay out of today entirely.
-// Ids accumulate while the installer keeps adding — the form's copy-street-forward
-// flow makes a burst of adds the normal case — so one answer covers the whole burst.
+// actually complained about. Rather than guess, ask. TWO answers now: join today
+// (the day runs longer), or stay out of today entirely. There was a third — join at
+// the day's capacity, rolling the tail to tomorrow — and it went with the capacity
+// clamp itself: *"I don't want to shuffle the tail down to the next day"* is the
+// whole point, and an option whose job is to shuffle it is the same behaviour behind
+// a tap. Ids accumulate while the installer keeps adding — the form's
+// copy-street-forward flow makes a burst of adds the normal case — so one answer
+// covers the whole burst. THIS SHEET IS THE ONLY WAY WORK JOINS A DAY ALREADY UNDER
+// WAY, apart from an explicit Optimize; nothing folds it in automatically.
 let addToQueue = [];
 
 function hideAddTo(){ addToQueue = []; $('wlAddTo').classList.add('hide'); }
-
-// The ids of orders that would fall out of today at a given day-1 size, as WO
-// labels. Used to say WHICH work rolls rather than just how many.
-function woLabels(ids, byId){
-  return ids.map(id => {
-    const it = byId[id];
-    return (it && it.workOrderId) ? `WO ${it.workOrderId}` : 'an order';
-  });
-}
-function andList(labels, max=2){
-  if(labels.length <= max) return labels.join(' and ');
-  return `${labels.slice(0, max).join(', ')} +${labels.length - max} more`;
-}
 
 // Slot the queued orders into today's sequence at their cheapest position (pure
 // insertByProximity over saved pins — no matrix, no network) and return the
@@ -1890,44 +1885,44 @@ async function todayWithQueued(anchor, pending, byId){
   return day1;
 }
 
-// Offer the choice — but only when it is a real one: today's route must already be
-// established (an anchor committed for today, still holding work). A never-routed
-// list, or one whose today is finished, just takes the order the normal way.
+// Offer the choice — but only when it is a real one: today must already be committed
+// (an anchor for the day being planned). A never-routed list just takes the order the
+// normal way.
+//
+// A FINISHED day still gets the sheet, and that is deliberate. It used to bail on
+// `!day1.length` because an exhausted anchor re-committed itself on the next call and
+// swept the new order into today anyway. It does not any more (js/route-today.js
+// needsCommit), so bailing would send a hand-typed order silently to tomorrow — and
+// "add more to today by hand" is the one way work is supposed to join a finished day.
 async function offerAddTo(){
   if(!addToQueue.length) return;
   const anchor = loadAnchor();
   const items = await allSorted();
   const pending = pendingOf(items);
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
-  const day1 = (anchor && anchor.date === planDay()) ? anchorDay1Ids(anchor, pending) : [];
-  if(!day1.length){ hideAddTo(); return; }
+  if(!(anchor && anchor.date === planDay())){ hideAddTo(); return; }
 
-  const capacity = dayCapacity(targetVal(), (await tallyOn(planDay())).installed);
   const next = await todayWithQueued(anchor, pending, byId);
   const n = addToQueue.length;
-  // Under "swap" the day keeps its capacity, so whatever sits past it rolls.
-  const rolling = next.slice(Math.max(0, capacity));
   const extraMin = n * Math.max(1, Math.round(Number($('wlPace').value) || 30));
 
   $('wlAddToTitle').innerHTML =
     `<b>${n === 1 ? 'Order added' : n + ' orders added'}</b> — today’s route is already set. Where does `
     + `${n === 1 ? 'it' : 'this work'} go?`;
   $('wlAddToExtend').innerHTML = `Add to today`
-    + `<span class="wl-addto-sub">Day runs about ${extraMin} min longer · ${next.length} stops left today</span>`;
-  $('wlAddToSwap').innerHTML = `Add to today, keep the day’s size`
-    + `<span class="wl-addto-sub">${rolling.length
-        ? andList(woLabels(rolling, byId)) + ' roll' + (rolling.length === 1 ? 's' : '') + ' to tomorrow'
-        : 'nothing has to roll — there is room already'}</span>`;
+    + `<span class="wl-addto-sub">Day runs about ${extraMin} min longer · ${next.length} `
+    + `stop${next.length === 1 ? '' : 's'} left today</span>`;
   $('wlAddToLater').innerHTML = `Leave for later`
     + `<span class="wl-addto-sub">Stays on the list, after today’s work</span>`;
   $('wlAddTo').classList.remove('hide');
 }
 
-// Fold the queued orders into today's committed set. `extend` = the installer
-// agreed to work past the day's target, so the day grows instead of its tail
-// rolling. Then re-sequence: the new orders land beside their nearest neighbours
-// rather than at the end of the day.
-async function acceptAddTo(extend){
+// Fold the queued orders into today's committed set: the day grows, and nothing is
+// pushed out to make room for them — the "keep the day's size" option that used to
+// roll the tail is gone, because a stop leaving today is never a side effect now.
+// Then re-sequence: the new orders land beside their nearest neighbours rather than
+// at the end of the day.
+async function acceptAddTo(){
   const anchor = loadAnchor();
   const queued = addToQueue.slice();
   if(!anchor || !queued.length){ hideAddTo(); return; }
@@ -1941,7 +1936,6 @@ async function acceptAddTo(extend){
   saveAnchor({
     date: anchor.date,
     ids: [...anchor.ids.map(String), ...added],
-    extend: anchorExtend(anchor) + (extend ? added.length : 0),
     target: anchorTarget(anchor) || targetVal(),
   });
   hideAddTo();
@@ -1952,7 +1946,7 @@ async function acceptAddTo(extend){
   const rest = pending.map(p => String(p.id)).filter(id => !inDay1.has(id));
   const notPending = items.filter(x => !isPending(x)).map(x => String(x.id));
   await persistOrderIds([...day1, ...rest, ...notPending]);
-  toast(extend ? 'Added to today — the day runs longer' : 'Added to today');
+  toast('Added to today — the day runs longer');
 }
 
 // ── completing a planned order when its WO is actually logged ───────────────
@@ -1969,7 +1963,8 @@ export async function markWorklistDone(workOrderId){
     && String(x.workOrderId || '').trim().toUpperCase() === wo);
   if(!match) return;
   await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', ignored:false, updatedAt:stamp() }));
-  // Finishing the last of today's committed set rolls the anchor to the next chunk.
+  // Re-times the remaining route. Finishing the LAST of today's committed set no
+  // longer rolls the anchor to the next chunk — the day is simply done (needsCommit).
   await applyTodayAnchor();
   if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
 }
@@ -2047,9 +2042,12 @@ function dayClosed(){ return store.get('dayClosedDate') === localDate(); }
 // only ever plan today; it must follow the plan day, or an evening download of
 // tomorrow's route — the normal case now — would stop being adopted.) Unlike an
 // order typed on the phone this asks nothing: the office weighed the day
-// deliberately, so `extend` is raised as far as it takes to hold their whole day 1
-// rather than trimming it against this phone's capacity. The installer can still
-// set an order aside or drag it out afterwards.
+// deliberately, so their whole day 1 is taken. The installer can still set an order
+// aside or drag it out afterwards.
+//
+// This also runs on the Drive screen's 5-minute autoSync, where it is a no-op unless
+// the office genuinely re-planned mid-day: every id is already in the anchor, `added`
+// is empty, and it returns before writing anything.
 async function adoptPlannerDay1(plan){
   await refreshPlanDay();
   const today = planDay();
@@ -2064,25 +2062,22 @@ async function adoptPlannerDay1(plan){
   const have = new Set(anchor.ids.map(String));
   const added = officeDay1.filter(id => !have.has(id));
   if(!added.length) return;
-  const ids = [...anchor.ids.map(String), ...added];
-  const stillPending = new Set(pending.map(p => String(p.id)));
-  const held = ids.filter(id => stillPending.has(id)).length;
-  const target = targetVal();
-  const capacity = dayCapacity(target, (await tallyOn(today)).installed);
-  saveAnchor({ date: today, ids,
-    extend: Math.max(anchorExtend(anchor), Math.max(0, held - capacity)),
-    target: anchorTarget(anchor) || target });
+  saveAnchor({ date: today, ids: [...anchor.ids.map(String), ...added],
+    target: anchorTarget(anchor) || targetVal() });
 }
 
 // The single choke point that keeps "today" frozen. Commits today's set on the
 // first route of the day (and re-commits when it's exhausted), then reassigns the
 // live order/day so today's committed orders lead and later work fills days 2+ by
 // target — overriding the plain target-chunking that optimize/download stamp.
-// Day 1 is sized by the day's REAL remaining capacity (dayCapacity: the meters/day
-// target minus every meter installed today, walk-ups included) plus whatever the
-// installer chose to work past it (anchor.extend), so the count on screen always
-// matches the room actually left. Must therefore run after every logged stop, not
-// just after a planned one — planAdvance is that call site.
+// Day 1 is EXACTLY today's committed set, minus whatever has been finished. Nothing
+// the crew installs re-sizes it: this used to hand scheduleRouteConstraints
+// `min(dayCapacity + anchor.extend, |set|)` and so pushed a committed list's tail out
+// to tomorrow every time a walk-up or a two-meter order outran the meters/day
+// target — see js/route-today.js for the whole account. Still runs after every
+// logged stop (planAdvance is that call site), but now to re-TIME the day rather
+// than to re-size it: the re-schedule is what keeps the remaining ETAs honest, and
+// it is what the Drive screen's 5-minute refresh is really after.
 // Writes only when a pending order's order/day actually changes (keyed off those,
 // not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
 // opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
@@ -2111,11 +2106,11 @@ async function applyTodayAnchor(opts){
   const target = targetVal();
   const pendingSeq = pending.map(p => String(p.id));
 
-  // The day's real capacity says how many orders there is room for, so meters the
-  // crew installed off-plan push today's tail out to tomorrow on their own. Computed
-  // before the commit decision because a mid-day re-plan is BOUNDED by it. Tallied on
-  // the PLAN day: a day not yet reached has no stops, so planning ahead correctly
-  // finds a full day's room rather than inheriting what today already spent.
+  // The day's remaining room. It no longer sizes anything — its ONE job is to bound
+  // a mid-day re-plan the installer asked for (midReplan below), so raising the target
+  // at noon grows today into the space it actually has. Tallied on the PLAN day: a day
+  // not yet reached has no stops, so planning ahead correctly finds a full day's room
+  // rather than inheriting what today already spent.
   const tally = await tallyOn(today);
   const capacity = dayCapacity(target, tally.installed);
   // A day with no installs and no UTIs has not started, and a closed-out day is spent
@@ -2124,39 +2119,46 @@ async function applyTodayAnchor(opts){
   const freeReplan = !(tally.installed || tally.uti) || dayClosed();
 
   let anchor = loadAnchor();
-  // A target change re-plans today, but only on an explicit Optimize (opts.replan) —
-  // and never into a day with no room left, because committing an empty set would make
-  // needsCommit fire again on every subsequent call. A met target is a FULL day, not an
-  // exhausted one; its leftovers roll rather than tomorrow's rolling in.
-  const replan = Boolean(opts && opts.replan) && (freeReplan || capacity > 0);
+  // Today's committed set has nothing pending left on it — the day as planned is done.
+  // It is no longer a reason to commit by itself (js/route-today.js needsCommit); it is
+  // the state an explicit re-plan is allowed to break out of.
+  const exhausted = Boolean(anchor) && anchor.date === today
+    && anchorDay1Ids(anchor, pending).length === 0;
+  // A target change re-plans today, but only on an explicit Optimize (opts.replan).
+  // A day with no room LEFT still re-plans when its set is spent: `capacity > 0` is
+  // there to stop a target-change commit from freezing an EMPTY set (which would make
+  // needsCommit fire again on every subsequent call), and that trap needs `opts.max`,
+  // which only midReplan passes — and midReplan cannot fire on a spent set. Without
+  // this, an installer who met the target and finished every order had no way at all
+  // to ask for more work today, which is the one thing the press has to mean.
+  const replan = Boolean(opts && opts.replan) && (freeReplan || exhausted || capacity > 0);
   // A commit that fires while today's frozen set is STILL ALIVE can only be the
   // target-change re-plan — and that is the one bounded by the room actually left, so
   // raising the target at noon grows today into the space it has rather than hauling a
   // whole fresh target up out of tomorrow. The other commit reasons (new day, set
   // finished, a day nobody has driven yet) stay exactly as unbounded as they were.
-  const midReplan = !freeReplan && anchor && anchor.date === today
-    && anchorDay1Ids(anchor, pending).length > 0;
+  const midReplan = !freeReplan && anchor && anchor.date === today && !exhausted;
   // Can the existing `day` tags be trusted to describe the target being frozen at?
   // After an Optimize, yes — it re-solved them at the new target moments ago, and
   // preferring them is what honours an appointment day or the office's chunking.
   // From the meters/day box (`opts.resize`) nothing has re-solved them, so they still
-  // describe the OLD target — and preferring them made a RAISED target do nothing at
-  // all, because `min(capacity, group.length)` stays capped by a group sized for the
-  // smaller number. Lowering still worked through `capacity`, so the control was
-  // silently one-way. Nothing timed is lost by ignoring the tags: the appointment and
-  // lock constraints are re-imposed by scheduleRouteConstraints further down.
+  // describe the OLD target — and preferring them makes a RAISED target do nothing at
+  // all, because the frozen set is then a day-1 group sized for the smaller number.
+  // Taking the set by COUNT instead is what lets the box move the day up. Nothing timed
+  // is lost by ignoring the tags: the appointment and lock constraints are re-imposed
+  // by scheduleRouteConstraints further down.
   const fromTags = !(opts && opts.resize);
   if(needsCommit(anchor, today, pending, { replan, target })){
     anchor = { date: today,
       ids: freshAnchorIds(pending, target, { max: midReplan ? capacity : null, fromTags }),
-      extend: 0, target };
+      target };
     saveAnchor(anchor);
   }
   const day1 = anchorDay1Ids(anchor, pending);
   const seq = orderAnchorFirst(pendingSeq, day1);
 
-  // How many of today's set still FIT.
-  const fits = day1Count(anchor, day1, capacity);
+  // Day 1 is today's set, entire.
+  const fits = day1Count(day1);
 
   const travel = (opts && opts.travel) || estimateTravel(pending, items);
   let schedule;
@@ -2256,14 +2258,19 @@ const MIN_BELIEVABLE_SPEED_MPS = 25 / 3.6;
 // Today's pending stops = the DAY-1 group of the live route; a multi-day route only
 // counts day 1 toward today's landing. Blank day sorts as day 1.
 //
-// Day 1 strictly, not "the lowest day number present". Once the meters/day target is
-// met with orders still on the list, `dayCapacity` returns 0, `day1Count` is 0, and
-// scheduleRouteConstraints stamps EVERY remaining order day 2+ — a full day, with
-// the rest rolled to tomorrow (js/route-today.js). The lowest day present is then 2,
-// and a min-day read would quietly hand the pace gauge tomorrow's chunk: today's
-// installs captioned against a route nobody is driving today, and a "Route done ~"
-// clock for it. Empty is the honest answer — drivePace returns null and the card
-// hides, because the router has declared today finished.
+// Day 1 strictly, not "the lowest day number present". A finished day — every order
+// in today's committed set logged — leaves Day 1 empty with days 2+ still full, and
+// a min-day read would quietly hand the pace gauge tomorrow's chunk: today's installs
+// captioned against a route nobody is driving today, and a "Route done ~" clock for
+// it. Empty is the honest answer — drivePace returns null and the card hides, because
+// today's work is done.
+//
+// Meeting the meters/day target no longer empties Day 1: the target sizes the day when
+// it is planned and then lets go, so installing past it leaves the remaining orders
+// exactly where they were and shows up on the gauge as being ahead (`targetOver` in
+// js/compute/estimate.js). It used to zero `dayCapacity`, zero `day1Count`, and stamp
+// every remaining order day 2+ — which took the card off the screen mid-afternoon
+// with work still in front of the crew. See js/route-today.js.
 function todayPending(pending){
   if(!pending.length) return pending;
   const dayOf = p => Number(p.day) || 1;
@@ -2390,11 +2397,16 @@ async function setPlan(on){
 // Called on page load, after every logged stop, and whenever the list changes.
 // A no-op while plan mode is off.
 export async function planAdvance(){
-  // Every logged meter spends some of the day's capacity — including a walk-up that
-  // matches no planned order, which markWorklistDone returns early on and never
-  // anchors. capture.js calls planAdvance after EVERY stop, so this is the hook that
-  // re-sizes today; it sits above the plan-mode guard because the day's shape is just
+  // Every logged meter changes what is left of the day, including a walk-up that
+  // matches no planned order (markWorklistDone returns early on those and never
+  // anchors). capture.js calls planAdvance after EVERY stop, so this is the hook that
+  // re-TIMES today; it sits above the plan-mode guard because the day's shape is just
   // as real when the installer is logging without plan mode on.
+  //
+  // It passes no opts, and must not start: `replan` is the only thing that re-sizes
+  // the day, and a logged stop is not the installer asking for a different day. This
+  // hook used to shrink Day 1 by the meters logged, which is how a committed list's
+  // tail ended up on tomorrow (js/route-today.js).
   await applyTodayAnchor();
   if(!planActive()){ $('planBanner').classList.add('hide'); return; }
   const items = await allSorted();
@@ -2516,8 +2528,7 @@ export function initWorklist(opts){
   bindOptimizeGesture($('wlOptimize'),
     () => optimizeRouteHandler(false),
     () => optimizeRouteHandler(true));
-  $('wlAddToExtend').onclick = () => acceptAddTo(true);
-  $('wlAddToSwap').onclick   = () => acceptAddTo(false);
+  $('wlAddToExtend').onclick = () => acceptAddTo();
   $('wlAddToLater').onclick  = () => { hideAddTo(); toast('Left for later'); };
   $('wlVariantRoad').onclick = () => switchVariant('road');
   $('wlVariantStraight').onclick = () => switchVariant('straight');
@@ -2543,17 +2554,18 @@ export function initWorklist(opts){
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').oninput = persistTarget;
   // …and a settled target has to RE-SPLIT the days, not just get stored. Day 1 is
-  // sized `day1Count(anchor, day1Ids, dayCapacity(target, installedToday))` =
-  // min(capacity + extend, anchor.ids.length). LOWERING the target clamps the day
-  // down immediately through `capacity`, but RAISING it did nothing at all: the
-  // frozen anchor set is only re-committed when `needsCommit` (js/route-today.js)
-  // sees `replan` AND a changed target, and until now only an explicit Optimize
-  // passed `replan`. Reported from the field as "I can't even change the amount of
-  // orders that populate the list with the target value. They get stuck on a
-  // different value and never got updated." Reuse `replan` rather than adding a
-  // second unfreeze path — applyTodayAnchor already carries all the guard rails
-  // (`freeReplan`, `midReplan` bounding a started day to its remaining `capacity`,
-  // and the `capacity === 0` skip that refuses to commit an empty set).
+  // today's committed set, and the ONLY thing that re-commits it is `needsCommit`
+  // (js/route-today.js) seeing `replan` — so a typed target that does not pass it
+  // moves nothing at all, in either direction. Reported from the field as "I can't
+  // even change the amount of orders that populate the list with the target value.
+  // They get stuck on a different value and never got updated." Reuse `replan`
+  // rather than adding a second unfreeze path — applyTodayAnchor already carries all
+  // the guard rails (`freeReplan`, `midReplan` bounding a started day's GROWTH to the
+  // room it has left, and the skip that refuses to commit an empty set).
+  //
+  // This is one of the handful of deliberate acts allowed to re-size the day. The
+  // background paths — a logged stop, a Download, the Drive screen's 5-minute
+  // refresh — pass nothing, and must keep passing nothing.
   $('wlTarget').onchange = async () => {
     const v = targetVal();
     $('wlTarget').value = String(v);

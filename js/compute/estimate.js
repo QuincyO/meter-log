@@ -61,15 +61,20 @@ export function finishLabel(min){
 //   targetShort — projected installs vs the installer's METERS/DAY TARGET.
 //
 // **`onPace` is the ROUTE**, because the target's job is upstream. The meters/day
-// number is what SIZES the day — `dayCapacity(target, installedToday)` decides how
-// many orders sit on Day 1 (js/route-today.js) — and once it has, the driver's
-// question is "am I going to finish the route in front of me?".
+// number is what SIZES the day when it is planned (js/route-today.js), and once it
+// has, the driver's question is "am I going to finish the route in front of me?".
 //
 // This was briefly the other way round, on the theory that Day 1 "moves underneath
-// the answer" as it is re-sized to `target − installed`. It does not: Day 1 is
-// `min(capacity + extend, |anchor.ids ∩ pending|)`, and a completed install drops
-// BOTH terms by one, so the finished stop simply moves from `pendingCount` into
-// `done` and their sum holds still all day. The two readings are in fact the same
+// the answer" as it is re-sized to `target − installed`. **The conclusion was right
+// and the argument was wrong — don't reuse the argument.** It ran: Day 1 is
+// `min(capacity + extend, |anchor.ids ∩ pending|)` and a completed install drops BOTH
+// terms by one, so their sum holds still all day. That holds at ONE METER PER ORDER
+// and nowhere else — a two-meter order, or any walk-up logged off-plan, drops
+// capacity faster than membership, and Day 1 really did move underneath the answer.
+// Day 1 no longer re-sizes at all (it is today's committed set, entire), so the sum
+// genuinely does hold still and `onPace` reads the route for the reason above.
+//
+// The two readings are in fact the same
 // number whenever the list is long enough to fill the target —
 // `targetShort = target − done − willDo = pendingCount − willDo = routeShort`. They
 // diverge in exactly one case, a route SHORTER than the target, and there the
@@ -81,7 +86,13 @@ export function finishLabel(min){
 // drives by never invalidates the dayCache, so `done` was 0 all day. That fix is
 // the load-bearing one and it stays. See AGENTS.md.)
 //
-// `target` absent/0 ⇒ `targetShort` is null and there is simply no footnote.
+// `targetOver` is that same footnote read the other way: the day projected to land
+// PAST the meters/day target. It exists because the target no longer trims the day —
+// *"if I install extra this should just show that I'm ahead of pace"* — and without it
+// a crew running ahead watched the footnote simply vanish at the moment it had the
+// best news to give. At most one of the pair is ever non-zero.
+//
+// `target` absent/0 ⇒ both are null and there is simply no footnote.
 function paceFor(horizonMin, label, ctx){
   const { done, pendingCount, remainingTravelMin, onsitePerStop, now, target } = ctx;
   const installTimeLeft = horizonMin - now - remainingTravelMin;
@@ -94,7 +105,8 @@ function paceFor(horizonMin, label, ctx){
   // of the word one dot apart. The meters/day number is returned once, at the top
   // level, and callers read it from there.
   const targetShort = target > 0 ? Math.max(0, target - projected) : null;
-  return { label, horizonMin, projected, routeShort, targetShort,
+  const targetOver = target > 0 ? Math.max(0, projected - target) : null;
+  return { label, horizonMin, projected, routeShort, targetShort, targetOver,
     onPace: routeShort <= 0 };
 }
 
