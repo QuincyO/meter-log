@@ -174,6 +174,10 @@ export function initDrive(opts){
     // card's own horizon rather than a wall clock — the row is the only horizon on
     // screen, so "late" has to mean late for it. It always shows the real clock,
     // amber or not: landing at 5:40 is exactly the thing worth knowing.
+    //
+    // The label carries am/pm (js/compute/estimate.js finishLabel) because this
+    // clock is unbounded — a bare 12-hour "11:29" for a real 23:29 read as a finish
+    // seven hours in the past on a card the crew opened at 11:36 in the morning.
     const eta = $(id + 'Eta');
     if(eta){
       const label = est.routeFinishLabel;

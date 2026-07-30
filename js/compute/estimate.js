@@ -21,11 +21,35 @@ export function workHorizon(nowMin, dayClosed){
   return { min: WORK_MIN, label: '3:45' };
 }
 
-// Minutes-of-day → bare 12-hour clock label ("2:00", "3:45"). Exported because
-// the route-finish clock (routeFinishLabel below) is the same kind of readout.
+// Minutes-of-day → bare 12-hour clock label ("2:00", "3:45").
+//
+// **Only safe for the fixed HORIZONS** — WORK_MIN and OT_MIN2 above, and a
+// caller-supplied finishByMin inside the working day. Those are constants that
+// cannot leave the afternoon, so the missing am/pm reads correctly by context.
 export function clockLabel(min){
   const h = ((Math.floor(min / 60) + 11) % 12) + 1;
   return h + ':' + String(min % 60).padStart(2, '0');
+}
+
+// Minutes-from-midnight → an UNAMBIGUOUS clock ("6:05 pm", "1:10 am").
+//
+// Anything DERIVED gets this one, never clockLabel. The route-finish clock is
+// `now + travel + stops × on-site` — it has no ceiling, and on a day that fell
+// behind it runs past noon, past knock-off, and past midnight. Rendered through
+// clockLabel, a real 23:29 printed as "11:29" on a screen the crew was reading at
+// 11:36 in the MORNING: a finish time that looked seven hours in the past. It was
+// reported as the clock going backwards, and the rest of the card was right — the
+// line was already amber, because routeFinishMin > horizonMin fired correctly.
+// Only the text lied.
+//
+// Past 24 h a meridiem alone is not enough — "1:10 am" for a finish two days out is
+// the same ambiguity in a new hat — so a day marker is appended there and only
+// there. Every reading inside today, tonight included, is the plain meridiem clock.
+export function finishLabel(min){
+  if(min == null || !isFinite(min)) return null;
+  const t = ((Math.round(min) % 1440) + 1440) % 1440;
+  const days = Math.floor(Math.round(min) / 1440);
+  return clockLabel(t) + (t < 12 * 60 ? ' am' : ' pm') + (days > 0 ? ` +${days}d` : '');
 }
 
 // One horizon's projection: how many installs land before H, and how that lands
@@ -91,6 +115,9 @@ function paceFor(horizonMin, label, ctx){
 // number sitting right above it on the gauge. It does not belong to a horizon, so
 // it sits at the top level rather than inside a pace; null when there is no route
 // left to finish.
+//
+// Its label goes through finishLabel, NOT clockLabel: unlike the horizons this is
+// unbounded and routinely lands in the evening. See finishLabel.
 export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsitePerStop,
                                  finishByMin, target, nowMin, dayClosed }){
   const done = (stops || []).filter(s => PRINTABLE[s.status]).length;
@@ -111,5 +138,5 @@ export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsite
   const routeFinishMin = pend > 0 ? Math.round(now + travel + pend * onsitePerStop) : null;
   return { done, pendingCount: pend, target: goal || null, ready: true, paces,
     routeFinishMin,
-    routeFinishLabel: routeFinishMin == null ? null : clockLabel(routeFinishMin) };
+    routeFinishLabel: finishLabel(routeFinishMin) };
 }
