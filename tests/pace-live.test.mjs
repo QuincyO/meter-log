@@ -197,6 +197,22 @@ test('both halves of the projection are priced by ONE lookup', () => {
   assert.match(worklistJs, /\(cached && cached\.eodTravel\) \|\| null, travel, idByWO\)/);
 });
 
+test('the projection is handed the legs, not just their sum', () => {
+  const estimateJs = readFileSync(new URL('../js/compute/estimate.js', import.meta.url), 'utf8');
+  // routeTravel keeps the per-leg list it was already computing, paceContext carries
+  // it, and paceFor walks it. A total alone cannot tell a projection WHICH drive
+  // belongs to which stop, and the day's last leg is routinely the long one home.
+  assert.match(worklistJs, /const legMin = pending\.map\(\(p, i\) =>/);
+  assert.match(worklistJs, /legTravelMin: legs\.legMin/);
+  assert.match(estimateJs, /const \{ done, pendingCount, remainingTravelMin, legTravelMin, onsitePerStop, now, target \} = ctx;/);
+  // The walk itself, and the division it replaced.
+  assert.match(estimateJs, /clock \+= legAt\(i\) \+ onsitePerStop;\s*\n\s*if\(clock > horizonMin\) break;/);
+  assert.doesNotMatch(codeOnly(estimateJs), /installTimeLeft/);
+  // The finish clock KEEPS the closed form — traversing the whole route is where the
+  // sum and the walk agree, and it was already right on the card the count was wrong on.
+  assert.match(estimateJs, /routeFinishMin = pend > 0 \? Math\.round\(now \+ travel \+ pend \* onsitePerStop\) : null/);
+});
+
 test('the drive is netted per leg, not stripped from the median afterwards', () => {
   const cadenceJs = readFileSync(new URL('../js/compute/cadence.js', import.meta.url), 'utf8');
   const gapsJs = readFileSync(new URL('../js/compute/gaps.js', import.meta.url), 'utf8');

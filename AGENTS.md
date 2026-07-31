@@ -489,6 +489,29 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   `IDLE_SPEED_MS` or gating the recorder changes the leg summary uploaded to
   `DriveTracks`, which the map viewer and `installerOnSiteFromTracks` both read. It
   simply no longer prices anything on the pace card.
+- **The count is a WALK of the chain, not a division of its travel.** `paceFor` used to
+  be `floor((horizon − now − remainingTravelMin) / onsitePerStop)` — deduct the whole
+  remaining route's driving, then see how many on-site slots fit in the remainder. That
+  is exact only when the crew drives the entire route, which is the one case where the
+  answer is already capped at `pendingCount` and the arithmetic is moot. Every other
+  time it charges the stops the crew WILL reach for the drive out to the ones they
+  won't, and it fails worst on the ordinary shape of a rural day: a tight cluster near
+  town, one long run home at the end. The 2026-07-31 card at 14:38 had four stops left,
+  legs of 20/8/2/23 minutes and 10.75 min on site; walking it, three complete by 15:09,
+  15:28 and 15:40. Dividing gave `(945 − 878 − 53) / 10.75` = 14 ÷ 10.75 = **one**,
+  because the 23-minute leg out to a stop the same calculation had just called
+  unreachable was subtracted from the time available for the three that weren't. It
+  printed "~19 · 3 STOPS SHORT" on a day worth 21. So `paceContext` carries
+  `legTravelMin` (per leg, route order, from `routeTravel`) and `paceFor` adds leg +
+  stop until the clock passes the horizon; `willDo` counts stops COMPLETED by H, and
+  the old `min(…, pendingCount)` cap is now structural. Callers with only a total (the
+  plan banner, the `#tuning` what-if) fall back to a uniform leg — still strictly
+  better, since it charges an unreached stop the average leg rather than charging every
+  earlier stop for it. **`routeFinishMin` deliberately keeps the closed form**
+  (`now + travel + pend × onsite`): traversing the whole route is exactly where the two
+  agree, which is why that clock could be right on the same card the count was wrong on.
+  If a change ever makes those two disagree, the walk has drifted from the finish clock
+  and one of them is lying.
 - **The travel/on-site split is only honest while ONE model prices both halves.**
   The same 2026-07-31 card had a second bug pointing the *opposite* way, which is how
   it stayed plausible: on-site was the median WO→WO gap less a flat
