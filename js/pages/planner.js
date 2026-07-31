@@ -1179,9 +1179,17 @@ async function togglePlannerIgnored(item){
   render();
 }
 
+// The office plans the WEEK, so this stays the whole multi-day plan while the
+// phone's headline is day 1 alone (js/worklist.js HEADLINE_DAY). That difference
+// is deliberate and therefore has to be visible: `days:true` makes the figure
+// name its own span, so a number that spans four days can never be read as one
+// day's driving — which is precisely how 241 km ended up on a screen whose day
+// headers read 2.2 km. Phone/planner drift is called out by name in AGENTS.md;
+// a label is what keeps this a decision instead of the same bug from the other
+// end.
 function routeTotalText(){
   return routeTotalSummary(items, activeVariant(),
-    store.get('plannerStraightSource:' + hNumber()) || '');
+    store.get('plannerStraightSource:' + hNumber()) || '', { days: true });
 }
 
 // The road / straight-line switch. A route that hasn't been worked out — or one
@@ -1196,7 +1204,8 @@ function paintVariantSwitch(){
   for(const v of VARIANTS){
     const btn = $(v === 'road' ? 'plVariantRoad' : 'plVariantStraight');
     if(!btn) continue;
-    const s = variantSummary(items, v, { active:v === active, straightDistanceSource:src });
+    const s = variantSummary(items, v, { active:v === active, straightDistanceSource:src,
+      days: true });
     const on = s.selectable && v === active;
     btn.disabled = !s.selectable;
     btn.classList.toggle('on', on);

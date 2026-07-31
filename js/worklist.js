@@ -39,7 +39,7 @@ import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurati
 import { dwellLookup } from './route-dwell.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
-  liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
+  liveDayMeters, pendingOf, routeScopeText, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
   anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds,
@@ -1186,8 +1186,18 @@ export async function renderWorklist(){
   renumberCards(list);
 }
 
+// The day every distance on this screen describes. Day 1 is the group the crew
+// is standing in — the same convention `todayPending` uses, and Day 1 strictly
+// rather than "the lowest day number present" for the same reason it gives.
+//
+// It is deliberately labelled "day 1" and never "today": the phone can plan a
+// day that is not today (see AGENTS.md §"The plan day"), and a route built on
+// Thursday evening for Friday would be lying under the other word.
+const HEADLINE_DAY = 1;
+
 function routeTotalText(items){
-  return routeTotalSummary(items, activeVariant(), store.get('wlStraightDistanceSource') || '');
+  return routeTotalSummary(items, activeVariant(), store.get('wlStraightDistanceSource') || '',
+    { day: HEADLINE_DAY });
 }
 
 // The walkthrough entry point, shown only when there is something to fix. The
@@ -1300,7 +1310,8 @@ function paintVariantSwitch(items){
   for(const v of VARIANTS){
     const btn = $(v === 'road' ? 'wlVariantRoad' : 'wlVariantStraight');
     if(!btn) continue;
-    const s = variantSummary(items, v, { active:v === active, straightDistanceSource:src });
+    const s = variantSummary(items, v, { active:v === active, straightDistanceSource:src,
+      day: HEADLINE_DAY });
     const on = s.selectable && v === active;
     btn.disabled = !s.selectable;
     btn.classList.toggle('on', on);
@@ -1313,6 +1324,15 @@ function paintVariantSwitch(items){
     if(s.selectable) any = true;
   }
   box.classList.toggle('hide', !any);
+  // Both tiles price day 1 only, so say which day and what the rest of the plan
+  // comes to. On a phone there is nothing to hover, so the number the tiles no
+  // longer show has to be on screen or it is simply gone.
+  const scope = $('wlVariantScope');
+  if(scope){
+    const text = any ? routeScopeText(items, active, HEADLINE_DAY) : '';
+    scope.textContent = text;
+    scope.classList.toggle('hide', !text);
+  }
 }
 
 async function switchVariant(v){
@@ -1426,7 +1446,14 @@ function hoursText(mins){
 // routed (no ETAs to read). It is the only path that still adds the lunch hour:
 // a simulated span must not, or the header would announce a finish the last ETA
 // badge contradicts — one model, or the two disagree again.
-const DAY_KM_TIP = 'Distance covers the drive out and between stops, not the drive home.';
+// Say what the km beside it actually is. It claimed the drive out was included;
+// legMetersFor charges every day's first stop 0, so it never has been. The drive
+// out is measured separately into homeLegMeters* and shown as the route view's
+// "start" reference — a wrong tooltip on the one number it describes is how an
+// audit of these distances starts in the wrong place, which is exactly what
+// happened. The planner's equivalent (js/pages/planner.js) already said this.
+const DAY_KM_TIP = 'Distance is the driving between this day’s stops — not the drive '
+  + 'out to the first one, and not the drive home.';
 // `day` is the divider's day number. Day 1 must be measured from the same clock
 // its ETAs were built on (day1DepartTime) — read an afternoon's remaining route
 // off an 08:15 start and the header announces ~8h over what the badges under it

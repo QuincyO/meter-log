@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyVariant, fmtKm, hasVariant, isPending, liveDayMeters, routeTotalSummary,
-  variantCoversPending, variantMatchesLive, variantMeters, variantSelectable, variantSequence,
-  variantSummary,
+  applyVariant, fmtKm, hasVariant, isPending, liveDayMeters, routeScopeText, routeTotalSummary,
+  variantCoversPending, variantDayCount, variantMatchesLive, variantMeters, variantSelectable,
+  variantSequence, variantSummary,
 } from '../js/route-variants.js';
 
 const PLAN = { routeStartDate:'2026-07-27', firstStopTime:'08:00', paceMin:30, target:2 };
@@ -132,6 +132,77 @@ test('the headline total is qualified whenever it stops describing the list', ()
   assert.equal(routeTotalSummary(onStraight, 'straight', 'straight-line'),
     '102 km (straight-line est.)');
   assert.equal(routeTotalSummary(onStraight, 'straight', 'road'), '102 km (road)');
+});
+
+// ── the phone's headline is one day, the planner's is the whole plan ─────────
+// Field report: two orders 2 km apart, and the road button read 241 km. The
+// arithmetic was right and answering the wrong question — one far-off order
+// sitting at the bottom of a four-day plan, summed into the figure the crew
+// reads as today's driving. These pin the scope, not the sum.
+
+// Eight pending orders, four days of two, with the distant one last: day 1 is
+// 2.2 km and the whole plan is 241 km, exactly as reported.
+function reported(){
+  const legs = [[1, 0], [1, 2200], [2, 0], [2, 6300], [3, 0], [3, 3000], [4, 0], [4, 229500]];
+  return legs.map(([day, m], i) => ({
+    id:`w${i}`, createdAt:`2026-07-20 08:0${i}:00`, wlStatus:'pending', order:i * 10, day,
+    orderRoad:i * 10, dayRoad:day, legMetersRoad:m,
+    orderStraight:i * 10, dayStraight:day, legMetersStraight:m,
+  }));
+}
+
+test('the phone headline is day 1 and a far-off order on day 4 cannot move it', () => {
+  const items = reported();
+  assert.equal(routeTotalSummary(items, 'road', 'road', { day:1 }), 'day 1: 2.2 km (road)');
+  assert.equal(variantSummary(items, 'road', { active:true, straightDistanceSource:'road', day:1 }).text,
+    '2.2 km (road)');
+  // The order that caused the report: move it further still, and the headline
+  // does not budge. Unscoped it was the entire complaint.
+  const worse = items.map(x => x.id === 'w7' ? { ...x, legMetersRoad:500000 } : x);
+  assert.equal(routeTotalSummary(worse, 'road', 'road', { day:1 }), 'day 1: 2.2 km (road)');
+  assert.equal(routeTotalSummary(worse, 'road', 'road'), '512 km (road)');
+});
+
+test('the day-scoped headline IS the day divider number, by construction', () => {
+  // Both buckets read the LIVE `day`, so the two can never disagree — the gap
+  // between them (241 km over headers reading 2.2 km) was the whole bug.
+  const items = reported();
+  for(const d of [1, 2, 3, 4])
+    assert.match(routeTotalSummary(items, 'road', 'road', { day:d }),
+      new RegExp(`^day ${d}: ${fmtKm(liveDayMeters(items, 'road', d))} `));
+  // A day with nothing left prints nothing rather than "0 km", the same answer
+  // the pace card gives when today's work is done.
+  const doneDay1 = items.map(x => Number(x.day) === 1 ? { ...x, wlStatus:'done' } : x);
+  assert.equal(routeTotalSummary(doneDay1, 'road', 'road', { day:1 }), '');
+});
+
+test('the office keeps the whole plan, and the figure names its own span', () => {
+  const items = reported();
+  assert.equal(variantDayCount(items, 'road'), 4);
+  assert.equal(routeTotalSummary(items, 'road', 'road', { days:true }), '241 km (road) · 4 days');
+  assert.equal(variantSummary(items, 'road', { active:true, straightDistanceSource:'road', days:true }).text,
+    '241 km (road) · 4 days');
+  // A one-day plan has no span worth naming.
+  const oneDay = list();
+  assert.equal(routeTotalSummary(oneDay.map(x => ({ ...x, dayRoad:1 })), 'road', 'road', { days:true }),
+    '3 km (road)');
+});
+
+test('the phone caption carries the whole-plan figure the tiles no longer show', () => {
+  const items = reported();
+  assert.equal(routeScopeText(items, 'road', 1),
+    'Day 1 only — the whole plan is 241 km over 4 days');
+  // Nothing to disambiguate: a single-day plan, or an unscoped surface.
+  assert.equal(routeScopeText(list().map(x => ({ ...x, dayRoad:1 })), 'road', 1), '');
+  assert.equal(routeScopeText(items, 'road', null), '');
+});
+
+test('a day-scoped headline still says when it stopped describing the list', () => {
+  const items = reported();
+  const dragged = items.map(x => x.id === 'w7' ? { ...x, order:-10 } : x);
+  assert.equal(routeTotalSummary(dragged, 'road', 'road', { day:1 }), 'day 1: 2.2 km (road) · edited');
+  const added = items.concat({ id:'e', createdAt:'2026-07-21 08:00:00', wlStatus:'pending', order:80 });
+  assert.equal(routeTotalSummary(added, 'road', 'road', { day:1 }), 'day 1: 2.2 km (road) · out of date');
 });
 
 test('straight-line metres are labelled comparable only when priced on the road', () => {

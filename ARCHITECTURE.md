@@ -1880,6 +1880,40 @@ display, never by deletion: a saved sequence that no longer covers the pending
 orders greys its button out and marks the total "out of date", and a manual drag
 marks it "edited".
 
+**The phone shows ONE DAY; the office shows the whole plan.** `variantMeters` sums
+every pending order's leg, which is the right answer for planning a week and the
+wrong one for a crew asking "how far am I driving". A field report made that
+concrete: eight orders, two of them 2 km apart, and the road button read **241 km**
+— correct arithmetic over a four-day plan with one far-off order at the bottom of
+the list, sitting above day headers reading 2.2 km and 6.3 km. So the two summary
+builders take a scope:
+
+- `routeTotalSummary(items, variant, src, {day})` and
+  `variantSummary(items, variant, {day})` price one day. The phone passes
+  `day: 1` (`worklist.js HEADLINE_DAY` — Day 1 strictly, the same convention
+  `todayPending` uses). The counts line's scoped metres come from
+  **`liveDayMeters`**, bucketed on the *live* `day` field the day dividers use, so
+  the headline and that day's divider are the same number **by construction**. The
+  tiles bucket on each variant's *own* saved day, because two saved plans put
+  different stops on their first day and comparing each plan's own day 1 is what
+  keeps the choice like-for-like.
+- `{days: true}` appends the span (`· 4 days`). The planner passes it and stays
+  unscoped: planning the week is what that screen is for, and a labelled
+  whole-plan figure cannot be misread as one day's driving.
+- `routeScopeText` is the caption under the phone's tiles — *"Day 1 only — the
+  whole plan is 241 km over 4 days"*. A phone has nothing to hover, so the number
+  the tiles no longer show has to be on screen or it is gone. Blank when there is
+  nothing to disambiguate (a one-day plan, or an unmeasured route).
+
+Never label it "today": the phone can plan a day that is not today (§"The plan
+day"), and a Thursday-evening plan for Friday would be lying under that word.
+
+**Known, not yet fixed:** setting an order aside — or completing it — drops *its*
+leg from the total but leaves the **next** stop's leg, which was measured *from
+the stop that is no longer on the route*. Neither `variantCoversPending` nor
+`variantMatchesLive` fires, so that figure prints unqualified. It needs
+re-pricing, not re-scoping.
+
 **Road directions geometry.** The desktop planner also fetches the *actual road
 path* of every **between-stops** leg of both variants from the same local OSRM —
 the `route` service (`osrmLegGeometry` in `js/route.js`, one GET per leg), distinct

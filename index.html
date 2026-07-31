@@ -241,6 +241,12 @@
       <button class="wl-variant-btn" id="wlVariantRoad" type="button" aria-pressed="false" disabled></button>
       <button class="wl-variant-btn" id="wlVariantStraight" type="button" aria-pressed="false" disabled></button>
     </div>
+    <!-- Both tiles above price DAY 1 only — the day the crew is driving. This
+         line carries what they therefore leave out: the whole multi-day plan.
+         Without it a distant order at the bottom of the list is invisible on
+         this screen; with the tiles unscoped it was the opposite problem, and
+         241 km sat above day headers reading 2.2 km. -->
+    <div class="muted hide" id="wlVariantScope" style="margin-top:6px"></div>
     <button class="ghost wl-view-route" id="wlViewRoute" type="button">View route map</button>
     <button class="ghost wl-drive" id="wlDrive" type="button">🚗 Drive</button>
     <button class="primary" id="wlAddBtn" style="height:52px;font-size:16px;margin-top:12px">＋ Add order</button>
