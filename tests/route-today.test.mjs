@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  anchorDay1Ids, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
-  insertByProximity, needsCommit, orderAnchorFirst,
+  anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds,
+  insertByProximity, orderAnchorFirst, taggedDay1Ids,
 } from '../js/route-today.js';
 
 const items = ids => ids.map(id => ({ id }));
@@ -23,42 +23,6 @@ test('anchorDay1Ids is empty for a null anchor', () => {
   assert.deepEqual(anchorDay1Ids(null, items(['a'])), []);
 });
 
-test('needsCommit: nothing pending never commits', () => {
-  assert.equal(needsCommit(null, '2026-07-24', []), false);
-});
-
-test('needsCommit: no anchor or a stale date forces a fresh commit', () => {
-  const pending = items(['a', 'b']);
-  assert.equal(needsCommit(null, '2026-07-24', pending), true);
-  assert.equal(needsCommit({ date:'2026-07-23', ids:['a'] }, '2026-07-24', pending), true);
-});
-
-test('needsCommit: a live set with work still on it is kept frozen', () => {
-  assert.equal(needsCommit({ date:'2026-07-24', ids:['a'] }, '2026-07-24', items(['a', 'b'])), false);
-});
-
-test('needsCommit: an exhausted set does NOT roll to the next chunk by itself', () => {
-  // Every committed id is done/gone. The day as planned is finished, and finished is
-  // where it stays: *"I don't want to shuffle the next day into the end of today."*
-  // Every passive caller lands here — a logged stop, a Download, first view, and the
-  // Drive screen's 5-minute refresh, which is what made it feel constant.
-  const anchor = { date:'2026-07-24', ids:['z'], target:24 };
-  const pending = items(['a', 'b']);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending), false);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, {}), false);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
-});
-
-test('needsCommit: an exhausted set DOES roll on an explicit re-plan', () => {
-  // The Optimize press on a finished day means "give me more work today" — the manual
-  // ask that replaces the automatic roll. Deliberately not also conditioned on a
-  // changed target: with the set spent there is nothing left to protect.
-  const anchor = { date:'2026-07-24', ids:['z'], target:24 };
-  const pending = items(['a', 'b']);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:6 }), true);
-});
-
 test('anchorTarget reads the frozen target, null for a legacy anchor or junk', () => {
   assert.equal(anchorTarget({ date:'d', ids:['a'], target:6 }), 6);
   assert.equal(anchorTarget({ date:'d', ids:['a'], target:'24' }), 24);
@@ -66,36 +30,6 @@ test('anchorTarget reads the frozen target, null for a legacy anchor or junk', (
   assert.equal(anchorTarget({ target:0 }), null);
   assert.equal(anchorTarget({ target:'lots' }), null);
   assert.equal(anchorTarget(null), null);
-});
-
-test('needsCommit: a raised target re-plans today, but only on an explicit Optimize', () => {
-  const anchor = { date:'2026-07-24', ids:['a'], target:6 };
-  const pending = items(['a', 'b']);
-  // The Optimize press is the re-plan; typing a new number in the box is not.
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { target:24 }), false);
-});
-
-test('needsCommit: an Optimize at an UNCHANGED target never unfreezes today', () => {
-  // The whole reason the anchor exists: re-optimizing after finishing a few orders
-  // must not refill Day 1 from the front of what's left.
-  const anchor = { date:'2026-07-24', ids:['a'], target:24 };
-  assert.equal(
-    needsCommit(anchor, '2026-07-24', items(['a', 'b']), { replan:true, target:24 }), false);
-});
-
-test('needsCommit: a legacy anchor re-plans once on the next Optimize', () => {
-  // No stored target ⇒ unknown ⇒ treated as changed, which is what unsticks a day
-  // frozen under a target nobody can recover.
-  const anchor = { date:'2026-07-24', ids:['a'] };
-  const pending = items(['a', 'b']);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:true, target:24 }), true);
-  assert.equal(needsCommit(anchor, '2026-07-24', pending, { replan:false, target:24 }), false);
-});
-
-test('needsCommit: opts never overrides "nothing pending"', () => {
-  assert.equal(needsCommit({ date:'d', ids:['a'], target:6 }, 'd', [], { replan:true, target:24 }), false);
 });
 
 test('freshAnchorIds prefers the current day-1 group when days are tagged', () => {
@@ -118,46 +52,28 @@ test('freshAnchorIds ignores blank day tags (treated as unrouted)', () => {
   assert.deepEqual(freshAnchorIds(pending, 2), ['a', 'b']);
 });
 
-// The tag preference is right only when something has just re-solved the tags at the
-// target being frozen at — an Optimize does, the meters/day box on its own does not.
-// Preferring stale tags there made a RAISED target do nothing at all: Day 1 is
-// min(capacity, group.length), and the group was still sized for the smaller number,
-// so the control worked downwards only. Reported as "I can't even change the amount
-// of orders … they get stuck on a different value and never got updated."
-test('freshAnchorIds ignores the day tags when told they are stale', () => {
-  const tagged = [
-    { id:'a', day:1 }, { id:'b', day:1 },                       // a Day 1 sized for target 2
-    { id:'c', day:2 }, { id:'d', day:2 }, { id:'e', day:2 },
+// ── the lock's set is the day the installer is looking at ─────────────────
+// `opts.max` (a capacity bound on a mid-day target raise) and `opts.fromTags` (were
+// the tags stale?) both existed to make an INFERRED re-commit behave. The 🔒 press is
+// the only commit now, and it happens while the installer is looking at the day, so
+// there is nothing to infer and nothing to bound.
+
+test('taggedDay1Ids is the lowest tagged day, in list order', () => {
+  const pending = [
+    { id:'a', day:2 }, { id:'b', day:1 }, { id:'c', day:2 }, { id:'d', day:1 },
   ];
-  // Default and explicit-true keep honouring the group — the Optimize path.
-  assert.deepEqual(freshAnchorIds(tagged, 4), ['a', 'b']);
-  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:true }), ['a', 'b']);
-  // fromTags:false takes the first `target` by count instead, so raising grows.
-  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:false }), ['a', 'b', 'c', 'd']);
-  // Lowering still works either way.
-  assert.deepEqual(freshAnchorIds(tagged, 1, { fromTags:false }), ['a']);
-  // opts.max still binds — a mid-day resize may only grow into the room left.
-  assert.deepEqual(freshAnchorIds(tagged, 4, { fromTags:false, max:3 }), ['a', 'b', 'c']);
+  assert.deepEqual(taggedDay1Ids(pending), ['b', 'd']);
 });
 
-test('freshAnchorIds caps the frozen set at opts.max (the day’s remaining room)', () => {
-  const tagged = [{ id:'a', day:1 }, { id:'b', day:1 }, { id:'c', day:1 }, { id:'d', day:2 }];
-  assert.deepEqual(freshAnchorIds(tagged, 24, { max:2 }), ['a', 'b']);   // tagged group trimmed
-  assert.deepEqual(freshAnchorIds(tagged, 24, { max:9 }), ['a','b','c']); // roomier than the group
-  const untagged = [{ id:'a' }, { id:'b' }, { id:'c' }];
-  assert.deepEqual(freshAnchorIds(untagged, 24, { max:2 }), ['a', 'b']); // fallback capped too
-  assert.deepEqual(freshAnchorIds(untagged, 2, { max:9 }), ['a', 'b']);  // target still binds
+test('taggedDay1Ids is empty for a list nothing has routed', () => {
+  assert.deepEqual(taggedDay1Ids([{ id:'a' }, { id:'b', day:'' }]), []);
+  assert.deepEqual(taggedDay1Ids([]), []);
+  assert.deepEqual(taggedDay1Ids(null), []);
 });
 
-test('freshAnchorIds: an absent/null max is UNBOUNDED, not zero', () => {
-  // Number(null) is 0 — a coercion that would silently freeze an empty day on the
-  // very path (a day nobody has driven yet) that means "no limit".
-  const tagged = [{ id:'a', day:1 }, { id:'b', day:1 }];
-  assert.deepEqual(freshAnchorIds(tagged, 24, { max:null }), ['a', 'b']);
-  assert.deepEqual(freshAnchorIds(tagged, 24, {}), ['a', 'b']);
-  assert.deepEqual(freshAnchorIds(tagged, 24), ['a', 'b']);
-  assert.deepEqual(freshAnchorIds(tagged, 24, { max:'lots' }), ['a', 'b']);
-  assert.deepEqual(freshAnchorIds(tagged, 24, { max:0 }), []);   // an explicit 0 IS zero
+test('taggedDay1Ids does not assume the lowest day is 1', () => {
+  // Day 1 finished and was pruned; day 2 is now the day in front of the crew.
+  assert.deepEqual(taggedDay1Ids([{ id:'a', day:2 }, { id:'b', day:3 }]), ['a']);
 });
 
 test('orderAnchorFirst leads with today, preserving each group’s order', () => {
@@ -170,30 +86,9 @@ test('orderAnchorFirst is a no-op when today already leads', () => {
   assert.deepEqual(orderAnchorFirst(['a', 'b', 'c'], ['a', 'b']), ['a', 'b', 'c']);
 });
 
-// ── day capacity: bounds a re-plan's GROWTH, and nothing else ───────────────
-
-test('dayCapacity is the target less every meter installed today', () => {
-  assert.equal(dayCapacity(20, 0), 20);
-  assert.equal(dayCapacity(20, 5), 15);
-  // 5 planned + 5 walk-ups both spend the room a deliberate re-plan could grow into.
-  assert.equal(dayCapacity(20, 10), 10);
-});
-
-test('dayCapacity floors at zero and never goes negative past the target', () => {
-  assert.equal(dayCapacity(20, 20), 0);
-  assert.equal(dayCapacity(20, 26), 0);
-});
-
-test('dayCapacity coerces junk: target floors at 1, installs at 0', () => {
-  assert.equal(dayCapacity(0, 0), 1);
-  assert.equal(dayCapacity(null, null), 1);
-  assert.equal(dayCapacity(20, -4), 20);
-  assert.equal(dayCapacity(20.7, 5.9), 15);
-});
-
-// ── Day 1 is today's committed set, entire ─────────────────────────────────
-// It used to be min(dayCapacity + anchor.extend, |set ∩ pending|), which re-sized
-// the day all day long. The tests below are the field report, as arithmetic.
+// ── Day 1 is the LOCKED set, entire ────────────────────────────────────────
+// It used to be min(target − installedToday + anchor.extend, |set ∩ pending|), which
+// re-sized the day all day long. The tests below are the field report, as arithmetic.
 
 test('day1Count is the whole committed set', () => {
   assert.equal(day1Count(['a','b','c','d','e']), 5);
@@ -206,24 +101,30 @@ test('day1Count of an empty or missing set is 0', () => {
   assert.equal(day1Count(undefined), 0);
 });
 
-test('two-meter orders no longer drop the tail of a committed day', () => {
-  // The report: 12 orders downloaded at a 24 meters/day target, each order carrying
-  // two meters. Six done ⇒ 12 meters installed ⇒ the old capacity was 24 − 12 = 12
-  // against 6 remaining orders, which still looked fine… until the orders ran three
-  // meters, or a walk-up landed. The general failure is capacity (METERS) racing
-  // membership (ORDERS); here 18 meters installed against 6 orders left.
+test('a locked day is counted in ORDERS, and meters installed do not touch it', () => {
+  // The report: 12 orders downloaded at a 24 meters/day target, each carrying two
+  // meters. Day 1 used to be min(target − installed, |set|), so meters raced
+  // membership and the tail of a day the installer had committed to was stamped day 2
+  // by mid-morning — and a walk-up did the same to orders nobody had touched.
+  // Nothing in this module reads an install count any more; there is no arithmetic
+  // left for the day's size to lose to.
   const day1 = ['g','h','i','j','k','l'];
   assert.equal(day1Count(day1), 6);
-  assert.equal(dayCapacity(24, 18), 6);   // the old min() would still say 6…
-  assert.equal(dayCapacity(24, 22), 2);   // …and this is where it dropped four.
-  assert.equal(day1Count(day1), 6);       // the committed set does not care.
+  assert.equal(day1Count(day1), 6);   // …and it stays 6 whatever the crew installs.
 });
 
-test('meeting the meters/day target leaves today’s remaining orders on today', () => {
-  // Old behaviour: dayCapacity 0 ⇒ day1Count 0 ⇒ every remaining order stamped day 2+
+test('meeting the meters/day target leaves the locked day’s orders on today', () => {
+  // Old behaviour: capacity 0 ⇒ day1Count 0 ⇒ every remaining order stamped day 2+,
   // and the pace card gone from the screen with work still in front of the crew.
-  assert.equal(dayCapacity(24, 24), 0);
   assert.equal(day1Count(['x','y','z']), 3);
+});
+
+test('a spent locked day counts 0 — a real value, never "unset"', () => {
+  // route-constraints.js reads null as "size day 1 by the target"; 0 means the locked
+  // day holds nothing, which is the honest reading of a day whose work is done. A
+  // truthiness test here hands a finished day a whole fresh target.
+  assert.equal(day1Count([]), 0);
+  assert.notEqual(day1Count([]), null);
 });
 
 // ── cheapest-insertion of a new order into a solved day ────────────────────
@@ -271,9 +172,17 @@ test('insertByProximity handles an empty sequence', () => {
   assert.deepEqual(insertByProximity([], 'n', () => null), ['n']);
 });
 
-test('needsCommit ignores capacity — a met target is full, not exhausted', () => {
-  // The set still owns unfinished orders, so hitting the target must NOT roll
-  // tomorrow's chunk into today; it only pushes today's leftovers out to Day 2.
-  const anchor = { date:'2026-07-24', ids:['a', 'b'] };
-  assert.equal(needsCommit(anchor, '2026-07-24', items(['a', 'b'])), false);
+
+// ── locked, then an order is added by hand ─────────────────────────────────
+// The one way work joins a day that is already settled (js/worklist.js acceptAddTo):
+// cheapest-insertion into the locked sequence, then the grown set leads the pending
+// list and sizes day 1. Nothing is displaced to make room — the day simply runs on.
+test('an order added to a locked day joins it without pushing anything out', () => {
+  const day1 = insertByProximity(['a','b','c','d'], 'n', lineDist(12));
+  assert.deepEqual(day1, ['a','b','n','c','d']);
+  // The whole pending list, with two orders that belong to later days.
+  const seq = orderAnchorFirst(['a','x','b','n','c','y','d'], day1);
+  assert.deepEqual(seq, ['a','b','n','c','d','x','y']);
+  // Day 1 grew by exactly the one added order; x and y stayed where they were.
+  assert.equal(day1Count(day1), 5);
 });

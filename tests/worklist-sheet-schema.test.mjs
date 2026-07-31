@@ -45,12 +45,18 @@ test('the route-variant and set-aside columns are appended, never inserted', () 
   assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 14, 'the pre-existing tail must not move');
 
   const wp = headers('WORKLIST_PLANS_HEADERS');
-  assert.equal(wp[wp.length - 1], 'target', 'the target column is the new tail');
-  assert.deepEqual(wp.slice(-3, -1), ['commutePull', 'finishBy'],
+  assert.equal(wp[wp.length - 1], 'dayLockDate', 'the work-list lock is the new tail');
+  // It lands at column L, which setupSheets pins to plain text: a date-formatted cell
+  // comes back from getValues() as a Date, and the phone compares this against its
+  // plan day — it would fail the compare with no error and no wrong number to notice.
+  assert.equal(wp.length - 1, 11, 'dayLockDate is column L, the one setupSheets formats');
+  assert.match(code, /getRange\('L2:L'\)\.setNumberFormat\('@'\)/);
+  assert.equal(wp[wp.length - 2], 'target', 'target keeps its position ahead of the lock');
+  assert.deepEqual(wp.slice(-4, -2), ['commutePull', 'finishBy'],
     'the dial columns keep their positions ahead of target');
-  assert.deepEqual(wp.slice(-5, -3), ['routeVariant', 'straightDistanceSource'],
+  assert.deepEqual(wp.slice(-6, -4), ['routeVariant', 'straightDistanceSource'],
     'the variant columns keep their positions ahead of the dials');
-  assert.equal(wp[wp.length - 6], 'updated', 'updated keeps its original position');
+  assert.equal(wp[wp.length - 7], 'updated', 'updated keeps its original position');
 });
 
 test('every Worklist header is unique', () => {

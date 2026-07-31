@@ -69,6 +69,14 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(245,158,11,.5);ou
 .pltargetrow #plAvgDay{margin:0}
 .plschedule{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;margin-top:6px}
 .plschedule label{margin-bottom:0}.plschedule input{margin-top:4px;padding:8px;font-size:14px}
+/* The work-list lock. Shaped nothing like .pllock further down (a 36px icon square
+   in an order row, pinning one stop): this is a labelled button in the settings
+   card, and the label always names the state. */
+.pldaylock{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:10px}
+.pldaylock-btn{font-weight:700}
+.pldaylock-btn.on{border-color:var(--amber);background:#FEF3E2;color:#754900}
+.pldaylock .sub{margin:0;flex:1 1 100%}
+.pltargetrow input.locked{background:var(--surface);color:var(--ink-soft);cursor:not-allowed}
 
 .provider-field{display:flex;align-items:center;gap:8px}
 .provider-field input{min-width:0;flex:1}

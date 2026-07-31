@@ -206,6 +206,16 @@
       <input id="wlTarget" type="number" min="1" step="1" inputmode="numeric">
       <span class="muted" id="wlAvgDay"></span>
     </div>
+    <!-- The work-list lock. 🔓 while planning: the meters/day target sizes every
+         day, so changing it and optimizing really does re-plan the week. 🔒 once
+         the day looks right: Day 1 is frozen exactly as it stands and nothing —
+         a logged stop, a Download, another Optimize — moves work in or out of it.
+         Adding an order is the one exception, and it asks (#wlAddTo).
+         NOT the same control as the 🔒 on each order card, which pins that ONE
+         stop to a date and slot. This one is a full-width labelled bar and always
+         spells out which state it is in; that label is what keeps them apart. -->
+    <button class="ghost wl-daylock" id="wlDayLock" type="button" aria-pressed="false"></button>
+    <div class="muted" id="wlDayLockHint"></div>
     <div class="wl-schedule-settings">
       <label>Pace (min/stop)<input id="wlPace" type="number" min="1" step="1" inputmode="numeric"></label>
     </div>

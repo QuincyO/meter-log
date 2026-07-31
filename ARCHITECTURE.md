@@ -604,9 +604,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
   within-day slot. Appointment cards use a bell badge; locking snapshots the
   current date+slot, removes that card's drag handle, and survives Upload/Download.
-  `WorklistPlans` stores route start date, first-stop time, editable pace, and the
-  installer-owned tuning (`commutePull`/`finishBy`) + `target` once per H number
-  instead of repeating those settings on every order.
+  This per-order lock is **not** the work-list lock below — that one freezes the whole
+  of day 1 and lives on the `WorklistPlans` row, not on an order.
+  `WorklistPlans` stores route start date, first-stop time, editable pace, the
+  installer-owned tuning (`commutePull`) + `target`, and the work-list lock's
+  `dayLockDate`, once per H number instead of repeating those settings on every order.
 - **Offline road maps (`js/roadgraph.js` + `js/roadpack.js` + `tools/build-roadpack.mjs`).**
   The phone's own road-distance source, and the first rung of the matrix ladder
   below. A **district pack** — the drivable OSM road network for one working area,
@@ -931,128 +933,142 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   the first roll invalidates all of them at once. A lock is a routing convenience whose
   day has passed, so expiring it is right; a missed *appointment* stays an error,
   because it is a promise to a customer and dropping it silently would hide that.
-- **The today anchor — freezing Day 1 so completions don't pull tomorrow up.** The
-  chunking above runs over the **pending** list, so as orders are logged (dropped
-  from `pending`) a re-optimize/Download refills Day 1 to a full `target` from the
-  front of what's left — pulling the next day's orders up into today. `js/route-today.js`
-  (pure, unit-tested) fixes that with a phone-owned **anchor**: `{date, ids}` in
-  `localStorage['wlTodayAnchor']` — the set of order IDs that made up Day 1 the first
-  time the day's route was established. **`date` is the plan day, not the wall clock.**
-  That distinction is load-bearing: freeze tomorrow's evening-built plan under *today's*
-  date and `needsCommit`'s `anchor.date !== today` fires at midnight, re-planning it and
-  throwing away exactly the work the plan day exists to allow. For the same reason the
-  capacity tally is taken on the **plan day** (`tallyOn`), so a day not yet reached
-  correctly reports a full day's room instead of inheriting what today already spent —
-  while `dayClosed()`/`dayStarted()` in the *roll* decision stay on `localDate()`,
-  because they answer "is the day the installer is standing in spent?". Two different
-  questions; reading one for the other is the easy mistake here.
-  `worklist.js applyTodayAnchor()` is the single
-  choke point (run after optimize, Download, a completion, a reset, and first view):
-  it (re)commits the anchor when the date rolls, or when an **explicit re-plan** asks
-  it to — a re-plan whose meters/day target moved, or one on a day whose set is spent
-  (`needsCommit`) — then reorders pending so today's committed orders lead
-  (`orderAnchorFirst`) and reschedules through `scheduleRouteConstraints` with
-  **`opts.day1Count`**, while days 2+ still fill by `target`. The commit snapshots the
-  route's **current** Day-1 group (honouring any `timeCapacity` shrink or the office's
-  chunking), falling back to the first `target` orders only for a never-routed list.
-  The anchor is never synced (no sheet/schema change); `day1Count` omitted ⇒ the
-  scheduler behaves exactly as before.
-- **The frozen set IS the day. Nothing re-sizes it in the background.** Day 1 is
-  `day1Count(day1Ids)` — today's committed set intersected with pending, entire. It
-  shrinks as its orders are finished and by nothing else, and it grows only when the
-  installer says so. **This is the second correction to this rule, and the shape of the
-  first one is worth keeping in mind.**
+- **The work-list lock — 🔓 while planning, 🔒 once the day is settled.** The chunking
+  above runs over the **pending** list, so as orders are logged (dropped from `pending`)
+  a re-optimize refills Day 1 to a full `target` from the front of what's left, pulling
+  the next day's orders up into today. That is right while the installer is still
+  deciding what the week looks like and wrong the moment they have decided what they are
+  driving — so they say which, with a toggle above 🧭 Optimize on the phone worklist and
+  in the planner's settings card.
 
-  The first correction was right about the symptom and wrong about the cure. Sizing
-  Day 1 to the committed count alone over-corrected: meters the crew installed
-  **off-plan** — walk-ups, which `markWorklistDone` never sees — consumed none of the
-  day's target, so the route kept showing more work than there was room for, and an
-  order added mid-day couldn't join today at all. The fix was to size Day 1 as
-  `min(dayCapacity(target, installedToday) + anchor.extend, |set ∩ pending|)`. **That
-  made the meters/day target a live governor on a set the installer had already
-  committed to, and it shuffled the day all day long:**
-  - the target counts **meters** and the set counts **orders**. An order carrying two
-    meters, or any walk-up, spent the room faster than it spent the list, so the tail
-    of a committed day was stamped Day 2 by mid-morning;
-  - once the target was **met** with orders still pending, capacity hit 0, `day1Count`
-    was 0, and every remaining order was stamped Day 2+ — a full afternoon's work
-    silently declared tomorrow's, and the pace gauge (which reads Day 1 strictly)
-    vanished off the Drive screen with the crew still working;
-  - `needsCommit` re-committed the moment the set emptied, hauling the next chunk up
-    into today;
-  - and the Drive screen's 5-minute refresh re-ran all of it on a timer.
+  - **🔓 Unlocked.** Nothing is frozen. Set the meters/day target, set the day, press
+    Optimize, and every day is sized by the target and nothing else — 6 gives six-order
+    days, 8 gives eight. Changing the target alone re-splits on the spot.
+  - **🔒 Locked.** Day 1 is frozen exactly as it stands. Nothing moves work in or out of
+    it — not a logged stop, not a Download, not another Optimize — until the installer
+    unlocks. Optimize still re-solves the *geography* of the locked day; it just cannot
+    change who is in it.
+  - **The one exception**, while locked: adding an order raises the `#wlAddTo` sheet
+    ("Add to today" / "Leave for later"). Accepted, it is slotted in by cheapest
+    insertion and the day simply runs longer.
 
-  Reported from the field as *"the next day's work orders are shuffling up every time
-  … I download the WORK list when I start my day, I say that I'm going to do X, and I
-  want it to stay at that unless I manually add more for the same day."* The whole
-  mechanism is gone. What replaces it:
-  - **the target sizes the day when the day is PLANNED, then lets go.** Installing past
-    it now reads as being ahead — `targetOver` on the pace gauge, and a `Route done ~`
-    clock that moves later — instead of as a shorter list;
-  - **an exhausted set stays exhausted.** A finished day is finished until an explicit
-    re-plan (`opts.replan`) asks for more;
-  - **work joins a day already under way only by hand** — the `#wlAddTo` sheet, an
-    Optimize press, or the office's own day 1 on a Download.
+  **The lock is ONE DATE, and that is the whole of its semantics**: locked iff
+  `localStorage['wlDayLock']` names the day being planned. A new plan day therefore
+  releases it for free, with no timer and nothing to expire — a lock is a statement
+  about one day's work, so Tuesday's means nothing on Wednesday. The frozen SET is the
+  anchor beside it (`wlTodayAnchor` = `{date, ids, target}`), written once at the press
+  by `freshAnchorIds` — which takes the route's current lowest-`day` group, because that
+  is literally what is on the screen the installer is looking at when they decide the day
+  is right. `worklist.js applyTodayAnchor()` remains the single choke point: it reorders
+  pending so the locked orders lead (`orderAnchorFirst`) and re-schedules through
+  `scheduleRouteConstraints` with **`opts.day1Count`**, while days 2+ fill by `target`.
 
-  `dayCapacity` survives for exactly one job: bounding how far a *deliberate* mid-day
-  target raise may grow the day (`freshAnchorIds`' `opts.max`). It can no longer trim
-  anything. **Zero is still a real `day1Count`, not "unset"** (`route-constraints.js`
-  tests it against `null`) — a finished day genuinely holds no stops, and truthiness
-  there would hand it a whole fresh target.
-- **`anchor.target` — the freeze must not outlive the plan that sized it.** Keying the
-  freeze on identity alone meant a set committed at 6 meters/day kept a six-order Day 1
-  forever: raising the target to 24 changed nothing, and re-optimizing could not shift
-  it. Worse, it survived the night — the new day's commit prefers the `day` tags already
-  on the orders, and those were stamped by the target-6 solve, so it re-froze at 6 before
-  Optimize was ever pressed. The anchor now records the target it was frozen under
-  (`anchorTarget`, `null` for a legacy record), and `needsCommit` gains a fourth reason:
-  a **re-plan** (`opts.replan`) whose target differs re-commits. Three things there are
-  deliberate:
-  - **Only two callers pass `replan`** — the Optimize press and the meters/day box's own
-    `change`. They are the two moments the installer has said "re-size the day". A logged
-    stop, a Download, first view, and the Drive screen's 5-minute refresh pass nothing and
-    keep today exactly frozen. (The box also passes `resize` → `freshAnchorIds`'
-    `opts.fromTags: false`, because unlike Optimize it has not re-solved the day tags, and
-    preferring stale tags makes a *raised* target do nothing at all.)
-  - **An Optimize at an *unchanged* target must never re-commit a set that is still
-    LIVE**, or re-optimizing after finishing a few orders refills Day 1 from the front of
-    what's left — the original bug the anchor exists to prevent. On a **spent** set the
-    press re-commits whatever the target says: there is nothing left to protect, and the
-    press is how the installer asks for more work after finishing the day they committed
-    to. That ask used to happen by itself, which is what this change removed.
-  - **A mid-day re-plan is bounded by `dayCapacity`** (`freshAnchorIds`' `opts.max`), so
-    raising the target at noon grows today into the room it has left rather than hauling
-    a whole fresh target up out of tomorrow. A day with no installs *and* no UTIs, or one
-    already closed out (`dayClosedDate`), is a day nobody has driven — those reshuffle
-    freely, unbounded. A legacy anchor reads as changed, which is the one-shot that
-    unsticks a day frozen under a target nobody can recover.
-- **Joining a day that is already under way — by hand, or by the office.** The anchor is
-  `{date, ids, target}`; a legacy record reads target unknown, and a legacy `extend` is
-  ignored (that field is gone with the capacity clamp it existed to buy room back from).
-  Two paths add to a committed set, and both are somebody's deliberate act:
+  **Unlocked is not "no `day1Count`", and that distinction is load-bearing.**
+  `applyTodayAnchor` also runs after every logged stop, on the Drive screen's 5-minute
+  `autoSync`, on Download and at boot. If those re-chunked from the front of `pending`,
+  an installer who had simply not pressed 🔒 would watch tomorrow's orders climb into
+  today as they worked — the original field report, back again and on a timer. So there
+  are three answers, not two: **locked** ⇒ the frozen set entire; **unlocked and asked to
+  re-chunk** ⇒ `null`, size every day by the target; **unlocked and passive** ⇒ hold the
+  day as currently tagged. Exactly one caller asks for the re-chunk — the meters/day box,
+  which moved the number without re-solving, so its `day` tags still describe the old
+  one. Optimize does not need to ask: it rewrites every tag at the new target moments
+  before it calls, so holding them *is* the fresh split. **Zero is a real `day1Count`,
+  not "unset"** (`route-constraints.js` tests it against `null`) — a locked day whose
+  work is finished genuinely holds no stops, and truthiness there hands it a whole fresh
+  target.
+
+  Every path that re-schedules the pending list has to pass the count, not just this one:
+  `switchVariant` and `persistOrderIds` (the drag write-back) call
+  `scheduleRouteConstraints` themselves, and while they omitted it the lock leaked —
+  flipping road↔straight, or dragging one card, silently re-chunked Day 1 back to a full
+  target. `currentDay1Count()` is the single answer all three read.
+
+- **What the toggle replaced, and why it is worth not rebuilding.** The freeze used to be
+  automatic, and the whole of its difficulty was *inferring* when the installer meant to
+  re-plan. `needsCommit` grew four reasons (a new day, an exhausted set, an explicit
+  re-plan, a re-plan whose target had moved), `dayCapacity` bounded how far a mid-day
+  raise could grow the day, `freshAnchorIds` gained `opts.max` and `opts.fromTags`, and
+  `applyTodayAnchor` carried a `freeReplan`/`midReplan`/`exhausted` triangle. Each piece
+  was a correct fix to a real report. Together they still could not answer the two
+  questions the installer was actually asking — *is my day settled right now, and what do
+  I press to change it?* All of it is gone; the press is the only commit there is.
+
+  Two of its lessons survive as rules, because they are about the domain rather than the
+  mechanism:
+
+  - **The target counts METERS and the set counts ORDERS.** Day 1 was once
+    `min(dayCapacity(target, installedToday) + anchor.extend, |set ∩ pending|)`, so an
+    order carrying two meters — or any walk-up, which `markWorklistDone` never sees —
+    spent the day's room faster than it spent the list, and the tail of a committed day
+    was stamped Day 2 by mid-morning. Worse, once the target was **met** with orders
+    still pending, capacity hit 0, `day1Count` was 0, and a full afternoon's work was
+    silently declared tomorrow's — taking the pace gauge (which reads Day 1 strictly) off
+    the Drive screen with the crew still working. Nothing may re-size a locked day from
+    meters installed. Installing past the target reads as being **ahead of pace**
+    (`targetOver`, and a `Route done ~` clock that moves later), never as a shorter list.
+  - **An exhausted locked day stays exhausted.** `needsCommit` used to re-commit the
+    moment the set emptied, hauling the next chunk up into today. A finished day is
+    finished; more work arrives by unlocking, or by hand through "Add to today".
+
+  Reported from the field as *"the next day's work orders are shuffling up every time …
+  I download the WORK list when I start my day, I say that I'm going to do X, and I want
+  it to stay at that unless I manually add more for the same day."*
+
+- **Joining a locked day — by hand, or by the office.** Two paths add to a frozen set,
+  and both are somebody's deliberate act:
   - **An order added on the phone** (`saveOrder` → `offerAddTo`, `#wlAddTo`) asks,
     because nobody else has weighed in on it: **Add to today** (the day runs longer) or
     **Leave for later**. There was a third — *Add to today, keep the day's size*, which
     rolled the tail to tomorrow — and it went with the capacity clamp: an option whose
     job is to shuffle the tail down is the reported behaviour with a button in front of
-    it. The sheet appears whenever an anchor is committed for the day being planned,
-    **including a day whose work is finished**: with the automatic roll gone, adding by
-    hand is the only way work joins a finished day, so bailing there would send the
-    order silently to tomorrow. Accepted orders are slotted into today by **cheapest
-    insertion** (`insertByProximity`, pure, over saved pins via `haversine`) so they land
-    beside their nearest neighbours instead of at the end of the day, then written back
-    through the same `persistOrderIds` the drag uses so locks/appointments still get
-    their say. Ids accumulate across a burst of adds — the form's copy-street-forward
-    flow makes that the normal case — so one answer covers the whole burst.
-  - **Download** (`adoptPlannerDay1`) asks nothing: *the planner decides, the phone
-    obeys*. When the downloaded `WorklistPlans.routeStartDate` **is the day being
-    planned**, every order the office tagged `day === 1` joins the committed set. A plan
-    for another day leaves the anchor alone and its orders queue behind, as before. This
-    also runs on the Drive screen's 5-minute `autoSync`, where it is a no-op unless the
-    office genuinely re-planned mid-day — every id is already in the anchor.
+    it. The sheet appears only while the list is LOCKED (unlocked there is nothing to
+    join and nothing to protect, so the question would have no consequence attached to
+    either answer), **including on a day whose work is finished**: nothing re-commits, so
+    bailing there would send the order silently to tomorrow. Accepted orders are slotted
+    in by **cheapest insertion** (`insertByProximity`, pure, over saved pins via
+    `haversine`) so they land beside their nearest neighbours instead of at the end of
+    the day, then written back through the same `persistOrderIds` the drag uses so locks
+    and appointments still get their say. An order with no usable pin goes last, which is
+    where an unpinnable order belongs. Ids accumulate across a burst of adds — the form's
+    copy-street-forward flow makes that the normal case — so one answer covers the burst.
+  - **Download** (`adoptPlannerDay1`) used to ask nothing — *the planner decides, the
+    phone obeys*. **The lock reverses that**: the installer pressed 🔒 on a day they had
+    looked at, and an office re-plan landing during it is exactly the case the toggle
+    exists to survive. Orders the office tagged `day === 1` that are not already in the
+    frozen set go through the **same sheet** as a hand-typed one. Only the manual ⇩
+    Download raises it (`opts.interactive`) — this also runs on the Drive screen's
+    5-minute `autoSync`, whose whole contract is that it never speaks, so there the
+    extras simply stay out of today and wait for the installer to open the worklist.
+    Unlocked there is nothing to adopt: no frozen set exists and the downloaded `day`
+    tags already are the day.
 
-  See `js/route-today.js`, `tests/route-today.test.mjs`, and the `day1Count` cases in
-  `tests/route-constraints.test.mjs`.
+- **The lock on the sheet — one appended column, and one direction of travel.**
+  `WorklistPlans.dayLockDate` carries the DATE only; the membership up there is just the
+  rows tagged `day === 1`, so there is no second source of truth for the same fact. It
+  rides the plan payload like `target`. Three rules:
+  - **Blank is a real value**, so `Code.gs saveWorklistPlan` guards on key *presence*
+    (`hasOwnProperty`) rather than truthiness — the one place it differs from
+    `routeStartDate`. A truthiness guard would make unlocking from the phone a silent
+    no-op on the sheet, forever.
+  - **The phone adopts a lock, never an unlock.** `loadPlanFields` takes the sheet's date
+    only when the phone is currently unlocked for that day; a blank column never releases
+    a day the installer settled, because unlocking is a press on the device doing it.
+    This is the *one* downloaded plan field the phone adopts — `target` and `commutePull`
+    sitting beside it are deliberately refused, because those are tuning and a lock is
+    not.
+  - **A lock adopted from the sheet arrives without its set.** `applyTodayAnchor` repairs
+    that by snapshotting the day as tagged — the same thing that was pressed on at the
+    other end — and `currentDay1Count` falls back to the tag count in the window before
+    it runs, because reading the anchor blind would return 0 and collapse Day 1.
+  - The column lands at **L**, which `setupSheets()` pins to plain text. A date-formatted
+    cell returns a `Date` from `getValues()`, and this string is compared for equality
+    against the plan day: it would fail with no error and no wrong number to notice.
+
+  See `js/route-today.js`, `tests/route-today.test.mjs`,
+  `tests/worklist-day-frozen.test.mjs` (the wiring — which call sites may move the day),
+  and the `day1Count` cases in `tests/route-constraints.test.mjs`.
+
   `optimizeRoute` also takes `opts.osrmUrl` — the **desktop planner's** matrix
   source: one free `table` call against a self-hosted OSRM (then the ORS backup,
   then straight-line — never the billable Google path), which is how the office
@@ -1916,15 +1932,26 @@ the office saved one, straight otherwise; nothing when the crew has no start).
 | `routeVariant` | string | `'road'` \| `'straight'` — which saved route is live. The office sets it, the phone downloads it, and the installer's own switch rides back up on the next upload |
 | `straightDistanceSource` | string | `'road'` when the straight variant's `legMetersStraight` were priced on a road matrix (so its total is comparable with the road route's), `'straight-line'` when they are crow-flies and the UI must label them an estimate |
 | `commutePull` | number | tuning: 0–100 home-bias dial (`homeWeight = commutePull/100`) — how hard each day's end hugs home. **Installer-owned** |
-| `finishBy` | string | tuning: `HH:mm` day-finish target that `timeCapacity` sizes each day to hit. **Installer-owned** |
+| `finishBy` | string | **retired, kept blank** — the meters/day target alone sizes a day. The column stays only because `ensureTab` appends and cannot remove one |
 | `target` | number | meters/day soft target. **Installer-owned** |
+| `dayLockDate` | string | the **work-list lock**: the `yyyy-MM-dd` whose day 1 is settled, blank when the list is open. The DATE only — the frozen membership is just the rows tagged `day === 1`, so there is no second source of truth for it. Written on key *presence*, not truthiness, because blank is a real value (see below). Pinned to plain text in `setupSheets()` (col L) — a `Date` out of `getValues()` fails the equality compare against the plan day silently |
 
-**Tuning + target are installer-owned** (`commutePull`/`finishBy`/`target`): the
+**Tuning + target are installer-owned** (`commutePull`/`target`): the
 phone is the source of truth. On Download the phone pushes its local copies up via
 the plan-only `savePlan` action (`saveWorklistPlan`, no order rows touched) and does
 **not** overwrite them with the sheet's copy, so the next route built for that
 installer — on the phone or the planner — uses their latest weights. The planner
 reads them (`loadPlan`) and routes with them but never clobbers them.
+
+**`dayLockDate` is the one exception, and it travels in one direction.** It is not
+tuning — it is somebody saying a particular day is settled, and the office pressing 🔒
+on a route it just built for this installer is as real as the installer pressing it. So
+`loadPlanFields` *does* adopt it, unlike `target` beside it: the sheet's date is taken
+when the phone is currently **unlocked** for that day. A blank column never releases a
+lock, because unlocking is a press on the device doing it. And because blank is
+meaningful, `saveWorklistPlan` guards the write on `hasOwnProperty` rather than
+truthiness — the truthiness form `routeStartDate` uses would make unlocking from the
+phone a silent no-op on the sheet, forever. See §"The work-list lock".
 
 The phone-local `geoFail` / `geoAmbig` flags (parked / "which town?" — see
 "Route optimization") deliberately do **not** ride the sync: `wireShape` strips

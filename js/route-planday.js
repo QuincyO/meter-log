@@ -89,7 +89,8 @@ export function resolvePlanDay(opts){
 
   // `null`/absent is an UNKNOWN clock, and must not coerce to Number(null) === 0 —
   // that reads as "midnight, past a finish-by of midnight" and rolls every call.
-  // Same trap route-today.js documents for freshAnchorIds' opts.max.
+  // Same trap route-constraints.js documents for opts.day1Count, where 0 is a real
+  // count (a locked day whose work is finished) and only null means "unset".
   const min = v => (v == null || v === '') ? null : (isFinite(Number(v)) ? Number(v) : null);
   const nowMin = min(o.nowMin), finishByMin = min(o.finishByMin);
   const pastFinish = nowMin != null && finishByMin != null && nowMin >= finishByMin;

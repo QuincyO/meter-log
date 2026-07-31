@@ -46,6 +46,17 @@
           <label for="plRouteDate">Route starts<input id="plRouteDate" type="date"></label>
           <label for="plPace">Pace (min/stop)<input id="plPace" type="number" min="1" step="1" value="30"></label>
         </div>
+        <!-- The work-list lock, office side. Open: Optimize sizes every day by the
+             meters/day target. Locked: whatever is on day 1 stays on day 1 through
+             a re-solve, and the meters/day box goes read-only. Rides the sync on
+             the WorklistPlans row, so the installer's phone adopts it on ⇩ Download
+             and the office sees a day the installer locked on ⇩ Load.
+             NOT the per-order 🔒 in the list below, which pins one stop to a date
+             and slot — this one is a labelled control in the settings card. -->
+        <div class="pldaylock">
+          <button class="btn pldaylock-btn" id="plDayLock" type="button" aria-pressed="false"></button>
+          <span class="sub" id="plDayLockSub"></span>
+        </div>
         <p class="sub" id="plPaceHint">Uses the installer's recent 30-workday pace when available.</p>
         <label for="plHome">Route ends near (home / yard address — optional)</label>
         <input id="plHome" type="text" autocomplete="off" placeholder="e.g. 120 Depot Rd, Bracebridge">

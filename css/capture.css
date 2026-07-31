@@ -64,6 +64,19 @@
 .wl-target label{margin:0;font-weight:700;color:var(--ink-soft);font-size:13px;flex:none}
 .wl-target input{width:80px;flex:none}
 .wl-target .muted{margin:0}
+/* The work-list lock. Deliberately shaped NOTHING like .wl-lock further down: that
+   one is a 44px icon-only square inside an order card and pins a single stop's
+   position, this is a full-width labelled bar in the planning block above Optimize
+   and freezes the whole day. Same padlock glyphs, so the label is doing the work —
+   it is always present and always names the state. */
+.wl-daylock{width:100%;margin-top:12px;text-align:left;font-weight:700}
+.wl-daylock.on{border-color:var(--amber);background:#FEF3E2;color:#754900}
+#wlDayLockHint{margin:6px 2px 0}
+/* A control the lock has taken away. Not `disabled` — a disabled input drops out of
+   the tab order and reads as broken rather than settled, and on the date control it
+   would grey out the very value the crew wants to see. */
+.wl-plan-date input.locked,.wl-target input.locked{
+  background:var(--surface);color:var(--ink-soft);cursor:not-allowed}
 .wl-schedule-settings{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px;margin-top:10px}
 .wl-schedule-settings label{margin:0;font-size:12px;font-weight:800;color:var(--ink-soft)}
 .wl-schedule-settings input{margin-top:4px;min-width:0;padding:8px;font-size:14px}
