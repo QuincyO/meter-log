@@ -1,6 +1,6 @@
 # Downtime
 
-_176 rows · exported 2026-07-30 03:52 America/Toronto_
+_186 rows · exported 2026-07-31 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -180,3 +180,13 @@ _176 rows · exported 2026-07-30 03:52 America/Toronto_
 | 1785354323447-sv51je | 2026-07-29 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 694328 | gap 14:46–14:53 |  |
 | 1785354871355-4w454b | 2026-07-29 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 693919 | gap 09:00–09:00 |  |
 | 1785354871355-f0v9et | 2026-07-29 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693919 | gap 09:00–09:00 |  |
+| 1785438576282-txev5z | 2026-07-30 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 694224 | gap 09:13–09:13 |  |
+| 1785438576282-currpi | 2026-07-30 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 694224 | gap 09:13–09:13 |  |
+| 1785438576282-xiat5i | 2026-07-30 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 694224 | gap 09:13–09:13 |  |
+| 1785438576282-4zstpr | 2026-07-30 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 694224 | gap 09:13–09:13 |  |
+| 1785438576282-t3gl27 | 2026-07-30 12:00:00 | Phillip Monteiro | LUNCH | 30 | 694452 | gap 10:43–12:03 |  |
+| 1785438576282-5b8bjv | 2026-07-30 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 694547 | gap 14:27–14:35 |  |
+| 1785440209818-icntlm | 2026-07-30 15:36:49 | Quincy Orta | OTHER | 60 |  | Long phone call with Mike Paladino | land |
+| 1785440347955-kby7kb | 2026-07-30 12:00:00 | Quincy Orta | NEXT_GEN | 15 | 693915 | gap 08:23–10:32 |  |
+| 1785440347955-eyjugz | 2026-07-30 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 693915 | gap 08:23–10:32 |  |
+| 1785440347955-m0gf16 | 2026-07-30 12:00:00 | Quincy Orta | DISPATCH | 30 | 693915 | gap 08:23–10:32 |  |

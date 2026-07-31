@@ -1,6 +1,6 @@
 # Stops
 
-_548 rows · exported 2026-07-30 03:52 America/Toronto_
+_591 rows · exported 2026-07-31 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -552,3 +552,46 @@ _548 rows · exported 2026-07-30 03:52 America/Toronto_
 | 1785350817474-zmnu4m | 2026-07-29 14:46:57 | Phillip Monteiro | 694755 |  | 178 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.773373 | -79.404803 | J4784351 | J3183691 | 80556 | INSTALLED |  |  |  |  |  | land |
 | 1785351225998-t6i3gl | 2026-07-29 14:53:45 | Phillip Monteiro | 694328 |  | 168 Albert St, strong | 45.772765 | -79.404532 | J4784350 | J3179036 | 58108 | INSTALLED |  |  |  |  |  | land |
 | 1785352313257-ylxbyi | 2026-07-29 15:11:53 | Quincy Orta | 693763 | B | 125 SHANNON Rd, Perry, ON P0A 1R0, Canada | 45.444233 | -79.300956 | J4784243 | J3406124 | 26811 | INSTALLED |  |  |  |  |  | land |
+| 1785413081988-diiiy9 | 2026-07-30 08:04:41 | Quincy Orta | 691705 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.50635 | -79.269381 | J4784606 | J2722981 | 79802 | INSTALLED |  |  |  |  |  | land |
+| 1785413908985-59u9bd | 2026-07-30 08:18:28 | Quincy Orta | 687603 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506397 | -79.269402 | J4784608 | J3135661 | 69644 | INSTALLED |  |  |  |  |  | land |
+| 1785414211981-rpb0jy | 2026-07-30 08:23:31 | Quincy Orta | 688661 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506228 | -79.268957 | J4784609 | J2116516 | 96657 | INSTALLED |  |  |  |  |  | land |
+| 1785417227098-uji00s | 2026-07-30 09:13:47 | Phillip Monteiro | 694224 |  | 456 High St, Strong, ON P0A 1Z0, Canada | 45.776483 | -79.404491 | J4784369 | J4164962 | 19736 | INSTALLED |  |  |  |  |  | land |
+| 1785417690506-6j9xk3 | 2026-07-30 09:21:30 | Phillip Monteiro | 695622 |  | 470 High St, Sundridge, ON P0A 1Z0, Canada | 45.776106 | -79.405519 | J4784367 | J3541018 | 73985 | INSTALLED |  |  |  |  |  | land |
+| 1785418729308-k42ymx | 2026-07-30 09:38:49 | Phillip Monteiro | 694327 |  | 158 Albert St, Strong | 45.772435 | -79.404632 | J4784366 | J3112188 | 79383 | INSTALLED |  |  |  |  |  | land |
+| 1785419067176-4a5uq7 | 2026-07-30 09:44:27 | Phillip Monteiro | 695412 |  | 128 Albert St, Strong |  |  | J4784368 | J3355467 | 41574 | INSTALLED |  |  |  |  |  | land |
+| 1785419500986-6o1lz5 | 2026-07-30 09:51:40 | Phillip Monteiro | 694731 |  | 120 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.770745 | -79.403359 | J4773669 | J3183128 | 12447 | INSTALLED |  |  |  |  |  | land |
+| 1785420606030-9n14jc | 2026-07-30 10:10:06 | Phillip Monteiro | 694747 |  | 114 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.770658 | -79.403151 | J4773668 | J3112024 | 96500 | INSTALLED |  |  |  |  |  | land |
+| 1785421501404-xm4u8z | 2026-07-30 10:25:01 | Phillip Monteiro | 694880 |  | 88 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.769484 | -79.402458 | J4773667 | J3184035 | 45342 | INSTALLED |  |  |  |  |  | land |
+| 1785421925535-863ni5 | 2026-07-30 10:32:05 | Phillip Monteiro | 694322 |  | 36 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.767499 | -79.402065 | J4773666 | J3326987 | 63538 | INSTALLED |  |  |  |  |  | land |
+| 1785421972609-fxssxw | 2026-07-30 10:32:52 | Quincy Orta | 693915 |  | 2225 Pickerel & Jack Lake Rd, Armour, ON P0A 1C0, Canada | 45.666324 | -79.295967 | J4784244 | J2561864 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785422585471-zinuqp | 2026-07-30 10:43:05 | Phillip Monteiro | 694559 |  | 14 Albert St, Strong | 45.765685 | -79.402494 | J4773676 | J4044012 | 1990 | INSTALLED |  |  |  |  |  | land |
+| 1785423238063-qnmai0 | 2026-07-30 10:53:58 | Quincy Orta | 693801 |  | 689 North Pickrel Lake Rd | 45.667423 | -79.375548 | J4784607 | J4161206 | 5673 | INSTALLED |  |  |  |  |  | land |
+| 1785425430272-z8ahmb | 2026-07-30 11:30:30 | Quincy Orta | 693925 |  | 865 Garage Rd, Armour, ON P0A 1C0, Canada | 45.639483 | -79.328748 | J4784633 | J3385325 | 98523 | INSTALLED |  |  |  |  |  | land |
+| 1785426254917-b8y902 | 2026-07-30 11:44:14 | Quincy Orta | 693767 |  | 1531 Chetwynd Rd, Armour, ON P0A 1C0, Canada | 45.622448 | -79.316874 | J4784631 | J4161207 | 39082 | INSTALLED |  |  |  |  |  | land |
+| 1785427300566-uf4lm6 | 2026-07-30 12:01:40 | Quincy Orta | 693778 |  | 1003 Skyline Dr, Burk's Falls, ON P0A 1J0, Canada | 45.607222 | -79.314405 | J4784632 | J3262772 | 43165 | INSTALLED |  |  |  |  |  | land |
+| 1785427420169-pyxbwr | 2026-07-30 12:03:40 | Phillip Monteiro | 694452 |  | 14 Albert St, Strong | 45.765225 | -79.402113 | J4773677 | J3202747 | 7683 | INSTALLED |  |  |  |  |  | land |
+| 1785428678424-7kepwp | 2026-07-30 12:24:38 | Quincy Orta | 693911 |  | 3964 Chetwynd Rd, Township of Armour | 45.648529 | -79.199146 | J4784630 | J3533222 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785429064171-4mljeo | 2026-07-30 12:31:04 | Phillip Monteiro | 694310 |  | 16 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.765253 | -79.400349 | J4773674 | J3613989 | 60180 | INSTALLED |  |  |  |  |  | land |
+| 1785429479098-wb4aae | 2026-07-30 12:37:59 | Phillip Monteiro | 694526 |  | 22 Albert St S, Strong | 45.764874 | -79.399986 | J4773675 | J3950023 | 24379 | INSTALLED |  |  |  |  |  | land |
+| 1785429332726-624xdd | 2026-07-30 12:35:32 | Quincy Orta | 693857 |  | 345 Loon Lake Rd, Kearney, ON P0A 1Z0, Canada | 45.666479 | -79.216676 | J4784559 | J3532947 | 35879 | INSTALLED |  |  |  |  |  | land |
+| 1785429757421-b4crot | 2026-07-30 12:42:37 | Quincy Orta | 693800 |  | 325 Loon lake Rd, Kearney | 45.665278 | -79.215888 | J4784558 | J3333527 | 33386 | INSTALLED |  |  |  |  |  | land |
+| 1785429838166-fok2lq | 2026-07-30 12:43:58 | Phillip Monteiro | 695052 |  | 26 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.764716 | -79.399987 | J4773672 | J4029071 | 13837 | INSTALLED |  |  |  |  |  | land |
+| 1785430205665-tgcc2w | 2026-07-30 12:50:05 | Phillip Monteiro | 694539 |  | 30 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.764592 | -79.399836 | J4773671 | J4413498 | 30893 | INSTALLED |  |  |  |  |  | land |
+| 1785430260897-ooksyj | 2026-07-30 12:51:00 | Quincy Orta | 693772 |  | 15 Morris Lane, Kearney | 45.666242 | -79.215653 | J4784561 | J3532945 | 98151 | INSTALLED |  |  |  |  |  | land |
+| 1785430633940-n33dnj | 2026-07-30 12:57:13 | Phillip Monteiro | 694813 |  | 64 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.763282 | -79.39917 | J4773673 | J4027224 | 75779 | INSTALLED |  |  |  |  |  | land |
+| 1785430716408-zv4dcl | 2026-07-30 12:58:36 | Quincy Orta | 693861 |  | 35 Morris Dr, Kearney, ON P0A 1Z0, Canada | 45.667063 | -79.214838 | J4784560 | J3231882 | 61461 | INSTALLED |  |  |  |  |  | land |
+| 1785431233039-jytuaa | 2026-07-30 13:07:13 | Phillip Monteiro | 695042 |  | 68 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.76301 | -79.399041 | J4773670 | J3786988 | 38077 | INSTALLED |  |  |  |  |  | land |
+| 1785431711365-g9ryvq | 2026-07-30 13:15:11 | Phillip Monteiro | 694692 |  | 84 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.762345 | -79.398719 | J4642042 | J3255012 | 47599 | INSTALLED |  |  |  |  |  | land |
+| 1785432716744-d8pjmv | 2026-07-30 13:31:56 | Quincy Orta | 693854 |  | 660 Grass Lake Rd, Kearney, ON P0A 1Z0, Canada | 45.673771 | -79.202234 |  |  |  | UTI | Customer Delay/Change | Inside Meter cx would like to schedule appt for July 31 at 13:00 |  |  |  | land |
+| 1785433434636-3jywux | 2026-07-30 13:43:54 | Phillip Monteiro | 694564 |  | 31 Clear Springs Ln, Sundridge, ON P0A 1Z0, Canada | 45.758941 | -79.397435 | J4642041 | J4164959 | 19823 | INSTALLED |  |  |  |  |  | land |
+| 1785433707911-po18hj | 2026-07-30 13:48:27 | Quincy Orta | 693804 |  | 117 Buckleys Rd, Kearney, ON P0A 1M0, Canada | 45.63791 | -79.172731 | J4784584 | J3207575 | 14587 | INSTALLED |  |  |  |  |  | land |
+| 1785434199428-pc0taf | 2026-07-30 13:56:39 | Quincy Orta | 693859 |  | 4213 ON-518, Burk's Falls, ON P0A 1M0, Canada | 45.638071 | -79.152847 | J4784582 | J3255571 | 96444 | INSTALLED |  |  |  |  |  | land |
+| 1785434490312-pec4ay | 2026-07-30 14:01:30 | Phillip Monteiro | 694751 |  | 45 Clear Springs Ln, Strong, ON P0A 1Z0, Canada | 45.75937 | -79.397544 | J4642043 | J3256851 | 68339 | INSTALLED |  |  |  |  |  | land |
+| 1785434789375-m9yqkl | 2026-07-30 14:06:29 | Phillip Monteiro | 695429 |  | 53 Clear Springs Ln, Strong, ON P0A 1Z0, Canada | 45.759568 | -79.397342 | J4642044 | J3255935 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785434935578-zl4cru | 2026-07-30 14:08:55 | Quincy Orta | 693851 |  | 15 Dinsmores Rd, Kearney, ON P0A 1M0, Canada | 45.61519 | -79.167777 |  | J3262535 |  | UTI | Electrical Repair | Farmbox style meter base |  |  |  | land |
+| 1785435449317-yr4fi6 | 2026-07-30 14:17:29 | Phillip Monteiro | 694531 |  | 63 Clear Springs Lane, Strong | 45.76014 | -79.397431 | J4643765 | J3385667 | 74616 | INSTALLED |  |  |  |  |  | land |
+| 1785436002700-kis6d7 | 2026-07-30 14:26:42 | Quincy Orta | 693771 |  | 115 Rock Point Rd, Kearney | 45.616209 | -79.174113 | J4784583 | J3211735 | 55441 | INSTALLED |  |  |  |  |  | land |
+| 1785436032659-w8p1uz | 2026-07-30 14:27:12 | Phillip Monteiro | 695409 |  | 57 Clear Springs Lane, Strong | 45.759863 | -79.397302 | J4643766 | J3258293 | 19537 | INSTALLED |  |  |  |  |  | land |
+| 1785436543577-g3g6u5 | 2026-07-30 14:35:43 | Phillip Monteiro | 694547 |  | 73 Clear Springs Ln, Sundridge, ON P0A 1Z0, Canada | 45.760558 | -79.397519 | J4643768 | J3218854 | 29337 | INSTALLED |  |  |  |  |  | land |
+| 1785437124861-w554fi | 2026-07-30 14:45:24 | Quincy Orta | 693918 |  | 51 Rock Point Rd, Kearney | 45.61435 | -79.175411 | J4784585 | J3333534 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785438179325-rop0z6 | 2026-07-30 15:02:59 | Quincy Orta | 693855 |  | 144 Rock Point Rd, Kearney, ON P0A 1M0, Canada | 45.618179 | -79.173985 | J4763806 | J2830970 | 52546 | INSTALLED |  |  |  |  |  | land |
