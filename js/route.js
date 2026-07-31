@@ -1133,12 +1133,17 @@ export function solveVariant(M, located, { startC, homeC, target, commutePull, s
 }
 
 // Price a finished sequence against the run's distance matrix: metres driven
-// ARRIVING at each stop from the previous point. The previous point is the day
-// anchor (the crew's team start, or the phone fix on the route's very first stop)
-// for the first stop of each day, so a day's total includes the drive out. The drive
-// BACK home at day's end is deliberately not charged to any stop — each day is
-// already solved to end near home, so the omitted leg is small, and folding it
-// into the last stop would make a per-stop number mean two different things.
+// ARRIVING at each stop from the previous point. Each day's FIRST stop is charged
+// 0 — the morning drive out is measured separately by homeLegMetersFor and kept
+// out of every total, as a per-day reference number. (This comment used to say a
+// day's total "includes the drive out", which the code five lines below has never
+// done; it is the first thing anyone auditing these kilometres reads, and it sent
+// one such audit straight past the real cause.) The one exception is a phone
+// "start from here" GPS fix, whose first leg is a real driven leg mid-route.
+// The drive BACK home at day's end is deliberately not charged to any stop —
+// each day is already solved to end near home, so the omitted leg is small, and
+// folding it into the last stop would make a per-stop number mean two different
+// things.
 //
 // Called by the pages AFTER scheduleRouteConstraints, because appointment/lock
 // placement can reorder the geographic sequence and that changes which legs are

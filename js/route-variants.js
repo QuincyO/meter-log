@@ -196,6 +196,40 @@ export function fmtKm(metres){
   return (km < 10 ? Math.round(km * 10) / 10 : Math.round(km)) + ' km';
 }
 
+/** How many days the saved variant spans. 0 when it never measured one. Only a
+ *  label needs this — it is what lets a whole-plan figure say so out loud. */
+export function variantDayCount(items, variant){
+  const f = VARIANT_FIELDS[variant];
+  if(!f) return 0;
+  const days = new Set();
+  for(const item of pendingOf(items)){
+    const d = num(item[f.day]);
+    if(d != null) days.add(d);
+  }
+  return days.size;
+}
+
+/** The caption under the phone's two variant tiles: what the numbers on them
+ *  describe, and the whole-plan figure they deliberately no longer show.
+ *
+ *  This exists because the phone's headline is DAY-SCOPED and the crew reads it
+ *  as "how far am I driving". It used to be the whole multi-day plan, so one
+ *  distant order parked at the bottom of the list put 241 km on a screen whose
+ *  day headers read 2.2 km and 6.3 km — arithmetic that was correct and
+ *  answering a question nobody asked. A tooltip cannot carry the missing
+ *  number on a phone (there is nothing to hover), so it goes on screen.
+ *
+ *  Blank when there is nothing to disambiguate: no measured route, or a plan
+ *  that is one day long, where the day IS the whole plan. */
+export function routeScopeText(items, variant, day){
+  if(day == null) return '';
+  const days = variantDayCount(items, variant);
+  if(days < 2) return '';
+  const metres = variantMeters(items, variant);
+  if(metres == null) return '';
+  return `Day ${day} only — the whole plan is ${fmtKm(metres)} over ${days} days`;
+}
+
 /** The parenthetical that keeps the two totals honest. `legMetersRoad` is always
  *  real driving metres; `legMetersStraight` is only comparable when it was
  *  priced against a road matrix — after a straight-line-only run it is
@@ -206,12 +240,22 @@ export function distanceNote(variant, straightDistanceSource){
 }
 
 /** The label for one variant's button: "Road matrix · 234 km", plus the caveats
- *  that stop a number from being read as something it isn't. */
+ *  that stop a number from being read as something it isn't.
+ *
+ *  `opts.day` prices only that day of the variant, bucketed on the variant's OWN
+ *  saved day rather than the live one — two saved plans put different stops on
+ *  their first day, and comparing each plan's own day 1 is what makes the two
+ *  tiles a like-for-like choice. `opts.days` appends the span, for a surface
+ *  showing the whole plan (the desktop planner) that must not be mistaken for a
+ *  day. They are opposites; passing both is a caller bug, not a shape to
+ *  support. */
 export function variantSummary(items, variant, opts = {}){
   const selectable = variantSelectable(items, variant);
-  const metres = variantMeters(items, variant);
+  const metres = variantMeters(items, variant, opts.day == null ? {} : { day: opts.day });
   const parts = [fmtKm(metres)];
   if(metres != null) parts.push(`(${distanceNote(variant, opts.straightDistanceSource)})`);
+  const span = (metres != null && opts.days) ? variantDayCount(items, variant) : 0;
+  if(span > 1) parts.push(`· ${span} days`);
   if(selectable && opts.active && !variantMatchesLive(items, variant)) parts.push('· edited');
   return {
     variant,
@@ -229,11 +273,28 @@ export function variantSummary(items, variant, opts = {}){
  *  will plan around:
  *   - dragged: the legs were measured for a sequence that no longer exists;
  *   - out of date: orders were added or removed since, so the total silently
- *     leaves some of today's work out of the sum. */
-export function routeTotalSummary(items, variant, straightDistanceSource){
-  const metres = variantMeters(items, variant);
+ *     leaves some of today's work out of the sum.
+ *
+ *  `opts.day` scopes it to one day and says so: "day 1: 2.2 km (road)". It
+ *  buckets on the LIVE `day` field — the same field the day dividers use — so
+ *  the headline and that day's divider are the same number BY CONSTRUCTION
+ *  rather than by care. They were not, and the gap is the whole bug: the
+ *  unscoped figure spans day 1..N, so a single far-off order sitting at the
+ *  bottom of the list showed up as 241 km above day headers reading 2.2 km and
+ *  6.3 km. The office keeps the unscoped call — planning the week is what the
+ *  planner is for — and passes `opts.days` so its figure names its own span.
+ *
+ *  A day-scoped call on an empty day returns '' rather than "0 km", which is
+ *  the same answer the pace card gives when today's work is done. */
+export function routeTotalSummary(items, variant, straightDistanceSource, opts = {}){
+  const scoped = opts.day != null;
+  const metres = scoped ? liveDayMeters(items, variant, opts.day)
+    : variantMeters(items, variant);
   if(metres == null) return '';
   let text = `${fmtKm(metres)} (${distanceNote(variant, straightDistanceSource)})`;
+  if(scoped) text = `day ${opts.day}: ${text}`;
+  const span = opts.days ? variantDayCount(items, variant) : 0;
+  if(span > 1) text += ` · ${span} days`;
   if(!variantCoversPending(items, variant)) text += ' · out of date';
   else if(!variantMatchesLive(items, variant)) text += ' · edited';
   return text;
