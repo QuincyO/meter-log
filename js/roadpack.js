@@ -138,14 +138,25 @@ export async function deletePack(id){
 // active district, so the Settings line keeps naming what is actually in use.
 // Called without coords (the geocode path often has no centre) it behaves
 // exactly as it always did: the active district, else the first installed.
-export async function loadGraph(coords){
+//
+// `opts.switchActive:false` picks the pack for this run WITHOUT persisting the
+// pick. Unattended callers need it. The Drive screen re-prices its ETAs every
+// three minutes and after every logged stop, and a background tick that silently
+// re-points the crew's district — renaming the Settings line nobody asked it to
+// touch — is the "an unattended refresh is not a Download with the prompts
+// removed" rule from AGENTS.md, applied to the map instead of the worklist.
+// There is a mechanical cost too: setActivePack drops the decoded graph whenever
+// the id moves, so two callers disagreeing about the active district would throw
+// away the decode on every tick and pay for it again on the next.
+export async function loadGraph(coords, opts){
+  const switchActive = !(opts && opts.switchActive === false);
   // Known-bad districts are dropped BEFORE the choice, not after it: a corrupt
   // pack that happened to cover the run would otherwise win the scoring and
   // return null, hiding a perfectly good district beside it.
   const installed = (await installedPacks()).filter(p => !decodeFailed.has(p.id));
   const id = pickPack(installed, coords, activePackId());
   if(!id) return null;
-  if(id !== activePackId()) await setActivePack(id);
+  if(switchActive && id !== activePackId()) await setActivePack(id);
   if(decoded && decoded.id === id) return decoded.graph;
   const row = await idb.get(STORE, id);
   if(!row || !row.buf) return null;

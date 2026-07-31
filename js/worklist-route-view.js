@@ -209,7 +209,11 @@ export function initWorklistRouteView(opts){
     weightsEl.classList.remove('hide');
     weightsEl.textContent = `Tuning · commute pull ${isFinite(pull) ? pull : 70}%`
       + ` · target ${Math.max(1, Math.floor(Number(w.target) || 24))}/day`
-      + (timesEstimated() ? ' · ~ETAs estimated (road Optimize for exact)' : '');
+      // Not "road Optimize for exact" any more: the re-anchor measures on the
+      // downloaded district too, so what is missing when this shows is the MAP,
+      // not a press. Pointing at Optimize sent the crew to re-solve a route that
+      // was already fine and would come back estimated all over again.
+      + (timesEstimated() ? ' · ~ETAs estimated (no offline map for these stops)' : '');
   }
 
   function updateOfflineNote(){
