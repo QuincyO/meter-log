@@ -27,10 +27,10 @@ test('Download pulls today down before the day is re-anchored', () => {
 test('the drive-mode pace refreshes the cache on its own slow clock', () => {
   // drive.js repaints every few seconds; re-reading the same stale cache that
   // often is free and useless, and re-fetching it that often is neither.
-  // Five minutes, matching drive.js AUTO_SYNC_MS — the Drive screen's automatic
+  // Three minutes, matching drive.js AUTO_SYNC_MS — the Drive screen's automatic
   // refresh is the one on a real clock, and two periods would be two clocks
   // disagreeing about how fresh "fresh" is (tests/drive-auto-refresh.test.mjs).
-  assert.match(worklistJs, /const PACE_REFRESH_MS = 5 \* 60 \* 1000/);
+  assert.match(worklistJs, /const PACE_REFRESH_MS = 3 \* 60 \* 1000/);
   assert.match(worklistJs, /async function drivePace\(\)\{\s*await refreshPaceCache\(\);/);
   // Stamped before the await, or a slow call stacks up behind itself.
   assert.match(worklistJs, /paceCacheAt = now;[\s\S]{0,200}?await cacheRecentDays\(1\)/);
@@ -172,7 +172,9 @@ test('the on-device estimate starts from where the crew is, not the depot', () =
   // Latest completion wins — `updatedAt` is the stamp markWorklistDone writes.
   assert.match(worklistJs, /String\(b\.updatedAt \|\| ''\) > String\(a\.updatedAt \|\| ''\) \? b : a/);
   // Today only: an evening plan for tomorrow starts at the depot like any morning.
-  assert.match(worklistJs, /planDay\(\) === localDate\(\) \? lastDonePin\(all\) : null/);
+  // The live GPS fix sits ahead of the done-pin in the ladder and inside the same
+  // guard — see tests/drive-eta-origin.test.mjs for the rest of that story.
+  assert.match(worklistJs, /planDay\(\) === localDate\(\) \? \(livePin\(\) \|\| lastDonePin\(all\)\) : null/);
   assert.match(worklistJs, /here \|\| cachedCoord\('crewStartLat', 'crewStartLng'\)/);
   // Every caller hands over the FULL list, or the done orders it needs to locate
   // the crew are invisible to it — a one-argument call is the silent regression.

@@ -82,7 +82,7 @@ export function day1Count(day1Ids){
  *  the set to freeze, because the tagged group is literally what is on the screen the
  *  installer is looking at when they press 🔒. `applyTodayAnchor` uses its SIZE while
  *  UNLOCKED, to hold the day steady across the passive re-schedules (a logged stop,
- *  the Drive screen's 5-minute refresh, a Download) — an unlocked day is one a
+ *  the Drive screen's 3-minute refresh, a Download) — an unlocked day is one a
  *  deliberate act may re-plan, not one that re-plans itself in the background. */
 export function taggedDay1Ids(pending){
   const list = pending || [];

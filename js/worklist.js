@@ -14,9 +14,9 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, localRoadGeometry } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, ROAD_DETOUR_FACTOR, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
-import { liveMetrics } from './drive-recorder.js';
+import { liveMetrics, lastFix } from './drive-recorder.js';
 import { cacheRecentDays } from './daycache.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
@@ -143,7 +143,7 @@ async function refreshPlanDay(){
 // describing a day nobody is driving any more.
 //
 // Silent, like expireStaleLocks above it and for the same reason: this runs on every
-// re-schedule, including the Drive screen's 5-minute timer, and the toggle sitting
+// re-schedule, including the Drive screen's 3-minute timer, and the toggle sitting
 // above Optimize saying "unlocked" is the signal. A toast here would fire on a timer.
 function releaseStaleDayLock(planDay){
   const on = store.get('wlDayLock') || '';
@@ -558,7 +558,7 @@ async function wlDownload(){
 //
 // Four things it deliberately does NOT do:
 //   • no `confirm` — there is nobody to answer it at 80 km/h;
-//   • no `toast` — a timer that pops "Download failed — check signal" every five
+//   • no `toast` — a timer that pops "Download failed — check signal" every few
 //     minutes through a dead zone is worse than the staleness it is fixing. Every
 //     failure here leaves the last good copy in place and says nothing;
 //   • no `savePlan` push — nothing changed locally, and this runs all day;
@@ -636,14 +636,47 @@ function cachedCoord(latKey, lngKey){
   const lat = Number(store.get(latKey)), lng = Number(store.get(lngKey));
   return (isFinite(lat) && isFinite(lng) && (lat || lng)) ? { lat, lng } : null;
 }
-// Where the crew actually is: the pin of the most recently completed order. The
-// muster point is only the right origin before the day's FIRST stop — after that
-// the drive to the next order starts from the driveway they are standing in, and
-// pricing it from the depot inflates every remaining ETA for the rest of the day.
+// How old a GPS fix may be and still be read as "where I am now". Two minutes is
+// ~3 km at highway speed, which sits inside the ±30% the crow-flies
+// ROAD_DETOUR_FACTOR model already carries, so a fix this fresh cannot be the
+// biggest error in the estimate. Five would be ~7 km and would be.
+//
+// **This constant is the feature's whole safety margin, not a tuning knob.** A web
+// app gets no GPS in the background, so a Google-Maps hand-off freezes
+// drive-recorder.js's newest point at the driveway the crew pulled out of — and it
+// stays there, looking like a perfectly good fix, for the entire leg. Without an
+// age bound the "current location" origin would be *most* wrong exactly when the
+// driver is driving, which is the one moment it exists for. Widening this trades
+// that guarantee for nothing: past the window livePin() simply returns null and
+// the ladder falls back to lastDonePin, which is what shipped before.
+const LIVE_FIX_MAX_AGE_MS = 2 * 60 * 1000;
+
+// Where the truck is, from the drive recorder's live GPS stream — null unless this
+// phone is the day's armed recorder AND the fix is fresh enough to mean anything.
+// The age check also disposes of a leftover fix from a previous day for free.
+function livePin(){
+  const fix = lastFix();
+  if(!fix) return null;
+  const age = Date.now() - Number(fix.t || 0);
+  if(!(age >= 0 && age <= LIVE_FIX_MAX_AGE_MS)) return null;
+  return coordsOf(fix);
+}
+
+// Where the crew actually is, when there is no live fix: the pin of the most
+// recently completed order. The muster point is only the right origin before the
+// day's FIRST stop — after that the drive to the next order starts from the
+// driveway they are standing in, and pricing it from the depot inflates every
+// remaining ETA for the rest of the day.
 // `updatedAt` is the completion stamp (markWorklistDone writes it), and done
 // orders are pruned to the day they were logged, so the latest one is today's.
-// Deliberately not a GPS fix: this is free, needs no permission, and is available
-// with the radio off.
+//
+// It used to be the *only* answer, on the reasoning that it is free, needs no
+// permission and works with the radio off. All three are still true and are why it
+// remains the fallback — but they argue for it being second, not only: a phone that
+// has armed drive tracking is already streaming fixes at no extra cost or
+// permission, and between two houses the last completed driveway is kilometres
+// behind the truck. It is also the wrong answer after a walk-up or any stop that
+// never matched a worklist order, which markWorklistDone never sees.
 function lastDonePin(items){
   const done = (items || []).filter(x => x && x.wlStatus === 'done' && coordsOf(x));
   if(!done.length) return null;
@@ -657,9 +690,16 @@ function lastDonePin(items){
 // follow the crew — see lastDonePin. Omitted ⇒ the muster point, as before.
 function estimateTravel(items, all){
   // Only for the day the crew is STANDING in. An evening plan for tomorrow starts
-  // at the depot like any morning does, so today's last driveway is the wrong
-  // origin for it — the same today-vs-plan-day split day1DepartTime makes.
-  const here = planDay() === localDate() ? lastDonePin(all) : null;
+  // at the depot like any morning does, so today's last driveway — or the couch the
+  // phone is sitting on — is the wrong origin for it. Same today-vs-plan-day split
+  // day1DepartTime makes, and it covers both rungs of the ladder below.
+  //
+  // The ladder: the truck's live GPS fix, else the last completed driveway, else the
+  // muster point. Each rung is a worse answer to the same question ("where does the
+  // next drive start?") and each is reached only when the one above has nothing to
+  // say, so a phone that is not the day's recorder behaves exactly as it did before
+  // — silently, with no location prompt and no GPS wakeup of its own.
+  const here = planDay() === localDate() ? (livePin() || lastDonePin(all)) : null;
   return estimateTravelFromCoords(items,
     here || cachedCoord('crewStartLat', 'crewStartLng'),
     cachedCoord('homeLat', 'homeLng'));
@@ -2261,7 +2301,7 @@ function dayClosed(){ return store.get('dayClosedDate') === localDate(); }
 // during it is exactly the case the toggle exists to survive. So the office's extra
 // orders go through the SAME "where does this go?" sheet a hand-typed order raises.
 //
-// `interactive` is not decoration. This also runs on the Drive screen's 5-minute
+// `interactive` is not decoration. This also runs on the Drive screen's 3-minute
 // autoSync, whose whole contract is that it never speaks — there is nobody to answer
 // a prompt at 80 km/h. On that path the extras simply stay out of today and wait for
 // the installer to open the worklist, which is the honest quiet outcome.
@@ -2296,7 +2336,7 @@ async function adoptPlannerDay1(plan, opts){
 //
 // It runs after every logged stop (planAdvance is that call site), and there to
 // re-TIME the day rather than re-size it — the re-schedule is what keeps the
-// remaining ETAs honest, and it is what the Drive screen's 5-minute refresh is
+// remaining ETAs honest, and it is what the Drive screen's 3-minute refresh is
 // really after. Writes only when a pending order's order/day/date/ETA actually
 // changes, so a real downloaded route's exact ETAs survive an unchanged day.
 //
@@ -2354,7 +2394,7 @@ async function applyTodayAnchor(opts){
   //   UNLOCKED, PASSIVE → hold the day as currently tagged.
   //
   // That last one is load-bearing. This function also runs after EVERY logged stop
-  // (planAdvance), on the Drive screen's 5-minute autoSync, on Download and at boot —
+  // (planAdvance), on the Drive screen's 3-minute autoSync, on Download and at boot —
   // and if those re-chunked from the front of `pending`, an installer who simply had
   // not pressed 🔒 would watch tomorrow's orders climb into today as they worked,
   // which is the single most expensive bug this codebase has had (see the field
@@ -2481,9 +2521,29 @@ function todayPending(pending){
 
 // Real remaining route travel (minutes) + its per-stop average, priced at the
 // truck's measured moving speed once a drive has been recorded, else 50 km/h.
+// The first pending leg's saved `legMeters` is the drive from the PREVIOUS STOP IN
+// ROUTE ORDER — measured when the route was solved, from a driveway the crew may
+// have left half an hour ago. Once the ETAs are anchored on the live fix
+// (estimateTravel above), leaving this alone puts two models of the same day on one
+// screen: an arrival time measured from the truck, beside a "Route done ~" clock
+// whose first leg starts somewhere else. They disagree most on the long legs, which
+// is where the driver is most likely to be looking.
+//
+// So re-measure that one leg from the fix, crow-flies × ROAD_DETOUR_FACTOR — the
+// same pricing estimateDurations uses, imported rather than re-declared. Only the
+// FIRST leg: every later one really is stop-to-stop and its saved road distance is
+// better than anything crow-flies can offer. No fix (or no pin on the next stop)
+// leaves the sum exactly as it was.
+function firstLegMetres(pending, f){
+  const saved = Number(pending[0] && pending[0][f.legMeters]) || 0;
+  const fix = livePin(), to = coordsOf(pending[0]);
+  return (fix && to) ? haversine(fix, to) * ROAD_DETOUR_FACTOR : saved;
+}
+
 function routeTravel(pending){
   const f = VARIANT_FIELDS[activeVariant()];
-  const metres = pending.reduce((a, p) => a + (Number(p[f.legMeters]) || 0), 0);
+  const metres = pending.reduce((a, p, i) =>
+    a + (i === 0 ? firstLegMetres(pending, f) : (Number(p[f.legMeters]) || 0)), 0);
   const speed = liveMetrics().avgMovingSpeed;
   // A believable driving average is used; anything slower is on-foot contamination
   // rather than a slow truck, and the nominal prices the route instead.
@@ -2553,7 +2613,7 @@ export async function paceContext(){
 // hand-off, GPS denied, a phone that isn't recording); autoSync is the one on a
 // real clock. Two refresh paths with two different periods would just be two
 // clocks disagreeing about how fresh "fresh" is, so there is one number.
-const PACE_REFRESH_MS = 5 * 60 * 1000;
+const PACE_REFRESH_MS = 3 * 60 * 1000;
 let paceCacheAt = 0;
 async function refreshPaceCache(){
   const now = Date.now();
@@ -2706,6 +2766,15 @@ export function initWorklist(opts){
   driveView = initDrive({
     getPending: async () => pendingOf(await allSorted()),
     getPace: drivePace,
+    // The same two flags the route view reads, for the same reason: the Drive card
+    // now shows a `scheduled*` field, so it has to say when that field is estimated
+    // and when the last solve left it stale. A surface that shows one of these
+    // without consulting both is how "the map says 09:55 but the warning says 10:13"
+    // happens (AGENTS.md §wlPlanIssue).
+    getEtaMeta: () => ({
+      estimated: store.get('wlTimesEstimated') === '1',
+      stale: planStale(),
+    }),
     autoSync,
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
