@@ -4,6 +4,7 @@
 // orders, and the local worklist. Durable state lives in IndexedDB (queue /
 // dayCache / worklist); see the imported modules.
 import { cfg, store } from '../store.js';
+import { workMode } from '../work-mode.js';
 import { $, enc, esc, attr, toast, withActivity } from '../dom.js';
 import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
@@ -123,17 +124,10 @@ $('stuckRetryAll').onclick = async () => { await retryParked(); toast('Retrying 
 $('stuckClose').onclick = () => closeSheets();
 
 // ── work mode (boat | land) ─────────────────────────────────────────────
-// Persisted per device; flips the accent theme via <html data-mode> (the CSS
-// tokens) and tags every write payload with workType. An inline <head> snippet
-// already applied the attribute pre-paint; this keeps the switch UI in sync.
-export function workMode(){ return store.get('workMode')==='land' ? 'land' : 'boat'; }
-function setMode(m){
-  store.set('workMode', m);
-  document.documentElement.dataset.mode = m;
-  $('modeBoat').classList.toggle('on', m==='boat');
-  $('modeLand').classList.toggle('on', m==='land');
-  applyModeUI();
-}
+// workMode() lives in js/work-mode.js and currently returns 'land' for everyone
+// — the Boat/Land switch is gone from the top bar and the accent is set by an
+// inline <head> snippet pre-paint. Read that module's header before changing
+// anything here; it carries the reason and the revert recipe.
 // Mode-dependent chrome: the land daily log always prints the delay columns, so
 // the "include delays" choice only exists in boat mode. Land has no dock, so its
 // end-of-day bookends are a plain Start / End time rather than Departure / Returned.
@@ -144,9 +138,7 @@ function applyModeUI(){
   $('lblDeparture').innerHTML = land ? 'Start time' : 'Departure time <span style="font-weight:500">(left dock)</span>';
   $('lblReturned').textContent = land ? 'End time' : 'Returned to land';
 }
-$('modeBoat').onclick = () => setMode('boat');
-$('modeLand').onclick = () => setMode('land');
-setMode(workMode());
+applyModeUI();
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';

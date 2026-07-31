@@ -20,6 +20,7 @@
 // The pure track model (segment state machine + polyline encode) lives in
 // js/drive-track.js and is unchanged.
 import { store, cfg } from './store.js';
+import { workMode } from './work-mode.js';
 import { localDate, localDateOffset } from './time.js';
 import { idb } from './idb.js';
 import { enqueue } from './queue.js';
@@ -140,7 +141,10 @@ function startSegment(){
   const c = cfg();
   seg = createSegment({
     id: segId(), installer: c.name || '', date: localDate(),
-    workType: store.get('workMode') === 'land' ? 'land' : '',
+    // Blank rather than 'boat' — the spine's normWorkType reads blank as boat,
+    // same as saveTravel. Goes through workMode() and not the raw key so a leg
+    // is tagged with the mode the app is actually in (see js/work-mode.js).
+    workType: workMode() === 'land' ? 'land' : '',
   });
 }
 

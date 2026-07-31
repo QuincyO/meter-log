@@ -27,6 +27,9 @@ const SHELL = [
   './css/vendor/images/layers.png', './css/vendor/images/layers-2x.png',
   // shared JS modules
   './js/config.js', './js/dom.js', './js/time.js', './js/store.js', './js/idb.js',
+  // work-mode.js is a HARD import of BOTH pages/capture.js and drive-recorder.js
+  // — missing here is a capture page that will not load offline at all.
+  './js/work-mode.js',
   './js/api.js', './js/daycache.js', './js/queue.js', './js/queue-policy.js', './js/geocode.js',
   './js/worklist.js', './js/worklist-route-view.js', './js/worklist-address-fill.js',
   './js/worklist-dedup.js', './js/worklist-tuning.js',
