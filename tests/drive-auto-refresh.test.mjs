@@ -3,7 +3,7 @@
 // recorder's subscribe(), so the card and the ETAs froze the moment fixes stopped
 // (a Google-Maps hand-off, GPS denied, a phone not recording) and only a trip back
 // to the worklist to tap ⇩ Download would unfreeze them. These are the wiring
-// assertions for the 5-minute automatic refresh that replaces that tap — the gate
+// assertions for the 3-minute automatic refresh that replaces that tap — the gate
 // it runs behind, the clock, and the four things it must never do.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,11 +40,11 @@ test('the refresh runs only while driving, opted in, and on the Drive screen', (
 });
 
 // ── the clock ───────────────────────────────────────────────────────────────
-test('five minutes is the period, and a slow refresh cannot stack up', () => {
-  assert.match(driveJs, /const AUTO_SYNC_MS = 5 \* 60 \* 1000/);
+test('three minutes is the period, and a slow refresh cannot stack up', () => {
+  assert.match(driveJs, /const AUTO_SYNC_MS = 3 \* 60 \* 1000/);
   // The tick cadence is retry granularity, NOT the period — a tick that lands
   // while the driver is in Maps must cost seconds of staleness, not a whole
-  // further period. The five minutes live in the timestamp throttle.
+  // further period. The three minutes live in the timestamp throttle.
   assert.match(driveJs, /const AUTO_SYNC_TICK_MS = 30 \* 1000/);
   assert.match(driveJs, /if\(syncBusy \|\| now - syncAt < AUTO_SYNC_MS\) return;/);
   // Stamped BEFORE the await, or a refresh on a weak signal queues behind itself
@@ -66,7 +66,7 @@ test('the interval never outlives the screen', () => {
 
 // ── what the refresh must not do ────────────────────────────────────────────
 test('a timer never talks to the driver and never touches the capture form', () => {
-  // A "Download failed — check signal" popping every five minutes through a dead
+  // A "Download failed — check signal" popping every few minutes through a dead
   // zone is worse than the staleness it reports, and there is nobody to answer a
   // confirm() at 80 km/h. Every failure path here keeps the last good copy silently.
   assert.doesNotMatch(autoSyncBody, /\btoast\(/);
@@ -124,7 +124,7 @@ test('the refresh re-anchors, and pulls today down before it does', () => {
 // ── the tick RE-TIMES the day; it must never RE-SIZE it ─────────────────────
 // The installer works two devices: a work phone that logs each install and pushes the
 // completed work order to the sheet, and this one, which pulls a refreshed list every
-// five minutes and re-prices the rest of the day off the real finish times. That is
+// few minutes and re-prices the rest of the day off the real finish times. That is
 // the feature. What it must not do is move work between days — and it used to, on
 // every tick, because Day 1 was re-sized to `min(dayCapacity + extend, |set|)` and the
 // meters the work phone logged kept shrinking the capacity half. Reported as *"the
@@ -136,7 +136,7 @@ test('a tick re-times the day without re-sizing it', () => {
   // …and UNLOCKED it holds the day as tagged rather than re-chunking from the front
   // of pending. That is the case this tick actually lands in most often: a crew that
   // simply has not pressed 🔒 must not watch tomorrow's orders climb into today on a
-  // five-minute timer. Only a deliberate act re-chunks, and this is not one — autoSync
+  // three-minute timer. Only a deliberate act re-chunks, and this is not one — autoSync
   // passes no opts at all.
   assert.match(worklistJs,
     /const fits = \(!locked && opts && opts\.rechunk\) \? null : currentDay1Count\(pending\);/);
@@ -160,7 +160,7 @@ test('the two refresh clocks agree', () => {
   // PACE_REFRESH_MS is the GPS-fix-driven pull — a side effect of a repaint, so it
   // stalls exactly when autoSync is needed most. Two periods would be two clocks
   // disagreeing about how fresh "fresh" is.
-  assert.match(worklistJs, /const PACE_REFRESH_MS = 5 \* 60 \* 1000/);
+  assert.match(worklistJs, /const PACE_REFRESH_MS = 3 \* 60 \* 1000/);
 });
 
 // ── the card holds still ────────────────────────────────────────────────────

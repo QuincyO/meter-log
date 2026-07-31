@@ -38,6 +38,21 @@
 .drive-dest-wo{ font-size:19px; font-weight:800; letter-spacing:.5px; color:var(--accent); }
 .drive-dest-addr{ font-size:15px; font-weight:600; line-height:1.25; }
 
+/* Arrival line — "Arrive ~10:42 · in 12 min" — on both the current-order card and
+   the locked "Driving to" one (js/drive.js etaLine). A span, block-styled, because
+   the dest card is a <button> and cannot hold a div. Accent-coloured: it is the
+   answer to the question the driver opened this screen with, so it reads as a
+   figure rather than as more address text.
+
+   `.stale` is the greying for a failed constraint solve (wlPlanIssue) — the times
+   are then left over from an earlier route. Kept legible on purpose: a stale guide
+   is still worth something, a stale guide presented as current is not. */
+.drive-eta{
+  display:block; font-size:16px; font-weight:700; line-height:1.3;
+  color:var(--accent); font-variant-numeric:tabular-nums;
+}
+.drive-eta.stale{ color:var(--ink-soft); font-weight:600; }
+
 /* On-pace gauge — one card (working hours) pinned under the "Driving to" card,
    read like a truck instrument cluster: a horizon eyebrow + state pill, a big
    projected install count, a progress track that shows the route spatially —

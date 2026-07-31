@@ -964,7 +964,7 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `scheduleRouteConstraints` with **`opts.day1Count`**, while days 2+ fill by `target`.
 
   **Unlocked is not "no `day1Count`", and that distinction is load-bearing.**
-  `applyTodayAnchor` also runs after every logged stop, on the Drive screen's 5-minute
+  `applyTodayAnchor` also runs after every logged stop, on the Drive screen's 3-minute
   `autoSync`, on Download and at boot. If those re-chunked from the front of `pending`,
   an installer who had simply not pressed 🔒 would watch tomorrow's orders climb into
   today as they worked — the original field report, back again and on a timer. So there
@@ -1038,7 +1038,7 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     exists to survive. Orders the office tagged `day === 1` that are not already in the
     frozen set go through the **same sheet** as a hand-typed one. Only the manual ⇩
     Download raises it (`opts.interactive`) — this also runs on the Drive screen's
-    5-minute `autoSync`, whose whole contract is that it never speaks, so there the
+    3-minute `autoSync`, whose whole contract is that it never speaks, so there the
     extras simply stay out of today and wait for the installer to open the worklist.
     Unlocked there is nothing to adopt: no frozen set exists and the downloaded `day`
     tags already are the day.
@@ -1394,12 +1394,56 @@ screen, not just `#drive`.
   blended-average `projectDay` is gone.) **Closing out
   the day** (`finishDay`) stamps `localStorage['dayClosedDate']` — which drops the
   4:45 OT escalation — and **exits plan mode** (`exitPlan`), since the plan is spent.
+- **The ETA origin is the truck's live GPS fix (`js/worklist.js` `livePin`).** Every
+  remaining ETA is `scheduleRouteConstraints` walking `arrival = previous departure +
+  drive`, so the whole day hangs off one question: where does the *next* drive start?
+  The ladder in `estimateTravel` answers it in three rungs — **the drive recorder's
+  newest fix, else the pin of the last completed order (`lastDonePin`), else the crew's
+  muster point** — each reached only when the one above has nothing to say, all three
+  inside the existing `planDay() === localDate()` guard (an evening plan for tomorrow
+  departs from the depot like any morning does).
+  `js/drive-recorder.js` has been `watchPosition`-ing all along; `lastFix()` is the only
+  place its coordinates leave the module, and it is a **sibling of `liveMetrics()`, not
+  a field on it** — that return shape is a HUD contract two other modules destructure,
+  and a position is not a metric.
+  **`LIVE_FIX_MAX_AGE_MS` (2 min) is the feature, not a tuning knob.** A web app gets no
+  GPS in the background, so a Google-Maps hand-off freezes the newest point at the
+  driveway the crew pulled out of — and it stays there, looking like a perfectly good
+  fix, for the whole leg. Unbounded, the "current location" origin would be *most* wrong
+  exactly while the driver is driving, which is the one moment it exists for. Past the
+  window `livePin()` returns null and the ladder falls back, which is what shipped
+  before. Two minutes is ~3 km at highway speed — inside the ±30% `ROAD_DETOUR_FACTOR`
+  already carries, so a fix this fresh cannot be the biggest error in the estimate.
+  **`routeTravel` re-prices the first pending leg from the same fix.** That leg's saved
+  `legMeters` is the drive from the previous stop *in route order*; leaving it alone put
+  an arrival time measured from the truck beside a "Route done ~" clock whose first leg
+  started somewhere else — two models of one day on one screen. Only the first leg:
+  every later one really is stop-to-stop and its saved road distance beats crow-flies.
+  A phone that never armed drive tracking reaches none of this and behaves exactly as it
+  did before — no location prompt, no GPS wakeup of its own, nothing on screen.
+- **The arrival line on the Drive card (`js/drive.js` `etaLine`).** "Arrive ~10:42 · in
+  12 min", on the current-order card and on the locked "Driving to" one. It renders the
+  order's **own persisted `scheduledEta`** — never a drive time computed on this screen —
+  because the stored field is already anchored on the live fix, and re-deriving it here
+  would be a second model that can disagree with the first. The only arithmetic is
+  `eta − now`, the same number read two ways, and `now` goes through
+  `hhmmMin(clockOf(stamp()))` like every other clock here: `scheduledEta` is a Toronto
+  string, and comparing it against the device's `new Date().getHours()` is two zones —
+  a bug that hides completely on a phone set to Toronto. The relative half appears only
+  when the ETA is on today's date and still ahead; a `scheduledEta` in the past means the
+  re-time has not caught up, and an overdue count would read as lateness, which
+  `scheduledLateMin` already means something specific and different by. It honours both
+  staleness flags (`wlTimesEstimated` → `~`, `wlPlanIssue` → greyed + "(stale)"), handed
+  down through `initDrive`'s `getEtaMeta` like everything else this screen knows about
+  the route. The dest card reads the **live** order matched out of `pending` by
+  `destKey`, not the snapshot saved at the Navigate press, or its time would sit frozen
+  for the whole drive. It is a `<span>` because that card is a `<button>`.
 - **The automatic refresh (`js/drive.js` `tickAutoSync` → `js/worklist.js` `autoSync`).**
   Nothing on this screen was ever on a clock: the only repaint driver is the
   recorder's `subscribe()`, which fires per GPS fix, so the card and the ETAs froze
   the moment fixes stopped (a Maps hand-off, GPS denied, a phone not recording) and
   only a trip back to the worklist to tap ⇩ Download unfroze them. `drive.js` now
-  runs a `setInterval` while the screen is open and refreshes on a **5-minute**
+  runs a `setInterval` while the screen is open and refreshes on a **3-minute**
   timestamp throttle (`AUTO_SYNC_MS`; the interval itself ticks every 30 s, which is
   retry granularity, not the period — a tick that lands while the driver is in Maps
   then costs seconds of staleness rather than a whole further period). `syncAt = 0`
@@ -1421,12 +1465,17 @@ screen, not just `#drive`.
   right after a Download": nothing in the pull rewrites `order`/`day`/`scheduledEta`
   — `applyTodayAnchor` does, by re-running `scheduleRouteConstraints` from where the
   crew is now. A day-cache refresh alone (`refreshPaceCache`) moves the gauge's
-  `done` count and nothing else. `PACE_REFRESH_MS` was raised 3 → 5 min to match, so
-  the two pulls share one period rather than being two clocks disagreeing about how
-  fresh "fresh" is.
+  `done` count and nothing else. `PACE_REFRESH_MS` **tracks `AUTO_SYNC_MS` exactly**,
+  so the two pulls share one period rather than being two clocks disagreeing about how
+  fresh "fresh" is — the number moved 5 → 3 min on both at once, on the driver's
+  report that five minutes is a long time to be reading a card and an arrival clock
+  that describe a day another phone has already moved on from. The 30 s tick is
+  unchanged: it is retry granularity, and at a 3-minute period it is still a sixth of
+  it. The cost of the shorter period is one extra `worklist` + `range` GET per hour,
+  and only while all three gates hold.
   **Four things it must never do**, each a way an unattended timer goes wrong: no
   `confirm` (nobody can answer one at 80 km/h), no `toast` (a "check signal" popping
-  every five minutes through a dead zone is worse than the staleness it reports — a
+  every few minutes through a dead zone is worse than the staleness it reports — a
   failure keeps the last good copy silently), no `savePlan` push (nothing changed
   locally), and no `planAdvance()` (it ends in `fillCapture`, and a background timer
   must not overwrite a half-typed capture form; plan mode re-advances on the next

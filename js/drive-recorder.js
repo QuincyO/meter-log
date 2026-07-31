@@ -93,6 +93,27 @@ export function liveMetrics(){
   };
 }
 
+// The newest position on the live leg — `{lat, lng, t}` with `t` an absolute epoch
+// ms (drive-track.js stores `p.timestamp`), or null when nothing is recording yet.
+// This is the *only* place the recorder's coordinates leave the module; everything
+// else it collects goes to the encoded polyline and the office.
+//
+// Deliberately a sibling of liveMetrics() rather than a fifth field on it:
+// liveMetrics is a HUD contract (drive.js paintMetrics, worklist.js routeTravel,
+// tests/pace-live.test.mjs), and a position is not a metric.
+//
+// **It goes stale without ever going null, and the caller owns that.** A web app
+// gets no GPS in the background, so the moment the PWA is backgrounded — which is
+// exactly what a Google-Maps hand-off does — fixes stop and this keeps returning
+// the point where the driver *left*, indefinitely. Read `t` and reject an old one
+// (js/worklist.js livePin) rather than trusting the coordinates alone. Nothing
+// here can fix that: pausing is what the platform does, and pretending otherwise
+// is the whole bug this comment exists to prevent.
+export function lastFix(){
+  const last = seg && seg.points.length ? seg.points[seg.points.length - 1] : null;
+  return last ? { lat: last.lat, lng: last.lng, t: last.t } : null;
+}
+
 function notify(){ for(const cb of listeners) { try { cb(); } catch {} } }
 export function subscribe(cb){ listeners.add(cb); return () => listeners.delete(cb); }
 

@@ -7,13 +7,15 @@
 // opt-in gate is per-device — it prevents two phones double-recording a drive).
 //
 // worklist.js owns the worklist data and calls initDrive() once, handing in a
-// pending-orders accessor, the pace projection, the automatic sheet refresh
-// (opts.autoSync) and the shared openDirections() — this module never imports
-// worklist.js back (that would be circular), exactly like the route view. The
-// clock and the gate for the refresh live here (AUTO_SYNC_MS); knowing HOW to
-// refresh stays with the module that owns the data.
+// pending-orders accessor, the pace projection, the ETA staleness/estimate flags
+// (opts.getEtaMeta), the automatic sheet refresh (opts.autoSync) and the shared
+// openDirections() — this module never imports worklist.js back (that would be
+// circular), exactly like the route view. The clock and the gate for the refresh
+// live here (AUTO_SYNC_MS); knowing HOW to refresh stays with the module that owns
+// the data.
 import { $, esc } from './dom.js';
 import { store } from './store.js';
+import { localDate, hhmmMin, clockOf, stamp } from './time.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
@@ -33,6 +35,46 @@ const loadDest = () => {
 const addrOf = item => [item.unit, item.address].filter(Boolean).join(' ').trim();
 // Match a saved dest to a pending order: WO# when present, else the address.
 const destKey = item => item.workOrderId || addrOf(item);
+
+// ── arrival line ────────────────────────────────────────────────────────────
+// The one number the driver was going back to the worklist to read. It is the
+// order's OWN persisted `scheduledEta` — the field applyTodayAnchor writes and the
+// worklist badges and route view already render — never a drive time computed here.
+// That is deliberate: worklist.js estimateTravel now anchors those ETAs on the
+// truck's live GPS fix, so the stored number already IS "from where I am", and
+// re-deriving it on this screen would be a second model of the day that can
+// disagree with the first (see AGENTS.md §"never model the day twice"). The only
+// arithmetic below is `eta − now`, which is the same number read two ways.
+//
+// `in N min` is shown only when the ETA is on today's date and still ahead. A
+// scheduledEta already in the past means the re-time has not caught up (it clocks
+// day 1 from `now`), so the bare arrival time is the honest thing to show — and an
+// overdue count would read as lateness, which `scheduledLateMin` already means
+// something specific and different by.
+const MAX_AHEAD_MIN = 12 * 60;
+function etaLine(item, meta){
+  if(!item || !item.scheduledEta) return '';
+  const tilde = meta.estimated ? '~' : '';
+  const when = `Arrive ${tilde}${esc(item.scheduledEta)}`;
+  const onToday = !item.scheduledDate || String(item.scheduledDate) === localDate();
+  const eta = hhmmMin(item.scheduledEta);
+  // Toronto-pinned, via the same `hhmmMin(clockOf(stamp()))` day1DepartTime uses.
+  // `scheduledEta` is a Toronto clock string (route-constraints.js builds it from
+  // Toronto-local minutes), so a bare `new Date().getHours()` compares two
+  // different zones — correct only on a phone that happens to be set to Toronto,
+  // and silently off by the offset on any that is not. It read as the relative
+  // half simply never appearing.
+  const nowMin = hhmmMin(clockOf(stamp()));
+  const delta = (eta == null || nowMin == null) ? null : eta - nowMin;
+  const rel = (onToday && delta != null && delta > 0 && delta <= MAX_AHEAD_MIN)
+    ? ` · in ${delta} min` : '';
+  // Greyed, and labelled, when the last constraint solve failed: every scheduled*
+  // field is then left over from the run before it. This is the screen the crew
+  // actually navigates by, so it is the last place a stale time may look current.
+  // A span (block-styled in CSS), not a div: the "Driving to" card is a <button>,
+  // and a div inside one is invalid markup that browsers reparse out of it.
+  return `<span class="drive-eta${meta.stale ? ' stale' : ''}">${when}${rel}${meta.stale ? ' (stale)' : ''}</span>`;
+}
 
 // Driver-facing units: metric (km / km/h), matching the office map. Metres→km
 // and m/s→km/h.
@@ -208,7 +250,7 @@ export function initDrive(opts){
     } finally { paceBusy = false; }
   }
 
-  // ── automatic refresh from the sheet (every 5 minutes, while driving) ───────
+  // ── automatic refresh from the sheet (every 3 minutes, while driving) ───────
   // Nothing on this screen was ever on a clock: the only repaint driver is the
   // recorder's subscribe(), which fires per GPS fix — so the moment fixes stop
   // (a Google-Maps hand-off backgrounds the PWA, GPS is denied) the card and the
@@ -224,9 +266,14 @@ export function initDrive(opts){
   //   • openState         — the Drive screen is actually in front.
   // Plus the two the network demands: not backgrounded (an OS-suspended tab's
   // timers are unreliable and the fetch is wasted), and online.
-  const AUTO_SYNC_MS = 5 * 60 * 1000;
+  // Three minutes, not five. The driver asked for it shorter: on a route being
+  // worked by a second phone, five minutes is a long time to be looking at a card
+  // and an arrival clock that describe a day which has already moved on. The cost
+  // is one extra `worklist` + `range` GET per hour, and only while all three gates
+  // below hold. Whatever this number is, worklist.js PACE_REFRESH_MS must equal it.
+  const AUTO_SYNC_MS = 3 * 60 * 1000;
   // Tick often, throttle on the timestamp. The 30s cadence is NOT the period — the
-  // five minutes live in AUTO_SYNC_MS — it is the retry granularity, so a tick that
+  // three minutes live in AUTO_SYNC_MS — it is the retry granularity, so a tick that
   // lands while the driver is in Maps costs 30 seconds of staleness rather than a
   // whole further period. Same throttle-by-timestamp shape as paintPace below and
   // worklist.js refreshPaceCache, rather than making an interval load-bearing.
@@ -236,7 +283,7 @@ export function initDrive(opts){
   // Drive is exactly the moment they are asking what the route looks like. It is
   // deliberately module-scoped, not reset by open(): the crew hops between the
   // worklist and this screen constantly, and re-entering inside the window must
-  // not re-fetch. Re-entering after five idle minutes does, on the first tick.
+  // not re-fetch. Re-entering after three idle minutes does, on the first tick.
   let syncAt = 0, syncBusy = false, syncTimer = null;
 
   const autoSyncOn = () =>
@@ -262,6 +309,11 @@ export function initDrive(opts){
     if(syncTimer){ clearInterval(syncTimer); syncTimer = null; }
   }
 
+  // Staleness/estimate markers for the arrival lines. They come down through opts
+  // like everything else this screen knows about the route — worklist.js owns both
+  // flags, and importing it back here would be circular (see the module header).
+  const etaMeta = () => (opts.getEtaMeta && opts.getEtaMeta()) || { estimated:false, stale:false };
+
   // ── locked "Driving to" card (top of screen) ──
   // Shows the destination the driver last pressed Navigate on, so they always
   // know where they're headed even after the stepper has advanced or they've
@@ -273,6 +325,14 @@ export function initDrive(opts){
     if(!d){ el.classList.add('hide'); return; }
     $('driveDestWo').textContent = d.workOrderId ? d.workOrderId : '(no WO#)';
     $('driveDestAddr').textContent = addrOf(d) || 'No address';
+    // The arrival time comes off the LIVE order, matched back out of `pending` by
+    // destKey — `d` is a snapshot saved at the Navigate press, so its own copy of
+    // scheduledEta would be frozen at whatever the route said then and would sit
+    // there un-refreshed for the whole drive. This is the card the driver reads on
+    // the way, so it is the one that most needs the number to move.
+    const live = pending.find(p => destKey(p) === destKey(d));
+    const eta = $('driveDestEta');
+    if(eta) eta.innerHTML = etaLine(live, etaMeta());
     el.classList.remove('hide');
   }
 
@@ -300,6 +360,7 @@ export function initDrive(opts){
     card.innerHTML = `
       <div class="drive-wo mono">${item.workOrderId ? esc(item.workOrderId) : '(no WO#)'}</div>
       <div class="drive-addr">${addr ? esc(addr) : 'No address'}</div>
+      ${etaLine(item, etaMeta())}
       ${item.oldJNumber ? `<div class="drive-oldj mono">Old J# ${esc(item.oldJNumber)}</div>` : ''}
       ${item.appointmentTime ? `<div class="drive-appt">🔔 ${esc(item.appointmentDate || '')} ${esc(item.appointmentTime)}</div>` : ''}`;
     $('driveNav').disabled = !addr && !(item.lat && item.lng);
@@ -346,7 +407,7 @@ export function initDrive(opts){
     paintAll();
     // The interval only runs while the screen is open; the gate is re-checked on
     // every tick, so arming/disarming tracking mid-drive needs no wiring of its own.
-    // syncAt survives the close, so re-entering the screen after five idle minutes
+    // syncAt survives the close, so re-entering the screen after three idle minutes
     // refreshes on the first tick rather than waiting out a fresh period.
     startAutoSync();
     window.scrollTo(0, 0);

@@ -60,7 +60,7 @@ test('exactly one call site asks applyTodayAnchor to re-chunk', () => {
 
 test('a passive re-schedule holds the day it found — unlocked included', () => {
   // applyTodayAnchor runs after EVERY logged stop (planAdvance), on the Drive
-  // screen's 5-minute autoSync, on Download and at boot. If those re-chunked from
+  // screen's 3-minute autoSync, on Download and at boot. If those re-chunked from
   // the front of `pending`, an installer who simply had not pressed 🔒 would watch
   // tomorrow's orders climb into today as they worked — the original report, back
   // again, and on a timer.

@@ -812,7 +812,10 @@ export function haversine(a, b){
 // a road-detour factor because haversine underestimates real road length; a road
 // distance matrix (Google/ORS) passes crowFlies:false. Both constants are tunable.
 export const ESTIMATE_SPEED_KMH = 50;
-const ROAD_DETOUR_FACTOR = 1.3;
+// Exported so a caller pricing ONE crow-flies leg (worklist.js routeTravel, which
+// re-measures the first pending leg from the truck's live GPS fix) uses the same
+// detour allowance the matrix estimate does, instead of a second copy that can drift.
+export const ROAD_DETOUR_FACTOR = 1.3;
 // Minutes per metre of crow-flies distance. One definition, shared by the whole-matrix
 // estimate below and the single-node rewrite in straightLineNode.
 const CROW_MIN_PER_METRE = ROAD_DETOUR_FACTOR / 1000 / ESTIMATE_SPEED_KMH * 60;
