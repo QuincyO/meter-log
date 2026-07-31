@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { projectDayReal, workHorizon, clockLabel, finishLabel } from '../js/compute/estimate.js';
+import { observedOnSiteMin } from '../js/compute/cadence.js';
+import { MIN_ONSITE_MIN } from '../js/route-dwell.js';
 
 // ── workHorizon: regular-hours tiers ────────────────────────────────────────
 test('workHorizon is 3:45 before 4 PM', () => {
@@ -250,4 +252,159 @@ test('the reported card reads as 11:29 PM, not 11:29', () => {
   assert.equal(r.routeFinishMin, 23 * 60 + 29);     // 1409 — tonight, not this morning
   assert.equal(r.routeFinishLabel, '11:29 pm');
   assert.ok(r.routeFinishMin > r.paces.work.horizonMin);   // still painted amber
+});
+
+// ── the 2026-07-31 route: both inputs wrong, pointing opposite ways ──────────
+// The day this model was rebuilt around, taken off the MeterLog sheet. At 12:31 with
+// 13 done the card read "~13 installs by 3:45 · 8 STOPS SHORT · Route done ~5:36 pm":
+// it projected ZERO of the eight stops in front of the crew over the next three and a
+// quarter hours, while the stop card directly beneath it read "Arrive 12:36 · in 5
+// min". The route's own scheduledEta chain, solved that same lunchtime, landed the
+// last of those eight at 14:45.
+//
+// It stayed plausible for so long because its two inputs were wrong in OPPOSITE
+// directions, and the smaller error flattered the larger one:
+//   * remaining travel was 110.8 km ÷ a day-average "speed" of 28 km/h = 241 min.
+//     The 28 was the crew ON FOOT at a property — 0.2 km covered in ~21.6 minutes
+//     that avgMovingSpeed counted as driving.
+//   * on-site was the 16-minute median gap less a flat 10-minute drive, floored back
+//     up to 8 — over morning legs really driven in two or three minutes. Two
+//     mistakes cancelling to a number that looked ordinary; the truth was near 14.
+//
+// Both halves are priced by one model now, so the fixture prices them that way too:
+// the drive is netted out of each gap it actually belongs to, and the same per-metre
+// rate walks the route ahead.
+
+// legMetersRoad — the drive INTO each stop from the one before it in road order.
+const DONE_LEGS    = [2242, 6973, 4450, 2033, 827, 866, 1035, 1731, 2283, 1369, 530];
+// The day's wall-clock WO→WO gaps, whole minutes as computeGapsLocal reads them.
+const GAPS_MIN     = [16, 18, 22, 23, 18, 15, 16, 9, 13, 10, 12];
+// The eight still pending at 12:04 — 110 829 m, out past Kearney to McClintock and
+// Hwy 60. The 58 703 m leg is a real haul, which is the point: no single speed can
+// be right for it AND for the 530 m hop at the other end of the same list.
+const PENDING_LEGS = [2360, 4484, 9283, 6676, 58703, 4620, 1412, 23291];
+// The off-plan walk-up at 12:25 (WO 681945): 28 minutes of wall clock, and no
+// worklist row for the lookup to price, so its leg takes the nominal.
+const WALKUP_GAP   = [{ idleMin: 28, driveMin: 10 }];
+
+// Minutes per metre of road at a given speed — the shape js/route.js prices a road
+// distance matrix with. 70 km/h is what the day's own completed legs regress to and
+// what its scheduledEta chain implies; 50 is the nominal the saved-metres tier falls
+// back to when no district pack covers the run.
+const perMetre = kmh => 1 / 1000 / kmh * 60;
+
+function cardAt(kmh, gapCount, legs, nowMin, done, extraGaps = []){
+  const r = perMetre(kmh);
+  const gaps = GAPS_MIN.slice(0, gapCount)
+    .map((idleMin, i) => ({ idleMin, driveMin: DONE_LEGS[i] * r }))
+    .concat(extraGaps);
+  const est = projectDayReal({
+    stops: Array.from({ length: done }, () => ({ status: 'INSTALLED' })),
+    pendingCount: legs.length,
+    remainingTravelMin: legs.reduce((a, m) => a + m * r, 0),
+    onsitePerStop: Math.max(MIN_ONSITE_MIN, observedOnSiteMin(gaps)),
+    finishByMin: null, target: 20, nowMin, dayClosed: false,
+  });
+  return est;
+}
+
+const AT_1204 = () => cardAt(70, 11, PENDING_LEGS, 12 * 60 + 4, 12);
+const AT_1231 = () => cardAt(70, 11, PENDING_LEGS, 12 * 60 + 31, 13, WALKUP_GAP);
+
+test('the shipped inputs reproduce the shipped card, exactly', () => {
+  // The diagnosis, not the fix — and the reason to trust every other number in this
+  // block. The two bad inputs were recovered by back-solving four photographs of the
+  // card; feeding them to the UNCHANGED model returns all four lines of the 12:31
+  // screenshot to the digit, which is what confirms the back-solve was right and the
+  // model itself was never the problem.
+  const r = projectDayReal({
+    stops: Array.from({ length: 13 }, () => ({ status: 'INSTALLED' })),
+    pendingCount: 8,
+    remainingTravelMin: 241,     // 110.8 km ÷ 28 km/h — the crew on foot
+    onsitePerStop: 8,            // 16.25 median − a flat 10, floored back up
+    finishByMin: null, target: 20, nowMin: 12 * 60 + 31, dayClosed: false,
+  });
+  assert.equal(r.paces.work.projected, 13);      // "~13 installs by 3:45"
+  assert.equal(r.paces.work.routeShort, 8);      // "8 STOPS SHORT"
+  assert.equal(r.paces.work.targetShort, 7);     // "7 under your 20"
+  assert.equal(r.routeFinishLabel, '5:36 pm');   // "Route done ~5:36 pm"
+});
+
+test('the 12:31 card reads ~19 by 3:45, not ~13', () => {
+  const r = AT_1231();
+  assert.equal(r.done, 13);
+  assert.equal(r.pendingCount, 8);
+  // The shipped card. If any of these three come back, so has the bug.
+  assert.notEqual(r.paces.work.projected, 13);
+  assert.notEqual(r.paces.work.routeShort, 8);
+  assert.notEqual(r.routeFinishLabel, '5:36 pm');
+  assert.equal(r.paces.work.projected, 19);         // "~19 installs by 3:45"
+  assert.equal(r.paces.work.routeShort, 2);         // "2 STOPS SHORT"
+  assert.equal(r.routeFinishLabel, '3:59 pm');      // vs a scheduledEta chain ending 14:45
+  // Right at the wire is the honest reading of this day, and it is an ACTIONABLE
+  // one — two stops is a decision. "You will complete none of them" is not.
+  assert.ok(r.paces.work.projected > r.done, 'the crew must be credited with the road ahead');
+});
+
+test('on-site is recovered from the gaps, not guessed at and floored', () => {
+  // 16-minute median gap over legs driven in ~2 min ⇒ ~14 on site. The shipped path
+  // took a flat 10 off and floored the remainder back up to MIN_ONSITE_MIN.
+  const r = perMetre(70);
+  const gaps = GAPS_MIN.map((idleMin, i) => ({ idleMin, driveMin: DONE_LEGS[i] * r }));
+  const onsite = observedOnSiteMin(gaps);
+  assert.ok(onsite > 14 && onsite < 14.5, `expected ~14.1 on-site, got ${onsite}`);
+  assert.ok(onsite > MIN_ONSITE_MIN, 'the floor must not be what decides this number');
+});
+
+test('an unchanged route cannot get more expensive as the day goes on', () => {
+  // The controlled experiment the crew ran by accident. The 13th stop was an off-plan
+  // walk-up, so between 12:04 and 12:31 `done` rose while the route ahead did not
+  // change by one metre. The shipped card put remaining travel up from 196 to 241
+  // minutes across that pair — a route that grew because the driver had been standing
+  // still. Remaining travel is a property of the ROAD LEFT, and of nothing else.
+  const a = AT_1204(), b = AT_1231();
+  assert.equal(a.pendingCount, b.pendingCount);
+  // 27 minutes of wall clock passed. The finish clock must move by 27 minutes and a
+  // rounding — the crew's own time, spent. The shipped card moved it by SEVENTY-TWO
+  // (4:24 pm → 5:36 pm), because it had also re-priced an unchanged 110.8 km from
+  // 34 km/h down to 28 while the driver stood at a property. That extra 45 minutes
+  // is the whole defect, and it is what this pins.
+  const elapsed = (12 * 60 + 31) - (12 * 60 + 4);
+  const slip = b.routeFinishMin - a.routeFinishMin;
+  assert.ok(Math.abs(slip - elapsed) <= 1,
+    `finish clock slipped ${slip} min over ${elapsed} min of day`);
+  // And the projection costs exactly the one stop those 27 minutes bought off-plan.
+  assert.equal(a.paces.work.projected, 20);
+  assert.equal(b.paces.work.projected, 19);
+  assert.ok(b.paces.work.projected >= b.done, 'never fewer than what is already logged');
+});
+
+test('replaying the whole morning, the gauge never gives up on the route', () => {
+  // The four readings the crew photographed. Shipped, these were 16 · 16 · 15 · 13 —
+  // falling as the work got done, and ending on "you will complete none of the eight".
+  const states = [
+    cardAt(70, 9,  [1369, 530, ...PENDING_LEGS], 11 * 60 + 41, 10),
+    cardAt(70, 10, [530, ...PENDING_LEGS],       11 * 60 + 49, 11),
+    AT_1204(),
+    AT_1231(),
+  ];
+  assert.deepEqual(states.map(s => s.paces.work.projected), [20, 20, 20, 19]);
+  // Every reading leaves the crew credited with real progress through the route.
+  for(const s of states)
+    assert.ok(s.paces.work.projected - s.done >= 6,
+      `willDo collapsed to ${s.paces.work.projected - s.done}`);
+  // And every finish clock lands inside the working day, not at teatime.
+  for(const s of states) assert.ok(s.routeFinishMin < 16 * 60, s.routeFinishLabel);
+});
+
+test('the nominal tier is worse, and still nowhere near the shipped answer', () => {
+  // No district pack ⇒ saved road metres at the 50 km/h nominal instead of real road
+  // durations. That IS a worse answer — 17 rather than 19, and 4:33 rather than 3:59 —
+  // and it is the honest cost of not having measured the roads. It is not the failure
+  // this replaced: the crew still gets credited with four of the eight stops ahead.
+  const r = cardAt(50, 11, PENDING_LEGS, 12 * 60 + 31, 13, WALKUP_GAP);
+  assert.equal(r.paces.work.projected, 17);
+  assert.equal(r.routeFinishLabel, '4:33 pm');
+  assert.ok(r.paces.work.projected > 13);
+  assert.ok(r.routeFinishMin < 17 * 60 + 36);
 });

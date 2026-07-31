@@ -12,6 +12,15 @@ const worklistJs = readFileSync(new URL('../js/worklist.js', import.meta.url), '
 const driveJs = readFileSync(new URL('../js/drive.js', import.meta.url), 'utf8');
 const tuningJs = readFileSync(new URL('../js/worklist-tuning.js', import.meta.url), 'utf8');
 
+// "This expression is gone" is a claim about CODE, not about prose. These modules
+// carry long comments that quote the very expressions being asserted gone — the
+// account of a bug has to name what caused it, and AGENTS.md wants that account kept
+// next to the fix — so a bare doesNotMatch over the raw source would fail on the
+// documentation it is supposed to be protecting. Full-line comments are the house
+// style, so dropping those lines is enough.
+const codeOnly = src => src.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+const worklistCode = codeOnly(worklistJs);
+
 // ── the second device's stale day cache ─────────────────────────────────────
 test('Download pulls today down before the day is re-anchored', () => {
   assert.match(worklistJs, /import\s*\{[^}]*\bcacheRecentDays\b[^}]*\}\s*from\s*'\.\/daycache\.js'/);
@@ -140,7 +149,8 @@ test('the observed cadence is a median, and logged delay is netted out of it', (
   // later projection re-read the same day. The arithmetic is unit-tested in
   // tests/cadence.test.mjs; this is the wiring.
   assert.match(worklistJs, /import \{ observedOnSiteMin \} from '\.\/compute\/cadence\.js'/);
-  assert.match(worklistJs, /observedOnSiteMin\(\s*computeGapsLocal\(printable, downtime \|\| \[\], pending, false\)\)/);
+  assert.match(worklistJs, /computeGapsLocal\(printable, downtime \|\| \[\], pending, false\)/);
+  assert.match(worklistJs, /const observed = observedOnSiteMin\(gaps\);/);
   // The gap model must receive the day's downtime. `[]` here charged a delay the
   // crew had logged as time spent installing.
   assert.doesNotMatch(worklistJs, /computeGapsLocal\(printable, \[\]/);
@@ -149,13 +159,60 @@ test('the observed cadence is a median, and logged delay is netted out of it', (
   assert.match(worklistJs, /if\(observed == null\) return dwellShape\(\)\.base;/);
 });
 
-test('a day-average too slow to be driving does not price the route', () => {
-  // avgMovingSpeed counts anything over 1.8 km/h as moving, and the recorder runs
-  // while the crew is on foot at a meter — so a real rural day reported 18 km/h and
-  // priced 18 remaining legs at 2¼ hours. The old guard was 1 m/s (3.6 km/h).
-  assert.match(worklistJs, /const MIN_BELIEVABLE_SPEED_MPS = 25 \/ 3\.6/);
-  assert.match(worklistJs, /speed >= MIN_BELIEVABLE_SPEED_MPS \? speed : FALLBACK_SPEED_MPS/);
-  assert.doesNotMatch(worklistJs, /speed > 1 \? speed/);
+// ── one travel model, priced the same way at both ends of the day ───────────
+test('no day-average speed prices anything on the pace card', () => {
+  // avgMovingSpeed is distance ÷ (elapsed − idle) and "idle" is ≤ 1.8 km/h, so the
+  // crew on foot at a meter lands in the numerator as moving. A rural day driving
+  // 60–80 on the concessions reported 18; a `speed > 1` m/s guard let it through; a
+  // 25 km/h floor was added to catch that, and did not, because the number that
+  // broke the 2026-07-31 route was 28. There is no floor that fixes this, because
+  // effective door-to-door speed climbs with leg length and one number cannot be
+  // right for both a 0.5 km village hop and a 58.7 km highway haul.
+  assert.doesNotMatch(worklistCode, /MIN_BELIEVABLE_SPEED_MPS/);
+  assert.doesNotMatch(worklistCode, /FALLBACK_SPEED_MPS/);
+  assert.doesNotMatch(worklistCode, /liveMetrics/);
+  assert.doesNotMatch(worklistCode, /avgMovingSpeed/);
+  assert.doesNotMatch(worklistCode, /speed > 1 \? speed/);
+  // …and the reasoning that cost four screenshots to recover stays in the file.
+  assert.match(worklistJs, /avgMovingSpeed/);
+});
+
+test('both halves of the projection are priced by ONE lookup', () => {
+  // The travel/on-site split is only honest while the same model prices both. The
+  // remaining route used to be legMetres ÷ a measured day average while the morning
+  // had a flat ten minutes a leg taken off it, and the gauge read the difference
+  // between the two as pace.
+  //
+  // One lookup, built over a frame that carries the DONE orders as well as the
+  // pending ones — travelLookup answers only for ids that were in its frame, so a
+  // pending-only frame could not price the legs the crew has already driven, and
+  // building a second lookup for those is how you get back to two models.
+  assert.match(worklistJs, /function paceRouteItems\(items, pending\)/);
+  assert.match(worklistJs, /x\.wlStatus === 'done' && !isIgnored\(x\)/);
+  assert.match(worklistJs,
+    /const travel = frame\.length \? await estimateTravel\(frame, items\) : null;/);
+  // Both halves take that one lookup as an argument. A call that sourced its own
+  // would compile and be silently wrong.
+  assert.match(worklistJs, /const legs = routeTravel\(pending, travel\);/);
+  assert.match(worklistJs, /\(cached && cached\.eodTravel\) \|\| null, travel, idByWO\)/);
+});
+
+test('the drive is netted per leg, not stripped from the median afterwards', () => {
+  const cadenceJs = readFileSync(new URL('../js/compute/cadence.js', import.meta.url), 'utf8');
+  const gapsJs = readFileSync(new URL('../js/compute/gaps.js', import.meta.url), 'utf8');
+  // A gap has to name the stop the crew LEFT, or its drive cannot be priced.
+  assert.match(gapsJs, /fromWO:prev\.wo\|\|'', fromId:prev\.id/);
+  assert.match(cadenceJs, /const drive = Number\(gap && gap\.driveMin\) \|\| 0;/);
+  assert.match(cadenceJs, /Math\.max\(0, idle - logged - drive\)/);
+  assert.match(worklistJs, /driveMin: legDriveMin\(travel, idByWO\[g\.fromWO\], idByWO\[g\.toWO\]\)/);
+  // onSiteMinutes subtracted one flat NOMINAL_TRAVEL_MIN and then floored the
+  // result. On a morning of two-kilometre village hops it took ten minutes off a
+  // drive that never happened and the floor put it back, arriving at 8 by two
+  // mistakes cancelling when the honest figure was near 14. The floor stays, as a
+  // floor only — a median from two stops logged a minute apart must not divide the
+  // afternoon into hundreds of installs.
+  assert.doesNotMatch(worklistCode, /onSiteMinutes/);
+  assert.match(worklistJs, /return Math\.max\(MIN_ONSITE_MIN, observed\);/);
 });
 
 // ── the ETAs move as the day is worked ──────────────────────────────────────

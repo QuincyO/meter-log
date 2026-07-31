@@ -1399,16 +1399,20 @@ screen, not just `#drive`.
 - **On-pace line (`js/drive.js` `paintPace`, under the "Driving to" card).** A live
   landing projection built from **real working data**, not a single blended average:
   it reprojects **today's remaining route** and separates travel from on-site time.
-  On-site minutes/stop come from today's observed WO→WO cadence with the nominal
-  drive stripped (`onSiteMinutes`, the same decomposition the route planner uses) —
-  the **median** of the day's gaps, net of any logged downtime
-  (`js/compute/cadence.js observedOnSiteMin`), because a day is a handful of gaps and
-  a mean lets one hold-up stand in for every stop; remaining travel is the pending
-  route's `legMetres` priced at the truck's **real measured moving speed**
-  (`liveMetrics().avgMovingSpeed`) — but only while that average is still believable
-  as *driving* (`MIN_BELIEVABLE_SPEED_MPS`, 25 km/h), since the recorder counts
-  on-foot minutes at a meter as moving; below the floor, and before any drive is
-  logged, it is 50 km/h. The count is **capped at the stops left in the route**.
+  **Both halves are priced by one travel model** — the same `estimateTravel` ladder
+  every other ETA on the screen is built from (`worklist.js paceContext` builds the
+  lookup once, over today's whole route *including the done orders*, and hands it to
+  both). Remaining travel is that ladder walked along the pending chain, first leg
+  from wherever the crew is standing. On-site minutes/stop are the **median** of
+  today's WO→WO gaps, net of any logged downtime **and of the drive the same ladder
+  measures for that leg** (`js/compute/cadence.js observedOnSiteMin` /
+  `nettedGapMin`) — median because a day is a handful of gaps and a mean lets one
+  hold-up stand in for every stop. The count is **capped at the stops left in the
+  route**. Neither half is a day-average any more: travel was `legMetres ÷
+  liveMetrics().avgMovingSpeed` and on-site was `median − a flat 10 min`, errors
+  pointing opposite ways that between them produced *"~13 installs by 3:45"* on a day
+  the crew were on track for twenty. See AGENTS.md §"No day-average speed prices the
+  route" for that day and why no speed floor fixes it.
   `projectDayReal` (`js/compute/estimate.js`) returns **two paces** — the installer's
   **target finish** (`finishByMin`, which the phone passes as the fixed
   `ROUTE_DAY_END`) and **regular working hours**, 3:45 PM escalating to **4:45 PM

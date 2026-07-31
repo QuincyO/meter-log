@@ -14,13 +14,24 @@ export function median(xs){
 }
 
 // One gap's productive minutes: the wall-clock gap less whatever delay the crew
-// allocated to it. Floored at 0 — an over-allocated gap is a data-entry artifact,
-// not negative time.
+// allocated to it, less the DRIVE it contains. Floored at 0 — an over-allocated or
+// over-priced gap is a data-entry artifact, not negative time.
+//
+// `driveMin` is optional and defaults to 0, so a caller that has no travel model
+// gets exactly the old number. The caller that does have one (js/worklist.js
+// onsitePerStopReal) stamps each gap with what the day's ETA ladder measures for
+// that leg, which is what turns a WO→WO gap into ON-SITE time. Before it existed
+// the drive was removed afterwards, from the median, as one flat ten-minute
+// constant for every leg on every day — see js/route-dwell.js onSiteMinutes. A
+// morning of two-kilometre village hops was charged ten minutes a leg it never
+// drove, and the floor underneath then quietly put back what the subtraction had
+// taken. Two errors that cancelled on a good day and compounded on a bad one.
 export function nettedGapMin(gap){
   const idle = Number(gap && gap.idleMin) || 0;
   const logged = ((gap && gap.allocations) || [])
     .reduce((a, x) => a + (Number(x.minutes) || 0), 0);
-  return Math.max(0, idle - logged);
+  const drive = Number(gap && gap.driveMin) || 0;
+  return Math.max(0, idle - logged - drive);
 }
 
 // The day's observed minutes between stops, net of logged delay. Null when the day

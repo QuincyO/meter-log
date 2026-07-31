@@ -34,10 +34,15 @@ export function computeGapsLocal(stops, downtime, pending, land){
     const f = acts[0];
     gaps.push({ start:f.hhmm, end:f.hhmm, idleMin:0, toWO:f.wo||'', toId:f.id, lead:true });
   }
+  // `fromWO`/`fromId` name the stop the crew LEFT, and exist so a caller can price
+  // the drive this gap contains (js/worklist.js onsitePerStopReal nets it out to
+  // recover on-site time). The gap is still KEYED to its arriving stop — `toId` is
+  // what allocations hang off — so nothing that reads the `to` side changes.
   for(let i=1;i<acts.length;i++){
     const prev=acts[i-1], cur=acts[i];
     if(cur.min - prev.min <= 0) continue;
-    gaps.push({ start:prev.hhmm, end:cur.hhmm, idleMin:cur.min-prev.min, toWO:cur.wo||'', toId:cur.id });
+    gaps.push({ start:prev.hhmm, end:cur.hhmm, idleMin:cur.min-prev.min,
+      fromWO:prev.wo||'', fromId:prev.id, toWO:cur.wo||'', toId:cur.id });
   }
   const dt = downtime||[];
   gaps.forEach(g => {

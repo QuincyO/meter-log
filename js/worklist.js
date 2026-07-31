@@ -14,9 +14,11 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, roadLegMetres, ESTIMATE_SPEED_KMH, ROAD_DETOUR_FACTOR, localRoadGeometry } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
-import { liveMetrics, lastFix } from './drive-recorder.js';
+// `lastFix` only. avgMovingSpeed used to price this module's remaining route and no
+// longer prices anything here — see the on-pace projection header for why.
+import { lastFix } from './drive-recorder.js';
 import { cacheRecentDays } from './daycache.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
 import { computeGapsLocal } from './compute/gaps.js';
@@ -35,7 +37,7 @@ import {
 } from './worklist-address-fill.js';
 import { dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
-import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, onSiteMinutes, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
+import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
@@ -2514,38 +2516,51 @@ async function applyTodayAnchor(opts){
 }
 
 // ── on-pace projection (drive mode + tuning what-if) ────────────────────────
-// Real-data inputs for projectDayReal (js/compute/estimate.js), all offline:
-//   done + on-site pace    ← today's logged stops (dayCache), via the shared gap
-//                            model with the nominal drive stripped (onSiteMinutes)
-//   remaining route travel ← today's pending legMetres priced at the truck's REAL
-//                            moving speed (drive recorder), or 50 km/h before any
-//                            drive is recorded
-// This is the travel/on-site split the installer asked for: travel comes from the
-// route + measured speed, on-site from the observed between-stop cadence — the
-// same decomposition the route planner uses, so the screens agree.
-const FALLBACK_SPEED_MPS = ESTIMATE_SPEED_KMH / 3.6;
-
-// The slowest day-average that is still believable as DRIVING (25 km/h). Below it
-// the measurement is rejected and the nominal ESTIMATE_SPEED_KMH prices the route.
+// Real-data inputs for projectDayReal (js/compute/estimate.js), all offline, and
+// every minute of drive in them priced by ONE model:
+//   done + on-site pace    ← today's logged stops (dayCache), each WO→WO gap net of
+//                            the drive the ETA ladder measures for that very leg
+//   remaining route travel ← that same ladder walked along today's pending chain
 //
-// `avgMovingSpeed` is distance ÷ (elapsed − idle) over the whole day, and "idle" is
-// anything at or under drive-track.js IDLE_SPEED_MS — 0.5 m/s, i.e. 1.8 km/h. The
-// recorder runs whenever the PWA is open, INCLUDING while the crew is on foot at a
-// meter, and walking a property at 4 km/h clears that bar comfortably. So dooryard
-// and on-foot minutes land in the numerator as "moving" and drag the average down
-// without bound: a real rural day, driving 60–80 on the concessions, reported 18.
-// The old guard was `speed > 1` m/s — 3.6 km/h — which catches a phone that never
-// moved and nothing else, so 18 km/h sailed through and priced 18 remaining legs at
-// 2¼ hours instead of 45 minutes. That is ~90 minutes stolen from the afternoon,
-// about three stops off the projection and 90 minutes onto the finish clock.
+// This is the travel/on-site split the installer asked for, and the split is only
+// honest while both halves are priced the same way. A morning netted with one
+// number and an afternoon priced with another is two models of one day, and the
+// gauge reads the difference between them as pace.
 //
-// 25 is chosen to sit under any honest day's driving (so a genuinely slow day still
-// measures itself) and over the contamination band. Deliberately NOT fixed by
-// changing avgMovingSpeed itself: that number is also the office-side leg summary
-// uploaded to DriveTracks, read by the map viewer and installerOnSiteFromTracks, so
-// redefining it reaches well past this projection. The floor is local to the route
-// pricing and leaves every other consumer alone.
-const MIN_BELIEVABLE_SPEED_MPS = 25 / 3.6;
+// **It used to be two models, and this is the account of what that cost.** The
+// remaining route was pending legMetres ÷ `liveMetrics().avgMovingSpeed`, while the
+// morning had a flat ten minutes a leg taken off it. avgMovingSpeed is distance ÷
+// (elapsed − idle) over the whole day, and "idle" is anything at or under
+// drive-track.js IDLE_SPEED_MS — 0.5 m/s, i.e. 1.8 km/h. The recorder runs whenever
+// the PWA is open, INCLUDING while the crew is on foot at a meter, so dooryard
+// minutes and GPS jitter land in the numerator as "moving" and drag the average
+// down without bound. A rural day driving 60–80 on the concessions reported 18, and
+// a `speed > 1` m/s guard let it straight through; a 25 km/h floor was added to
+// catch that, and did not, because the number it had to catch was 28.
+//
+// A day on the 2026-07-31 route made the failure exact. Between two readings 27
+// minutes apart the crew logged an off-plan walk-up, so `done` rose while the route
+// ahead did not change by one metre — a controlled experiment nobody meant to run.
+// Remaining travel went 196 → 241 minutes on an unchanged 110.8 km, purely because
+// the tile drifted 34 → 28 km/h; the crew had covered 0.2 km in ~21.6 "moving"
+// minutes, standing at a property. The card fell from "~15 by 3:45" to "~13" — to
+// projecting ZERO of the eight stops in front of it, over three and a quarter hours
+// — while the stop card directly beneath it read "Arrive 12:36 · in 5 min". The
+// feedback loop ran backwards: the longer the crew spent installing, the slower they
+// looked, the longer the drive home looked, and the fewer installs the gauge
+// promised. Meanwhile the route's own scheduledEta chain landed the last stop at
+// 14:45, 51 minutes earlier than the card's "Route done ~5:36 pm".
+//
+// So no day-average speed prices this route, raised floor or otherwise. Effective
+// door-to-door speed climbs steeply with leg length — that same morning averaged
+// 2.2 km a leg around a village, the afternoon 13.9 with a 58.7 km highway haul in
+// it — and one number cannot be right at both ends. The ladder already answers per
+// leg, on road classes, and it is what every other ETA on the screen is built from.
+//
+// `avgMovingSpeed` itself is deliberately left alone: it is also the office-side leg
+// summary uploaded to DriveTracks, read by the map viewer and by
+// installerOnSiteFromTracks, so redefining it would reach well past this projection.
+// It simply no longer prices anything here.
 
 // Today's pending stops = the DAY-1 group of the live route; a multi-day route only
 // counts day 1 toward today's landing. Blank day sorts as day 1.
@@ -2569,62 +2584,94 @@ function todayPending(pending){
   return pending.filter(p => dayOf(p) === 1);
 }
 
-// Real remaining route travel (minutes) + its per-stop average, priced at the
-// truck's measured moving speed once a drive has been recorded, else 50 km/h.
-// The first pending leg's saved `legMeters` is the drive from the PREVIOUS STOP IN
-// ROUTE ORDER — measured when the route was solved, from a driveway the crew may
-// have left half an hour ago. Once the ETAs are anchored on the live fix
-// (estimateTravel above), leaving this alone puts two models of the same day on one
-// screen: an arrival time measured from the truck, beside a "Route done ~" clock
-// whose first leg starts somewhere else. They disagree most on the long legs, which
-// is where the driver is most likely to be looking.
+// Today's day-1 route, worked and unworked alike, in live order — the frame the
+// day's single travel lookup is built over.
 //
-// So re-measure that one leg from the fix, on the ROAD GRAPH when a pack covers
-// both ends — the same measurement the arrival clock is now built from, which is
-// what makes the two one model rather than two that agree on a good day. Only the
-// FIRST leg: every later one really is stop-to-stop and its saved road distance is
-// already road. Falling back, crow-flies × ROAD_DETOUR_FACTOR as before (the same
-// pricing estimateDurations uses, imported rather than re-declared); no fix, or no
-// pin on the next stop, leaves the sum exactly as it was.
-async function firstLegMetres(pending, f){
-  const saved = Number(pending[0] && pending[0][f.legMeters]) || 0;
-  const fix = livePin(), to = coordsOf(pending[0]);
-  if(!(fix && to)) return saved;
-  const road = await roadLegMetres(fix, to);
-  return road != null ? road : haversine(fix, to) * ROAD_DETOUR_FACTOR;
+// It has to carry the DONE orders and not just the pending ones. The remaining
+// route only ever asks about the chain still in front of the crew, but netting the
+// observed cadence asks for the drive between stops that are already BEHIND them,
+// and a travelLookup answers only for ids that were in the frame it was built from.
+// Two frames would mean two lookups, which is two models of one day again — the
+// exact thing the header above is an account of. One frame, one ladder, one answer.
+//
+// Ignored orders are out (they are not on any route), and so is day 2+: `pending`
+// arrives already filtered through todayPending, and done orders are pruned to the
+// day they were logged (pruneDoneWorklist), so "done" here means done TODAY.
+function paceRouteItems(items, pending){
+  const inPending = new Set(pending.map(p => p.id));
+  return (items || []).filter(x => x
+    && (inPending.has(x.id) || (x.wlStatus === 'done' && !isIgnored(x))));
 }
 
-async function routeTravel(pending){
-  const f = VARIANT_FIELDS[activeVariant()];
-  const first = await firstLegMetres(pending, f);
-  const metres = pending.reduce((a, p, i) =>
-    a + (i === 0 ? first : (Number(p[f.legMeters]) || 0)), 0);
-  const speed = liveMetrics().avgMovingSpeed;
-  // A believable driving average is used; anything slower is on-foot contamination
-  // rather than a slow truck, and the nominal prices the route instead.
-  const spd = speed >= MIN_BELIEVABLE_SPEED_MPS ? speed : FALLBACK_SPEED_MPS;
-  const totalMin = metres > 0 ? (metres / spd) / 60 : pending.length * NOMINAL_TRAVEL_MIN;
-  return { totalMin, perStopMin: pending.length ? totalMin / pending.length : NOMINAL_TRAVEL_MIN };
+// One leg's drive in minutes, from the day's lookup, with NOMINAL_TRAVEL_MIN for a
+// pair it cannot answer for. Unroutable pairs are already repaired crow-flies
+// inside the ladder itself, so null here means an id that was never in the frame:
+// an off-plan walk-up (no worklist row to be in the frame), or an order added since
+// the lookup was built. One nominal leg is absorbed by the median on the on-site
+// side, and is a rounding error against the route total on the other.
+function legDriveMin(travel, fromId, toId){
+  const v = (travel && fromId != null && toId != null) ? travel.between(fromId, toId) : null;
+  return (v != null && isFinite(v)) ? v : NOMINAL_TRAVEL_MIN;
+}
+
+// The drive out to the next stop, from wherever the crew actually is. estimateTravel
+// anchors the frame's origin on the live GPS fix, else the last completed driveway,
+// else the muster point — so this is the same measurement the arrival badge on the
+// stop card is built from, by construction rather than by agreeing on a good day.
+function firstLegDriveMin(travel, toId){
+  const v = (travel && toId != null) ? travel.fromStart(toId) : null;
+  return (v != null && isFinite(v)) ? v : NOMINAL_TRAVEL_MIN;
+}
+
+// Real remaining route travel (minutes) + its per-stop average: the day's lookup
+// walked along the pending chain. Pure — `travel` is built once by paceContext and
+// shared with the on-site half, so the two cannot drift.
+function routeTravel(pending, travel){
+  const totalMin = pending.reduce((a, p, i) => a + (i === 0
+    ? firstLegDriveMin(travel, p.id)
+    : legDriveMin(travel, pending[i - 1].id, p.id)), 0);
+  return { totalMin,
+    perStopMin: pending.length ? totalMin / pending.length : NOMINAL_TRAVEL_MIN };
 }
 
 // Real on-site minutes/stop: today's observed WO→WO cadence, net of logged delay
-// and with the nominal between-stop drive stripped, falling back to the measured
-// dwell before there are two stops to measure.
+// and of the drive each gap actually contains, falling back to the measured dwell
+// before there are two stops to measure.
 //
-// The arithmetic — netting the allocations out and taking the MEDIAN rather than
-// the mean, which is what stops one hold-up wrecking the rest of the day — lives in
+// The arithmetic — netting the deductions out and taking the MEDIAN rather than the
+// mean, which is what stops one hold-up wrecking the rest of the day — lives in
 // js/compute/cadence.js observedOnSiteMin, with the full account of why.
+//
+// **The drive is netted per leg, not stripped from the median afterwards.** It used
+// to be `onSiteMinutes(observed)`: subtract one flat NOMINAL_TRAVEL_MIN, then floor
+// at MIN_ONSITE_MIN. On 2026-07-31 the median gap was 16.25 minutes over legs the
+// crew really drove in two or three, so ten came off a drive that never happened,
+// 6.25 came out the far side, and the floor put it back to 8 — an on-site figure
+// arrived at by two mistakes cancelling. The true figure was near 14 (and the
+// crew's own fitted InstallerMetrics.landOnSiteMin says 11), so the gauge was
+// crediting each remaining stop with six minutes it did not have. That error points
+// the OPPOSITE way to the travel bug it shipped beside, which is why the projection
+// could be catastrophically wrong while looking merely optimistic.
+//
+// The floor survives as a floor and nothing more: a pathological median (two stops
+// logged a minute apart) must not divide the afternoon into hundreds of installs.
+// It should not bind on any real day now that the subtraction is honest.
 //
 // Today's own cadence still beats any historical average once there is some: it is
 // the only thing that knows about today's weather, ferry, or bad access. Before the
 // second stop of the day there is none, and the measured dwell is a far better
 // stand-in than pace-minus-a-guess.
-function onsitePerStopReal(stops, downtime, pending){
+//
+// `idByWO` maps workOrderId → worklist id, because a gap is keyed on the STOPS row
+// the crew logged and the lookup is keyed on the worklist row it came from. A stop
+// with no worklist row — a walk-up — resolves to neither end and takes the nominal.
+function onsitePerStopReal(stops, downtime, pending, travel, idByWO){
   const printable = (stops || []).filter(s => PRINTABLE[s.status]);
-  const observed = observedOnSiteMin(
-    computeGapsLocal(printable, downtime || [], pending, false));
+  const gaps = computeGapsLocal(printable, downtime || [], pending, false)
+    .map(g => ({ ...g, driveMin: legDriveMin(travel, idByWO[g.fromWO], idByWO[g.toWO]) }));
+  const observed = observedOnSiteMin(gaps);
   if(observed == null) return dwellShape().base;
-  return onSiteMinutes(observed);
+  return Math.max(MIN_ONSITE_MIN, observed);
 }
 
 // Assemble the real inputs. Async — reads the dayCache + worklist. `finishByMin`
@@ -2636,19 +2683,30 @@ export async function paceContext(){
   const c = cfg();
   const cached = c.name ? await idb.get('dayCache', `${c.name}|${localDate()}`) : null;
   const stops = (cached && cached.stops) || [];
-  const pending = todayPending(pendingOf(await allSorted()));
-  const travel = await routeTravel(pending);
+  const items = await allSorted();
+  const pending = todayPending(pendingOf(items));
+  // ONE lookup, built over the whole of today's route and shared by both halves
+  // below. Steady-state this is about what re-measuring a single leg used to cost:
+  // the stop×stop matrix is cached inside the ladder and a subset of a measured set
+  // is a hit, so all that is re-run per repaint is the one Dijkstra for the node
+  // that actually moved — the truck.
+  const frame = paceRouteItems(items, pending);
+  const travel = frame.length ? await estimateTravel(frame, items) : null;
+  const legs = routeTravel(pending, travel);
+  const idByWO = {};
+  for(const x of frame)
+    if(x.workOrderId != null && x.workOrderId !== '') idByWO[String(x.workOrderId)] = x.id;
   return {
     stops,
     pendingCount: pending.length,
-    remainingTravelMin: travel.totalMin,
-    avgLegTravelMin: travel.perStopMin,
+    remainingTravelMin: legs.totalMin,
+    avgLegTravelMin: legs.perStopMin,
     // The day's logged delays ride along so they aren't charged as install time.
     // Both already sit in the record opened above; `eodTravel` is the offline
     // review's not-yet-synced allocations and wins over the synced rows, exactly
     // as it does in capture.js's end-of-day editor.
     onsitePerStop: onsitePerStopReal(stops, (cached && cached.downtime) || [],
-                                     (cached && cached.eodTravel) || null),
+                                     (cached && cached.eodTravel) || null, travel, idByWO),
     finishByMin: hhmmMin(ROUTE_DAY_END),
     // What "on pace" is measured against. Read live from the box like everywhere
     // else — the same value that sized the day, so the gauge and the route agree.
