@@ -261,8 +261,12 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
 // Appended after 'updated', not inserted: ensureTab() only fills BLANK header
 // cells by position, so slotting a new name into the middle would rename nothing
 // and duplicate the tail on every existing sheet.
+// `dayLockDate` is the work-list lock: the date whose day 1 has been settled, blank
+// when the list is open. It carries the DATE only — the membership up here is just
+// the rows tagged day 1, so there is nothing else to store and no second source of
+// truth for the same fact. Appended last, like every column before it.
 const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','paceMin','paceSource',
-  'updated','routeVariant','straightDistanceSource','commutePull','finishBy','target'];
+  'updated','routeVariant','straightDistanceSource','commutePull','finishBy','target','dayLockDate'];
 
 // One row per Drive-mode driving LEG (the phone records a leg while the Drive
 // screen is in front, then uploads it). `encoded` is the compressed polyline of
@@ -347,6 +351,11 @@ function setupSheets() {
   ss.getSheetByName('Worklist').getRange('AH2:AI').setNumberFormat('@'); // homeLegGeometry road/straight (encoded polyline)
   ss.getSheetByName('WorklistPlans').getRange('B2:C').setNumberFormat('@');
   ss.getSheetByName('WorklistPlans').getRange('J2:J').setNumberFormat('@'); // finishBy 'HH:MM' — keep as literal text
+  // dayLockDate (col L) — the work-list lock. A date-formatted cell comes back from
+  // getValues() as a Date, and the phone compares this string against its plan day:
+  // it would fail with no error and no wrong number to notice, which is exactly the
+  // silent shape AGENTS.md warns about. Text, always.
+  ss.getSheetByName('WorklistPlans').getRange('L2:L').setNumberFormat('@');
   // The encoded polyline / gaps JSON are opaque text — keep Sheets from reading a
   // leading '@' or '[' as anything but a literal string. (gaps = col L, encoded = M.)
   ss.getSheetByName('DriveTracks').getRange('L2:M').setNumberFormat('@');
@@ -1476,6 +1485,13 @@ function saveWorklistPlan(hNumber, plan) {
   // so an absent field means "keep" and not "blank"; only the installer's
   // explicit ⇪ Upload carries the date and moves the row.
   if (plan.routeStartDate) fields.routeStartDate = String(plan.routeStartDate);
+  // The work-list lock, and the guard is KEY PRESENCE rather than truthiness — the
+  // one difference from routeStartDate above, and it matters. Blank is the unlocked
+  // state here, so a truthiness guard on the value would make unlocking from the
+  // phone a silent no-op on the sheet forever. Same trap as day1Count's "0 is a real
+  // value": a falsy value that means something.
+  if (Object.prototype.hasOwnProperty.call(plan, 'dayLockDate'))
+    fields.dayLockDate = String(plan.dayLockDate || '').slice(0, 10);
   upsertByHeader('WorklistPlans', 'hNumber', h, fields);
 }
 
@@ -1492,7 +1508,15 @@ function savePlan(body) {
 function worklistPlanFor(hNumber) {
   const h = String(hNumber == null ? '' : hNumber).trim();
   ensureWorklistPlansTab();
-  return rows('WorklistPlans').find(r => String(r.hNumber).trim() === h) || null;
+  const r = rows('WorklistPlans').find(x => String(x.hNumber).trim() === h) || null;
+  // dayLockDate must reach the phone as a 'yyyy-MM-dd' STRING — it is compared for
+  // equality against the plan day, so a Date object (which is what getValues() hands
+  // back for a cell that ever picked up a date format) fails the compare silently.
+  // setupSheets pins the column to text; this is the belt to that suspenders, and it
+  // costs nothing on a row that is already correct.
+  if (r && r.dayLockDate instanceof Date)
+    r.dayLockDate = Utilities.formatDate(r.dayLockDate, TIMEZONE, 'yyyy-MM-dd');
+  return r;
 }
 
 /** Nightly cleanup: remove every completed worklist row across all installers.

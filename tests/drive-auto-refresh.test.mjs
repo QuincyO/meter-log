@@ -130,15 +130,17 @@ test('the refresh re-anchors, and pulls today down before it does', () => {
 // meters the work phone logged kept shrinking the capacity half. Reported as *"the
 // next day's work orders are shuffling up every time"*.
 test('a tick re-times the day without re-sizing it', () => {
-  // Day 1 is today's committed set, entire — nothing capacity-shaped reaches it.
-  assert.match(worklistJs, /const fits = day1Count\(day1\);/);
+  // Locked, Day 1 is the frozen set entire — nothing capacity-shaped reaches it.
+  assert.match(worklistJs, /return day1Count\(anchorDay1Ids\(a, pending\)\);/);
   assert.doesNotMatch(worklistJs, /day1Count\(anchor,/);
-  // …and an exhausted set does not roll the next chunk up. autoSync passes no opts,
-  // so `replan` is false and needsCommit leaves a finished day finished.
+  // …and UNLOCKED it holds the day as tagged rather than re-chunking from the front
+  // of pending. That is the case this tick actually lands in most often: a crew that
+  // simply has not pressed 🔒 must not watch tomorrow's orders climb into today on a
+  // five-minute timer. Only a deliberate act re-chunks, and this is not one — autoSync
+  // passes no opts at all.
+  assert.match(worklistJs,
+    /const fits = \(!locked && opts && opts\.rechunk\) \? null : currentDay1Count\(pending\);/);
   assert.doesNotMatch(autoSyncBody, /applyTodayAnchor\(\s*\{/);
-  const routeToday = readFileSync(new URL('../js/route-today.js', import.meta.url), 'utf8');
-  assert.match(routeToday,
-    /if\(anchorDay1Ids\(anchor, pending\)\.length === 0\) return Boolean\(opts && opts\.replan\);/);
 });
 
 test('a tick still learns what the work phone finished', () => {

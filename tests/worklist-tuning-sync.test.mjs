@@ -63,21 +63,34 @@ test('the meters/day target persists as it is typed, not only on blur', () => {
   assert.match(persist[0], /isFinite\(n\) && n > 0/);
 });
 
-// Storing the typed target was only half of it. Day 1 is today's committed set, and
-// the only thing that re-commits it is needsCommit seeing `replan` — which, back then,
-// only Optimize passed. Reported as "I can't even change the amount of orders that
-// populate the list with the target value. They get stuck on a different value and
-// never got updated." (At the time Day 1 was `min(dayCapacity + extend, |set|)`, so
-// LOWERING the target did clamp the day through `capacity` while raising it moved
-// nothing — a silently one-way control. That capacity clamp is gone: it was also what
-// shuffled a committed day's tail into tomorrow. Now neither direction moves without
-// this handler, which is why it has to keep passing `replan`.)
+// Storing the typed target was only half of it. The days have to RE-SPLIT, and for a
+// long time they could not: Day 1 was a frozen set that only `needsCommit` could
+// re-commit, and only an Optimize press passed the flag that let it. Reported as "I
+// can't even change the amount of orders that populate the list with the target value.
+// They get stuck on a different value and never got updated." (At the time Day 1 was
+// `min(dayCapacity + extend, |set|)`, so LOWERING the target did clamp the day through
+// `capacity` while raising it moved nothing — a silently one-way control.)
+//
+// Both halves of that are gone. Unlocked, nothing is frozen; the box just has to ask
+// for a RE-CHUNK, because nothing has re-solved the route and the `day` tags therefore
+// still describe the old number. Locked, the box is inert and says so — which is the
+// third honest answer the old control never had.
 test('the meters/day target re-splits the days, not just the store', () => {
   const handler = /\$\('wlTarget'\)\.onchange = [\s\S]*?\n  \};/.exec(worklist);
   assert.ok(handler, 'wlTarget onchange handler is still there');
-  assert.match(handler[0], /applyTodayAnchor\(\{[^}]*replan\s*:\s*true/,
-    'the target box must pass replan — without it a RAISED target never unfreezes today');
+  assert.match(handler[0], /applyTodayAnchor\(\{[^}]*rechunk\s*:\s*true/,
+    'the target box must ask for a re-chunk — holding the tags makes it one-way again');
   assert.match(handler[0], /renderWorklist\(\)/, 'the re-split has to reach the screen');
+});
+
+test('the meters/day box is inert under the lock, and says so', () => {
+  // `readOnly` is the affordance; a number input's spinner ignores it on some
+  // browsers, so the handler is where the lock is actually enforced. Reverting to the
+  // number the day was locked AT is what stops a typed value looking like it took.
+  const handler = /\$\('wlTarget'\)\.onchange = [\s\S]*?\n  \};/.exec(worklist);
+  assert.match(handler[0], /if\(dayLocked\(\)\)\{/);
+  assert.match(handler[0], /anchorTarget\(loadAnchor\(\)\) \|\| targetVal\(\)/);
+  assert.match(handler[0], /unlock to change the target/);
 });
 
 // Same lost-edit defect as the target, in the field beside it: planShape() and
@@ -106,6 +119,25 @@ test('a Download never overwrites the phone-owned tuning + target', () => {
   const fn = worklist.match(/function loadPlanFields\(plan\)\s*\{[\s\S]*?\n\}/)[0];
   for(const key of ['wlCommutePull', 'wlTarget'])
     assert.doesNotMatch(fn, new RegExp(key), `${key} must not be written from a downloaded plan`);
+});
+
+test('the work-list lock is the ONE downloaded field the phone does adopt', () => {
+  // Sitting right beside target/commutePull, which are deliberately refused above, so
+  // the difference has to be deliberate too: a lock is not tuning, it is somebody
+  // saying a particular day is settled, and the office pressing 🔒 on a route it just
+  // built for this installer is as real as the installer pressing it. ONE direction
+  // only — a sheet that says locked can turn this phone's lock on, a blank one never
+  // turns it off, because unlocking is a press on the device doing it.
+  const fn = worklist.match(/function loadPlanFields\(plan\)\s*\{[\s\S]*?\n\}/)[0];
+  assert.match(fn, /if\(sheetLock && !dayLocked\(\) && sheetLock === planDay\(\)\) store\.set\('wlDayLock', sheetLock\);/);
+});
+
+test('Code.gs distinguishes an UNLOCK from an omitted field', () => {
+  // Blank is the unlocked state, so the truthiness guard routeStartDate uses would
+  // make unlocking from the phone a silent no-op on the sheet, forever. Same shape as
+  // day1Count's "0 is a real value": a falsy value that means something.
+  assert.match(code, /hasOwnProperty\.call\(plan, 'dayLockDate'\)/);
+  assert.doesNotMatch(code, /if \(plan\.dayLockDate\)/);
 });
 
 test('the planner consumes the installer target from a downloaded plan', () => {

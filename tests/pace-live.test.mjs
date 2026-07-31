@@ -82,12 +82,13 @@ test('today’s route is day 1 strictly, not the lowest day present', () => {
 
 test('meeting the target does not take the card off the screen', () => {
   // The card is fed by todayPending, i.e. by whatever Day 1 holds — and Day 1 is now
-  // the committed set entire, never `min(dayCapacity + extend, …)`. Installing past
-  // the meters/day target used to zero capacity, zero day1Count, stamp every
-  // remaining order day 2+, and so empty todayPending mid-afternoon with work still
-  // in front of the crew. Pin the call that made that possible as gone.
-  assert.match(worklistJs, /const fits = day1Count\(day1\);/);
+  // the LOCKED set entire, never `min(dayCapacity + extend, …)`. Installing past the
+  // meters/day target used to zero capacity, zero day1Count, stamp every remaining
+  // order day 2+, and so empty todayPending mid-afternoon with work still in front of
+  // the crew. Pin the arithmetic that made that possible as gone.
+  assert.match(worklistJs, /return day1Count\(anchorDay1Ids\(a, pending\)\);/);
   assert.doesNotMatch(worklistJs, /day1Count\(anchor,/);
+  assert.doesNotMatch(worklistJs, /\bdayCapacity\(/);
   // `anchor.extend` is gone with the clamp it existed to buy room back from. The one
   // surviving mention is the header explaining why — it is spelled `anchor.extend`,
   // so a bare `extend:` write would still fail here.

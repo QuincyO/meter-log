@@ -22,6 +22,7 @@ import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMet
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { dwellLookup } from '../route-dwell.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
+import { orderAnchorFirst, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -105,8 +106,35 @@ function planShape(){
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
     commutePull:pullVal(store.get('plannerCommutePull:' + hNumber())),
-    target:targetVal()
+    target:targetVal(),
+    dayLockDate:plLockDate()
   };
+}
+
+// ── the work-list lock, office side ────────────────────────────────────────
+// Same control the installer has on their phone, and the same one date behind it:
+// locked iff the stored date is the day this route starts on. It rides the sync on
+// the WorklistPlans row, so a day the office settles reaches the phone on its next
+// ⇩ Download and a day the installer settles shows up here on ⇩ Load.
+//
+// The office needs no separate record of WHICH orders are locked: up here the frozen
+// set is exactly the rows tagged `day === 1`, which is the same fact the sheet
+// carries. (The phone keeps an id list only because it re-schedules locally all day
+// as orders are completed.)
+//
+// Not to be confused with togglePlannerLock further down — that is the per-order
+// position lock, one stop pinned to a date and slot.
+function plLockDate(){ return store.get('plannerDayLock:' + hNumber()) || ''; }
+function plDayLocked(){
+  const d = plLockDate();
+  return Boolean(d) && d === $('plRouteDate').value;
+}
+function plLockedDay1Ids(){ return plDayLocked() ? taggedDay1Ids(pendingItems()) : []; }
+// `null` unless locked — route-constraints.js reads null as "size day 1 by the
+// target like any other day", and 0 as a real, empty day.
+function plDay1Count(){
+  const ids = plLockedDay1Ids();
+  return plDayLocked() ? ids.length : null;
 }
 // Which saved route is live for this installer. Uploaded with the list, so the
 // phone opens on the route the office chose — and the installer can still flip it.
@@ -124,6 +152,10 @@ function loadPlan(plan){
   // The installer owns their target — a Download of their plan drives the planner's
   // day target so the office plans to the same number the installer set.
   if(p.target !== '' && p.target != null) $('plTarget').value = String(Math.max(1, Math.floor(Number(p.target) || 24)));
+  // The lock travels both ways — whoever settled the day, settled it. Taken
+  // verbatim (including a blank, which is the real unlocked state) because ⇩ Load is
+  // an explicit act: the office asked for this installer's current plan.
+  store.set('plannerDayLock:' + hNumber(), String(p.dayLockDate || '').slice(0, 10));
 }
 
 function setStatus(kind, text){
@@ -906,6 +938,9 @@ async function optimize(pending, health){
   store.set('plannerGeocode', nominatimUrl);
   const geocodeUrl = health.nominatim.online ? nominatimUrl : '';
   const target = targetVal();
+  // Captured BEFORE the solve, because the solve is about to rewrite every `day`
+  // tag and the locked set is defined by the tags as they stand now.
+  const lockedDay1 = plLockedDay1Ids();
   const prog = $('plProg');
   prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
@@ -932,14 +967,21 @@ async function optimize(pending, health){
     // straight variant stays flat-pace and its times are hidden in the UI. The
     // effective per-day count (dayTarget, time-shrunk) keeps day boundaries aligned.
     const roadTravel = travelLookup(base.measure);
-    const planOpts = { ...planShape(), target: base.dayTarget || target };
+    const planOpts = { ...planShape(), target: base.dayTarget || target,
+      day1Count: lockedDay1.length ? lockedDay1.length : null };
     const computed = {};
     for(const v of VARIANTS){
       const variant = base.variants[v];
       if(!variant) continue;
-      const routedItems = variant.orderedIds.map(id => byId[id]).filter(Boolean);
+      // A locked day 1 keeps its members through the re-solve: the geography is
+      // worked out fresh, then the locked orders are pulled back to the front and
+      // day 1 is sized to hold exactly them. Applied PER VARIANT — do it once
+      // outside the loop and flipping road↔straight quietly unlocks the day.
+      const seq = lockedDay1.length ? orderAnchorFirst(variant.orderedIds, lockedDay1)
+        : variant.orderedIds;
+      const routedItems = seq.map(id => byId[id]).filter(Boolean);
       const travel = v === 'road' ? roadTravel : null;
-      const s = scheduleRouteConstraints(routedItems, variant.orderedIds, { ...planOpts, travel, dwell });
+      const s = scheduleRouteConstraints(routedItems, seq, { ...planOpts, travel, dwell });
       computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
         homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
     }
@@ -1173,7 +1215,8 @@ async function switchVariant(v){
   if(v === activeVariant()) return;
   if(!variantSelectable(items, v)) return;
   let next;
-  try { next = applyVariant(items, v, { ...planShape(), target:targetVal() }); }
+  try { next = applyVariant(items, v, { ...planShape(), target:targetVal(),
+    day1Count: plDay1Count() }); }
   catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
   const now = stamp();
   items = next.map(x => Object.assign({}, x, { updatedAt:now }));
@@ -1181,6 +1224,45 @@ async function switchVariant(v){
   store.set('plannerVariant:' + hNumber(), v);
   toast(`${VARIANT_LABELS[v]} route in use ✓ — ⇪ Upload to send it`);
   render();
+}
+
+// The office's 🔓/🔒. Locking simply records the date this route starts on — the
+// membership is already on the rows as `day === 1`, so there is nothing else to
+// freeze. Uploading sends it, and the installer's phone adopts it on ⇩ Download.
+async function toggleDayLock(){
+  const date = $('plRouteDate').value || '';
+  if(!date){ toast('Pick the route start date first'); return; }
+  if(plDayLocked()){
+    store.set('plannerDayLock:' + hNumber(), '');
+    toast('🔓 Unlocked — Optimize will re-plan every day');
+  } else if(!plLockedDay1Ids().length && !taggedDay1Ids(pendingItems()).length){
+    toast('Optimize first — there is no day 1 to lock yet');
+    return;
+  } else {
+    store.set('plannerDayLock:' + hNumber(), date);
+    const n = taggedDay1Ids(pendingItems()).length;
+    toast(`🔒 Locked — ${n} order${n === 1 ? '' : 's'} on day 1 · ⇪ Upload to send it`);
+  }
+  render();
+}
+
+function paintDayLock(){
+  const btn = $('plDayLock'), sub = $('plDayLockSub');
+  if(!btn) return;
+  const on = plDayLocked();
+  const n = on ? plLockedDay1Ids().length : 0;
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.textContent = on ? `🔒 Day 1 locked — ${n} order${n === 1 ? '' : 's'}` : '🔓 Day 1 is open';
+  if(sub) sub.textContent = on
+    ? 'Optimize keeps exactly these orders on day 1'
+    : 'Optimize sizes every day by the meters/day target';
+  const t = $('plTarget');
+  if(t){
+    t.readOnly = on;
+    t.setAttribute('aria-readonly', on ? 'true' : 'false');
+    t.classList.toggle('locked', on);
+  }
 }
 
 async function togglePlannerLock(item){
@@ -1199,6 +1281,7 @@ function render(){
     ? [`${pending.length} pending`, aside.length ? `${aside.length} set aside` : '',
        `${done.length} completed`, routeTotalText()].filter(Boolean).join(' · ') : '';
   paintVariantSwitch();
+  paintDayLock();
   const list = $('plList'); list.innerHTML = '';
   if(!items.length){
     list.innerHTML = '<div class="card"><div class="empty">No orders — ⇩ Load the installer’s saved list or paste orders in.</div></div>';
@@ -1440,6 +1523,11 @@ $('plDirections').onclick = requestDirections;
 $('plUpload').onclick = upload;
 $('plVariantRoad').onclick = () => switchVariant('road');
 $('plVariantStraight').onclick = () => switchVariant('straight');
+$('plDayLock').onclick = toggleDayLock;
+// The lock is keyed on the date the route starts, so moving that date releases it —
+// the same rule the phone follows. Repaint so the band says so rather than leaving a
+// stale 🔒 over a day nobody locked.
+$('plRouteDate').onchange = () => render();
 $('plPace').onchange = () => {
   const p = planShape(); $('plPace').value = String(p.paceMin);
   store.set('plannerPaceSource:' + hNumber(), 'override');

@@ -197,10 +197,11 @@ What it answers immediately, without a single line of code being read:
 - `WorklistPlans` — the installer's saved pace/target/variant. **Confirm it wasn't
   deleted by hand before chasing a sync bug**; that has already been a red herring once.
 
-**The phone — the local half.** The today anchor, the meters/day target and the plan
-date live in `localStorage`/IndexedDB and are **never synced**, so the sheet cannot show
-them. This dump is the fastest way to get them; it needs a browser console, so it is a
-desktop/laptop job unless the phone is attached to one:
+**The phone — the local half.** The locked set, the meters/day target and the plan date
+live in `localStorage`/IndexedDB and are **never synced** (only the lock's *date* rides
+up, on the `WorklistPlans` row), so the sheet cannot show them. This dump is the fastest
+way to get them; it needs a browser console, so it is a desktop/laptop job unless the
+phone is attached to one:
 
 ```js
 (async () => {
@@ -209,6 +210,7 @@ desktop/laptop job unless the phone is attached to one:
   const pend = all.filter(x => x.wlStatus !== 'done' && !x.ignored);
   console.log(JSON.stringify({
     target:   localStorage.wlTarget,
+    dayLock:  localStorage.wlDayLock,          // '' = unlocked; a date = locked FOR that day
     anchor:   JSON.parse(localStorage.wlTodayAnchor || 'null'),
     planDate: localStorage.wlPlanDate,
     issue:    localStorage.wlPlanIssue,
@@ -219,9 +221,17 @@ desktop/laptop job unless the phone is attached to one:
 })()
 ```
 
-`anchor.ids.length` vs `counts.pending` vs `target` is usually the whole answer: Day 1
-is `min(target − installed today, anchor.ids.length)`, so a frozen set smaller than the
-target is the day size, whatever the box says.
+**Read `dayLock` first — it decides which of two behaviours you are debugging.**
+
+- `dayLock` equal to the plan day ⇒ **locked**, and Day 1 is `anchor.ids` intersected
+  with pending, entire. `anchor.ids.length` against `days["1"]` is then the whole
+  answer, and `anchor.target` says what the day was settled at whatever the box shows.
+- `dayLock` blank or naming another day ⇒ **unlocked**, and Day 1 is simply whatever
+  carries the lowest `day` tag. Nothing is frozen; the target re-chunks the days on the
+  next Optimize or meters/day change, and a passive re-schedule holds the tags it finds.
+
+A `dayLock` naming a day that has passed reads as unlocked and is cleared on the next
+re-schedule — so a report of "my lock disappeared overnight" is the feature.
 
 **Then reproduce against the shipped commit before changing anything** — `git stash`,
 run the repro, confirm you see the reported symptom, `git stash pop`. Without that you

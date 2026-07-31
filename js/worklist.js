@@ -42,8 +42,8 @@ import {
   liveDayMeters, pendingOf, routeTotalSummary, variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
-  anchorDay1Ids, anchorTarget, day1Count, dayCapacity, freshAnchorIds,
-  insertByProximity, needsCommit, orderAnchorFirst,
+  anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds,
+  insertByProximity, orderAnchorFirst, taggedDay1Ids,
 } from './route-today.js';
 import {
   isWorkday, nextWorkday, planDayLabel, resolvePlanDay, soonestAppointment, staleLockIds,
@@ -133,7 +133,23 @@ async function refreshPlanDay(){
     soonestAppointment: soonestAppointment(items, localDate()),
   }));
   await expireStaleLocks(_planDay.date, items);
+  releaseStaleDayLock(_planDay.date);
   return _planDay;
+}
+
+// A 🔒 is a statement about ONE day's work, so it does not survive that day. The
+// date-equality in `dayLocked()` already makes a stale lock read as unlocked; this
+// clears the leftovers so nothing downstream can find a lock date and a frozen set
+// describing a day nobody is driving any more.
+//
+// Silent, like expireStaleLocks above it and for the same reason: this runs on every
+// re-schedule, including the Drive screen's 5-minute timer, and the toggle sitting
+// above Optimize saying "unlocked" is the signal. A toast here would fire on a timer.
+function releaseStaleDayLock(planDay){
+  const on = store.get('wlDayLock') || '';
+  if(!on || on === planDay) return;
+  store.set('wlDayLock', '');
+  saveAnchor(null);
 }
 
 // Clear position locks pinned to a day that has now passed. `toggleOrderLock`
@@ -187,6 +203,15 @@ function paintPlanDate(){
 // rejected (scheduleRouteConstraints refuses a weekend start outright), and a
 // cleared field drops the override so the automatic answer takes back over.
 async function planDateChanged(){
+  // Locked means locked, and a date input ignores `readOnly` on most browsers — the
+  // picker still opens — so this is where the lock is actually enforced. Changing the
+  // day would release the lock by the date-equality rule, which is right when the day
+  // rolls on its own and wrong when it happens under a finger.
+  if(dayLocked()){
+    $('wlPlanDate').value = planDay();
+    toast('Work list is locked — unlock to plan another day');
+    return;
+  }
   const picked = String($('wlPlanDate').value || '');
   let next = '';
   if(picked){
@@ -196,8 +221,6 @@ async function planDateChanged(){
   store.set('wlPlanDate', next);
   store.set('wlPlanIssue', '');
   await refreshPlanDay();
-  // A changed day makes anchor.date mismatch, so needsCommit re-freezes on its
-  // own — no replan flag needed.
   await applyTodayAnchor();
   await renderWorklist();
   await planAdvance();
@@ -218,7 +241,12 @@ function planShape(){
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('wlStraightDistanceSource') || '',
     commutePull:pullVal(store.get('wlCommutePull')),
-    target:targetVal()
+    target:targetVal(),
+    // The 🔒 date, so the office's planner can see that this day is settled. Always
+    // present — '' is a REAL value here (unlocked) and Code.gs distinguishes an
+    // explicit '' from an omitted field, so leaving it out on some paths would make
+    // an unlock un-pushable.
+    dayLockDate:store.get('wlDayLock') || ''
   };
 }
 
@@ -273,6 +301,17 @@ function loadPlanFields(plan){
   store.set('wlPaceSource', p.paceSource || store.get('wlPaceSource') || 'fallback');
   if(p.routeVariant) store.set('wlRouteVariant', p.routeVariant === 'straight' ? 'straight' : 'road');
   if(p.straightDistanceSource) store.set('wlStraightDistanceSource', p.straightDistanceSource);
+  // The lock is the ONE downloaded field this adopts, and it is worth saying why,
+  // because `target` and `commutePull` sitting right beside it are deliberately
+  // refused (the phone owns those and pushes them UP instead). A lock is not tuning:
+  // it is a statement that somebody has settled a particular day, and the office
+  // pressing 🔒 on a route it just built for this installer is exactly as real as the
+  // installer pressing it. Adopted in ONE direction only — a sheet that says locked
+  // can turn this phone's lock on, and a blank one never turns it off. Unlocking is a
+  // press, on the device doing it; otherwise an old row would silently release a day
+  // the installer had settled.
+  const sheetLock = String(p.dayLockDate || '').slice(0, 10);
+  if(sheetLock && !dayLocked() && sheetLock === planDay()) store.set('wlDayLock', sheetLock);
   savePlanLocal();
 }
 
@@ -492,20 +531,19 @@ async function wlDownload(){
     // ETAs are exact — clear the phone's local "(est.)" marker.
     store.set('wlTimesEstimated', '');
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
-    // Re-freeze today: a route the office optimized was day-chunked by target with
-    // no memory of what's already done, so honour this phone's today anchor over
-    // whatever `day` came down — Download can no longer roll tomorrow's into today.
-    // The one exception is a plan that STARTS today: there the office deliberately
-    // decided what today holds, and the phone obeys it (adoptPlannerDay1).
-    await adoptPlannerDay1(r.plan);
+    // A route the office optimized was day-chunked by target with no memory of what
+    // this phone has already done, so a LOCKED day keeps its own set over whatever
+    // `day` came down. Orders the office added to today are offered through the same
+    // "where does this go?" sheet as a hand-typed one — the manual Download is the
+    // one path where somebody is holding the phone and can answer.
+    await adoptPlannerDay1(r.plan, { interactive: true });
     // Pull today's stops down before re-anchoring. On a SECOND device — the phone
     // the crew drives by, while the orders are logged on another — the dayCache is
     // only ever filled by cacheRecentDays at page load and on reconnect, so a phone
     // that has been open since morning believes nothing has been installed today.
-    // Everything downstream reads that: dayCapacity hands Day 1 a full fresh
-    // target, and the pace gauge's `done` sits at 0 — which is why the Drive screen
-    // said "0 of N" and could never report being behind. The Download is exactly
-    // the moment the installer is asking "what has been done?", so answer it.
+    // The pace gauge's `done` then sits at 0 — which is why the Drive screen said
+    // "0 of N" and could never report being behind. The Download is exactly the
+    // moment the installer is asking "what has been done?", so answer it.
     await cacheRecentDays(1);
     await applyTodayAnchor();
     await renderWorklist();
@@ -544,12 +582,15 @@ export async function autoSync(){
       // so its ETAs are exact — clear the phone's local "(est.)" marker, exactly as
       // the manual Download does.
       store.set('wlTimesEstimated', '');
+      // No `interactive` — the add-to sheet must never pop over the Drive screen.
+      // Office orders that would join a locked day stay out of it and wait for the
+      // installer to open the worklist, where they are offered properly.
       await adoptPlannerDay1(r.plan);
     }
   }
-  // Today's stops BEFORE the re-anchor: dayCapacity and the pace projection both
-  // read the cache, so anchoring first would size the day off the stale copy —
-  // the same ordering wlDownload is pinned to.
+  // Today's stops BEFORE the re-anchor: the pace projection reads the cache, so
+  // anchoring first would re-time the day off the stale copy — the same ordering
+  // wlDownload is pinned to.
   try { await cacheRecentDays(1); } catch { /* keep the last good cache */ }
   // The piece that actually makes the route and the ETAs accurate. Nothing in the
   // pull above rewrites order/day/scheduledEta — applyTodayAnchor does, by
@@ -857,20 +898,16 @@ async function optimizeRouteHandler(useNetwork){
     // estimate? Drives the "(est.)" label on the route view. Local, never synced —
     // a downloaded planner route is always real OSRM.
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
-    // Freeze today's set: override the plain target-chunk days so re-optimizing
-    // after finishing some orders can't pull tomorrow's up. `replan` is the one
-    // thing that can unfreeze today, and it does so in exactly two situations — a
-    // re-plan whose meters/day target has moved since the set was frozen, and a day
-    // whose set is SPENT, where the press means "give me more work today" (the manual
-    // ask that replaced the automatic roll; js/route-today.js needsCommit). Two paths
-    // legitimately pass it: this Optimize, and the meters/day box's own `change`
-    // handler — an Optimize at an unchanged target on a LIVE set still moves nothing,
-    // which is the whole reason the anchor exists. What separates them is the
-    // OTHER argument: only this one has real matrix `travel` to hand, so its ETAs
-    // stay exact. The target box passes `replan` alone, so applyTodayAnchor falls
-    // back to `estimateTravel` and marks the times estimated (`wlTimesEstimated`,
-    // the route view's "(est.)" label). Same re-split, softer times.
-    await applyTodayAnchor({ travel, replan: true });
+    // Re-time the route, and — while the list is LOCKED — put the frozen set back on
+    // top of the plain target-chunk days just written, so re-optimizing after
+    // finishing a few orders cannot pull tomorrow's up. Unlocked it holds the tags
+    // stamped moments ago in the loop above, which ARE this run's fresh split at the
+    // current target, so no `rechunk` is needed here (the meters/day box is the only
+    // caller that has to ask for one — it moved the number without re-solving).
+    // `travel` is what separates this call from every other: only Optimize has a real
+    // matrix to hand, so only its ETAs are exact. Everything else falls back to
+    // `estimateTravel` and gets the "(est.)" marker.
+    await applyTodayAnchor({ travel });
     await renderWorklist();
     await planAdvance();
     // Parked = wouldn't map (may still carry its last good pin); ambiguous =
@@ -1094,6 +1131,7 @@ export async function renderWorklist(){
        `${done.length} completed`, routeTotalText(items)].filter(Boolean).join(' · ') : '';
   paintPlanDate();
   paintTargetHint();
+  paintDayLock(pending);
   await paintOptimizeGate();
   paintVariantSwitch(items);
   paintFillAddr(items);
@@ -1283,6 +1321,7 @@ async function switchVariant(v){
   if(!variantSelectable(items, v)) return;
   let next;
   try { next = applyVariant(items, v, { ...planShape(), target:targetVal(),
+    day1Count: currentDay1Count(pendingOf(items)),
     travel: estimateTravel(pendingOf(items), items), day1FirstStopTime: day1DepartTime(true) }); }
   catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
   const now = stamp();
@@ -1321,6 +1360,51 @@ function paintTargetHint(){
   const el = $('wlAvgDay');
   if(!el) return;
   el.textContent = wlAvgPerDay ? `your avg ${wlAvgPerDay}/day` : '';
+}
+
+// The 🔓/🔒 toggle, and the two controls it takes away. Both states say what they
+// MEAN for the next Optimize rather than just naming themselves, because "locked"
+// on its own is exactly the question the installer was already asking.
+//
+// While locked, the meters/day box and the "Planning for" date go read-only. That
+// is not decoration: the lock is a statement about a target on a day, so a target
+// typed under it would either be ignored (which is how the old asymmetry was
+// reported) or would quietly re-size a settled day. Making them inert is the honest
+// third answer, and unlocking is one tap away.
+//
+// Distinct from the per-order 🔒 on each card (toggleOrderLock — a position lock
+// pinning one stop to a date and slot). That one is an icon-only button INSIDE a
+// card; this is a full-width labelled bar above Optimize, and the always-present
+// text label is what keeps them apart.
+function paintDayLock(pending){
+  const btn = $('wlDayLock'), hint = $('wlDayLockHint');
+  if(!btn) return;
+  const on = dayLocked();
+  const n = on ? day1Count(anchorDay1Ids(loadAnchor(), pending || [])) : 0;
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.textContent = on
+    ? `🔒 Work list locked · today’s ${n} order${n === 1 ? '' : 's'} are set`
+    : '🔓 Work list unlocked · Optimize will re-plan every day';
+  const target = on ? (anchorTarget(loadAnchor()) || targetVal()) : targetVal();
+  // Show the number the day was settled ON, not whatever the box last held — the
+  // two are the same at the press, and this is what keeps them the same afterwards.
+  if(on && $('wlTarget')) $('wlTarget').value = String(target);
+  if(hint){
+    hint.textContent = on
+      ? `Locked at ${target}/day. Unlock to change the target or the day.`
+      : 'Set your target, optimize, then lock it in for the day.';
+  }
+  for(const id of ['wlTarget', 'wlPlanDate']){
+    const el = $(id);
+    if(!el) continue;
+    // readOnly, not disabled: a disabled input is skipped by the tab order and
+    // reads as broken rather than settled, and on the date control it also hides
+    // the value the crew wants to SEE while locked.
+    el.readOnly = on;
+    el.setAttribute('aria-readonly', on ? 'true' : 'false');
+    el.classList.toggle('locked', on);
+  }
 }
 // "~6h 40m" / "~40m". The old figure was a count times a cadence plus an hour of
 // lunch, so it could never land under an hour and always printed the hours; a
@@ -1700,7 +1784,8 @@ async function persistOrderIds(ordered){
     try{
       const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
       schedule = scheduleRouteConstraints(pending, pendingIds,
-        { ...planShape(), target:targetVal(), travel: estimateTravel(pending, items),
+        { ...planShape(), target:targetVal(), day1Count: currentDay1Count(pending),
+          travel: estimateTravel(pending, items),
           dwell: dwellShape(), day1FirstStopTime: day1DepartTime(true) });
       ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
@@ -1885,30 +1970,34 @@ async function todayWithQueued(anchor, pending, byId){
   return day1;
 }
 
-// Offer the choice — but only when it is a real one: today must already be committed
-// (an anchor for the day being planned). A never-routed list just takes the order the
-// normal way.
+// Offer the choice — but only when it is a real one: the list must be LOCKED for the
+// day being planned. Unlocked there is nothing to join and nothing to protect, so the
+// order simply takes its place and the next Optimize routes it; asking would be a
+// question with no consequence attached to either answer.
 //
-// A FINISHED day still gets the sheet, and that is deliberate. It used to bail on
-// `!day1.length` because an exhausted anchor re-committed itself on the next call and
-// swept the new order into today anyway. It does not any more (js/route-today.js
-// needsCommit), so bailing would send a hand-typed order silently to tomorrow — and
-// "add more to today by hand" is the one way work is supposed to join a finished day.
-async function offerAddTo(){
+// A FINISHED locked day still gets the sheet, and that is deliberate. It used to bail
+// on `!day1.length` because an exhausted anchor re-committed itself on the next call
+// and swept the new order into today anyway. Nothing re-commits now, so bailing would
+// send a hand-typed order silently to tomorrow — and "add more to today by hand" is
+// the one way work is supposed to join a day that is already spent.
+//
+// `title` lets the office's Download say who added the work; the two answers, and
+// what they do, are identical either way.
+async function offerAddTo(title){
   if(!addToQueue.length) return;
   const anchor = loadAnchor();
   const items = await allSorted();
   const pending = pendingOf(items);
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
-  if(!(anchor && anchor.date === planDay())){ hideAddTo(); return; }
+  if(!dayLocked() || !anchor){ hideAddTo(); return; }
 
   const next = await todayWithQueued(anchor, pending, byId);
   const n = addToQueue.length;
   const extraMin = n * Math.max(1, Math.round(Number($('wlPace').value) || 30));
 
-  $('wlAddToTitle').innerHTML =
-    `<b>${n === 1 ? 'Order added' : n + ' orders added'}</b> — today’s route is already set. Where does `
-    + `${n === 1 ? 'it' : 'this work'} go?`;
+  $('wlAddToTitle').innerHTML = title || (
+    `<b>${n === 1 ? 'Order added' : n + ' orders added'}</b> — today’s list is locked. Where does `
+    + `${n === 1 ? 'it' : 'this work'} go?`);
   $('wlAddToExtend').innerHTML = `Add to today`
     + `<span class="wl-addto-sub">Day runs about ${extraMin} min longer · ${next.length} `
     + `stop${next.length === 1 ? '' : 's'} left today</span>`;
@@ -1994,13 +2083,113 @@ export async function resetWorklistOrder(workOrderId){
   await planAdvance();   // the revived order may now be the plan's next stop
 }
 
-// ── today anchor (the frozen "today's orders" set) ──────────────────────────
-// Persisted locally (like the meters/day target); never synced. See route-today.js.
+// ── the 🔓/🔒 work-list lock ────────────────────────────────────────────────
+// The lock is ONE DATE, and the whole of its semantics is one equality: the list is
+// locked iff `wlDayLock` names the day being planned. Nothing expires it, nothing
+// sweeps it, and a new plan day releases it for free — a lock is a statement about
+// a particular day's work, so a lock left over from Tuesday means nothing on
+// Wednesday. Blank is unlocked.
+//
+// The frozen SET is the anchor next door (`wlTodayAnchor`), written once at the
+// press and never again except by "Add to today". Both live in localStorage like
+// the meters/day target; the lock DATE also rides the sync to WorklistPlans so the
+// office's planner and the phone can see each other's, while the set itself stays
+// local (on the sheet it is just the rows tagged day 1).
+function dayLocked(){
+  const on = store.get('wlDayLock') || '';
+  return Boolean(on) && on === planDay();
+}
+
+// How big Day 1 is right now, for any caller that re-schedules the pending list:
+// the locked set entire, or — unlocked — the day as currently tagged, or null for a
+// list nothing has ever routed. `null` is "unset" and makes route-constraints.js
+// size day 1 by the target like any other day; 0 is a REAL count (a locked day whose
+// work is finished) and must never be tested for truthiness.
+//
+// Every re-scheduling path has to use this, not just applyTodayAnchor. The variant
+// switch and the drag write-back both call scheduleRouteConstraints on their own, and
+// while they omitted it the lock leaked: flipping road↔straight, or dragging one
+// card, silently re-chunked Day 1 back to a full target.
+function currentDay1Count(pending){
+  const tagged = taggedDay1Ids(pending);
+  const fallback = tagged.length ? tagged.length : null;
+  if(!dayLocked()) return fallback;
+  const a = loadAnchor();
+  // A lock whose SET has not landed yet — the office's lock arrives as a bare date on
+  // the WorklistPlans row, so between adopting it and the next applyTodayAnchor there
+  // is a lock with nothing behind it. Reading the anchor blind would return 0 here,
+  // and 0 is a real count: Day 1 would collapse to nothing.
+  if(!a || a.date !== planDay()) return fallback;
+  return day1Count(anchorDay1Ids(a, pending));
+}
 function loadAnchor(){
   try { const a = JSON.parse(store.get('wlTodayAnchor') || 'null'); return (a && a.date) ? a : null; }
   catch { return null; }
 }
 function saveAnchor(a){ store.set('wlTodayAnchor', a ? JSON.stringify(a) : ''); }
+
+// One-shot, for the phones that are MID-DAY when this ships. Before the toggle
+// existed, a committed anchor for the day being planned WAS the frozen day — so a
+// crew that downloaded and started driving this morning would come back from the
+// deploy reading as unlocked, and their settled day would go soft under them. Carry
+// the old implicit freeze across as an explicit lock.
+//
+// Keyed on a separate one-shot marker, never on "wlDayLock is blank": blank is the
+// real unlocked state, so migrating off it would silently re-lock the day every time
+// the installer unlocked and reloaded. Runs after refreshPlanDay, because it compares
+// against the plan day.
+function migrateLegacyLock(){
+  if(store.get('wlDayLockMigrated')) return;
+  store.set('wlDayLockMigrated', '1');
+  const a = loadAnchor();
+  if(a && a.date === planDay() && !(store.get('wlDayLock') || '')) store.set('wlDayLock', a.date);
+}
+
+// Flip the lock. Locking SNAPSHOTS the day that is on screen right now — whatever
+// sized it, the last Optimize, the office's chunking or an appointment day — which
+// is the one moment the installer has actually looked at the day and said "this
+// one". That snapshot is the only commit there is; nothing recomputes it afterwards.
+// Unlocking drops both the flag and the set, so the next re-schedule chunks purely
+// by target.
+async function setDayLocked(on){
+  const day = planDay();
+  if(!on){
+    store.set('wlDayLock', '');
+    saveAnchor(null);
+    return;
+  }
+  const pending = pendingOf(await allSorted());
+  const target = targetVal();
+  saveAnchor({ date: day, ids: freshAnchorIds(pending, target), target });
+  store.set('wlDayLock', day);
+}
+
+// The 🔓/🔒 press. Locking snapshots the day and says how big it came out; unlocking
+// re-splits every day by the target immediately, because that IS what unlocked
+// means — the installer can then change the target and re-optimize, and both will
+// actually do something. Pushed to the sheet so the office's planner sees it, on the
+// same implicit channel the meters/day target rides.
+async function toggleDayLock(){
+  await refreshPlanDay();
+  const next = !dayLocked();
+  // Locking an empty list freezes an empty day, which then reads as "today is done"
+  // for as long as the lock stands. There is nothing to settle, so say so instead.
+  if(next && !pendingOf(await allSorted()).length){
+    toast('Nothing to lock — the list has no pending orders');
+    return;
+  }
+  await setDayLocked(next);
+  await applyTodayAnchor();
+  await renderWorklist();
+  await planAdvance();
+  if(next){
+    const n = day1Count(anchorDay1Ids(loadAnchor(), pendingOf(await allSorted())));
+    toast(`🔒 Locked — ${n} order${n === 1 ? '' : 's'} for ${planDay()}`);
+  } else {
+    toast('🔓 Unlocked — set your target and optimize');
+  }
+  syncWorklist().catch(() => {});
+}
 
 // Today's real stops, tallied — from ANY source, planned orders and the walk-ups a crew
 // finds in the field alike. Read from the same storage-first dayCache the pace projection
@@ -2019,9 +2208,6 @@ async function tallyOn(date){
   return countDay((cached && cached.stops) || [], []);
 }
 async function todayTally(){ return tallyOn(localDate()); }
-// The day's capacity input. INSTALLED only — the target is meters/day, so a planned
-// order closed as a UTI leaves the pending list without spending a slot.
-async function installedToday(){ return (await todayTally()).installed; }
 
 // Has today's work actually begun? Installs OR UTIs — a UTI spends no meter slot
 // (installedToday deliberately ignores it) but it is still a stop the crew drove to,
@@ -2035,130 +2221,119 @@ async function dayStarted(){
 // the next working day, so it may reshuffle freely — same key paceContext reads.
 function dayClosed(){ return store.get('dayClosedDate') === localDate(); }
 
-// Fold the office's day 1 into the committed set — the "planner decides, phone
-// obeys" rule. Only fires when the downloaded plan starts on the day THIS PHONE is
-// planning; a plan for any other day leaves the anchor alone and its orders queue
-// behind, as before. (That comparison was against localDate() when the phone could
-// only ever plan today; it must follow the plan day, or an evening download of
-// tomorrow's route — the normal case now — would stop being adopted.) Unlike an
-// order typed on the phone this asks nothing: the office weighed the day
-// deliberately, so their whole day 1 is taken. The installer can still set an order
-// aside or drag it out afterwards.
+// What a downloaded plan is allowed to do to a LOCKED day. Only fires when the
+// downloaded plan starts on the day THIS PHONE is planning; a plan for any other day
+// leaves the lock alone and its orders queue behind. (That comparison was against
+// localDate() when the phone could only ever plan today; it must follow the plan day,
+// or an evening download of tomorrow's route — the normal case now — would stop being
+// adopted.)
 //
-// This also runs on the Drive screen's 5-minute autoSync, where it is a no-op unless
-// the office genuinely re-planned mid-day: every id is already in the anchor, `added`
-// is empty, and it returns before writing anything.
-async function adoptPlannerDay1(plan){
+// It used to fold the office's whole day 1 into the committed set without asking —
+// "the planner decides, the phone obeys". The lock reverses that, deliberately: the
+// installer pressed 🔒 on a day they had looked at, and an office re-plan landing
+// during it is exactly the case the toggle exists to survive. So the office's extra
+// orders go through the SAME "where does this go?" sheet a hand-typed order raises.
+//
+// `interactive` is not decoration. This also runs on the Drive screen's 5-minute
+// autoSync, whose whole contract is that it never speaks — there is nobody to answer
+// a prompt at 80 km/h. On that path the extras simply stay out of today and wait for
+// the installer to open the worklist, which is the honest quiet outcome.
+//
+// Unlocked there is nothing to adopt: no frozen set exists, and the downloaded `day`
+// tags are already the day.
+async function adoptPlannerDay1(plan, opts){
   await refreshPlanDay();
   const today = planDay();
   if(String((plan && plan.routeStartDate) || '') !== today) return;
+  if(!dayLocked()) return;
+  const anchor = loadAnchor();
+  if(!anchor) return;
   const pending = pendingOf(await allSorted());
   const officeDay1 = pending.filter(p => Number(p.day) === 1).map(p => String(p.id));
   if(!officeDay1.length) return;
-  const anchor = loadAnchor();
-  // No anchor committed for today yet ⇒ applyTodayAnchor is about to commit the
-  // office's day-1 group by itself (freshAnchorIds prefers the tagged group).
-  if(!anchor || anchor.date !== today) return;
   const have = new Set(anchor.ids.map(String));
   const added = officeDay1.filter(id => !have.has(id));
   if(!added.length) return;
-  saveAnchor({ date: today, ids: [...anchor.ids.map(String), ...added],
-    target: anchorTarget(anchor) || targetVal() });
+  if(!(opts && opts.interactive)) return;
+  const n = added.length;
+  addToQueue = [...new Set([...addToQueue, ...added])];
+  await offerAddTo(`<b>The office put ${n === 1 ? 'another order' : n + ' more orders'} on today</b>`
+    + ` — your list is locked. Where does ${n === 1 ? 'it' : 'this work'} go?`);
 }
 
-// The single choke point that keeps "today" frozen. Commits today's set on the
-// first route of the day (and re-commits when it's exhausted), then reassigns the
-// live order/day so today's committed orders lead and later work fills days 2+ by
-// target — overriding the plain target-chunking that optimize/download stamp.
-// Day 1 is EXACTLY today's committed set, minus whatever has been finished. Nothing
-// the crew installs re-sizes it: this used to hand scheduleRouteConstraints
-// `min(dayCapacity + anchor.extend, |set|)` and so pushed a committed list's tail out
-// to tomorrow every time a walk-up or a two-meter order outran the meters/day
-// target — see js/route-today.js for the whole account. Still runs after every
-// logged stop (planAdvance is that call site), but now to re-TIME the day rather
-// than to re-size it: the re-schedule is what keeps the remaining ETAs honest, and
-// it is what the Drive screen's 5-minute refresh is really after.
-// Writes only when a pending order's order/day actually changes (keyed off those,
-// not the ETA, so a real downloaded route's exact ETAs survive an unchanged day).
-// opts.travel: the run's real road-duration lookup (optimize passes it so ETAs stay
-// exact); otherwise an on-device estimate is used and the "(est.)" marker is set.
-// opts.replan: this is a deliberate re-plan, so a CHANGED meters/day target may
-// re-freeze today (see needsCommit in route-today.js). Without that, a set frozen at
-// target 6 kept a six-order Day 1 no matter what the target was raised to, on that
-// day and on every day after it. Exactly TWO callers pass it — the Optimize press
-// and the meters/day box's `change` — and every other one (planAdvance, Download,
-// first view, markWorklistDone, resetWorklistOrder, the plan-date change) passes
-// nothing and must keep today frozen.
+// The single choke point that re-times the route and, while the list is LOCKED,
+// keeps Day 1 frozen. It reassigns the live order/day so the locked orders lead and
+// later work fills days 2+ by target, overriding the plain target-chunking that
+// optimize/download stamp. Unlocked it does neither: the target chunks every day and
+// this is purely the re-schedule.
+//
+// It runs after every logged stop (planAdvance is that call site), and there to
+// re-TIME the day rather than re-size it — the re-schedule is what keeps the
+// remaining ETAs honest, and it is what the Drive screen's 5-minute refresh is
+// really after. Writes only when a pending order's order/day/date/ETA actually
+// changes, so a real downloaded route's exact ETAs survive an unchanged day.
+//
+// It takes ONE option now. `opts.travel` is the run's real road-duration lookup —
+// Optimize passes it so its ETAs stay exact; every other caller omits it and gets
+// the on-device estimate plus the "(est.)" marker. `opts.replan`/`opts.resize` are
+// gone with the inference they drove: which orders are today is the toggle's answer,
+// not something to work out from who called and whether the target moved.
 async function applyTodayAnchor(opts){
   // The day being planned, which is usually but NOT always today — an evening plan
-  // is for tomorrow. Everything below keys on it: the anchor's date, the capacity
-  // tally, and the route's start date via planShape(). Keying the anchor on
-  // localDate() instead would freeze tomorrow's plan under today's date, and
-  // needsCommit's `anchor.date !== today` would then re-plan it at midnight —
-  // throwing away exactly the evening's work this feature exists to allow.
+  // is for tomorrow. Everything below keys on it: the lock's date, the anchor's, and
+  // the route's start date via planShape(). Keying on localDate() instead would lock
+  // tomorrow's plan under today's date and release it at midnight, throwing away
+  // exactly the evening's work this feature exists to allow.
   // Resolved BEFORE the items are read: it expires locks left pinned to a day that
   // has passed, so `items` must be the list from after that sweep.
   await refreshPlanDay();
-  const today = planDay();
+  migrateLegacyLock();
   const items = await allSorted();
   const pending = pendingOf(items);
   if(!pending.length) return;
   const target = targetVal();
   const pendingSeq = pending.map(p => String(p.id));
 
-  // The day's remaining room. It no longer sizes anything — its ONE job is to bound
-  // a mid-day re-plan the installer asked for (midReplan below), so raising the target
-  // at noon grows today into the space it actually has. Tallied on the PLAN day: a day
-  // not yet reached has no stops, so planning ahead correctly finds a full day's room
-  // rather than inheriting what today already spent.
-  const tally = await tallyOn(today);
-  const capacity = dayCapacity(target, tally.installed);
-  // A day with no installs and no UTIs has not started, and a closed-out day is spent
-  // — either way the route on screen is for a day nobody has driven yet, so a re-plan
-  // may reshuffle it freely. Mid-day it may only grow into the room actually left.
-  const freeReplan = !(tally.installed || tally.uti) || dayClosed();
-
-  let anchor = loadAnchor();
-  // Today's committed set has nothing pending left on it — the day as planned is done.
-  // It is no longer a reason to commit by itself (js/route-today.js needsCommit); it is
-  // the state an explicit re-plan is allowed to break out of.
-  const exhausted = Boolean(anchor) && anchor.date === today
-    && anchorDay1Ids(anchor, pending).length === 0;
-  // A target change re-plans today, but only on an explicit Optimize (opts.replan).
-  // A day with no room LEFT still re-plans when its set is spent: `capacity > 0` is
-  // there to stop a target-change commit from freezing an EMPTY set (which would make
-  // needsCommit fire again on every subsequent call), and that trap needs `opts.max`,
-  // which only midReplan passes — and midReplan cannot fire on a spent set. Without
-  // this, an installer who met the target and finished every order had no way at all
-  // to ask for more work today, which is the one thing the press has to mean.
-  const replan = Boolean(opts && opts.replan) && (freeReplan || exhausted || capacity > 0);
-  // A commit that fires while today's frozen set is STILL ALIVE can only be the
-  // target-change re-plan — and that is the one bounded by the room actually left, so
-  // raising the target at noon grows today into the space it has rather than hauling a
-  // whole fresh target up out of tomorrow. The other commit reasons (new day, set
-  // finished, a day nobody has driven yet) stay exactly as unbounded as they were.
-  const midReplan = !freeReplan && anchor && anchor.date === today && !exhausted;
-  // Can the existing `day` tags be trusted to describe the target being frozen at?
-  // After an Optimize, yes — it re-solved them at the new target moments ago, and
-  // preferring them is what honours an appointment day or the office's chunking.
-  // From the meters/day box (`opts.resize`) nothing has re-solved them, so they still
-  // describe the OLD target — and preferring them makes a RAISED target do nothing at
-  // all, because the frozen set is then a day-1 group sized for the smaller number.
-  // Taking the set by COUNT instead is what lets the box move the day up. Nothing timed
-  // is lost by ignoring the tags: the appointment and lock constraints are re-imposed
-  // by scheduleRouteConstraints further down.
-  const fromTags = !(opts && opts.resize);
-  if(needsCommit(anchor, today, pending, { replan, target })){
-    anchor = { date: today,
-      ids: freshAnchorIds(pending, target, { max: midReplan ? capacity : null, fromTags }),
-      target };
+  // 🔓 or 🔒 — the installer's own answer to "is this day settled?". There used to be
+  // a `needsCommit` here trying to INFER it from a target change, an Optimize press, a
+  // day roll and an exhausted set, plus a `dayCapacity` bound and a `fromTags` flag to
+  // make the inference behave. See js/route-today.js for why all of it is gone.
+  const locked = dayLocked();
+  let anchor = locked ? loadAnchor() : null;
+  // Locked, but with no set behind it. Two ways in: the lock was adopted from the
+  // sheet (the office's 🔒 travels as a bare date — the membership up there is just
+  // the rows tagged day 1), or a legacy record was migrated. Snapshot the day as
+  // tagged, which is what was pressed on at the other end. This is the ONLY commit
+  // besides the press itself, and it is a repair rather than a decision.
+  if(locked && (!anchor || anchor.date !== planDay())){
+    anchor = { date: planDay(), ids: freshAnchorIds(pending, target), target };
     saveAnchor(anchor);
   }
-  const day1 = anchorDay1Ids(anchor, pending);
-  const seq = orderAnchorFirst(pendingSeq, day1);
+  const day1 = locked ? anchorDay1Ids(anchor, pending) : [];
+  const seq = locked ? orderAnchorFirst(pendingSeq, day1) : pendingSeq;
 
-  // Day 1 is today's set, entire.
-  const fits = day1Count(day1);
+  // How big Day 1 is. THREE answers, and the middle one is the one that is easy to
+  // miss — it is why "unlocked" cannot simply mean "no day1Count".
+  //
+  //   LOCKED            → the frozen set, entire. Zero is a real answer (a locked day
+  //                       whose work is done, which stays done), so this must reach
+  //                       route-constraints.js as 0 and never as a falsy "unset".
+  //   UNLOCKED, RE-CHUNK→ null: size every day by the meters/day target. This is the
+  //                       whole point of being unlocked, and exactly ONE caller asks
+  //                       for it — the meters/day box, which changed the number but
+  //                       has not re-solved the route. (Optimize does not need to ask:
+  //                       it rewrites every `day` tag at the new target moments before
+  //                       calling here, so holding the tags below IS the fresh split.)
+  //   UNLOCKED, PASSIVE → hold the day as currently tagged.
+  //
+  // That last one is load-bearing. This function also runs after EVERY logged stop
+  // (planAdvance), on the Drive screen's 5-minute autoSync, on Download and at boot —
+  // and if those re-chunked from the front of `pending`, an installer who simply had
+  // not pressed 🔒 would watch tomorrow's orders climb into today as they worked,
+  // which is the single most expensive bug this codebase has had (see the field
+  // report in js/route-today.js). Unlocked means "a deliberate act may re-plan the
+  // week", never "the week re-plans itself between deliberate acts".
+  const fits = (!locked && opts && opts.rechunk) ? null : currentDay1Count(pending);
 
   const travel = (opts && opts.travel) || estimateTravel(pending, items);
   let schedule;
@@ -2528,6 +2703,7 @@ export function initWorklist(opts){
   bindOptimizeGesture($('wlOptimize'),
     () => optimizeRouteHandler(false),
     () => optimizeRouteHandler(true));
+  $('wlDayLock').onclick = () => toggleDayLock();
   $('wlAddToExtend').onclick = () => acceptAddTo();
   $('wlAddToLater').onclick  = () => { hideAddTo(); toast('Left for later'); };
   $('wlVariantRoad').onclick = () => switchVariant('road');
@@ -2548,30 +2724,41 @@ export function initWorklist(opts){
   // between keystrokes — but that leaves a visible wrong number in the box rather
   // than silently discarding the edit, which is the better of the two failures.
   const persistTarget = () => {
+    if(dayLocked()) return;
     const n = Math.floor(Number($('wlTarget').value));
     if(isFinite(n) && n > 0) store.set('wlTarget', String(n));
   };
   $('wlTarget').value = String(Math.max(1, Math.floor(Number(store.get('wlTarget')) || 24)));
   $('wlTarget').oninput = persistTarget;
-  // …and a settled target has to RE-SPLIT the days, not just get stored. Day 1 is
-  // today's committed set, and the ONLY thing that re-commits it is `needsCommit`
-  // (js/route-today.js) seeing `replan` — so a typed target that does not pass it
-  // moves nothing at all, in either direction. Reported from the field as "I can't
-  // even change the amount of orders that populate the list with the target value.
-  // They get stuck on a different value and never got updated." Reuse `replan`
-  // rather than adding a second unfreeze path — applyTodayAnchor already carries all
-  // the guard rails (`freeReplan`, `midReplan` bounding a started day's GROWTH to the
-  // room it has left, and the skip that refuses to commit an empty set).
+  // …and a settled target has to RE-SPLIT the days, not just get stored. While the
+  // list is UNLOCKED that is all it takes: nothing is frozen, so the re-schedule
+  // chunks every day by the new number. This used to have to fight a `needsCommit`
+  // that could only be persuaded to re-freeze by a `replan` + `resize` pair, and a
+  // typed target that failed to pass it moved nothing at all in either direction —
+  // reported as "I can't even change the amount of orders that populate the list
+  // with the target value. They get stuck on a different value and never got
+  // updated." There is nothing left to persuade.
   //
-  // This is one of the handful of deliberate acts allowed to re-size the day. The
-  // background paths — a logged stop, a Download, the Drive screen's 5-minute
-  // refresh — pass nothing, and must keep passing nothing.
+  // While LOCKED the box is inert and the typed value is reverted. `readOnly` alone
+  // is not enough — a number input's spinner and a date input's picker both ignore
+  // it on some browsers — so the handler is the real guard and the attribute is the
+  // affordance.
   $('wlTarget').onchange = async () => {
+    if(dayLocked()){
+      $('wlTarget').value = String(anchorTarget(loadAnchor()) || targetVal());
+      toast('Work list is locked — unlock to change the target');
+      return;
+    }
     const v = targetVal();
     $('wlTarget').value = String(v);
     persistTarget();
     paintTargetHint();
-    await applyTodayAnchor({ replan: true, resize: true });
+    // The ONE caller that asks for a re-chunk. Nothing has re-solved the route, so
+    // the `day` tags still describe the OLD number and holding them — which is what
+    // every passive re-schedule does — would make a changed target do nothing at all
+    // in either direction. Optimize does not need this: it rewrites every tag at the
+    // new target before it calls, so holding them there is already the fresh split.
+    await applyTodayAnchor({ rechunk: true });
     await renderWorklist();
     await planAdvance();
   };

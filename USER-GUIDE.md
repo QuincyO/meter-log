@@ -298,27 +298,45 @@ If an order's appointment falls **before** the day you picked, the route can't b
 worked out and the line turns into a warning naming the work order — either move the
 appointment or plan for the earlier day.
 
-### Today stays today
+### Locking your day — 🔓 and 🔒
 
-The first time you look at your route each day, the app **locks in today's list** —
-the orders under the **Day 1** header at that moment. From then on that list is yours:
-it gets shorter as you finish orders and it changes in no other way. Optimizing again,
-downloading a fresh plan, or logging a stop can reshuffle the driving **order**, but
-nothing moves work between days on its own. So if you set out to do 24 and get 10
-done, your Day 1 still shows the **14 you have left** — not 4 of tomorrow's houses
-tacked on the end, and not 3 of yours pushed off the bottom.
+Above **🧭 Optimize route** there's one button with two states, and it decides whether
+your day can move.
+
+**🔓 Work list unlocked** is planning. Set your **Meters/day**, set the day you're
+planning for, and tap **🧭 Optimize route** — every day comes out at your target. Set 6
+and you get days of six. Change it to 8 and optimize again and you get days of eight.
+Nothing is fixed yet, so try the number until the day looks right.
+
+**🔒 Work list locked** is *this is the day I'm driving.* Tap it and today's list is
+settled exactly as it stands. It gets shorter as you finish orders and it changes in no
+other way — not when you log a stop, not when you download a fresh plan from the
+office, not when you optimize again. If you set out to do 20, your Day 1 stays **the 20
+you picked**, and as you work it counts down: 20, 19, 18. No houses of tomorrow's
+tacked on the end, none of yours pushed off the bottom.
+
+While it's locked the **Meters/day** box and the **Planning for** date grey out. That's
+deliberate — the lock is a statement about a target on a day, so those two are what you
+unlock to change. Tap 🔒 again and everything is live once more; optimize and the days
+re-split at whatever number is in the box.
+
+**A new day unlocks it for you.** A lock is about one day's work, so tomorrow starts
+open and you plan it fresh.
+
+**Optimizing while locked still works** — it re-works the driving **order** of today's
+stops, which is exactly what you want after adding an order. It just can't change *who*
+is on today.
 
 **Install extra and you're just ahead.** Meters you find in the field that were never
 on the plan don't eat into your list. Say your target is 20, you finish 5 planned
 orders and install 5 more you came across: your remaining 15 all stay on today. The
 pace card says **"· 10 over your 20"** and the *Route done ~* time moves later to
-account for the extra work. Your Meters/day target decides how big the day is when the
-day is **planned**, and then it leaves the list alone.
+account for the extra work. Meters/day decides how big the day is when the day is
+**planned**, and then it leaves the list alone.
 
 **When today's list is done, it's done.** Clear the last order and Day 1 goes empty —
-tomorrow's orders stay tomorrow's. If you want more work today, that's your call to
-make: tap **🧭 Optimize** and the next batch comes in, or add the orders by hand
-(below).
+tomorrow's orders stay tomorrow's. If you want more work today, that's your call: tap
+🔓 to unlock and optimize for the next batch, or add the orders by hand (below).
 
 **Meters/day is the whole answer.** It is the only thing that decides how many stops a
 day holds — set 24 and you get days of 24. There used to be a **Finish by** time as
@@ -326,40 +344,38 @@ well, and it quietly overruled you: it worked out how many stops fitted before t
 clock and shortened the day to match, so above that number your target did nothing at
 all. It has been removed. If a day is coming out too long, lower Meters/day.
 
-**Change your Meters/day and the list re-splits on the spot.** Type the new number,
-tap out of the box, and the day dividers move straight away — bigger *or* smaller. You
-don't have to press anything after it. 🧭 Optimize is for re-working the driving
-**order**; it isn't what sets the size of the day.
-
-Before the day starts (nothing installed or UTI'd yet) or after you've closed it out,
-that's a clean re-plan at the new number. Partway through, the day only grows into the
-room it has left: set 24 with 6 already in and today fills to **18 more**, not a fresh
-24. Set the target *lower* and the extra stops move to tomorrow. Either way it takes
-the typed number to make it happen — nothing re-splits the days behind your back.
+**Unlocked, changing Meters/day re-splits on the spot.** Type the new number, tap out
+of the box, and the day dividers move straight away — bigger *or* smaller. You don't
+have to press anything after it. 🧭 Optimize is for re-working the driving **order**;
+Meters/day is what sets the size of the day.
 
 The arrival times shift with it, but they're worked out from estimated driving times
-rather than measured ones, so they show as **(est.)** until the next time you
-Optimize.
+rather than measured ones, so they show as **(est.)** until the next time you Optimize.
 
 ### Adding orders partway through the day
 
-Add an order after your route is set and the app asks where it goes:
+Add an order while your day is **locked** and the app asks where it goes:
 
-- **Add to today** — it joins today's run and the day goes a bit longer. The app
-  slots it in next to its nearest neighbours rather than tacking it on the end.
+- **Add to today** — it joins today's run and the day goes a bit longer. The app slots
+  it in next to its nearest neighbours rather than tacking it on the end, and **nothing
+  comes off** to make room. Optimize afterwards and it settles into the right place in
+  the drive without moving the end of your day.
 - **Leave for later** — it stays on the list, after today's work.
 
 Add several in a row and you're asked once for the lot. This works on a day you've
-already finished, too — it's how you put more work on a cleared list without
-re-optimizing.
+already finished, too — it's how you put more work on a cleared list.
 
-(There used to be a third answer, *Add to today, keep the day's size*, which pushed
-the last stop or two off the bottom to make room. It's gone: nothing takes work off
-your day now except you.)
+(There used to be a third answer, *Add to today, keep the day's size*, which pushed the
+last stop or two off the bottom to make room. It's gone: nothing takes work off your day
+now except you.)
 
-When the **office** sends you a plan that starts on the day you're planning, whatever
-they put on their Day 1 simply becomes your today — no question asked. A plan for a
-later date leaves today alone.
+While you're **unlocked** you aren't asked — nothing is settled yet, so a new order
+just takes its place on the list and the next Optimize routes it with everything else.
+
+When the **office** sends you a plan that starts on the day you're planning, orders they
+put on their Day 1 that aren't already on yours come through the same **Add to today /
+Leave for later** question — your lock wins over their plan. A plan for a later date
+leaves today alone. (If you're unlocked, their plan simply becomes your days.)
 
 ### Two routes: road matrix and straight-line
 
@@ -443,6 +459,12 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
   Google road matrix.
 - The persistent **Last optimization** card shows the actual providers and
   fallback used for the most recent desktop run in that browser.
+- **🔓 / 🔒 Day 1** is the same lock the installer has on their phone. Open, Optimize
+  sizes every day by the Meters/day target. Locked, whatever is on day 1 stays on day 1
+  through a re-solve and the target box greys out. ⇪ Upload sends the lock with the
+  route, so the installer's phone picks it up on their next ⇩ Download — and a day the
+  *installer* locked shows here on ⇩ Load. Don't confuse it with the 🔒 on an individual
+  order row, which pins that one stop to a date and slot.
 - **Start and home addresses drive the times.** Set the crew's **start location**
   on the boat/crew card in Crew & Teams (the morning meet-up spot — the route leaves
   it at 08:00, no later than 08:30) and each installer's **home address** on their
