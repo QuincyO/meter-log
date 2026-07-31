@@ -1407,8 +1407,13 @@ screen, not just `#drive`.
   today's WO→WO gaps, net of any logged downtime **and of the drive the same ladder
   measures for that leg** (`js/compute/cadence.js observedOnSiteMin` /
   `nettedGapMin`) — median because a day is a handful of gaps and a mean lets one
-  hold-up stand in for every stop. The count is **capped at the stops left in the
-  route**. Neither half is a day-average any more: travel was `legMetres ÷
+  hold-up stand in for every stop. **The count is a walk of the chain**, not a
+  division: `paceFor` adds each leg (`legTravelMin`, per leg in route order) and its
+  on-site time until the clock passes the horizon, so the cap at the stops left in the
+  route is structural. It used to divide `horizon − now − remainingTravelMin` by the
+  on-site time, which charged the stops the crew could reach for the drive out to the
+  ones they could not — see AGENTS.md §"The count is a WALK of the chain". Neither half
+  is a day-average any more: travel was `legMetres ÷
   liveMetrics().avgMovingSpeed` and on-site was `median − a flat 10 min`, errors
   pointing opposite ways that between them produced *"~13 installs by 3:45"* on a day
   the crew were on track for twenty. See AGENTS.md §"No day-average speed prices the

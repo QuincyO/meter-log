@@ -2623,14 +2623,20 @@ function firstLegDriveMin(travel, toId){
   return (v != null && isFinite(v)) ? v : NOMINAL_TRAVEL_MIN;
 }
 
-// Real remaining route travel (minutes) + its per-stop average: the day's lookup
-// walked along the pending chain. Pure — `travel` is built once by paceContext and
-// shared with the on-site half, so the two cannot drift.
+// Real remaining route travel: the day's lookup walked along the pending chain, as
+// a PER-LEG list plus its total and per-stop average. Pure — `travel` is built once
+// by paceContext and shared with the on-site half, so the two cannot drift.
+//
+// `legMin` is the load-bearing one and the total is the convenience. A projection
+// against a horizon has to know WHICH drive belongs to which stop: the day's last
+// leg is routinely the long one home, and a model handed only the sum charges that
+// drive against the stops before it — see js/compute/estimate.js paceFor.
 function routeTravel(pending, travel){
-  const totalMin = pending.reduce((a, p, i) => a + (i === 0
+  const legMin = pending.map((p, i) => i === 0
     ? firstLegDriveMin(travel, p.id)
-    : legDriveMin(travel, pending[i - 1].id, p.id)), 0);
-  return { totalMin,
+    : legDriveMin(travel, pending[i - 1].id, p.id));
+  const totalMin = legMin.reduce((a, m) => a + m, 0);
+  return { legMin, totalMin,
     perStopMin: pending.length ? totalMin / pending.length : NOMINAL_TRAVEL_MIN };
 }
 
@@ -2700,6 +2706,9 @@ export async function paceContext(){
     stops,
     pendingCount: pending.length,
     remainingTravelMin: legs.totalMin,
+    // Per leg, in route order — what lets the projection stop charging the stops it
+    // CAN reach for the drive out to the ones it cannot.
+    legTravelMin: legs.legMin,
     avgLegTravelMin: legs.perStopMin,
     // The day's logged delays ride along so they aren't charged as install time.
     // Both already sit in the record opened above; `eodTravel` is the offline

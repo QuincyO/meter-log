@@ -93,11 +93,47 @@ export function finishLabel(min){
 // best news to give. At most one of the pair is ever non-zero.
 //
 // `target` absent/0 ⇒ both are null and there is simply no footnote.
+// **The count is a WALK, not a division**, and that is the whole of this function.
+//
+// It used to be `floor((horizon − now − remainingTravelMin) / onsitePerStop)`:
+// subtract the ENTIRE remaining route's driving, then see how many on-site slots fit
+// in what's left. That is exact when the crew drives the whole route — which is
+// precisely the case where the answer is already capped at `pendingCount` and the
+// arithmetic doesn't matter. Every other time it charges the stops the crew WILL
+// reach for the drive out to the ones they won't.
+//
+// It fails worst on the ordinary shape of a rural day: a tight cluster near town and
+// one long run home at the end. A real card at 14:38 had four stops left, 53 minutes
+// of driving in legs of 20, 8, 2 and 23 minutes, and 10.75 minutes on site. Walking
+// it, three complete by 15:45 (15:09, 15:28, 15:40) and the fourth lands 16:15.
+// Dividing, `(945 − 878 − 53) / 10.75` = 14 minutes ÷ 10.75 = ONE — because the
+// 23-minute leg out to a stop the model had just decided was unreachable was
+// subtracted from the time available for the three that were. It read "~19 · 3 STOPS
+// SHORT" on a day that was worth 21.
+//
+// So walk the chain: add each leg and its stop, and stop counting when the clock
+// passes the horizon. `willDo` counts stops COMPLETED by H, which is what "installs
+// by 3:45" claims. The old `min(…, pendingCount)` cap is now structural — the loop
+// cannot run past the chain it is walking.
+//
+// `legTravelMin` is per-leg in route order (js/worklist.js routeTravel). Callers
+// that have only a total — the plan banner and the #tuning what-if — fall back to a
+// uniform leg, which is still strictly better than front-loading: it charges an
+// unreached stop the AVERAGE leg rather than its own, instead of charging every
+// earlier stop for it.
 function paceFor(horizonMin, label, ctx){
-  const { done, pendingCount, remainingTravelMin, onsitePerStop, now, target } = ctx;
-  const installTimeLeft = horizonMin - now - remainingTravelMin;
-  const more = installTimeLeft > 0 ? Math.floor(installTimeLeft / onsitePerStop) : 0;
-  const willDo = Math.max(0, Math.min(more, pendingCount));
+  const { done, pendingCount, remainingTravelMin, legTravelMin, onsitePerStop, now, target } = ctx;
+  const uniformLeg = remainingTravelMin / Math.max(1, pendingCount);
+  const legAt = i => {
+    const m = legTravelMin && legTravelMin[i];
+    return (m != null && isFinite(m)) ? m : uniformLeg;
+  };
+  let clock = now, willDo = 0;
+  for(let i = 0; i < pendingCount; i++){
+    clock += legAt(i) + onsitePerStop;
+    if(clock > horizonMin) break;
+    willDo++;
+  }
   const projected = done + willDo;
   const routeShort = pendingCount - willDo;   // route stops we won't reach by H
   // Deliberately NOT echoed back as `target` — `paces.target` is already the
@@ -120,18 +156,24 @@ function paceFor(horizonMin, label, ctx){
 // paces:{ target, work } } — paces.target is null when no finish-by is set; both
 // paces are null when there's no usable pace yet.
 //
-// routeFinishMin is when the LAST stop still on today's route is done: the same
-// three terms paceFor inverts (now + remaining travel + stops × on-site), read
-// forward instead of against a horizon. Deriving it from the identical inputs is
-// the point — a separately-sourced clock could disagree with the "~N installs"
-// number sitting right above it on the gauge. It does not belong to a horizon, so
-// it sits at the top level rather than inside a pace; null when there is no route
-// left to finish.
+// routeFinishMin is when the LAST stop still on today's route is done:
+// `now + remaining travel + stops × on-site`. Deriving it from the same inputs
+// paceFor walks is the point — a separately-sourced clock could disagree with the
+// "~N installs" number sitting right above it on the gauge. It does not belong to a
+// horizon, so it sits at the top level rather than inside a pace; null when there is
+// no route left to finish.
+//
+// **It keeps the closed form deliberately, and that is not an inconsistency with
+// paceFor's walk.** Reaching the last stop means traversing every leg and every stop,
+// so the sum and the walk are the same number here — this is the one case where
+// front-loading the travel is exact, which is why this clock was already correct on
+// the very card whose COUNT was wrong by two. If the two ever disagree, the walk has
+// drifted from the finish clock and one of them is lying.
 //
 // Its label goes through finishLabel, NOT clockLabel: unlike the horizons this is
 // unbounded and routinely lands in the evening. See finishLabel.
-export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsitePerStop,
-                                 finishByMin, target, nowMin, dayClosed }){
+export function projectDayReal({ stops, pendingCount, remainingTravelMin, legTravelMin,
+                                 onsitePerStop, finishByMin, target, nowMin, dayClosed }){
   const done = (stops || []).filter(s => PRINTABLE[s.status]).length;
   const pend = Math.max(0, pendingCount || 0);
   const goal = Math.max(0, Math.floor(Number(target) || 0));
@@ -140,7 +182,8 @@ export function projectDayReal({ stops, pendingCount, remainingTravelMin, onsite
 
   const now = (nowMin == null) ? hhmmMin(clockOf(stamp())) : nowMin;
   const travel = Math.max(0, remainingTravelMin || 0);
-  const ctx = { done, pendingCount: pend, remainingTravelMin: travel, onsitePerStop, now, target: goal };
+  const ctx = { done, pendingCount: pend, remainingTravelMin: travel, legTravelMin,
+    onsitePerStop, now, target: goal };
 
   const wh = workHorizon(now, dayClosed);
   const paces = {
