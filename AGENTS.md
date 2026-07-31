@@ -352,6 +352,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   screen the crew actually navigates by. A new surface that shows a `scheduled*` field
   must consult it; one that doesn't is how "the map says 09:55 but the warning says
   10:13" happens again.
+  (5) **`wlTimesEstimated` describes the model, not the caller.** For a long time it
+  was set by *whoever* re-anchored — "not Optimize, therefore an estimate" — which was
+  true only while a re-anchor could not measure anything. Once `estimateTravel` grew
+  its road-graph rung, that rule put a `~` on times measured off the same graph
+  Optimize uses, and the two Download handlers were clearing the flag on the line
+  before an `applyTodayAnchor` that immediately re-derived it. Derive the marker from
+  the lookup that produced the numbers (`travel.measured`), never from the call site,
+  and keep the writers down to the two that own a model: Optimize, and the re-anchor.
 - **The day-1 clock is an ETA input and must never become a sizing input.**
   `ROUTE_DEPART_TIME` is where the day *starts*, not where every re-solve of it
   starts — `scheduleRouteConstraints` read `opts.firstStopTime` once and applied
@@ -707,7 +715,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   the ETAs on the fix and leaving that alone puts an arrival time measured from the
   truck beside a "Route done ~" clock whose first leg starts somewhere else — see
   §"never model the day twice" above. Only the FIRST leg: the rest really are
-  stop-to-stop and their saved road distance beats anything crow-flies offers;
+  stop-to-stop and their saved road distance beats anything crow-flies offers. It
+  re-prices through `roadLegMetres` — the same road graph the arrival clock uses —
+  and crow-flies only when no pack covers both ends, because "measured from the same
+  place" and "measured the same way" are two different claims and the cards need both;
   (3) **`ROAD_DETOUR_FACTOR` is imported from `js/route.js`, never re-declared.** A
   second copy is a constant that drifts from the one `estimateDurations` prices the
   matrix with;

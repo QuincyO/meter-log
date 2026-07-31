@@ -1209,15 +1209,71 @@ log). The captured data is identical; what changes is the chrome and the PDF.
 - **Callers must pass `travel`.** `scheduleRouteConstraints` computes ETAs only when
   handed `opts.travel`; without it (the bug that showed "8:15, no drive-out") it
   silently uses the flat `firstStopTime + (slot-1) × pace` cadence. The main Optimize
-  passes `travelLookup(base.measure)`; the matrix-less **variant flip** and **drag
-  reschedule** pass `estimateTravelFromCoords(items, start, home)` — a haversine
-  estimate over the saved pins, so those paths keep realistic ETAs on-device without
-  a fetch. A downloaded planner route is always real OSRM (no "(est.)"). **That
+  passes `travelLookup(base.measure)`; every other re-scheduling path — the re-anchor
+  after each logged stop, the **variant flip**, the **drag reschedule** — goes through
+  `js/worklist.js estimateTravel`, now a **three-rung ladder** (see
+  "**Between Optimizes, ETAs are measured too**" below) rather than a straight
+  haversine estimate. A downloaded planner route is always real OSRM (no "(est.)"). **That
   `start` follows the crew:** `js/worklist.js estimateTravel` anchors on
   `lastDonePin` — the pin of the most recently completed order — falling back to the
   muster point, because after the day's first stop the next drive begins in the
   driveway the crew is parked in. Gated on `planDay() === localDate()`; an evening
   plan for tomorrow starts at the depot like any morning.
+- **Between Optimizes, ETAs are measured too — `estimateTravel` is a ladder.** This is
+  the function `applyTodayAnchor` calls after **every logged stop**, on the Drive
+  screen's 3-minute autoSync, on Download and at boot, and until now it was pure
+  haversine × `ROAD_DETOUR_FACTOR` ÷ `ESTIMATE_SPEED_KMH` — *every leg, every day*.
+  On a phone that Optimizes on a downloaded district that made every re-anchor a
+  **downgrade**: the solve measured real roads, and the first logged stop threw the
+  result away. Driven headless against `maps/huntsville-meg.pack` with eight
+  fully-routable stops and otherwise identical data, the day's last arrival read
+  **12:44 crow-flies vs 13:41 on the road graph** — +1 min at the first stop, +57 by
+  the eighth, which is exactly the shape of "the ETA is fine in the morning and
+  nonsense after lunch". Three rungs, best measurement first, all offline:
+  1. **`roadTravelFromCoords`** (`js/route.js`) — the district pack's road graph.
+     Real road distance *and* real road time from posted limits. Coverage is judged
+     on the **stops alone**: the origin is usually the truck's live GPS fix, and a
+     fix parked outside the bbox must not veto a day the pack covers. The origin is
+     still handed to `loadGraph` so the *district chosen* matches the run.
+  2. **`savedRoadTravelFromCoords`** — the road metres the last solve saved
+     (`VARIANT_FIELDS[…].legMeters`) for a day no pack covers, priced at
+     `ROAD_MIN_PER_METRE` (**no** detour factor — a road metre has already driven the
+     detour). Only **between-stop** legs: a day's first stop carries 0, and the drive
+     from the *origin* is left alone because a metre figure measured from the crew
+     start is not a measurement of a live GPS fix. `js/worklist.js savedLegMetersField`
+     owns the two gates — `variantMatchesLive`, and `wlStraightDistanceSource === 'road'`
+     when the straight variant is live — without which this rung is rung 3 wearing a
+     road label.
+  3. **`estimateTravelFromCoords`** — crow-flies, unchanged. Needs only the pins, so
+     it always answers, and it is what gives the scheduler a defined time for the
+     non-adjacent pairs it forms when an appointment reorders a day.
+- **The stop×stop matrix is cached; only the truck's row is re-measured.**
+  `stopMatrix` (`js/route.js`, `resetTravelCache()` to clear) keys on the decoded
+  graph object plus the stop coords, and serves a **subset** by index remapping —
+  which is the whole design, because between two Optimizes the pending set only ever
+  *shrinks*. So a day is measured once and every later re-anchor is a cache hit plus
+  one `matrixRow` Dijkstra for the origin. Measured on the committed pack, 25 stops:
+  **266 ms** for the full matrix, **12 ms** for the row. `roadgraph.js matrixRow`
+  shares `fillRow` with `matrix` so the two can never disagree — if they did, an ETA
+  would depend on whether the cache happened to be warm.
+- **`wlTimesEstimated` describes the model, not the caller.** It was
+  `if(wrote && !opts.travel) set('1')` — "somebody re-anchored, therefore estimated" —
+  which was true only while a re-anchor could not measure anything. It is now
+  `travel.measured ? '' : '1'`, set on **every** ladder run: rung 1 clears the `~`
+  (and only when nothing in the day had to be repaired crow-flies), rungs 2 and 3 set
+  it. The `wrote` gate is gone with it, because the case that matters is the **model**
+  moving without the numbers moving much — a pack finishing its download mid-day.
+  Two writers remain: Optimize (via `base.estimatedTimes`) and the re-anchor. The two
+  `store.set('wlTimesEstimated','')` calls in the Download paths were deleted: an
+  `applyTodayAnchor()` runs unconditionally two lines later, so they never survived to
+  be read, and their comment ("a downloaded route was planned on real OSRM, so its
+  ETAs are exact") described a route the very next line re-timed.
+- **`loadGraph(coords, {switchActive:false})`.** `loadGraph` is not a pure read — it
+  calls `setActivePack` when `pickPack` chooses a different district, which is right
+  for Optimize and wrong for a 3-minute background re-anchor that would silently
+  re-point the crew's district. It also drops the decode cache when the id moves, so
+  two callers disagreeing about the active pack would throw the decode away every
+  tick. The ETA path measures without adopting.
 - **Day 1 departs on the clock the crew is actually on** (`opts.day1FirstStopTime`).
   `ROUTE_DEPART_TIME` (08:15) is where the *day* starts, not where every re-solve of
   it starts — `scheduleRouteConstraints` applied one `firstStopTime` to every day, so
@@ -1437,6 +1493,12 @@ screen, not just `#drive`.
   an arrival time measured from the truck beside a "Route done ~" clock whose first leg
   started somewhere else — two models of one day on one screen. Only the first leg:
   every later one really is stop-to-stop and its saved road distance beats crow-flies.
+  That re-pricing now goes through **`roadLegMetres`** — the same road graph the arrival
+  clock is built from — falling back to crow-flies × `ROAD_DETOUR_FACTOR` only when no
+  pack covers both ends. Both ends, not 80%: there are only two, and half a leg is not a
+  leg. This is what makes the two cards **one** model rather than two that agree on a
+  good day; while it was crow-flies it was the last place the old estimate survived on
+  a phone that had a district downloaded.
   A phone that never armed drive tracking reaches none of this and behaves exactly as it
   did before — no location prompt, no GPS wakeup of its own, nothing on screen.
 - **The arrival line on the Drive card (`js/drive.js` `etaLine`).** "Arrive ~10:42 · in

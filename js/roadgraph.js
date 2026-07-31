@@ -750,38 +750,57 @@ export function matrix(g, coords){
   const D = Array.from({ length: n }, () => new Array(n).fill(Infinity));
   const T = Array.from({ length: n }, () => new Array(n).fill(Infinity));
   for(let i = 0; i < n; i++){ D[i][i] = 0; T[i][i] = 0; }
-
-  // Every node that any target's snap could be entered from.
-  for(let i = 0; i < n; i++){
-    const from = snaps[i];
-    if(!from) continue;
-    const want = new Set();
-    for(let j = 0; j < n; j++){
-      if(i === j || !snaps[j]) continue;
-      want.add(g.segFrom[snaps[j].seg]);
-      want.add(g.segTo[snaps[j].seg]);
-    }
-    if(!want.size) continue;
-    const res = dijkstra(g, from, want, false);
-    for(let j = 0; j < n; j++){
-      if(i === j) continue;
-      const to = snaps[j];
-      if(!to) continue;
-      const ends = snapEnds(g, to);
-      // Arrive at either end of the target segment, then drive the remaining
-      // part-segment inwards to the snapped point.
-      let bestSec = Infinity, bestM = Infinity;
-      const viaFrom = res.cost(ends.fromNode) + ends.inFromFrom;
-      if(viaFrom < bestSec){ bestSec = viaFrom; bestM = res.dist(ends.fromNode) + ends.mFrom; }
-      const viaTo = res.cost(ends.toNode) + ends.inFromTo;
-      if(viaTo < bestSec){ bestSec = viaTo; bestM = res.dist(ends.toNode) + ends.mTo; }
-      const direct = sameSegmentDirect(g, from, to);
-      if(direct.sec < bestSec){ bestSec = direct.sec; bestM = direct.m; }
-      D[i][j] = Number.isFinite(bestM) ? bestM : Infinity;
-      T[i][j] = Number.isFinite(bestSec) ? bestSec / 60 : Infinity;
-    }
-  }
+  for(let i = 0; i < n; i++)
+    if(snaps[i]) fillRow(g, snaps[i], snaps, D[i], T[i], i);
   return { D, T, snapped: snaps.map(Boolean) };
+}
+
+// One origin's row of the matrix, written into the caller's `dRow`/`tRow`. `self`
+// is the origin's own index among `snaps` (−1 when the origin is not one of them).
+// Factored out of `matrix` so a MOVING origin costs one Dijkstra instead of a whole
+// re-matrix — see matrixRow.
+function fillRow(g, from, snaps, dRow, tRow, self){
+  // Every node that any target's snap could be entered from.
+  const want = new Set();
+  for(let j = 0; j < snaps.length; j++){
+    if(j === self || !snaps[j]) continue;
+    want.add(g.segFrom[snaps[j].seg]);
+    want.add(g.segTo[snaps[j].seg]);
+  }
+  if(!want.size) return;
+  const res = dijkstra(g, from, want, false);
+  for(let j = 0; j < snaps.length; j++){
+    if(j === self) continue;
+    const to = snaps[j];
+    if(!to) continue;
+    const ends = snapEnds(g, to);
+    // Arrive at either end of the target segment, then drive the remaining
+    // part-segment inwards to the snapped point.
+    let bestSec = Infinity, bestM = Infinity;
+    const viaFrom = res.cost(ends.fromNode) + ends.inFromFrom;
+    if(viaFrom < bestSec){ bestSec = viaFrom; bestM = res.dist(ends.fromNode) + ends.mFrom; }
+    const viaTo = res.cost(ends.toNode) + ends.inFromTo;
+    if(viaTo < bestSec){ bestSec = viaTo; bestM = res.dist(ends.toNode) + ends.mTo; }
+    const direct = sameSegmentDirect(g, from, to);
+    if(direct.sec < bestSec){ bestSec = direct.sec; bestM = direct.m; }
+    dRow[j] = Number.isFinite(bestM) ? bestM : Infinity;
+    tRow[j] = Number.isFinite(bestSec) ? bestSec / 60 : Infinity;
+  }
+}
+
+// The drive from ONE origin to each of `coords` — `matrix`'s row without the
+// matrix. The Drive screen re-prices its ETAs after every logged stop and every
+// three minutes, and between those the stops do not move: only the truck does. So
+// the stop×stop block is measured once and cached, and this pays a single Dijkstra
+// for the origin row that actually changed. `snapped` false means the origin itself
+// is off-network and the row is all Infinity.
+export function matrixRow(g, fromCoord, coords){
+  const n = coords.length;
+  const D = new Array(n).fill(Infinity), T = new Array(n).fill(Infinity);
+  const from = snap(g, fromCoord);
+  if(!from) return { D, T, snapped: false };
+  fillRow(g, from, coords.map(c => snap(g, c)), D, T, -1);
+  return { D, T, snapped: true };
 }
 
 // The driven path between two coordinates as [[lat,lng], …], ready for

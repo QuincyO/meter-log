@@ -351,8 +351,10 @@ of the box, and the day dividers move straight away — bigger *or* smaller. You
 have to press anything after it. 🧭 Optimize is for re-working the driving **order**;
 Meters/day is what sets the size of the day.
 
-The arrival times shift with it, but they're worked out from estimated driving times
-rather than measured ones, so they show as **(est.)** until the next time you Optimize.
+The arrival times shift with it. With an **offline map downloaded** for the area you're
+working, they're measured on real roads every time they're re-worked out — after each
+meter you log, and on the Drive screen's own refresh — so they're exact and carry no
+marker. Without one they're straight-line estimates and show as **(est.)** with a `~`.
 
 ### Adding orders partway through the day
 

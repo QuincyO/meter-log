@@ -75,14 +75,21 @@ test('the finish clock re-prices its first leg from the same fix', () => {
   // screen carries an arrival time measured from the truck beside a "Route done ~"
   // clock whose first leg starts somewhere else (AGENTS.md §"never model the day
   // twice"). They disagree most on the long legs — where the driver is looking.
-  assert.match(worklistJs, /function firstLegMetres\(pending, f\)/);
+  assert.match(worklistJs, /async function firstLegMetres\(pending, f\)/);
+  // The leg is measured on the ROAD GRAPH when a pack covers both ends — the same
+  // measurement the arrival clock is built from, which is what makes the two cards
+  // one model instead of two that agree on a good day. Crow-flies survives only as
+  // the fallback, and only for a fix the pack cannot reach.
+  assert.match(worklistJs, /const road = await roadLegMetres\(fix, to\);/);
   assert.match(worklistJs,
-    /return \(fix && to\) \? haversine\(fix, to\) \* ROAD_DETOUR_FACTOR : saved;/);
+    /return road != null \? road : haversine\(fix, to\) \* ROAD_DETOUR_FACTOR;/);
+  // No fix, or no pin on the next stop, still leaves the sum exactly as it was.
+  assert.match(worklistJs, /if\(!\(fix && to\)\) return saved;/);
   assert.match(worklistJs,
-    /a \+ \(i === 0 \? firstLegMetres\(pending, f\) : \(Number\(p\[f\.legMeters\]\) \|\| 0\)\)/);
+    /a \+ \(i === 0 \? first : \(Number\(p\[f\.legMeters\]\) \|\| 0\)\)/);
   // ONLY the first leg: every later one really is stop-to-stop, and its saved road
   // distance beats anything crow-flies can offer.
-  const fn = worklistJs.slice(worklistJs.indexOf('function firstLegMetres'),
+  const fn = worklistJs.slice(worklistJs.indexOf('async function firstLegMetres'),
                               worklistJs.indexOf('const speed = liveMetrics().avgMovingSpeed'));
   assert.doesNotMatch(fn, /pending\[1\]|pending\.map/);
   // The detour allowance is imported, never re-declared — a second copy is a

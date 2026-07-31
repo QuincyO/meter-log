@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, ESTIMATE_SPEED_KMH, ROAD_DETOUR_FACTOR, localRoadGeometry } from './route.js';
+import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, roadLegMetres, ESTIMATE_SPEED_KMH, ROAD_DETOUR_FACTOR, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
 import { liveMetrics, lastFix } from './drive-recorder.js';
 import { cacheRecentDays } from './daycache.js';
@@ -39,7 +39,8 @@ import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurati
 import { dwellLookup } from './route-dwell.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
-  liveDayMeters, pendingOf, routeScopeText, routeTotalSummary, variantSelectable, variantSummary,
+  liveDayMeters, pendingOf, routeScopeText, routeTotalSummary, variantMatchesLive,
+  variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
   anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds,
@@ -527,9 +528,11 @@ async function wlDownload(){
     if(!r || !r.ok){ toast('Download failed — ' + ((r && r.error) || 'try again')); return; }
     await applyDownloadedList(r.orders || [], { preserveDone: false });
     if(r.plan) loadPlanFields(r.plan);
-    // A downloaded route was planned on the desktop (real OSRM durations), so its
-    // ETAs are exact — clear the phone's local "(est.)" marker.
-    store.set('wlTimesEstimated', '');
+    // The "(est.)" marker is NOT cleared here. It used to be, on the reasoning that
+    // a downloaded route was planned on the desktop against real OSRM durations —
+    // but the applyTodayAnchor below re-times the whole day from where the crew is
+    // now, so the marker belongs to the model that re-timed it and the write here
+    // never survived to be read. It is set there, once, from that model.
     toast(`Downloaded ${(r.orders || []).length} orders ✓`);
     // A route the office optimized was day-chunked by target with no memory of what
     // this phone has already done, so a LOCKED day keeps its own set over whatever
@@ -578,10 +581,7 @@ export async function autoSync(){
     if(r && r.ok){
       await applyDownloadedList(r.orders || [], { preserveDone: true });
       if(r.plan) loadPlanFields(r.plan);
-      // A downloaded route was planned on the desktop against real OSRM durations,
-      // so its ETAs are exact — clear the phone's local "(est.)" marker, exactly as
-      // the manual Download does.
-      store.set('wlTimesEstimated', '');
+      // No "(est.)" write here either — see wlDownload. applyTodayAnchor below owns it.
       // No `interactive` — the add-to sheet must never pop over the Drive screen.
       // Office orders that would join a locked day stay out of it and wait for the
       // installer to open the worklist, where they are offered properly.
@@ -684,11 +684,43 @@ function lastDonePin(items){
     String(b.updatedAt || '') > String(a.updatedAt || '') ? b : a));
 }
 
-// The on-device estimate travel lookup for a set of orders (no matrix fetched):
-// haversine over the saved pins + cached crew start/home → estimated drive times.
-// `all` (optional) is the full list including DONE orders, so the day's origin can
-// follow the crew — see lastDonePin. Omitted ⇒ the muster point, as before.
-function estimateTravel(items, all){
+// Which saved column holds ROAD metres for the live sequence, or '' when there is
+// no column worth trusting. Both gates matter:
+//
+//   * the saved sequence must still BE the live one, or its per-leg metres describe
+//     drives between stops that are no longer neighbours — a leg measured for an
+//     order that has since been dragged three places up the list is not a shorter
+//     leg, it is a different one;
+//   * the straight variant's legs are road metres only when the run that saved them
+//     pulled a road matrix (`wlStraightDistanceSource`, set beside the variants at
+//     optimizeRoute time). Otherwise they are crow-flies, and pricing them here
+//     would be tier C wearing a road label.
+function savedLegMetersField(items){
+  const v = activeVariant();
+  if(!VARIANT_FIELDS[v] || !variantMatchesLive(items, v)) return '';
+  if(v === 'straight' && store.get('wlStraightDistanceSource') !== 'road') return '';
+  return VARIANT_FIELDS[v].legMeters;
+}
+
+// The on-device travel lookup for a set of orders — the ladder every ETA on this
+// phone is built from, best measurement first and all three offline:
+//
+//   A  the downloaded district's ROAD GRAPH. Real road distance and real road time,
+//      the same measurement Optimize makes. This rung is the point of the ladder:
+//      the ETAs used to be road-accurate for as long as it took to log one stop,
+//      and then this function — which runs after every logged stop, on the Drive
+//      screen's 3-minute refresh, on Download and at boot — replaced them with
+//      rung C. On a phone that Optimizes on a pack, every re-anchor was a downgrade.
+//   B  the road metres the last solve SAVED on each order, for a day the pack does
+//      not cover. Road lengths at a nominal speed: better than crow-flies, still an
+//      estimate, and only the between-stop legs (see savedRoadTravelFromCoords).
+//   C  crow-flies × detour factor. Needs nothing but the pins, so it always answers.
+//
+// `.measured` is true only on A, and only when nothing in the day had to be
+// repaired — it is what clears the "~" on the Drive card. `all` (optional) is the
+// full list including DONE orders, so the day's origin can follow the crew — see
+// lastDonePin. Omitted ⇒ the muster point, as before.
+async function estimateTravel(items, all){
   // Only for the day the crew is STANDING in. An evening plan for tomorrow starts
   // at the depot like any morning does, so today's last driveway — or the couch the
   // phone is sitting on — is the wrong origin for it. Same today-vs-plan-day split
@@ -700,9 +732,13 @@ function estimateTravel(items, all){
   // say, so a phone that is not the day's recorder behaves exactly as it did before
   // — silently, with no location prompt and no GPS wakeup of its own.
   const here = planDay() === localDate() ? (livePin() || lastDonePin(all)) : null;
-  return estimateTravelFromCoords(items,
-    here || cachedCoord('crewStartLat', 'crewStartLng'),
-    cachedCoord('homeLat', 'homeLng'));
+  const start = here || cachedCoord('crewStartLat', 'crewStartLng');
+  const home = cachedCoord('homeLat', 'homeLng');
+  const road = await roadTravelFromCoords(items, start, home);
+  if(road) return road;
+  const saved = savedRoadTravelFromCoords(items, start, home, savedLegMetersField(all || items));
+  if(saved) return saved;
+  return estimateTravelFromCoords(items, start, home);
 }
 
 async function crewStartPin(){
@@ -1379,10 +1415,13 @@ async function switchVariant(v){
   if(v === activeVariant()) return;
   const items = await allSorted();
   if(!variantSelectable(items, v)) return;
+  // Measured outside the try: the catch is for applyVariant's "can't meet the fixed
+  // appointments", and the ladder answers or degrades — it never throws that.
+  const travel = await estimateTravel(pendingOf(items), items);
   let next;
   try { next = applyVariant(items, v, { ...planShape(), target:targetVal(),
     day1Count: currentDay1Count(pendingOf(items)),
-    travel: estimateTravel(pendingOf(items), items), day1FirstStopTime: day1DepartTime(true) }); }
+    travel, day1FirstStopTime: day1DepartTime(true) }); }
   catch(err){ toast((err && err.message) || 'That route can’t meet the fixed appointments'); return; }
   const now = stamp();
   for(const item of next) await idb.put('worklist', Object.assign({}, item, { updatedAt:now }));
@@ -1848,11 +1887,14 @@ async function persistOrderIds(ordered){
   const pending = pendingOf(items);
   let schedule = null;
   if(pending.some(x => x.lockedDate)){
+    // Outside the try for the same reason switchVariant measures outside its own:
+    // the catch belongs to the constraint solver, not to the measurement.
+    const travel = await estimateTravel(pending, items);
     try{
       const pendingIds = ids.filter(id => byId[id] && isPending(byId[id]));
       schedule = scheduleRouteConstraints(pending, pendingIds,
         { ...planShape(), target:targetVal(), day1Count: currentDay1Count(pending),
-          travel: estimateTravel(pending, items),
+          travel,
           dwell: dwellShape(), day1FirstStopTime: day1DepartTime(true) });
       ids = schedule.orderedIds.concat(ids.filter(id => byId[id] && !isPending(byId[id])));
     } catch(err){ toast(err.message || 'Unlock the fixed stop before moving through it'); await renderWorklist(); return; }
@@ -2402,7 +2444,7 @@ async function applyTodayAnchor(opts){
   // week", never "the week re-plans itself between deliberate acts".
   const fits = (!locked && opts && opts.rechunk) ? null : currentDay1Count(pending);
 
-  const travel = (opts && opts.travel) || estimateTravel(pending, items);
+  const travel = (opts && opts.travel) || await estimateTravel(pending, items);
   let schedule;
   try {
     // This runs after every logged stop, so it is the re-schedule that keeps the
@@ -2425,7 +2467,7 @@ async function applyTodayAnchor(opts){
   }
 
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
-  let i = 0, wrote = false;
+  let i = 0;
   for(const id of schedule.orderedIds){
     const item = byId[id]; if(!item) continue;
     const order = (i++) * 10;
@@ -2457,10 +2499,18 @@ async function applyTodayAnchor(opts){
       scheduledOnSiteMin:s.onSiteMin || '',
       updatedAt:stamp(),
     }));
-    wrote = true;
   }
-  // A recompute with the on-device estimate makes the ETAs estimates — say so.
-  if(wrote && !(opts && opts.travel)) store.set('wlTimesEstimated', '1');
+  // The flag describes the MODEL that produced these times, not which function
+  // called. It used to mean "somebody re-anchored, therefore estimated", which was
+  // true only while a re-anchor could not measure anything — now rung A of the
+  // ladder measures the same road graph Optimize does, and a "~" on those numbers
+  // would be a lie in the opposite direction.
+  //
+  // The `wrote` gate is gone with it. A run that changed no ETA still re-derived
+  // them from a model, and it is precisely when the MODEL moved without the numbers
+  // moving much — a pack finishing its download mid-day — that the label has to
+  // follow. Optimize (opts.travel) still owns the flag through `base.estimatedTimes`.
+  if(!(opts && opts.travel)) store.set('wlTimesEstimated', travel && travel.measured ? '' : '1');
 }
 
 // ── on-pace projection (drive mode + tuning what-if) ────────────────────────
@@ -2529,21 +2579,26 @@ function todayPending(pending){
 // whose first leg starts somewhere else. They disagree most on the long legs, which
 // is where the driver is most likely to be looking.
 //
-// So re-measure that one leg from the fix, crow-flies × ROAD_DETOUR_FACTOR — the
-// same pricing estimateDurations uses, imported rather than re-declared. Only the
+// So re-measure that one leg from the fix, on the ROAD GRAPH when a pack covers
+// both ends — the same measurement the arrival clock is now built from, which is
+// what makes the two one model rather than two that agree on a good day. Only the
 // FIRST leg: every later one really is stop-to-stop and its saved road distance is
-// better than anything crow-flies can offer. No fix (or no pin on the next stop)
-// leaves the sum exactly as it was.
-function firstLegMetres(pending, f){
+// already road. Falling back, crow-flies × ROAD_DETOUR_FACTOR as before (the same
+// pricing estimateDurations uses, imported rather than re-declared); no fix, or no
+// pin on the next stop, leaves the sum exactly as it was.
+async function firstLegMetres(pending, f){
   const saved = Number(pending[0] && pending[0][f.legMeters]) || 0;
   const fix = livePin(), to = coordsOf(pending[0]);
-  return (fix && to) ? haversine(fix, to) * ROAD_DETOUR_FACTOR : saved;
+  if(!(fix && to)) return saved;
+  const road = await roadLegMetres(fix, to);
+  return road != null ? road : haversine(fix, to) * ROAD_DETOUR_FACTOR;
 }
 
-function routeTravel(pending){
+async function routeTravel(pending){
   const f = VARIANT_FIELDS[activeVariant()];
+  const first = await firstLegMetres(pending, f);
   const metres = pending.reduce((a, p, i) =>
-    a + (i === 0 ? firstLegMetres(pending, f) : (Number(p[f.legMeters]) || 0)), 0);
+    a + (i === 0 ? first : (Number(p[f.legMeters]) || 0)), 0);
   const speed = liveMetrics().avgMovingSpeed;
   // A believable driving average is used; anything slower is on-foot contamination
   // rather than a slow truck, and the nominal prices the route instead.
@@ -2582,7 +2637,7 @@ export async function paceContext(){
   const cached = c.name ? await idb.get('dayCache', `${c.name}|${localDate()}`) : null;
   const stops = (cached && cached.stops) || [];
   const pending = todayPending(pendingOf(await allSorted()));
-  const travel = routeTravel(pending);
+  const travel = await routeTravel(pending);
   return {
     stops,
     pendingCount: pending.length,

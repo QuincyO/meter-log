@@ -31,7 +31,7 @@ import { GMAPS_API_KEY, ORS_API_KEY } from './config.js';
 import { idb } from './idb.js';
 import { store } from './store.js';
 import { stamp, localDate } from './time.js';
-import { matrix as roadGraphMatrix, path as roadGraphPath, geocodeAddress, hasAddresses } from './roadgraph.js';
+import { matrix as roadGraphMatrix, matrixRow, path as roadGraphPath, geocodeAddress, hasAddresses } from './roadgraph.js';
 import { loadGraph, coverage } from './roadpack.js';
 import { directionsBetween, canGiveDirections } from './directions.js';
 
@@ -597,12 +597,14 @@ export function encodePolyline(points, precision = 5){
 // day against a map that stops halfway.
 const LOCAL_MIN_COVERAGE = 0.8;
 
-async function localGraphMatrix(coords){
+// `opts` is forwarded to loadGraph — see its `switchActive` note; the ETA path
+// measures without adopting a district.
+async function localGraphMatrix(coords, opts){
   let graph = null;
   // The run's own stops choose the district: a phone holding several picks
   // whichever covers most of THIS day (js/districts.js `pickPack`), so a crew
   // that works two areas stops having to switch maps by hand in Settings.
-  try { graph = await loadGraph(coords); }
+  try { graph = await loadGraph(coords, opts); }
   catch(e){ console.warn('road pack load failed:', e); return { error: 'offline map unreadable' }; }
   if(!graph) return { error: 'no offline map' };
   const cov = coverage(graph, coords);
@@ -819,18 +821,23 @@ export const ROAD_DETOUR_FACTOR = 1.3;
 // Minutes per metre of crow-flies distance. One definition, shared by the whole-matrix
 // estimate below and the single-node rewrite in straightLineNode.
 const CROW_MIN_PER_METRE = ROAD_DETOUR_FACTOR / 1000 / ESTIMATE_SPEED_KMH * 60;
+// Minutes per metre of REAL ROAD distance — no detour allowance, because a road
+// metre has already driven the detour. Exported for the same reason
+// ROAD_DETOUR_FACTOR is: savedRoadTravelFromCoords prices saved road legs with it
+// and a second copy is a constant that drifts from the one the matrix uses.
+export const ROAD_MIN_PER_METRE = 1 / 1000 / ESTIMATE_SPEED_KMH * 60;
 export function estimateDurations(D, { crowFlies = true } = {}){
-  const perMetreMin = crowFlies ? CROW_MIN_PER_METRE : (1 / 1000 / ESTIMATE_SPEED_KMH * 60);
+  const perMetreMin = crowFlies ? CROW_MIN_PER_METRE : ROAD_MIN_PER_METRE;
   return (D || []).map(row =>
     Float64Array.from(row, v => isFinite(v) ? v * perMetreMin : Infinity));
 }
 
-// Build a `travelLookup`-shaped estimate from saved order coords + the crew start /
-// home, for the matrix-less paths (variant flip, incremental reschedule) that
-// reorder stops without fetching a fresh matrix. Reordering needs full pairwise
-// times, and coords are persisted per order, so this stays on-device and offline.
-// Returns null when there aren't enough located stops to schedule.
-export function estimateTravelFromCoords(items, startCoord, homeCoord){
+// ── the on-device travel lookups (the three tiers the Drive screen prices on) ──
+// One coord layout, three ways to measure it. Every ETA on the phone comes out of
+// one of these, so they share their geometry rather than each building it: the
+// node order [start?, …located, home?] and the id→index map are what make a
+// lookup from one tier drop-in interchangeable with another's.
+function travelFrame(items, startCoord, homeCoord){
   const located = (items || []).filter(x => coordsOf(x));
   if(!located.length) return null;
   const startC = coordsOf(startCoord) || null;
@@ -840,14 +847,181 @@ export function estimateTravelFromCoords(items, startCoord, homeCoord){
     ...located.map(coordsOf),
     ...(homeC ? [homeC] : []),
   ];
-  const T = estimateDurations(haversineMatrix(coords), { crowFlies: true });
   const offset = startC ? 1 : 0;
   const indexById = {};
   located.forEach((x, k) => { indexById[x.id] = k + offset; });
   // travelLookup's startNode falls back to homeIndex when startIndex is null.
-  return travelLookup({ T, indexById,
+  return { located, coords, indexById,
     startIndex: startC ? 0 : null,
-    homeIndex: homeC ? coords.length - 1 : null });
+    homeIndex: homeC ? coords.length - 1 : null };
+}
+
+// The stop×stop road matrix, cached. Between two Optimizes the pending set only
+// ever SHRINKS — a logged stop leaves pendingOf — so a day measured once stays a
+// cache hit for the rest of the day, and the shrinking sets are served by index
+// remapping rather than by re-measuring. Any stop the cache has never seen (a
+// Download, an added order, tomorrow's chunk arriving) rebuilds the whole thing,
+// which is the same cost Optimize already pays and at roughly the same frequency.
+//
+// Keyed on the decoded graph OBJECT, not a pack id: roadpack.js drops `decoded`
+// whenever the active district moves, so identity failing is exactly the signal
+// that the map underneath these numbers changed.
+let stopMatrixCache = null;
+const coordKey = c => `${c.lat.toFixed(6)},${c.lng.toFixed(6)}`;
+// A test seam, like roadpack.js resetGraphCache — neither is wired into the app,
+// and this one does not need to be: downloading or deleting a pack already drops
+// roadpack.js's `decoded`, so the next loadGraph hands back a different object and
+// the identity check above rebuilds. Anything that adds a way to change a graph
+// IN PLACE has to call this, or a stale matrix outlives the map it was measured on.
+export function resetTravelCache(){ stopMatrixCache = null; }
+
+function stopMatrix(graph, stops){
+  const keys = stops.map(coordKey);
+  const c = stopMatrixCache;
+  if(c && c.graph === graph && keys.every(k => c.index.has(k)))
+    return { cache: c, at: keys.map(k => c.index.get(k)) };
+
+  const { T, snapped } = roadGraphMatrix(graph, stops);
+  // REPAIR PASS — load-bearing, and the same one localGraphMatrix runs: the
+  // scheduler assumes finite times, and a single Infinity from a stop that snapped
+  // to no road (or to a disconnected island) would poison the day. Repaired pairs
+  // are remembered rather than counted, so a subset that no longer contains the
+  // unroutable stop can still be reported as exact.
+  const H = haversineMatrix(stops);
+  const est = stops.map(() => stops.map(() => false));
+  for(let i = 0; i < T.length; i++){
+    for(let j = 0; j < T.length; j++){
+      if(i === j || Number.isFinite(T[i][j])) continue;
+      T[i][j] = H[i][j] * CROW_MIN_PER_METRE;
+      est[i][j] = true;
+    }
+  }
+  stopMatrixCache = { graph, index: new Map(keys.map((k, i) => [k, i])), T, est, snapped };
+  return { cache: stopMatrixCache, at: keys.map((_, i) => i) };
+}
+
+// TIER A — real road times from the downloaded district pack. The same measurement
+// Optimize makes, so the times the driver reads on the Drive screen are the times
+// the route was BUILT from. Before this, the re-anchor overwrote them with tier C
+// within minutes of every solve.
+//
+// Coverage is judged on the STOPS ALONE, deliberately. The origin is usually the
+// truck's live GPS fix, and a fix parked a field's width outside the pack bbox —
+// on the way in, or at the edge of the district — must not veto a day the pack
+// covers perfectly well. It gets its own row, and falls back per pair if the graph
+// cannot reach it. It IS passed to loadGraph, so the district chosen is the one
+// that covers the run the crew is actually driving.
+//
+// Null when no pack covers the run — the caller's cue to drop a tier.
+// `.measured` is false when any pair the day actually uses had to be repaired
+// crow-flies: still the best answer available, but not one to strip the "~" off.
+export async function roadTravelFromCoords(items, startCoord, homeCoord){
+  const f = travelFrame(items, startCoord, homeCoord);
+  if(!f) return null;
+  const stops = f.located.map(coordsOf);
+  const originIndex = f.startIndex != null ? f.startIndex : f.homeIndex;
+  const origin = originIndex == null ? null : f.coords[originIndex];
+
+  let graph = null;
+  try { graph = await loadGraph(origin ? [origin, ...stops] : stops, { switchActive: false }); }
+  catch(e){ console.warn('road pack load failed:', e); return null; }
+  if(!graph) return null;
+  if(coverage(graph, stops).ratio < LOCAL_MIN_COVERAGE) return null;
+
+  const { cache, at } = stopMatrix(graph, stops);
+  const n = f.coords.length, off = f.startIndex != null ? 1 : 0;
+  const T = Array.from({ length: n }, () => new Array(n).fill(Infinity));
+  let measured = true;
+  for(let i = 0; i < stops.length; i++){
+    if(!cache.snapped[at[i]]) measured = false;
+    for(let j = 0; j < stops.length; j++){
+      if(i === j){ T[i + off][j + off] = 0; continue; }
+      T[i + off][j + off] = cache.T[at[i]][at[j]];
+      if(cache.est[at[i]][at[j]]) measured = false;
+    }
+  }
+  if(origin){
+    // One Dijkstra: the only node that moved since the last re-anchor is the truck.
+    const row = matrixRow(graph, origin, stops);
+    for(let j = 0; j < stops.length; j++){
+      const v = row.T[j];
+      if(Number.isFinite(v)){ T[originIndex][j + off] = v; continue; }
+      T[originIndex][j + off] = haversine(origin, stops[j]) * CROW_MIN_PER_METRE;
+      measured = false;
+    }
+  }
+
+  const lookup = travelLookup({ T, indexById: f.indexById,
+    startIndex: f.startIndex, homeIndex: f.homeIndex });
+  if(!lookup) return null;
+  lookup.measured = measured;
+  return lookup;
+}
+
+// TIER B — the road metres the last solve already saved, for a phone with no pack
+// covering today. `legMetersField` names the variant column (js/route-variants.js
+// VARIANT_FIELDS) holding the drive INTO each stop from the one before it in route
+// order; the caller is responsible for having checked those metres are road metres
+// and that the saved sequence still matches the live one.
+//
+// Only the between-stop legs are replaced. A day's first stop carries 0 (legMetersFor
+// charges the drive out to homeLegMeters*, which no total reads), and the drive from
+// the ORIGIN is deliberately left alone: the origin is usually the truck's live GPS
+// fix, and a metre figure measured from the crew start is not a measurement of that.
+// Everything not replaced keeps the crow-flies estimate, which is what gives the
+// scheduler a defined answer for the pairs it forms when it reorders.
+export function savedRoadTravelFromCoords(items, startCoord, homeCoord, legMetersField){
+  const f = travelFrame(items, startCoord, homeCoord);
+  if(!f) return null;
+  const T = estimateDurations(haversineMatrix(f.coords), { crowFlies: true });
+  let replaced = 0;
+  if(legMetersField) f.located.forEach((x, k) => {
+    if(k === 0) return;
+    const m = Number(x[legMetersField]);
+    if(!(isFinite(m) && m > 0)) return;
+    const a = f.indexById[f.located[k - 1].id], b = f.indexById[x.id];
+    if(a == null || b == null) return;
+    // Both directions: the solve symmetrizes D, and the scheduler can walk a pair
+    // either way once an appointment reorders a day.
+    T[a][b] = T[b][a] = m * ROAD_MIN_PER_METRE;
+    replaced++;
+  });
+  if(!replaced) return null;
+  const lookup = travelLookup({ T, indexById: f.indexById,
+    startIndex: f.startIndex, homeIndex: f.homeIndex });
+  if(!lookup) return null;
+  lookup.measured = false;     // road LENGTHS at a nominal speed — still an estimate
+  return lookup;
+}
+
+// TIER C — crow-flies × detour factor over the saved pins. The floor of the ladder,
+// and still the right answer for a phone with no pack and no solved route: it needs
+// nothing but the coordinates. Also used by the matrix-less paths (variant flip,
+// incremental reschedule) that reorder stops without fetching a fresh matrix.
+// Returns null when there aren't enough located stops to schedule.
+export function estimateTravelFromCoords(items, startCoord, homeCoord){
+  const f = travelFrame(items, startCoord, homeCoord);
+  if(!f) return null;
+  const T = estimateDurations(haversineMatrix(f.coords), { crowFlies: true });
+  return travelLookup({ T, indexById: f.indexById,
+    startIndex: f.startIndex, homeIndex: f.homeIndex });
+}
+
+// The one road leg the pace card needs: the drive from the truck's live GPS fix to
+// the next pending stop, measured on the pack. `routeTravel` sums SAVED metres for
+// every later leg and re-prices only this one, because only this one starts
+// somewhere the solve never saw. Null when there is no pack or nothing connects the
+// two — the caller then falls back to crow-flies, as it always did.
+export async function roadLegMetres(from, to){
+  const a = coordsOf(from), b = coordsOf(to);
+  if(!a || !b) return null;
+  let graph = null;
+  try { graph = await loadGraph([a, b], { switchActive: false }); }
+  catch(e){ console.warn('road pack load failed:', e); return null; }
+  // Both ends, not 80%: there are only two, and half a leg is not a leg.
+  if(!graph || coverage(graph, [a, b]).ratio < 1) return null;
+  const m = matrixRow(graph, a, [b]).D[0];
+  return Number.isFinite(m) ? m : null;
 }
 
 // ── open-path TSP solve (pinned start, or free-endpoint multi-start) ─────────
