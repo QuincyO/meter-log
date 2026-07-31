@@ -25,7 +25,7 @@ Do this once per phone, with signal if possible:
 1. Open the app link in the phone's browser. For quickest access, add it to the home screen (browser menu → "Add to Home Screen") — it then opens full-screen like an app, even offline.
 2. Tap **☰** (top right) → **⚙︎ Settings**. The "Who are you?" card opens.
 3. Enter your **First name**, **Last name**, and **Employee # (H)** — the H number is your unique ID; names can repeat, H numbers can't.
-4. **Sub foreman**: pick yours if you are *not* already on a team (a team's sub always wins over this setting). In **Land mode**, picking your sub here also **adds you to that sub's crew** — a land crew is just its sub's installers. Once you're on a crew, this field locks ("Assigned with your crew").
+4. **Sub foreman**: pick yours if you are *not* already on a team (a team's sub always wins over this setting). Picking your sub here also **adds you to that sub's crew** — a land crew is just its sub's installers. Once you're on a crew, this field locks ("Assigned with your crew").
 5. **Home address** is optional too: with it set, **🧭 Optimize route** on the worklist plans your day to finish heading toward home (it starts at the far end and works back). The hint line under the field shows the exact spot it matched — if that's the wrong town, add the town to the address and Save again.
 6. Tap **Save**.
 
@@ -35,13 +35,15 @@ That's it. Everything you log from now on is tagged with your name and H number.
 
 ---
 
-## Boat and Land mode
+## Land mode
 
-The **Boat / Land** switch sits in the top bar (blue = Boat, green = Land). Pick the mode for the kind of route you're running:
+The app is on **Land mode** for everyone. Boat work has wound down, so the Boat / Land switch that used to sit in the top bar is gone — there's nothing to set, and nothing to set wrong. If your phone was last left on Boat, it comes up on Land by itself the next time you open the app; you don't have to do anything.
 
-- The choice sticks on the device — set it once and forget it until your work changes.
-- Logging works the same in both modes. What changes is the paperwork: a Land day prints the land daily-log template (per-work-order delay columns) instead of the boat one, and the Crew & Teams page shows land crews instead of boat teams.
-- The colour is your reminder: blue screens are a boat day, green screens are a land day.
+- Green screens are the reminder that you're on a land day.
+- Your day prints the land daily log (per-work-order delay columns), and the Crew & Teams page shows land crews.
+- Nothing you've already logged changed. Old boat days still print the boat daily log when the office reprints them.
+
+If boat work starts up again, the switch comes back — tell the office.
 
 ---
 
@@ -530,7 +532,7 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 
 ## Crew & Boat Teams (office)
 
-`teams.html` — where the roster and the crews live. The **Boat / Land** switch picks which set of teams you're editing.
+`teams.html` — where the roster and the crews live. The **Boat / Land** switch here picks which set of teams you're editing. It opens on **Land**, and it stays on this page — it doesn't change anything on a crew's phone, so flipping it to Boat to look up an old team is safe.
 
 ### Crew
 
@@ -543,9 +545,9 @@ Everyone who logs meters, keyed by their H number.
 
 Two simple name lists with **Add** and ✕ — no H numbers. Names typed on a team card are remembered here automatically.
 
-### Boat Teams (or "Crews" in Land mode)
+### Land Crews (or "Boat Teams" in the Boat view)
 
-**Boat mode** — one card per boat:
+**Boat view** — one card per boat:
 
 1. Tap **+ New boat**.
 2. Fill the **Boat number**, optional **Boat name**, **Captain**, and **Sub / subforeman**.
@@ -553,7 +555,7 @@ Two simple name lists with **Add** and ✕ — no H numbers. Names typed on a te
 4. Give each member a **team letter**. Same letter = partners: Boat 11's two A's are team **11A**. The letters are what fill in the daily-log header automatically at end of day.
 5. Tap **Save boat**. **Delete** removes the whole card.
 
-**Land mode** — one card per **sub foreman's crew** (no crew numbers — a land crew is just that sub's people):
+**Land view** — one card per **sub foreman's crew** (no crew numbers — a land crew is just that sub's people):
 
 1. Tap **+ New crew**.
 2. Pick the **Sub foreman** — that's the crew's identity.

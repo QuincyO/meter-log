@@ -11,8 +11,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Meter Log</title>
-<!-- Set the work-mode accent (boat=blue / land=green) before first paint. -->
-<script>try{document.documentElement.dataset.mode=localStorage.getItem('workMode')||'boat'}catch(e){}</script>
+<!-- Work-mode accent, set before first paint. The app is locked to land (green)
+     and the Boat/Land switch is gone from the bar — see js/work-mode.js. -->
+<script>document.documentElement.dataset.mode='land'</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/vendor/leaflet.css">
@@ -24,10 +25,6 @@
   <div class="bar">
     <div class="pill" id="status"><span class="dot"></span><span id="statusText">Synced</span></div>
     <button class="drive-chip off" id="driveChip" type="button" aria-live="polite">Location off</button>
-    <div class="mode-seg" role="group" aria-label="Work mode">
-      <button id="modeBoat" type="button">Boat</button>
-      <button id="modeLand" type="button">Land</button>
-    </div>
     <div class="nav-wrap">
       <button class="nav-btn" id="navBtn" aria-label="Menu">☰</button>
       <div class="nav-menu hide" id="navMenu">

@@ -7,14 +7,18 @@ import { store } from '../store.js';
 
 let state = { employees:[], teams:[], captains:[], subs:[] };
 
-// ── work mode (boat teams | land crews) ────────────────────────────────────
-// Same persisted switch as the capture page: flips the accent theme and which
-// team cards show. A land crew is a Teams row with type='land' — crew number in
-// boatNumber, sub foreman in subName, no captain/boat name.
+// ── view mode (boat teams | land crews) ────────────────────────────────────
+// This switch chooses which team cards the office is looking at — it is NOT the
+// capture app's work mode, which is locked to land (js/work-mode.js). It kept
+// its own toggle because boat teams still have to be reachable for reference,
+// and its own `teamsViewMode` key so an admin flipping to Boat here can never
+// leak a mode into a crew's phone. Defaults to land, where the live work is.
+// A land crew is a Teams row with type='land' — crew number in boatNumber, sub
+// foreman in subName, no captain/boat name.
 const teamType = t => String((t && t.type) || '').trim().toLowerCase() === 'land' ? 'land' : 'boat';
-function workMode(){ return store.get('workMode')==='land' ? 'land' : 'boat'; }
-function setMode(m){
-  store.set('workMode', m);
+function viewMode(){ return store.get('teamsViewMode')==='boat' ? 'boat' : 'land'; }
+function setViewMode(m){
+  store.set('teamsViewMode', m);
   document.documentElement.dataset.mode = m;
   $('modeBoat').classList.toggle('on', m==='boat');
   $('modeLand').classList.toggle('on', m==='land');
@@ -26,8 +30,8 @@ function setMode(m){
   $('newTeam').textContent = land ? '+ New crew' : '+ New boat';
   renderTeams();
 }
-$('modeBoat').onclick = () => setMode('boat');
-$('modeLand').onclick = () => setMode('land');
+$('modeBoat').onclick = () => setViewMode('boat');
+$('modeLand').onclick = () => setViewMode('land');
 
 function setStatus(kind, text){
   const p=$('status'), t=$('statusText');
@@ -182,17 +186,17 @@ const boatLabel = t => teamType(t)==='land'
   ? ('Crew' + (t.subName ? (' — ' + t.subName) : ' — (no sub yet)'))
   : ('Boat ' + ((t.boatNumber||'') || '—') + (t.boatName ? (' · ' + t.boatName) : ''));
 
-// Only the current mode's cards show — boat teams in boat mode, crews in land.
+// Only the viewed mode's cards show — boat teams in boat view, crews in land.
 function renderTeams(){
   const box = $('teamList');
-  const mine = state.teams.filter(t => teamType(t) === workMode());
+  const mine = state.teams.filter(t => teamType(t) === viewMode());
   if(!mine.length){
     box.innerHTML = `<div class="empty" style="padding:4px 2px 10px">${
-      workMode()==='land' ? 'No crews yet — tap “New crew”.' : 'No boats yet — tap “New boat”.'}</div>`;
+      viewMode()==='land' ? 'No crews yet — tap “New crew”.' : 'No boats yet — tap “New boat”.'}</div>`;
     return;
   }
   box.innerHTML = '';
-  const land = workMode()==='land';
+  const land = viewMode()==='land';
   mine.slice()
     .sort((a,b)=> land
       ? String(a.subName||'').localeCompare(String(b.subName||''))
@@ -434,11 +438,11 @@ window.addEventListener('pageshow', () => { $('navSel').value = 'teams'; });
 
 $('newTeam').onclick = () => {
   const blank = { id:'', boatNumber:'', boatName:'', captainName:'', subName:'',
-                  memberLetters:{}, type:workMode() };
+                  memberLetters:{}, type:viewMode() };
   const card = teamCard(blank);
   $('teamList').appendChild(card);
   card.scrollIntoView({ behavior:'smooth', block:'center' });
 };
 
-setMode(workMode());
+setViewMode(viewMode());
 load();

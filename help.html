@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#13171C">
 <title>Meter Log — Help</title>
-<!-- Set the work-mode accent (boat=blue / land=green) before first paint. -->
-<script>try{document.documentElement.dataset.mode=localStorage.getItem('workMode')||'boat'}catch(e){}</script>
+<!-- Work-mode accent, set before first paint. Matches the capture page, which is
+     locked to land (green) — see js/work-mode.js. -->
+<script>document.documentElement.dataset.mode='land'</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/help.css">

@@ -15,11 +15,9 @@
             padding:8px 11px;border-radius:999px;line-height:1;
             color:var(--accent);background:var(--accent-soft)}
 .drive-chip.off{color:var(--ink-soft);background:var(--panel);box-shadow:var(--shadow)}
-/* boat/land work-mode switch */
-.mode-seg{display:flex;flex:none;background:var(--panel);border-radius:999px;box-shadow:var(--shadow);padding:3px;gap:2px}
-.mode-seg button{border:0;background:none;border-radius:999px;padding:0 12px;height:34px;
-                 font-size:13px;font-weight:800;color:var(--ink-soft);cursor:pointer}
-.mode-seg button.on{background:var(--accent);color:var(--accent-ink)}
+/* The boat/land switch used to sit here. The capture page is locked to land and
+   no longer has one (js/work-mode.js); css/teams.css keeps its own copy for the
+   admin page's view switch. */
 .nav-wrap{position:relative;flex:none}
 .nav-btn{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
          font-size:20px;cursor:pointer}

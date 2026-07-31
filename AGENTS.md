@@ -75,8 +75,10 @@ another. Two consequences that matter more than they sound:
 ## What this is
 
 A field data-capture app for a hydro meter installer crew working out of boats **and on
-land routes** — a persisted Boat/Land mode toggle (blue/green accents) switches the
-capture page + teams admin between the two; see ARCHITECTURE.md §"Work modes (boat /
+land routes**. The capture app is currently **locked to land mode** (boat work wound
+down; the Boat/Land toggle is gone from `index.html` and `js/work-mode.js` forces the
+value) — every boat code path is still live for historical days, and the teams admin
+page keeps its own boat/land *view* switch; see ARCHITECTURE.md §"Work modes (boat /
 land)". There is **no build step, no package manager, and no framework** — it is a set
 of static files served as-is plus one Google Apps Script. There *is* a test suite, and
 it needs no install: plain `node --test "tests/*.test.mjs"` over the pure modules
@@ -150,7 +152,7 @@ Three layers (see `ARCHITECTURE.md` §"The three layers"). **Store:** one Google
 No bundler — native ES modules + plain CSS, loaded as-is by the browser. Shared modules in `js/` (imported by the page entry points in `js/pages/`):
 - `config.js` — `WEB_APP_URL` + `SHARED_TOKEN` (the single frontend copy).
 - `dom.js` — `$`, `enc`, `esc`, `attr`, `toast`. `time.js` — `stamp`, `localDate`, `localDateOffset`, `clockOf`, `hhmmMin`, `ordinal`, `parseLocalMs`.
-- `store.js` — `store` (localStorage) + `cfg()`. `idb.js` — the IndexedDB wrapper + `DB_VERSION`. `api.js` — `apiGet(action, params)` / `apiPost(body)` (inject token + URL).
+- `store.js` — `store` (localStorage) + `cfg()`. `idb.js` — the IndexedDB wrapper + `DB_VERSION`. `api.js` — `apiGet(action, params)` / `apiPost(body)` (inject token + URL). `work-mode.js` — `workMode()` + `LOCKED_MODE`, the capture app's boat/land mode, currently pinned to land; a **hard import** of both `pages/capture.js` and `drive-recorder.js`, so it belongs in the `sw.js` SHELL. Its header carries the reason and the revert recipe — read it before touching the mode anywhere.
 - `queue.js` — offline queue (`enqueue`/`flush`/`paint`/`migrateLegacyQueue`; page UI side-effects via `setQueueHooks`). `daycache.js` — optimistic/reconcile/merge + retention + recent-days. `geocode.js` — addrCache + `resolveAddress` + `backfillAddresses`.
 - `compute/` — `gaps.js` (WO→WO gaps), `tally.js` (`PRINTABLE`/`countDay`/`tallyText`), `summary.js` (the offline daily-log summary), `categories.js`, `estimate.js`.
 - `drive.js` — the `#drive` driving screen only (a hash-routed sibling screen like `worklist-route-view.js`, wired by `initWorklist`; shows the current order card + the ▶ Start/■ Stop drive-tracking button; no GPS code). `drive-recorder.js` — the **app-level** GPS-tracking runtime, initialized once by `capture.js` and running whenever the PWA is open (any screen); records the leg silently, holds it on the phone, and enqueues `saveDriveTrack` only at end of day (`finishAndUpload`). `drive-track.js` — the pure, DOM-free track model (segment state machine + `encodeTrack`/`decodeTrack` polyline + `segmentSummary`), unit-tested in `tests/drive-track.test.mjs`. See ARCHITECTURE.md §"Drive mode".
@@ -160,7 +162,7 @@ No bundler — native ES modules + plain CSS, loaded as-is by the browser. Share
 
 ## Work modes in one paragraph
 
-`localStorage['workMode']` (`'boat'` default / `'land'`) drives an accent-token theme via `data-mode` on `<html>` (inline `<head>` snippet pre-paint; blue = boat, green = land) and rides every write as a `workType` field → the appended-last `workType` columns on `Stops`/`Downtime`/`Tracker` (blank = boat, `normWorkType`). `buildDaySummary` returns `workType` (caller's value, else inferred from the day's stops) and `js/dailylog.js` branches on it: land renders the flat per-WO **DELAYS (MIN)** sheet (no travel column — travel is still reviewed at EOD and written to Timing/Tracker, it just doesn't print; delay minutes land on the row whose `workOrderId` matches, plus per-category totals). Land crews are `Teams` rows with `type='land'` (crew # in `boatNumber`, sub foreman in `subName`); a land `endOfDay` skips BoatDays/boat-dispatch bookkeeping. Validation in both modes: Install requires New J#, UTI requires a picked reason (dropdown starts blank). The downtime form pre-fills the current/last WO# so land downtime lands on its PDF row.
+`js/work-mode.js` `workMode()` is the one source of truth, and it is **locked**: `LOCKED_MODE = 'land'`, the stored `localStorage['workMode']` is ignored, and the Boat/Land switch is gone from `index.html` (boat work wound down 2026-07). Forcing rather than defaulting is the point — every phone has `workMode='boat'` from when boat was the default. `js/drive-recorder.js` reads the same function (it can't import `capture.js`, which imports *it* — that's why the lock is its own module). `teams.html` keeps a boat/land **view** switch on its own `teamsViewMode` key. The mode drives an accent-token theme via `data-mode` on `<html>` (inline `<head>` snippet pre-paint; blue = boat, green = land) and rides every write as a `workType` field → the appended-last `workType` columns on `Stops`/`Downtime`/`Tracker` (blank = boat, `normWorkType`). `buildDaySummary` returns `workType` (caller's value, else inferred from the day's stops) and `js/dailylog.js` branches on it: land renders the flat per-WO **DELAYS (MIN)** sheet (no travel column — travel is still reviewed at EOD and written to Timing/Tracker, it just doesn't print; delay minutes land on the row whose `workOrderId` matches, plus per-category totals). Land crews are `Teams` rows with `type='land'` (crew # in `boatNumber`, sub foreman in `subName`); a land `endOfDay` skips BoatDays/boat-dispatch bookkeeping. Validation in both modes: Install requires New J#, UTI requires a picked reason (dropdown starts blank). The downtime form pre-fills the current/last WO# so land downtime lands on its PDF row.
 
 ## The contract that ties it all together
 

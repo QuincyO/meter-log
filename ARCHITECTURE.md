@@ -525,11 +525,29 @@ The operation runs two kinds of routes and the app captures both: **boat work**
 work** (truck routes — crews with a sub foreman, a flat per-WO-delays daily
 log). The captured data is identical; what changes is the chrome and the PDF.
 
-- **The toggle.** A Boat/Land segmented switch at the top of `index.html` (and
-  `teams.html`), persisted per device as `localStorage['workMode']`. It sets
-  `data-mode` on `<html>` (an inline `<head>` snippet applies it pre-paint), and
-  the CSS accent tokens follow: **boat = blue, land = green** (`--accent*` in
-  `css/tokens.css`; `css/teams.css` carries its own copy).
+- **The capture app is LOCKED to land** (2026-07-31). Boat work wound down and
+  nobody is running the app from a boat, so the Boat/Land switch was removed
+  from `index.html`'s top bar: a control that can only be set wrong is worse
+  than no control. `js/work-mode.js` is the single source of truth — `workMode()`
+  returns `LOCKED_MODE` (`'land'`) and **ignores the stored key**, which is the
+  load-bearing detail: boat *was* the default, so every phone in the field has
+  `workMode='boat'` in localStorage and merely changing the default would have
+  stranded all of them. `index.html` and `help.html` pin `data-mode='land'` in
+  their pre-paint `<head>` snippets. The module's header carries the four-step
+  revert recipe; the boat code paths below are all still live, because a
+  historical day must still reprint correctly from `edit.html`.
+  `js/drive-recorder.js` reads `workMode()` too — it cannot import `capture.js`
+  (which imports *it*), and that circularity is the whole reason the lock lives
+  in its own module rather than in `capture.js`.
+- **The accent.** `data-mode` on `<html>` drives the CSS accent tokens:
+  **boat = blue, land = green** (`--accent*` in `css/tokens.css`; `css/teams.css`
+  carries its own copy).
+- **`teams.html` kept its switch**, under its own `localStorage['teamsViewMode']`
+  key (defaulting to land). It chooses which team cards the office is looking at
+  — not what a crew's phone writes — and the office still has to reach
+  historical boat teams. The separate key is deliberate: while both pages shared
+  `workMode`, an admin flipping the office view to Boat also flipped the accent
+  the crew's phone painted with.
 - **`workType` column.** Every `addStop` / `addDowntime` payload — and the
   `endOfDay` Tracker upsert — carries `workType: 'boat' | 'land'` (blank legacy
   rows read as boat via `normWorkType`). Same tabs, one extra column; no
@@ -546,7 +564,7 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   totals and are listed on a "Not tied to a WO#" footer line.
 - **Crews.** A land crew is a `Teams` row with `type='land'` — crew number in
   `boatNumber`, sub foreman in `subName`, no captain/boat name. `teams.html`
-  shows boat teams in boat mode and crews in land mode. A land `endOfDay` skips
+  shows boat teams in boat view and crews in land view. A land `endOfDay` skips
   the BoatDays snapshot + shared boat-dispatch bookkeeping.
 - **Worklist & plan mode.** The worklist is a full-page screen on `index.html`
   (`js/worklist.js`; the old popup is gone) for both modes: orders hold WO# /
