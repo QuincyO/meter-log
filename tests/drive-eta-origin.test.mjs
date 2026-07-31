@@ -69,34 +69,30 @@ test('the origin is live fix → last completed pin → muster point', () => {
 });
 
 // ── one model of the day, not two ───────────────────────────────────────────
-test('the finish clock re-prices its first leg from the same fix', () => {
-  // The first pending leg's saved legMeters is the drive from the PREVIOUS STOP IN
-  // ROUTE ORDER. Anchor the ETAs on the live fix and leave this alone, and the same
-  // screen carries an arrival time measured from the truck beside a "Route done ~"
-  // clock whose first leg starts somewhere else (AGENTS.md §"never model the day
-  // twice"). They disagree most on the long legs — where the driver is looking.
-  assert.match(worklistJs, /async function firstLegMetres\(pending, f\)/);
-  // The leg is measured on the ROAD GRAPH when a pack covers both ends — the same
-  // measurement the arrival clock is built from, which is what makes the two cards
-  // one model instead of two that agree on a good day. Crow-flies survives only as
-  // the fallback, and only for a fix the pack cannot reach.
-  assert.match(worklistJs, /const road = await roadLegMetres\(fix, to\);/);
-  assert.match(worklistJs,
-    /return road != null \? road : haversine\(fix, to\) \* ROAD_DETOUR_FACTOR;/);
-  // No fix, or no pin on the next stop, still leaves the sum exactly as it was.
-  assert.match(worklistJs, /if\(!\(fix && to\)\) return saved;/);
-  assert.match(worklistJs,
-    /a \+ \(i === 0 \? first : \(Number\(p\[f\.legMeters\]\) \|\| 0\)\)/);
-  // ONLY the first leg: every later one really is stop-to-stop, and its saved road
-  // distance beats anything crow-flies can offer.
-  const fn = worklistJs.slice(worklistJs.indexOf('async function firstLegMetres'),
-                              worklistJs.indexOf('const speed = liveMetrics().avgMovingSpeed'));
-  assert.doesNotMatch(fn, /pending\[1\]|pending\.map/);
-  // The detour allowance is imported, never re-declared — a second copy is a
-  // constant that drifts from the one estimateDurations prices the matrix with.
-  assert.match(routeJs, /export const ROAD_DETOUR_FACTOR = 1\.3;/);
-  assert.match(worklistJs, /import \{[^}]*\bROAD_DETOUR_FACTOR\b[^}]*\} from '\.\/route\.js'/);
-  assert.match(worklistJs, /import \{ liveMetrics, lastFix \} from '\.\/drive-recorder\.js'/);
+test('the finish clock and the arrival badge come from the same lookup', () => {
+  // This test used to pin firstLegMetres: the finish clock re-measured its FIRST leg
+  // from the live fix, because the rest of its sum was saved legMetres ÷ a day-average
+  // speed and only that one leg could be made to agree with the arrival badge beside
+  // it. One leg out of ten agreeing is not one model of the day (AGENTS.md §"never
+  // model the day twice") — it is two that agree at the top of the list, and they
+  // diverge most on the long legs, which is where the driver is looking.
+  //
+  // The whole sum comes from the ladder now, so the first leg is anchored on the
+  // same fix by construction and there is nothing left to re-measure by hand.
+  // Code, not prose — the comment explaining why avgMovingSpeed no longer prices
+  // this has to be free to name it (see tests/pace-live.test.mjs codeOnly).
+  const code = worklistJs.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  assert.doesNotMatch(code, /firstLegMetres/);
+  assert.doesNotMatch(code, /avgMovingSpeed/);
+  // First leg from wherever the crew is standing (the frame's origin, which is the
+  // live fix → last driveway → muster ladder above); every later leg stop-to-stop.
+  assert.match(worklistJs, /travel\.fromStart\(toId\)/);
+  assert.match(worklistJs, /travel\.between\(fromId, toId\)/);
+  assert.match(worklistJs, /\? firstLegDriveMin\(travel, p\.id\)\s*\n\s*: legDriveMin\(travel, pending\[i - 1\]\.id, p\.id\)/);
+  // A pair the lookup cannot answer for takes the nominal rather than a zero — a
+  // silent 0 would price a walk-up's leg as teleportation.
+  assert.match(worklistJs, /return \(v != null && isFinite\(v\)\) \? v : NOMINAL_TRAVEL_MIN;/);
+  assert.match(worklistJs, /import \{ lastFix \} from '\.\/drive-recorder\.js'/);
 });
 
 // ── the arrival line ────────────────────────────────────────────────────────

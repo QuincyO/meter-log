@@ -197,7 +197,10 @@ test('every re-scheduling path awaits the ladder', () => {
     const before = worklistJs.slice(Math.max(0, m.index - 12), m.index);
     assert.match(before, /await $/, `estimateTravel at ${m.index} must be awaited`);
   }
-  assert.match(worklistJs, /const travel = await routeTravel\(pending\);/);
+  // The pace card reaches the ladder directly now rather than through routeTravel,
+  // which is pure and takes the lookup as an argument (tests/pace-live.test.mjs).
+  assert.match(worklistJs,
+    /const travel = frame\.length \? await estimateTravel\(frame, items\) : null;/);
 });
 
 test('the pack is chosen for the run but never adopted by a background re-anchor', () => {
