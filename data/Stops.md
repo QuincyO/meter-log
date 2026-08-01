@@ -1,6 +1,6 @@
 # Stops
 
-_591 rows · exported 2026-07-31 03:52 America/Toronto_
+_631 rows · exported 2026-08-01 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -484,9 +484,9 @@ _591 rows · exported 2026-07-31 03:52 America/Toronto_
 | 1785176985278-rntb95 | 2026-07-27 14:29:45 | Phillip Monteiro | 695062 |  | 200 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774279 | -79.405306 | J4647388 | J3262727 | 31169 | INSTALLED |  |  |  |  |  | land |
 | 1785177504650-z90j4i | 2026-07-27 14:38:24 | Phillip Monteiro | 694195 |  | 206 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.774394 | -79.405531 | J4647387 | J3697697 | 75476 | INSTALLED |  |  |  |  |  | land |
 | 1785178063896-6ljjmb | 2026-07-27 14:47:43 | Phillip Monteiro | 694330 |  | 222 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.775079 | -79.405779 | J4647386 | J3179373 | 8903 | INSTALLED |  |  |  |  |  | land |
-| 1785242539281-wsiy55 | 2026-07-28 08:42:19 | Quincy Orta | 693980 |  | Town of, 556 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.405921 | -79.273778 | J4780707 | J3080984 | 79062 | INSTALLED |  |  |  |  |  | land |
-| 1785244339325-x3pg2k | 2026-07-28 09:12:19 | Quincy Orta | 693955 |  | 1025 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.39829 | -79.290838 | J4780706 | J3247620 | 36775 | INSTALLED |  |  |  |  |  | land |
-| 1785246915800-q75e6t | 2026-07-28 09:55:15 | Quincy Orta | 693867 |  | 49 George St, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.488156 | -79.460804 | J4780709 | J4044011 | 46482 | INSTALLED |  |  |  |  |  | land |
+| 1785242539281-wsiy55 | 2026-07-28 8:42:19 | Quincy Orta | 693980 |  | Town of, 556 E Waseosa Lake Rd, Huntsville, ON P1H 2J4, Canada | 45.405921 | -79.273778 | J4780707 | J3080984 | 79062 | INSTALLED |  |  |  |  |  | land |
+| 1785244339325-x3pg2k | 2026-07-28 9:12:19 | Quincy Orta | 693955 |  | 1025 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.39829 | -79.290838 | J4780706 | J3247620 | 36775 | INSTALLED |  |  |  |  |  | land |
+| 1785246915800-q75e6t | 2026-07-28 9:55:15 | Quincy Orta | 693867 |  | 49 George St, McMurrich/Monteith, ON P0A 1Y0, Canada | 45.488156 | -79.460804 | J4780709 | J4044011 | 46482 | INSTALLED |  |  |  |  |  | land |
 | 1785250008328-evzsz9 | 2026-07-28 10:46:48 | Quincy Orta | 693982 |  | Town of, 1366 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.39803 | -79.272329 | J4780708 | J3134954 | 21460 | INSTALLED |  |  |  |  |  | land |
 | 1785250473856-ymzzvm | 2026-07-28 10:54:33 | Quincy Orta | 693976 |  | Town of, 1448 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.394359 | -79.271666 | J4780743 | J3134905 | 51942 | INSTALLED |  |  |  |  |  | land |
 | 1785250912514-1wc31k | 2026-07-28 11:01:52 | Quincy Orta | 693829 |  | Town of, 1569 S Waseosa Lake Rd, Huntsville, ON P1H 2N5, Canada | 45.390948 | -79.267992 | J4780744 | J3261122 | 85661 | INSTALLED |  |  |  |  |  | land |
@@ -504,12 +504,12 @@ _591 rows · exported 2026-07-31 03:52 America/Toronto_
 | 1785262303151-6guec3 | 2026-07-28 14:11:43 | Quincy Orta | 693796 |  | 1160 S Lancelot Rd, Utterson, ON P0B 1M0, Canada | 45.261348 | -79.361935 | J4647949 | J2690248 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1785264641209-cguoab | 2026-07-28 14:50:41 | Quincy Orta | 693912 | 31 | 1119 Skeleton Lake Road 2, Utterson, ON P0B 1M0, Canada | 45.236431 | -79.457105 | J4647950 | J3164389 | 15922 | INSTALLED |  |  |  |  |  | land |
 | 1785265790863-2q7wb1 | 2026-07-28 15:09:50 | Quincy Orta | 693822 |  | 1255 Skeleton Lake Road 2, Utterson, ON P0B 1M0, Canada | 45.231465 | -79.437381 | J4647951 | J3138228 |  | INSTALLED |  |  | Missing segments |  |  | land |
-| 1785330031172-od6bvi | 2026-07-29 09:00:31 | Quincy Orta | 693919 |  | 421 Owl Lake Rd, Armour, ON P0A 1J0, Canada | 45.571279 | -79.32773 | J4784220 | J3262584 | 55104 | INSTALLED |  |  |  |  |  | land |
-| 1785330659832-ascga4 | 2026-07-29 09:10:59 | Quincy Orta | 693835 |  | 173 Owl Lake Rd, Armour, ON P0A 1J0, Canada | 45.569889 | -79.340758 |  | J4199048 | 27403 | UTI | No Access |  |  |  |  | land |
-| 1785331875038-1uz5qr | 2026-07-29 09:31:15 | Quincy Orta | 693832 |  | 61 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.573346 | -79.356583 | J4784218 | J3262527 | 80485 | INSTALLED |  |  |  |  |  | land |
-| 1785332261265-vmrrai | 2026-07-29 09:37:41 | Quincy Orta | 693986 |  | 49 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.573501 | -79.355824 | J4784221 | J3385789 | 29105 | INSTALLED |  |  |  |  |  | land |
-| 1785332812367-vnnam1 | 2026-07-29 09:46:52 | Quincy Orta | 693923 |  | 11 Doe Lake Rd, Armour, ON P0A 1J0, Canada | 45.573978 | -79.353624 | J4784219 | J3542165 | 76006 | INSTALLED |  |  |  |  |  | land |
-| 1785333322602-njkbxz | 2026-07-29 09:55:22 | Quincy Orta | 694012 |  | 217A Doe Lake Rd, Armour, ON P0A 1L0, Canada | 45.569429 | -79.362824 | J4780740 | J3105930 | 58277 | INSTALLED |  |  |  |  |  | land |
+| 1785330031172-od6bvi | 2026-07-29 9:00:31 | Quincy Orta | 693919 |  | 421 Owl Lake Rd, Armour, ON P0A 1J0, Canada | 45.571279 | -79.32773 | J4784220 | J3262584 | 55104 | INSTALLED |  |  |  |  |  | land |
+| 1785330659832-ascga4 | 2026-07-29 9:10:59 | Quincy Orta | 693835 |  | 173 Owl Lake Rd, Armour, ON P0A 1J0, Canada | 45.569889 | -79.340758 |  | J4199048 | 27403 | UTI | No Access |  |  |  |  | land |
+| 1785331875038-1uz5qr | 2026-07-29 9:31:15 | Quincy Orta | 693832 |  | 61 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.573346 | -79.356583 | J4784218 | J3262527 | 80485 | INSTALLED |  |  |  |  |  | land |
+| 1785332261265-vmrrai | 2026-07-29 9:37:41 | Quincy Orta | 693986 |  | 49 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.573501 | -79.355824 | J4784221 | J3385789 | 29105 | INSTALLED |  |  |  |  |  | land |
+| 1785332812367-vnnam1 | 2026-07-29 9:46:52 | Quincy Orta | 693923 |  | 11 Doe Lake Rd, Armour, ON P0A 1J0, Canada | 45.573978 | -79.353624 | J4784219 | J3542165 | 76006 | INSTALLED |  |  |  |  |  | land |
+| 1785333322602-njkbxz | 2026-07-29 9:55:22 | Quincy Orta | 694012 |  | 217A Doe Lake Rd, Armour, ON P0A 1L0, Canada | 45.569429 | -79.362824 | J4780740 | J3105930 | 58277 | INSTALLED |  |  |  |  |  | land |
 | 1785333903289-28ti63 | 2026-07-29 10:05:03 | Quincy Orta | 693922 |  | 207 Doe Lake Rd, Township of Armour | 45.569873 | -79.363411 | J4647952 | J3467071 | 90829 | INSTALLED |  |  |  |  |  | land |
 | 1785334064724-woq000 | 2026-07-29 10:07:44 | Phillip Monteiro | 695047 |  | 440 High St, Strong, ON P0A 1Z0, Canada | 45.776717 | -79.403465 | J4647385 | J4052583 | 17228 | INSTALLED |  |  |  |  |  | land |
 | 1785334745813-y5lp29 | 2026-07-29 10:19:05 | Phillip Monteiro | 696153 |  | 290 High St, Sundridge, ON P0A 1Z0, Canada | 45.780599 | -79.39424 | J4784360 | J3756593 | 88959 | INSTALLED |  |  |  |  |  | land |
@@ -552,14 +552,14 @@ _591 rows · exported 2026-07-31 03:52 America/Toronto_
 | 1785350817474-zmnu4m | 2026-07-29 14:46:57 | Phillip Monteiro | 694755 |  | 178 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.773373 | -79.404803 | J4784351 | J3183691 | 80556 | INSTALLED |  |  |  |  |  | land |
 | 1785351225998-t6i3gl | 2026-07-29 14:53:45 | Phillip Monteiro | 694328 |  | 168 Albert St, strong | 45.772765 | -79.404532 | J4784350 | J3179036 | 58108 | INSTALLED |  |  |  |  |  | land |
 | 1785352313257-ylxbyi | 2026-07-29 15:11:53 | Quincy Orta | 693763 | B | 125 SHANNON Rd, Perry, ON P0A 1R0, Canada | 45.444233 | -79.300956 | J4784243 | J3406124 | 26811 | INSTALLED |  |  |  |  |  | land |
-| 1785413081988-diiiy9 | 2026-07-30 08:04:41 | Quincy Orta | 691705 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.50635 | -79.269381 | J4784606 | J2722981 | 79802 | INSTALLED |  |  |  |  |  | land |
-| 1785413908985-59u9bd | 2026-07-30 08:18:28 | Quincy Orta | 687603 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506397 | -79.269402 | J4784608 | J3135661 | 69644 | INSTALLED |  |  |  |  |  | land |
-| 1785414211981-rpb0jy | 2026-07-30 08:23:31 | Quincy Orta | 688661 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506228 | -79.268957 | J4784609 | J2116516 | 96657 | INSTALLED |  |  |  |  |  | land |
-| 1785417227098-uji00s | 2026-07-30 09:13:47 | Phillip Monteiro | 694224 |  | 456 High St, Strong, ON P0A 1Z0, Canada | 45.776483 | -79.404491 | J4784369 | J4164962 | 19736 | INSTALLED |  |  |  |  |  | land |
-| 1785417690506-6j9xk3 | 2026-07-30 09:21:30 | Phillip Monteiro | 695622 |  | 470 High St, Sundridge, ON P0A 1Z0, Canada | 45.776106 | -79.405519 | J4784367 | J3541018 | 73985 | INSTALLED |  |  |  |  |  | land |
-| 1785418729308-k42ymx | 2026-07-30 09:38:49 | Phillip Monteiro | 694327 |  | 158 Albert St, Strong | 45.772435 | -79.404632 | J4784366 | J3112188 | 79383 | INSTALLED |  |  |  |  |  | land |
-| 1785419067176-4a5uq7 | 2026-07-30 09:44:27 | Phillip Monteiro | 695412 |  | 128 Albert St, Strong |  |  | J4784368 | J3355467 | 41574 | INSTALLED |  |  |  |  |  | land |
-| 1785419500986-6o1lz5 | 2026-07-30 09:51:40 | Phillip Monteiro | 694731 |  | 120 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.770745 | -79.403359 | J4773669 | J3183128 | 12447 | INSTALLED |  |  |  |  |  | land |
+| 1785413081988-diiiy9 | 2026-07-30 8:04:41 | Quincy Orta | 691705 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.50635 | -79.269381 | J4784606 | J2722981 | 79802 | INSTALLED |  |  |  |  |  | land |
+| 1785413908985-59u9bd | 2026-07-30 8:18:28 | Quincy Orta | 687603 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506397 | -79.269402 | J4784608 | J3135661 | 69644 | INSTALLED |  |  |  |  |  | land |
+| 1785414211981-rpb0jy | 2026-07-30 8:23:31 | Quincy Orta | 688661 |  | 1205 ON-592, Perry, ON P0A 1J0, Canada | 45.506228 | -79.268957 | J4784609 | J2116516 | 96657 | INSTALLED |  |  |  |  |  | land |
+| 1785417227098-uji00s | 2026-07-30 9:13:47 | Phillip Monteiro | 694224 |  | 456 High St, Strong, ON P0A 1Z0, Canada | 45.776483 | -79.404491 | J4784369 | J4164962 | 19736 | INSTALLED |  |  |  |  |  | land |
+| 1785417690506-6j9xk3 | 2026-07-30 9:21:30 | Phillip Monteiro | 695622 |  | 470 High St, Sundridge, ON P0A 1Z0, Canada | 45.776106 | -79.405519 | J4784367 | J3541018 | 73985 | INSTALLED |  |  |  |  |  | land |
+| 1785418729308-k42ymx | 2026-07-30 9:38:49 | Phillip Monteiro | 694327 |  | 158 Albert St, Strong | 45.772435 | -79.404632 | J4784366 | J3112188 | 79383 | INSTALLED |  |  |  |  |  | land |
+| 1785419067176-4a5uq7 | 2026-07-30 9:44:27 | Phillip Monteiro | 695412 |  | 128 Albert St, Strong |  |  | J4784368 | J3355467 | 41574 | INSTALLED |  |  |  |  |  | land |
+| 1785419500986-6o1lz5 | 2026-07-30 9:51:40 | Phillip Monteiro | 694731 |  | 120 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.770745 | -79.403359 | J4773669 | J3183128 | 12447 | INSTALLED |  |  |  |  |  | land |
 | 1785420606030-9n14jc | 2026-07-30 10:10:06 | Phillip Monteiro | 694747 |  | 114 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.770658 | -79.403151 | J4773668 | J3112024 | 96500 | INSTALLED |  |  |  |  |  | land |
 | 1785421501404-xm4u8z | 2026-07-30 10:25:01 | Phillip Monteiro | 694880 |  | 88 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.769484 | -79.402458 | J4773667 | J3184035 | 45342 | INSTALLED |  |  |  |  |  | land |
 | 1785421925535-863ni5 | 2026-07-30 10:32:05 | Phillip Monteiro | 694322 |  | 36 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.767499 | -79.402065 | J4773666 | J3326987 | 63538 | INSTALLED |  |  |  |  |  | land |
@@ -595,3 +595,43 @@ _591 rows · exported 2026-07-31 03:52 America/Toronto_
 | 1785436543577-g3g6u5 | 2026-07-30 14:35:43 | Phillip Monteiro | 694547 |  | 73 Clear Springs Ln, Sundridge, ON P0A 1Z0, Canada | 45.760558 | -79.397519 | J4643768 | J3218854 | 29337 | INSTALLED |  |  |  |  |  | land |
 | 1785437124861-w554fi | 2026-07-30 14:45:24 | Quincy Orta | 693918 |  | 51 Rock Point Rd, Kearney | 45.61435 | -79.175411 | J4784585 | J3333534 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1785438179325-rop0z6 | 2026-07-30 15:02:59 | Quincy Orta | 693855 |  | 144 Rock Point Rd, Kearney, ON P0A 1M0, Canada | 45.618179 | -79.173985 | J4763806 | J2830970 | 52546 | INSTALLED |  |  |  |  |  | land |
+| 1785503139150-io3y0z | 2026-07-31 09:05:39 | Quincy Orta | 693920 |  | 383 Sunnylea Ave, Burk's Falls, ON P0A 1J0, Canada | 45.598869 | -79.326806 | J4784534 | J3256759 | 56849 | INSTALLED |  |  |  |  |  | land |
+| 1785504116860-ba0s48 | 2026-07-31 09:21:56 | Quincy Orta | 693754 |  | 634 Melody Crescent, Armour, ON P0A 1J0, Canada | 45.582254 | -79.317086 | J4784536 | J4147073 | 10665 | INSTALLED |  |  |  |  |  | land |
+| 1785505177692-dask6t | 2026-07-31 09:39:37 | Quincy Orta | 693896 |  | 1308 Deer Lake Rd, Perry, ON P0A 1J0, Canada | 45.57124 | -79.285287 | J4784537 | J3533323 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785506460391-6yb7gj | 2026-07-31 10:01:00 | Quincy Orta | 693794 |  | 191 12TH CON Rd, Kearney, ON P0A 1J0, Canada | 45.575187 | -79.228113 | J4763807 | J3249160 | 12753 | INSTALLED |  |  |  |  |  | land |
+| 1785507863408-b50utn | 2026-07-31 10:24:23 | Quincy Orta | 693769 |  | 109 Sunken Island Ln, Kearney, ON P0A 0B1, Canada | 45.5711 | -79.216077 | J4763809 | J3535028 | 63763 | INSTALLED |  |  |  |  |  | land |
+| 1785508953888-msc67e | 2026-07-31 10:42:33 | Quincy Orta | 693785 |  | 1586 Ontario 518 E, Perry, ON P0A 1J0, Canada | 45.552485 | -79.23337 | J4784535 | J3210152 | 25156 | INSTALLED |  |  |  |  |  | land |
+| 1785509821798-mkfxe2 | 2026-07-31 10:57:01 | Quincy Orta | 693774 |  | 1859 Hwy 518 E, Kearney, ON P0A 0B1, Canada | 45.562387 | -79.226933 | J4763808 | J3223448 | 96423 | INSTALLED |  |  |  |  |  | land |
+| 1785510796052-in6mci | 2026-07-31 11:13:16 | Quincy Orta | 693916 |  | 39 King William St, Kearney, ON P0A 0B1, Canada | 45.55526 | -79.222398 | J4751288 | J3074251 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785510106706-cs7bwt | 2026-07-31 11:01:46 | Phillip Monteiro | 695728 |  | 870 Hill Valley Rd, Strong | 45.790956 | -79.424564 | J4643767 | J3315079 | 11043 | INSTALLED |  |  |  |  |  | land |
+| 1785511359048-qr0qpq | 2026-07-31 11:22:39 | Quincy Orta | 693847 |  | 7 Pine Dr, Kearney, ON P0A 0B1, Canada | 45.561335 | -79.202287 | J4751291 | J3254986 | 15617 | INSTALLED |  |  |  |  |  | land |
+| 1785512140199-favrud | 2026-07-31 11:35:40 | Quincy Orta | 693852 |  | 326 Echo Ridge Rd, Kearney, ON P0A 1J0, Canada | 45.552643 | -79.190067 | J4751289 | J3249489 | 87084 | INSTALLED |  |  |  |  |  | land |
+| 1785512714892-dt2suo | 2026-07-31 11:45:14 | Quincy Orta | 693815 |  | 195 Lynx Dr, Kearney, ON P1H 2J6, Canada | 45.541707 | -79.18788 | J4751290 | J3207812 | 99771 | INSTALLED |  |  |  |  |  | land |
+| 1785513479087-xqryvh | 2026-07-31 11:57:59 | Quincy Orta | 693759 |  | 105 Ostick Rd, Kearney, ON P1H 2J6, Canada | 45.54049 | -79.189262 | J4751285 | J3241187 | 98131 | INSTALLED |  |  |  |  |  | land |
+| 1785510681991-jjy1fr | 2026-07-31 11:11:21 | Phillip Monteiro | 694320 |  | 901 Hill Valley Rd, Strong | 45.78918 | -79.426296 | J4751265 | J3179028 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785511504638-cf7ga3 | 2026-07-31 11:25:04 | Phillip Monteiro | 694552 |  | 20 Adams Rd, Strong | 45.775867 | -79.407425 | J4751264 | J3179735 | 48960 | INSTALLED |  |  |  |  |  | land |
+| 1785511989793-24i8av | 2026-07-31 11:33:09 | Phillip Monteiro | 694733 |  | 54 Adams Rd, Strong | 45.775314 | -79.409444 | J4751266 | J2690250 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785512550696-nv2s90 | 2026-07-31 11:42:30 | Phillip Monteiro | 695407 |  | 110 Adams Rd, Strong | 45.774439 | -79.412754 | J4751267 | J3801357 | 60899 | INSTALLED |  |  |  |  |  | land |
+| 1785513245171-9r3uj2 | 2026-07-31 11:54:05 | Phillip Monteiro | 695041 |  | 208 Adams Rd, Strong | 45.772762 | -79.418015 | J4751269 | J4125097 | 61839 | INSTALLED |  |  |  |  |  | land |
+| 1785513792237-1my1um | 2026-07-31 12:03:12 | Phillip Monteiro | 694756 |  | 323 Adams Rd, Strong | 45.770023 | -79.422705 | J4751271 | J3194708 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785515121915-bzxgkt | 2026-07-31 12:25:21 | Quincy Orta | 681945 |  | 115 Ostick Rd, Kearney, ON P1H 2J6, Canada | 45.540179 | -79.189007 | J4751286 | J3210429 | 12739 | INSTALLED |  |  |  |  |  | land |
+| 1785515318343-avy9rm | 2026-07-31 12:28:38 | Phillip Monteiro | 695033 |  | 10308 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.765118 | -79.401821 | J4751270 | J3299111 | 10172 | INSTALLED |  |  |  |  |  | land |
+| 1785515634544-thpk9g | 2026-07-31 12:33:54 | Phillip Monteiro | 694530 |  | 10304 Hwy 124 S, Strong | 45.764948 | -79.401934 | J4751268 | J3718811 | 80924 | INSTALLED |  |  |  |  |  | land |
+| 1785516202468-j5r2ow | 2026-07-31 12:43:22 | Quincy Orta | 693850 |  | 464 Lawson Dr, Kearney, ON P1H 2J6, Canada | 45.534896 | -79.186447 | J4751287 | J3181804 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785517037882-5a3sbg | 2026-07-31 12:57:17 | Quincy Orta | 693849 |  | 927 Echo Ridge Rd, Kearney, ON P1H 2J6, Canada | 45.53555 | -79.17123 | J4751284 | J3191420 | 95935 | INSTALLED |  |  |  |  |  | land |
+| 1785516306340-td25kg | 2026-07-31 12:45:06 | Phillip Monteiro | 694882 | A | 10258 Hwy 124 S, Strong | 45.763466 | -79.404048 | J4751260 | J4164942 | 12313 | INSTALLED |  |  |  |  |  | land |
+| 1785516660011-ypakzk | 2026-07-31 12:51:00 | Phillip Monteiro | 696007 | B | 10258 Hwy 124 S, Strong | 45.763456 | -79.404103 | J4751261 | J4229547 | 27088 | INSTALLED |  |  |  |  |  | land |
+| 1785519077399-sf2f11 | 2026-07-31 13:31:17 | Quincy Orta | 693797 |  | B 175 Emsdale Lake Rd, Perry, ON P0A 1J0, Canada | 45.536134 | -79.212435 | J4751303 | J3253345 | 80672 | INSTALLED |  |  |  |  |  | land |
+| 1785519517365-i3h24p | 2026-07-31 13:38:37 | Quincy Orta | 692802 | A | 175 Emsdale Lake Rd, Perry, ON P0A 1J0, Canada | 45.536168 | -79.212384 | J4751300 | J3978369 | 54098 | INSTALLED |  |  |  |  |  | land |
+| 1785520575056-e6r4qa | 2026-07-31 13:56:15 | Quincy Orta | 693903 |  | 778 Bay Lake Rd., Perry, ON P1H 2J6, Canada | 45.505543 | -79.223484 | J4751302 | J2717119 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785517911729-afk3bs | 2026-07-31 13:11:51 | Phillip Monteiro | 694323 |  | 46 Sunset Dr, Sundridge, ON P0A 1Z0, Canada | 45.763751 | -79.402227 | J4751262 | J4125146 | 15316 | INSTALLED |  |  |  |  |  | land |
+| 1785518457762-ompx4z | 2026-07-31 13:20:57 | Phillip Monteiro | 695056 |  | 73 Sunset Dr, Strong | 45.762103 | -79.403332 | J4751263 | J3718818 | 58384 | INSTALLED |  |  |  |  |  | land |
+| 1785518818734-7nnqik | 2026-07-31 13:26:58 | Phillip Monteiro | 695624 |  | 71 Sunset Dr, Strong | 45.762616 | -79.403628 | J4751273 | J3262766 | 59578 | INSTALLED |  |  |  |  |  | land |
+| 1785519203762-fk2l8l | 2026-07-31 13:33:23 | Phillip Monteiro | 694318 |  | 65 Sunset Dr, Strong | 45.762856 | -79.403029 | J4751275 | J3990550 | 23948 | INSTALLED |  |  |  |  |  | land |
+| 1785519736865-3o9qxc | 2026-07-31 13:42:16 | Phillip Monteiro | 695405 |  | 43 Sunset Dr, Strong | 45.763168 | -79.40174 | J4751272 | J3187739 | 51045 | INSTALLED |  |  |  |  |  | land |
+| 1785520130314-j3sqqz | 2026-07-31 13:48:50 | Phillip Monteiro | 695718 |  | 32 Sunset Dr, Strong | 45.76368 | -79.401223 | J4751274 | J4000835 | 10724 | INSTALLED |  |  |  |  |  | land |
+| 1785522241831-dzodhc | 2026-07-31 14:24:01 | Phillip Monteiro | 694202 |  | 27 Sunset Dr, Strong | 45.763543 | -79.400756 | J4751279 | J3355469 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785523618381-qf8h7v | 2026-07-31 14:46:58 | Phillip Monteiro | 694189 |  | 10299 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.764673 | -79.401279 | J4751278 | J4164930 | 65715 | INSTALLED |  |  |  |  |  | land |
+| 1785524262077-oqmcer | 2026-07-31 14:57:42 | Quincy Orta | 693783 |  | 1730 Harris Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.362588 | -78.919721 |  |  |  | VISITED |  | Stolen Workorder |  |  |  | land |
+| 1785525350639-9lpck4 | 2026-07-31 15:15:50 | Quincy Orta | 693787 |  | 4526 ON-60, Algonquin Highlands, ON P0A 1E0, Canada | 45.381778 | -78.913018 | J4751301 | J3255051 | 78334 | INSTALLED |  |  |  |  |  | land |
+| 1785526074767-6n7azn | 2026-07-31 15:27:54 | Quincy Orta | 693807 |  | 1086 Algonquin Outfitters Rd, Algonquin Highlands, ON P1H 2J6, Canada | 45.382753 | -78.924797 | J4751305 | J3215128 | 3402 | INSTALLED |  |  |  |  |  | land |

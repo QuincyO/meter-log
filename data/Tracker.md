@@ -1,6 +1,6 @@
 # Tracker
 
-_56 rows · exported 2026-07-31 03:52 America/Toronto_
+_58 rows · exported 2026-08-01 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -60,3 +60,5 @@ _56 rows · exported 2026-07-31 03:52 America/Toronto_
 | 2026-07-29 00:00:00 | Quincy Orta | 23 | 2 | 30 | 0 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 | Clear · N 17 km/h · 21°C |  | 0 | 0 |  | 372 |  | land |
 | 2026-07-30 00:00:00 | Phillip Monteiro | 23 | 0 | 120 | 30 | 0 | 0 | 15 | 35 | 40 | 0 | 0 | 0 | 0 | Clear · N 11 km/h · 23°C |  | 0 | 0 |  | 284 |  | land |
 | 2026-07-30 00:00:00 | Quincy Orta | 18 | 2 | 120 | 15 | 0 | 0 | 0 | 15 | 30 | 0 | 0 | 0 | 60 | Clear · N 10 km/h · 24°C |  | 0 | 0 |  | 359 |  | land |
+| 2026-07-31 00:00:00 | Phillip Monteiro | 19 | 0 | 150 | 30 | 30 | 0 | 15 | 35 | 40 | 0 | 0 | 0 | 0 | Clear · SW 14 km/h · 26°C |  | 0 | 0 |  | 175 |  | land |
+| 2026-07-31 00:00:00 | Quincy Orta | 20 | 0 | 30 | 0 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 | Clear · SW 14 km/h · 27°C |  | 1 | 0 |  | 380 |  | land |
