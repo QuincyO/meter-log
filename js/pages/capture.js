@@ -4,7 +4,7 @@
 // orders, and the local worklist. Durable state lives in IndexedDB (queue /
 // dayCache / worklist); see the imported modules.
 import { cfg, store } from '../store.js';
-import { workMode } from '../work-mode.js';
+import { workMode, setWorkMode } from '../work-mode.js';
 import { $, enc, esc, attr, toast, withActivity } from '../dom.js';
 import { stamp, localDate, clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { idb } from '../idb.js';
@@ -124,10 +124,11 @@ $('stuckRetryAll').onclick = async () => { await retryParked(); toast('Retrying 
 $('stuckClose').onclick = () => closeSheets();
 
 // ── work mode (boat | land) ─────────────────────────────────────────────
-// workMode() lives in js/work-mode.js and currently returns 'land' for everyone
-// — the Boat/Land switch is gone from the top bar and the accent is set by an
-// inline <head> snippet pre-paint. Read that module's header before changing
-// anything here; it carries the reason and the revert recipe.
+// workMode()/setWorkMode() live in js/work-mode.js — read that header first, it
+// owns the storage key and the reason land is the default. The switch is in the
+// Settings sheet rather than the top bar (too easy to hit by accident there);
+// the accent is already applied by an inline <head> snippet pre-paint, so this
+// only has to keep it in sync after a change.
 // Mode-dependent chrome: the land daily log always prints the delay columns, so
 // the "include delays" choice only exists in boat mode. Land has no dock, so its
 // end-of-day bookends are a plain Start / End time rather than Departure / Returned.
@@ -138,7 +139,36 @@ function applyModeUI(){
   $('lblDeparture').innerHTML = land ? 'Start time' : 'Departure time <span style="font-weight:500">(left dock)</span>';
   $('lblReturned').textContent = land ? 'End time' : 'Returned to land';
 }
+function paintModeSeg(){
+  const boat = workMode()==='boat';
+  $('modeBoat').classList.toggle('on', boat);
+  $('modeLand').classList.toggle('on', !boat);
+  $('modeBoat').setAttribute('aria-pressed', String(boat));
+  $('modeLand').setAttribute('aria-pressed', String(!boat));
+}
+function setMode(m){
+  setWorkMode(m);
+  document.documentElement.dataset.mode = workMode();
+  paintModeSeg();
+  applyModeUI();
+  // A prefetched end-of-day summary was built against the other mode's template
+  // — drop it so the next Generate/Close rebuilds. eodStateKey() fingerprints
+  // the mode too; this is the belt to that pair of braces.
+  eodServerSummary = null;
+  // Not repainted here: an end-of-day gap list already on screen. computeGapsLocal
+  // prepends a zero-length lead gap in land only, so a list built under the other
+  // mode has one row too many or too few — closing and reopening End of day
+  // rebuilds it. Deliberately not automatic: re-running loadDay mid-review would
+  // discard deductions the installer has already typed.
+  toast(workMode()==='boat' ? 'Boat mode' : 'Land mode');
+}
+$('modeBoat').onclick = () => setMode('boat');
+$('modeLand').onclick = () => setMode('land');
+// Paint from the stored value — never setMode(workMode()) as the pre-2026-08
+// code did. That wrote the key on every load, which is how the old default
+// ended up baked into every phone in the field as a literal value.
 applyModeUI();
+paintModeSeg();
 
 // ── status toggle ────────────────────────────────────────────────────────
 let status = 'INSTALLED';
@@ -985,11 +1015,14 @@ let eodServerSummary = null;   // { key, summary }
 let eodSummaryJob = null;      // { key, promise }
 
 // Stable fingerprint of everything the summary depends on — lets us know whether a
-// prefetched summary still matches the installer's current edits.
+// prefetched summary still matches the installer's current edits. The work mode is
+// part of it: it picks the PDF template, and Settings can change it between the
+// prefetch and the submit, which would otherwise reuse the other mode's summary.
 function eodStateKey(){
   return JSON.stringify(collectGapAllocations(eodGaps))
        + '|' + ($('eodDeparture').value||'') + '|' + ($('eodReturned').value||'')
-       + '|' + ($('eodNotes').value||'') + '|' + (!!$('eodIncludeDelays').checked);
+       + '|' + ($('eodNotes').value||'') + '|' + (!!$('eodIncludeDelays').checked)
+       + '|' + workMode();
 }
 
 // Best-effort background build of the spine summary for the current edit state.
@@ -1530,6 +1563,7 @@ function openSheet(id){
     $('cfgHome').value  = store.get('homeAddress')||'';
     paintHomeHint();
     paintStartField();
+    paintModeSeg();
     paintVersionHint();
     paintRoadPacks();
     loadSubInfo();

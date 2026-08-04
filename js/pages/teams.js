@@ -9,10 +9,11 @@ let state = { employees:[], teams:[], captains:[], subs:[] };
 
 // ── view mode (boat teams | land crews) ────────────────────────────────────
 // This switch chooses which team cards the office is looking at — it is NOT the
-// capture app's work mode, which is locked to land (js/work-mode.js). It kept
-// its own toggle because boat teams still have to be reachable for reference,
-// and its own `teamsViewMode` key so an admin flipping to Boat here can never
-// leak a mode into a crew's phone. Defaults to land, where the live work is.
+// capture app's work mode (`captureWorkMode`, js/work-mode.js), which decides
+// what a crew's phone writes. Both pages have a switch again, so the separate
+// key matters more, not less: it is the only thing stopping an admin flipping to
+// Boat here from repainting a crew's phone and retagging their day. Never merge
+// the two keys. Defaults to land, where the live work is.
 // A land crew is a Teams row with type='land' — crew number in boatNumber, sub
 // foreman in subName, no captain/boat name.
 const teamType = t => String((t && t.type) || '').trim().toLowerCase() === 'land' ? 'land' : 'boat';

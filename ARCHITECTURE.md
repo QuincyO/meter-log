@@ -525,20 +525,38 @@ The operation runs two kinds of routes and the app captures both: **boat work**
 work** (truck routes — crews with a sub foreman, a flat per-WO-delays daily
 log). The captured data is identical; what changes is the chrome and the PDF.
 
-- **The capture app is LOCKED to land** (2026-07-31). Boat work wound down and
-  nobody is running the app from a boat, so the Boat/Land switch was removed
-  from `index.html`'s top bar: a control that can only be set wrong is worse
-  than no control. `js/work-mode.js` is the single source of truth — `workMode()`
-  returns `LOCKED_MODE` (`'land'`) and **ignores the stored key**, which is the
-  load-bearing detail: boat *was* the default, so every phone in the field has
-  `workMode='boat'` in localStorage and merely changing the default would have
-  stranded all of them. `index.html` and `help.html` pin `data-mode='land'` in
-  their pre-paint `<head>` snippets. The module's header carries the four-step
-  revert recipe; the boat code paths below are all still live, because a
-  historical day must still reprint correctly from `edit.html`.
-  `js/drive-recorder.js` reads `workMode()` too — it cannot import `capture.js`
-  (which imports *it*), and that circularity is the whole reason the lock lives
-  in its own module rather than in `capture.js`.
+- **The switch lives in Settings, and land is the default.** `js/work-mode.js` is
+  the single source of truth: `workMode()` reads `localStorage['captureWorkMode']`
+  and returns land for anything that is not exactly `'boat'`; `setWorkMode()`
+  persists it. The control is **Settings ▸ Work mode** (☰ ▸ ⚙︎), a two-up
+  segmented pill — *not* the top bar. It sat on the bar until 2026-07-31, when
+  boat work wound down and it was removed outright (a control that could only be
+  set wrong — one accidental tap retagged every write, relabelled the end-of-day
+  bookends and reprinted the day on the wrong template). Boat work came back on
+  2026-08-04, so the switch came back, but two taps behind the menu.
+- **The key rename is load-bearing.** Boat was the *original* default under the
+  old `workMode` key, so every phone in the field still holds a literal
+  `workMode='boat'`; the July lock rescued them by ignoring the key rather than
+  clearing it. Reading that key again — even with a land default — would put the
+  whole fleet straight back on boat, because a default never fires on a key that
+  is already set. `captureWorkMode` is a fresh key, which is what makes "unset ⇒
+  land" mean anything; the legacy one is swept once on load and **never read**.
+  `index.html` and `help.html` both read the new key in their pre-paint `<head>`
+  snippets, falling back to land. `js/drive-recorder.js` reads `workMode()` too —
+  it cannot import `capture.js` (which imports *it*), and that circularity is the
+  whole reason the mode lives in its own module. Keep that module DOM-free:
+  `node --test` imports it, and painting is `capture.js`'s `setMode()`.
+- **Flipping mid-day has a cost**, which is why the Settings copy says to set it
+  in the morning. Rows already written keep the mode they were logged under, so
+  the day ends up split across the `boat*`/`land*` column groups in
+  `InstallerMetrics`; the PDF follows the *current* setting, since the phone
+  passes `workMode()` explicitly to `previewDailyLog`/`endOfDay`. `setMode()`
+  drops the prefetched end-of-day summary and `eodStateKey()` fingerprints the
+  mode, so a flip mid-review cannot serve the other template's PDF. An
+  end-of-day gap list already on screen is *not* rebuilt (land gets a
+  zero-length lead gap and boat does not) — reopening End of day rebuilds it;
+  doing it automatically would discard deductions already typed. A drive leg in
+  flight keeps the mode it started in.
 - **The accent.** `data-mode` on `<html>` drives the CSS accent tokens:
   **boat = blue, land = green** (`--accent*` in `css/tokens.css`; `css/teams.css`
   carries its own copy).
