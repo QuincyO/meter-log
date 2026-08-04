@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Meter Log</title>
-<!-- Work-mode accent, set before first paint. The app is locked to land (green)
-     and the Boat/Land switch is gone from the bar — see js/work-mode.js. -->
-<script>document.documentElement.dataset.mode='land'</script>
+<!-- Work-mode accent (boat=blue / land=green), set before first paint. Unset is
+     land; the switch lives in Settings, not the bar — see js/work-mode.js. -->
+<script>try{document.documentElement.dataset.mode=localStorage.getItem('captureWorkMode')==='boat'?'boat':'land'}catch(e){document.documentElement.dataset.mode='land'}</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/vendor/leaflet.css">
@@ -478,6 +478,16 @@
       <input id="cfgStart" class="readonly-field" readonly placeholder="Set by the office on your crew">
       <p class="muted" id="cfgStartHint">Where your route starts each morning — set by the office for your crew.</p>
       <button class="primary" id="saveSettings">Save</button>
+
+      <h2>Work mode</h2>
+      <p class="muted">Which kind of route you're running. It sets your end-of-day time
+        labels and which daily log your day prints. Saves as soon as you tap — no Save
+        needed — and sticks until you change it, so set it in the morning: stops already
+        logged today keep the mode they were logged under. Blue is boat, green is land.</p>
+      <div class="mode-seg" role="group" aria-label="Work mode">
+        <button id="modeBoat" type="button" aria-pressed="false">Boat</button>
+        <button id="modeLand" type="button" aria-pressed="true">Land</button>
+      </div>
 
       <h2>Offline road map</h2>
       <p class="muted">Download the roads for your district once, on wifi, and Optimize route

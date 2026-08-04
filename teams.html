@@ -6,7 +6,8 @@
 <meta name="theme-color" content="#13171C">
 <title>Meter Log — Crew & Boat Teams</title>
 <!-- Set this page's view accent (boat=blue / land=green) before first paint. Its
-     own key, not the capture app's locked work mode — see js/work-mode.js. -->
+     own key — deliberately NOT the capture app's `captureWorkMode`, so flipping
+     the office view can never repaint a crew's phone. See js/work-mode.js. -->
 <script>try{document.documentElement.dataset.mode=localStorage.getItem('teamsViewMode')==='boat'?'boat':'land'}catch(e){document.documentElement.dataset.mode='land'}</script>
 <link rel="stylesheet" href="css/teams.css">
 </head>

@@ -144,6 +144,9 @@ function startSegment(){
     // Blank rather than 'boat' — the spine's normWorkType reads blank as boat,
     // same as saveTravel. Goes through workMode() and not the raw key so a leg
     // is tagged with the mode the app is actually in (see js/work-mode.js).
+    // Stamped once, here: a leg still running when Settings flips the mode keeps
+    // the mode it STARTED in, and resumeSegment() reads it back off the row. That
+    // is the honest answer — there isn't one for a leg spanning a change.
     workType: workMode() === 'land' ? 'land' : '',
   });
 }

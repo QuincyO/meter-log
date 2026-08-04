@@ -35,15 +35,22 @@ That's it. Everything you log from now on is tagged with your name and H number.
 
 ---
 
-## Land mode
+## Boat or Land mode
 
-The app is on **Land mode** for everyone. Boat work has wound down, so the Boat / Land switch that used to sit in the top bar is gone — there's nothing to set, and nothing to set wrong. If your phone was last left on Boat, it comes up on Land by itself the next time you open the app; you don't have to do anything.
+The app opens on **Land**. If you're working off a boat, switch it: **☰ → ⚙︎ Settings → Work mode**, tap **Boat**. It saves the moment you tap — there's no Save button for it — and stays that way on this phone until you change it back, so it's a once-in-the-morning thing, not an every-day thing.
 
-- Green screens are the reminder that you're on a land day.
-- Your day prints the land daily log (per-work-order delay columns), and the Crew & Teams page shows land crews.
-- Nothing you've already logged changed. Old boat days still print the boat daily log when the office reprints them.
+It's in Settings rather than the top bar on purpose: a stray tap in a moving truck used to be enough to put a whole day on the wrong paperwork.
 
-If boat work starts up again, the switch comes back — tell the office.
+What changes:
+
+- **The colour.** Blue screens are a boat day, green screens are a land day. That's your at-a-glance check that you're set right.
+- **Your end-of-day times.** Boat asks for *Departure time (left dock)* and *Returned to land*; Land asks for a plain *Start time* and *End time*.
+- **Which daily log prints.** Boat days print the boat template with the travel column; land days print the per-work-order delay sheet.
+- **How the office sees the day**, and which crews show on the Crew & Teams page.
+
+Set it before you start logging. Stops you've already logged today keep the mode they were logged under — flipping partway through gives you a day that's half one and half the other. If you catch it late, switch it and tell the office.
+
+Nothing you've already logged is affected, and old boat days still print the boat daily log when the office reprints them. The setting is per phone: it doesn't change anything for anyone else on your crew.
 
 ---
 

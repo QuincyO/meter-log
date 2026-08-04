@@ -15,9 +15,8 @@
             padding:8px 11px;border-radius:999px;line-height:1;
             color:var(--accent);background:var(--accent-soft)}
 .drive-chip.off{color:var(--ink-soft);background:var(--panel);box-shadow:var(--shadow)}
-/* The boat/land switch used to sit here. The capture page is locked to land and
-   no longer has one (js/work-mode.js); css/teams.css keeps its own copy for the
-   admin page's view switch. */
+/* The boat/land switch is no longer top-bar chrome — it lives in the Settings
+   sheet now (see the .mode-seg rules further down, and js/work-mode.js). */
 .nav-wrap{position:relative;flex:none}
 .nav-btn{width:42px;height:42px;border:0;border-radius:12px;background:var(--panel);box-shadow:var(--shadow);
          font-size:20px;cursor:pointer}
@@ -350,6 +349,18 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 .notice-dismiss{background:none;border:none;font-size:18px;cursor:pointer;flex:none;padding:0 2px;color:inherit;opacity:.6}
 .notice-rows{margin-top:8px;font-size:13px}
 .notice-row{padding:4px 0;border-top:1px solid rgba(0,0,0,.08)}
+
+/* Settings ▸ Work mode. Boat/Land, two-up and full width — it is a settings
+   control now rather than top-bar chrome, so it gets a real thumb target. It
+   sits two taps behind ☰ on purpose: a mis-tap costs a whole day's workType,
+   which is what took the switch off the top bar in the first place (see
+   js/work-mode.js). css/teams.css keeps its own bar-sized copy for the admin
+   page's view switch. */
+.mode-seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:0 2px 4px;padding:3px;
+          background:var(--panel);border-radius:999px;box-shadow:var(--shadow)}
+.mode-seg button{border:0;background:none;border-radius:999px;height:44px;
+                 font-size:15px;font-weight:800;color:var(--ink-soft);cursor:pointer}
+.mode-seg button.on{background:var(--accent);color:var(--accent-ink)}
 
 /* Settings ▸ ⟳ Force update from GitHub — .ghost is normally sized by the
    .row2 grid it sits in, so give this standalone one a full-width box. */
