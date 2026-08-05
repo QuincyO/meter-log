@@ -1,6 +1,6 @@
 # Stops
 
-_631 rows · exported 2026-08-04 03:52 America/Toronto_
+_651 rows · exported 2026-08-05 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -635,3 +635,23 @@ _631 rows · exported 2026-08-04 03:52 America/Toronto_
 | 1785524262077-oqmcer | 2026-07-31 14:57:42 | Quincy Orta | 693783 |  | 1730 Harris Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.362588 | -78.919721 |  |  |  | VISITED |  | Stolen Workorder |  |  |  | land |
 | 1785525350639-9lpck4 | 2026-07-31 15:15:50 | Quincy Orta | 693787 |  | 4526 ON-60, Algonquin Highlands, ON P0A 1E0, Canada | 45.381778 | -78.913018 | J4751301 | J3255051 | 78334 | INSTALLED |  |  |  |  |  | land |
 | 1785526074767-6n7azn | 2026-07-31 15:27:54 | Quincy Orta | 693807 |  | 1086 Algonquin Outfitters Rd, Algonquin Highlands, ON P1H 2J6, Canada | 45.382753 | -78.924797 | J4751305 | J3215128 | 3402 | INSTALLED |  |  |  |  |  | land |
+| 1785848576720-k1fref | 2026-08-04 09:02:56 | Quincy Orta | 639928 |  | 4 ISLAND 21KL, Gravenhurst, ON P0E 1G0, Canada | 44.859199 | -79.252744 | J4634733 | J2167480 | 87771 | INSTALLED |  |  |  |  |  | boat |
+| 1785856075009-xg1dx1 | 2026-08-04 11:07:55 | Phillip Monteiro | 696314 |  | 276 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.777445 | -79.4074 | J4751276 | J3180388 | 22706 | INSTALLED |  |  |  |  |  | land |
+| 1785856555156-9br7up | 2026-08-04 11:15:55 | Phillip Monteiro | 695723 |  | 263 Albert St N, Strong | 45.777231 | -79.405988 | J4751277 | J3541071 | 75403 | INSTALLED |  |  |  |  |  | land |
+| 1785856932179-5ph7jt | 2026-08-04 11:22:12 | Phillip Monteiro | 696145 |  | 196 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.773943 | -79.405056 | J4771862 | J3709189 | 80910 | INSTALLED |  |  |  |  |  | land |
+| 1785857226138-d9ze5o | 2026-08-04 11:27:06 | Phillip Monteiro | 695721 |  | 174 Albert St N, Strong | 45.773003 | -79.404762 | J4771863 | J3109487 | 15602 | INSTALLED |  |  |  |  |  | land |
+| 1785857612052-729gn0 | 2026-08-04 11:33:32 | Phillip Monteiro | 695726 |  | 152 Albert St N, Strong | 45.772212 | -79.404339 | J4771864 | J3112033 | 84585 | INSTALLED |  |  |  |  |  | land |
+| 1785857898958-75oifu | 2026-08-04 11:38:18 | Phillip Monteiro | 695729 |  | 148 Albert St N, Strong | 45.77197 | -79.404184 | J4771865 | J4000859 | 18947 | INSTALLED |  |  |  |  |  | land |
+| 1785858255758-4plskh | 2026-08-04 11:44:15 | Phillip Monteiro | 695576 |  | 142 Albert St N, Strong | 45.771859 | -79.404027 | J4771857 | J3221404 | 16060 | INSTALLED |  |  |  |  |  | land |
+| 1785858850921-2q0tcs | 2026-08-04 11:54:10 | Phillip Monteiro | 696033 |  | 132 Albert St N, Sundridge, ON P0A 1Z0, Canada | 45.771524 | -79.403786 | J4771854 | J3217837 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785859213290-olc2gc | 2026-08-04 12:00:13 | Phillip Monteiro | 696042 |  | 102 Albert St N, Strong | 45.770326 | -79.403085 | J4771856 | J3180291 | 32176 | INSTALLED |  |  |  |  |  | land |
+| 1785859954186-djzv22 | 2026-08-04 12:12:34 | Phillip Monteiro | 696140 |  | 74 Albert St N, Strong | 45.768977 | -79.402347 | J4771855 | J3928577 | 38108 | INSTALLED |  |  |  |  |  | land |
+| 1785860343957-9r8mlj | 2026-08-04 12:19:03 | Phillip Monteiro | 696308 |  | 72 Albert St N, Strong | 45.768879 | -79.40225 | J4771858 | J3101099 | 17893 | INSTALLED |  |  |  |  |  | land |
+| 1785860726819-kpiyfw | 2026-08-04 12:25:26 | Phillip Monteiro | 695619 |  | 62 Albert St N, Strong | 45.768478 | -79.402098 | J4771860 | J3311241 | 22815 | INSTALLED |  |  |  |  |  | land |
+| 1785861498666-l48688 | 2026-08-04 12:38:18 | Phillip Monteiro | 694313 |  | 14 Sunset Dr, Strong | 45.76395 | -79.400098 | J4771861 | J3810026 | 26128 | INSTALLED |  |  |  |  |  | land |
+| 1785862682578-s1bpu5 | 2026-08-04 12:58:02 | Phillip Monteiro | 695567 |  | 50 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.763803 | -79.399463 | J4771859 | J3201928 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785863151944-3eqjbp | 2026-08-04 13:05:51 | Phillip Monteiro | 695575 |  | 54 Albert St S, Sundridge, ON P0A 1Z0, Canada | 45.76353 | -79.399292 | J4771874 | J3201926 | 77402 | INSTALLED |  |  |  |  |  | land |
+| 1785863956480-42g3lf | 2026-08-04 13:19:16 | Phillip Monteiro | 696311 |  | 78 Albert St S, Strong | 45.762591 | -79.398838 | J4771875 | J3299754 | 67954 | INSTALLED |  |  |  |  |  | land |
+| 1785864604545-m8icc9 | 2026-08-04 13:30:04 | Phillip Monteiro | 696166 |  | 138 Albert St S, Strong | 45.759883 | -79.399721 | J4771877 | J3201487 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785868573930-s38aft | 2026-08-04 14:36:13 | Phillip Monteiro | 695073 |  | 243 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.753881 | -79.42553 | J4771876 | J3241998 | 7969 | INSTALLED |  |  |  |  |  | land |
+| 1785870243308-h3giun | 2026-08-04 15:04:03 | Phillip Monteiro | 694535 |  | 10243 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.76246 | -79.403899 | J4771870 | J3731997 | 40542 | INSTALLED |  |  |  |  |  | land |

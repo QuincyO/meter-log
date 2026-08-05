@@ -1,6 +1,6 @@
 # Subs
 
-_5 rows · exported 2026-08-04 03:52 America/Toronto_
+_6 rows · exported 2026-08-05 03:52 America/Toronto_
 
 | name |
 | --- |
@@ -9,3 +9,4 @@ _5 rows · exported 2026-08-04 03:52 America/Toronto_
 | Darren |
 | Rick |
 | Mario |
+| Buzz |
