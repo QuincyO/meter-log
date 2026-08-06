@@ -1,6 +1,6 @@
 # Stops
 
-_651 rows · exported 2026-08-05 03:52 America/Toronto_
+_683 rows · exported 2026-08-06 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -655,3 +655,35 @@ _651 rows · exported 2026-08-05 03:52 America/Toronto_
 | 1785864604545-m8icc9 | 2026-08-04 13:30:04 | Phillip Monteiro | 696166 |  | 138 Albert St S, Strong | 45.759883 | -79.399721 | J4771877 | J3201487 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1785868573930-s38aft | 2026-08-04 14:36:13 | Phillip Monteiro | 695073 |  | 243 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.753881 | -79.42553 | J4771876 | J3241998 | 7969 | INSTALLED |  |  |  |  |  | land |
 | 1785870243308-h3giun | 2026-08-04 15:04:03 | Phillip Monteiro | 694535 |  | 10243 Hwy 124, Sundridge, ON P0A 1Z0, Canada | 45.76246 | -79.403899 | J4771870 | J3731997 | 40542 | INSTALLED |  |  |  |  |  | land |
+| 1785932580092-ts8o48 | 2026-08-05 08:23:00 | Quincy Orta | 632558 |  | Town of, 1039 S Bay Rd, Kilworthy, ON P0E 1G0, Canada | 44.844468 | -79.304049 | J4751292 | J2905250 | 63983 | INSTALLED |  |  |  |  |  | land |
+| 1785933174209-crfpai | 2026-08-05 08:32:54 | Quincy Orta | 635761 |  | Town of, 1116 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.841922 | -79.305633 | J4751293 | J3669816 | 7228 | INSTALLED |  |  |  |  |  | land |
+| 1785934184443-b54nbp | 2026-08-05 08:49:44 | Quincy Orta | 635241 |  | Town of, 1113 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.842077 | -79.305601 | J4751294 | J2452205 | 72995 | INSTALLED |  |  |  |  |  | land |
+| 1785935225696-grpnod | 2026-08-05 09:07:05 | Quincy Orta | 635488 |  | 1111 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.842133 | -79.305813 | J4751295 | J2452186 | 88015 | INSTALLED |  |  |  |  |  | land |
+| 1785937029600-5whvh3 | 2026-08-05 09:37:09 | Phillip Monteiro | 695038 |  | 24 Sunset Dr, Strong | 45.763811 | -79.401013 | J4771871 | J4052553 | 31826 | INSTALLED |  |  |  |  |  | land |
+| 1785937384256-ib2cq5 | 2026-08-05 09:43:04 | Quincy Orta | 635454 |  | 1103 South Kahshe Lake Rd | 44.842875 | -79.305616 | J4751304 | J3246789 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785938150778-7dnjx5 | 2026-08-05 09:55:50 | Quincy Orta | 635469 |  | Town of, 1098 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.843041 | -79.306858 | J4751307 | J3488093 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785938708047-3mly30 | 2026-08-05 10:05:08 | Phillip Monteiro | 695066 |  | 79 Oakridge Dr, Sundridge, ON P0A 1Z0, Canada | 45.77189 | -79.405949 |  |  |  | UTI | Inside Meter - Need Appointment |  |  |  |  | land |
+| 1785938709058-foc8s5 | 2026-08-05 10:05:09 | Quincy Orta | 637890 |  | Town of, 1090 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.843622 | -79.306764 | J4751306 | J2905248 | 87533 | INSTALLED |  |  |  |  |  | land |
+| 1785939368313-3c1kfg | 2026-08-05 10:16:08 | Phillip Monteiro | 694824 |  | 5 Bernard Crescent, Strong, ON P0A 1Z0, Canada | 45.777909 | -79.370303 | J4771873 | J3270314 | 80513 | INSTALLED |  |  |  |  |  | land |
+| 1785940077631-srpt6f | 2026-08-05 10:27:57 | Quincy Orta | 635839 |  | 1043 South Kahshe Lake Rd | 44.8451 | -79.311362 | J4646532 | J3236056 | 77682 | INSTALLED |  |  |  |  |  | land |
+| 1785940193094-c8c3xr | 2026-08-05 10:29:53 | Phillip Monteiro | 694388 |  | 143 Forest Lake Rd, Strong, ON P0A 1Z0, Canada | 45.777961 | -79.369637 | J4771872 | J3264790 | 20168 | INSTALLED |  |  |  |  | Y | land |
+| 1785940652215-2kw6lj | 2026-08-05 10:37:32 | Phillip Monteiro | 695146 |  | 151 Forest Lake Rd, Strong, ON P0A 1Z0, Canada | 45.778149 | -79.369336 | J4771866 | J3827859 | 97316 | INSTALLED |  |  |  |  |  | land |
+| 1785941012807-5rp420 | 2026-08-05 10:43:32 | Phillip Monteiro | 694771 |  | 157 Forest Lake Rd, Strong, ON P0A 1Z0, Canada | 45.778253 | -79.368931 | J4771868 | J3264774 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785941968287-fr8e1k | 2026-08-05 10:59:28 | Quincy Orta | 637593 |  | 1004 South Kahshe Lake Rd | 44.844584 | -79.316492 | J4646530 | J3462128 | 198 | INSTALLED |  |  |  | 78885 |  | land |
+| 1785942297992-gni02c | 2026-08-05 11:04:57 | Quincy Orta | 666377 |  | Town of, 1004 S Kahshe Lake Rd, Kilworthy, ON P0E 1G0, Canada | 44.844623 | -79.316523 | J4646531 | J3987228 | 19621 | INSTALLED |  |  |  |  |  | land |
+| 1785942914165-effbhn | 2026-08-05 11:15:14 | Phillip Monteiro | 694283 |  | 168 Forest Lake Rd, Strong, ON P0A 1Z0, Canada | 45.77893 | -79.368537 | J4771867 | J3945101 | 29067 | INSTALLED |  |  |  |  |  | land |
+| 1785943326047-tb7i6s | 2026-08-05 11:22:06 | Phillip Monteiro | 695647 |  | 209 Forest Lake Rd, Strong | 45.780041 | -79.366872 | J4771869 | J3264797 | 87998 | INSTALLED |  |  |  |  |  | land |
+| 1785943888083-iaousj | 2026-08-05 11:31:28 | Phillip Monteiro | 695652 |  | 220 Forest Lake Rd, Strong | 45.780947 | -79.36668 | J4753655 | J3385796 | 12371 | INSTALLED |  |  |  |  |  | land |
+| 1785944478409-w3em68 | 2026-08-05 11:41:18 | Phillip Monteiro | 694280 |  | 314 Forest Lake Rd, Sundridge, ON P0A 1Z0, Canada | 45.7843 | -79.362767 | J4753654 | J3753337 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785946573982-pgvpcf | 2026-08-05 12:16:13 | Phillip Monteiro | 695396 |  | 339 Forest Lake Rd, Strong | 45.783055 | -79.360685 | J4753653 | J3606406 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785947030052-d11cye | 2026-08-05 12:23:50 | Phillip Monteiro | 696240 |  | 340 Forest Lake Rd, Strong | 45.784023 | -79.360613 | J4753652 | J3199118 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1785947461261-btvxld | 2026-08-05 12:31:01 | Phillip Monteiro | 695149 |  | 379 Forest Lake Rd, Strong | 45.784124 | -79.357966 | J4753659 | J3199249 | 40299 | INSTALLED |  |  |  |  |  | land |
+| 1785947810850-pvsk7f | 2026-08-05 12:36:50 | Phillip Monteiro | 694828 |  | 422 Forest Lake Rd, Strong | 45.785275 | -79.355783 | J4753656 | J3299082 | 93482 | INSTALLED |  |  |  |  |  | land |
+| 1785952242474-riqulv | 2026-08-05 13:50:42 | Phillip Monteiro | 687799 |  | 247 Doe Lake Rd, Armour, ON P0A 1L0, Canada | 45.56917 | -79.365368 | J4753658 | J3337550 | 13448 | INSTALLED |  |  |  |  |  | land |
+| 1785952664557-5f0wp5 | 2026-08-05 13:57:44 | Phillip Monteiro | 687426 |  | 261 Doe Lake Rd, Armour | 45.568933 | -79.36624 | J4753657 | J4125116 | 400 | INSTALLED |  |  |  |  |  | land |
+| 1785953034825-3yp5dr | 2026-08-05 14:03:54 | Phillip Monteiro | 687276 |  | 269 Doe Lake Rd, Armour, ON P0A 1J0, Canada | 45.568959 | -79.366516 | J4753648 | J3978389 | 24344 | INSTALLED |  |  |  |  |  | land |
+| 1785953456331-i1krpb | 2026-08-05 14:10:56 | Phillip Monteiro | 687800 |  | 275 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.568745 | -79.366737 | J4753651 | J3945117 | 90387 | INSTALLED |  |  |  |  |  | land |
+| 1785953933481-5fee6w | 2026-08-05 14:18:53 | Phillip Monteiro | 694018 |  | 283 Doe Lake Rd, Armour, ON P0A 1J0, Canada | 45.568227 | -79.367234 | J4753649 | J3928880 | 32011 | INSTALLED |  |  |  |  |  | land |
+| 1785954379206-n3yoru | 2026-08-05 14:26:19 | Phillip Monteiro | 686737 |  | 308 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.568331 | -79.369033 | J4753650 | J3860228 | 26956 | INSTALLED |  |  |  |  |  | land |
+| 1785955216295-6928um | 2026-08-05 14:40:16 | Phillip Monteiro | 686674 |  | 327 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.567668 | -79.369637 | J4751280 | J3082727 | 54382 | INSTALLED |  |  |  |  |  | land |
+| 1785955561140-vj17q0 | 2026-08-05 14:46:01 | Phillip Monteiro | 692821 |  | 20 Snowshoe Lane, Armour | 45.567256 | -79.372623 | J4751282 | J3221684 | 11926 | INSTALLED |  |  |  |  |  | land |
