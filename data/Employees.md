@@ -1,6 +1,6 @@
 # Employees
 
-_6 rows · exported 2026-08-06 03:52 America/Toronto_
+_7 rows · exported 2026-08-07 03:52 America/Toronto_
 
 | hNumber | firstName | lastName | active | subName | homeAddress | homeLat | homeLng |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -10,3 +10,4 @@ _6 rows · exported 2026-08-06 03:52 America/Toronto_
 | E58251 | Bradley | Davis | true |  |  |  |  |
 | E57714 | Josue | Vasquez | true | Darren |  |  |  |
 | E58067 | Owen | McCagherty | true | Jason |  |  |  |
+| H000001 | Andrew | Goff | true |  |  |  |  |

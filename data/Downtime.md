@@ -1,6 +1,6 @@
 # Downtime
 
-_214 rows · exported 2026-08-06 03:52 America/Toronto_
+_226 rows · exported 2026-08-07 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -218,3 +218,15 @@ _214 rows · exported 2026-08-06 03:52 America/Toronto_
 | 1785958689338-elhf46 | 2026-08-05 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 692821 | gap 14:40–14:46 |  |
 | 1785959389814-7p7k4u | 2026-08-05 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 632558 | gap 08:23–08:23 |  |
 | 1785959389814-6dnlck | 2026-08-05 12:00:00 | Quincy Orta | DISPATCH | 30 | 666377 | gap 10:59–11:04 |  |
+| 1786045420369-8uku6j | 2026-08-06 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 687867 | gap 10:58–10:58 |  |
+| 1786045420369-wb2zod | 2026-08-06 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 687867 | gap 10:58–10:58 |  |
+| 1786045420369-b8k3cw | 2026-08-06 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 687867 | gap 10:58–10:58 |  |
+| 1786045420369-gnpccm | 2026-08-06 12:00:00 | Phillip Monteiro | DISPATCH | 35 | 687867 | gap 10:58–10:58 |  |
+| 1786045420369-4zg20a | 2026-08-06 12:00:00 | Phillip Monteiro | DISPATCH | 20 | 686641 | gap 12:08–12:45 |  |
+| 1786045420369-eqdfl7 | 2026-08-06 12:00:00 | Phillip Monteiro | BREAK | 15 | 686938 | gap 12:45–13:27 |  |
+| 1786045420369-jx17t6 | 2026-08-06 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 693388 | gap 14:22–14:53 |  |
+| 1786047419552-54i8hx | 2026-08-06 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 639975 | gap 09:12–09:12 |  |
+| 1786047419552-lmsuhw | 2026-08-06 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 639975 | gap 09:12–09:12 |  |
+| 1786047419552-fzyvt7 | 2026-08-06 12:00:00 | Quincy Orta | DISPATCH | 20 | 639975 | gap 09:12–09:12 |  |
+| 1786047419552-c5c22m | 2026-08-06 12:00:00 | Quincy Orta | BAD_WEATHER | 30 | 640675 | gap 09:48–10:35 |  |
+| 1786047419552-edu29a | 2026-08-06 12:00:00 | Quincy Orta | DISPATCH | 40 | 624062 | gap 13:28–14:46 |  |

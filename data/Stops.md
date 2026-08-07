@@ -1,6 +1,6 @@
 # Stops
 
-_683 rows · exported 2026-08-06 03:52 America/Toronto_
+_709 rows · exported 2026-08-07 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -284,7 +284,6 @@ _683 rows · exported 2026-08-06 03:52 America/Toronto_
 | 1784128834452-gk7tf1 | 2026-07-15 11:20:34 | Phillip Monteiro | 639970 |  | 137 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.156561 | -79.57364 | J4608717 | J3239569 | 50097 | INSTALLED |  |  |  |  |  |  |
 | 1784129548057-ut111d | 2026-07-15 11:32:28 | Phillip Monteiro | 640028 |  | 141 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.156282 | -79.572707 | J4608718 | J3383712 | 60669 | INSTALLED |  |  |  |  |  |  |
 | 1784133152176-suh1pm | 2026-07-15 12:32:32 | Quincy Orta | 640333 |  | 144 ISLAND R60, Muskoka Lakes, ON P0B 1J0, Canada | 45.154919 | -79.571539 |  | J3082595 | 42979 | UTI | Emergency Electrical Repair |  |  |  |  |  |
-| 1784401690284-68ktjc | 2026-07-18 15:08:10 | Quincy Orta |  |  | 14 Christine Pl, Orillia, ON L3V 7P1, Canada | 44.596264 | -79.430242 |  |  |  | DONE |  |  |  |  |  | land |
 | 1784552389355-wqf9g4 | 2026-07-20 8:59:49 | Quincy Orta | 693799 |  | 109 Glencairn Crescent, Huntsville, ON P1H 2J4, Canada | 45.38512 | -79.230181 | J4612784 | J3453747 | 5275 | INSTALLED |  |  |  |  |  | land |
 | 1784552995075-rnwq5y | 2026-07-20 9:09:55 | Quincy Orta | 693753 |  | 628 Old North Rd, Huntsville, ON P1H 2J4, Canada | 45.380893 | -79.233677 | J4612783 | J4016047 | 9957 | INSTALLED |  |  |  |  |  | land |
 | 1784553336778-5utg02 | 2026-07-20 9:15:36 | Phillip Monteiro | 665003 |  | 27 Bowyer Rd | 45.332104 | -79.20895 | J4640694 | J3081304 | 49411 | INSTALLED |  |  |  |  |  | land |
@@ -687,3 +686,30 @@ _683 rows · exported 2026-08-06 03:52 America/Toronto_
 | 1785954379206-n3yoru | 2026-08-05 14:26:19 | Phillip Monteiro | 686737 |  | 308 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.568331 | -79.369033 | J4753650 | J3860228 | 26956 | INSTALLED |  |  |  |  |  | land |
 | 1785955216295-6928um | 2026-08-05 14:40:16 | Phillip Monteiro | 686674 |  | 327 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.567668 | -79.369637 | J4751280 | J3082727 | 54382 | INSTALLED |  |  |  |  |  | land |
 | 1785955561140-vj17q0 | 2026-08-05 14:46:01 | Phillip Monteiro | 692821 |  | 20 Snowshoe Lane, Armour | 45.567256 | -79.372623 | J4751282 | J3221684 | 11926 | INSTALLED |  |  |  |  |  | land |
+| 1786021972688-09bttp | 2026-08-06 09:12:52 | Quincy Orta | 639975 |  | 236 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.040166 | -79.423701 | J4646547 | J4142628 | 10680 | INSTALLED |  |  |  |  |  | boat |
+| 1786022568141-enish8 | 2026-08-06 09:22:48 | Quincy Orta | 640467 |  | 224 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.040203 | -79.422719 | J4646548 | J3129957 | 54458 | INSTALLED |  |  |  |  |  | boat |
+| 1786023052715-273lvg | 2026-08-06 09:30:52 | Quincy Orta | 640625 |  | 216 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.040274 | -79.421548 | J4646521 | J3129960 | 2776 | INSTALLED |  |  |  |  |  | boat |
+| 1786024094334-8q4fsa | 2026-08-06 09:48:14 | Quincy Orta | 639476 |  | 206 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.04064 | -79.420633 | J4646522 | J3129959 | 66823 | INSTALLED |  |  |  |  |  | boat |
+| 1786026958163-fvn1bx | 2026-08-06 10:35:58 | Quincy Orta | 640675 |  | 200 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.040387 | -79.420187 | J4646523 | J3129909 | 41228 | INSTALLED |  |  |  |  |  | boat |
+| 1786027323285-2s2o64 | 2026-08-06 10:42:03 | Quincy Orta | 640630 |  | 196 Birch Island, Bracebridge, ON P0B 1E0, Canada | 45.040504 | -79.419872 | J4646524 | J3129910 | 92823 | INSTALLED |  |  |  |  |  | boat |
+| 1786028334953-g0by3j | 2026-08-06 10:58:54 | Phillip Monteiro | 687867 |  | 306 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.606335 | -79.378506 | J4751281 | J4215782 | 12286 | INSTALLED |  |  |  |  |  | land |
+| 1786028886663-u6mo5v | 2026-08-06 11:08:06 | Phillip Monteiro | 693038 |  | 280 Tower Rd, Armour, ON P0A 1C0, Canada | 45.607777 | -79.378136 | J4751283 | J3102455 | 35950 | INSTALLED |  |  |  |  |  | land |
+| 1786029199627-mf9n1a | 2026-08-06 11:13:19 | Phillip Monteiro | 686057 |  | 280 Tower Rd, Armour, ON P0A 1C0, Canada | 45.607618 | -79.378449 | J4754388 | J4215840 | 5013 | INSTALLED |  |  |  |  |  | land |
+| 1786029511706-t72em4 | 2026-08-06 11:18:31 | Phillip Monteiro | 692851 |  | 229 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.605361 | -79.380513 | J4754389 | J3102270 | 35389 | INSTALLED |  |  |  |  |  | land |
+| 1786029908737-c61k7f | 2026-08-06 11:25:08 | Phillip Monteiro | 686735 |  | 230 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.606404 | -79.380958 | J4754390 | J3709135 | 78122 | INSTALLED |  |  |  |  |  | land |
+| 1786030604974-qbjldy | 2026-08-06 11:36:44 | Phillip Monteiro | 691978 |  | 218 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.607363 | -79.382459 | J4754391 | J3697711 | 15588 | INSTALLED |  |  |  |  |  | land |
+| 1786031186777-6d3ucf | 2026-08-06 11:46:26 | Phillip Monteiro | 689349 |  | 197 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.605239 | -79.382929 | J4754380 | J3697710 | 52028 | INSTALLED |  |  |  |  |  | land |
+| 1786031840151-5l2ath | 2026-08-06 11:57:20 | Phillip Monteiro | 690424 |  | 188 Tower Rd, Armour, ON P0A 1C0, Canada | 45.605962 | -79.38375 | J4754381 | J3928506 | 54793 | INSTALLED |  |  |  |  |  | land |
+| 1786032509009-9y223s | 2026-08-06 12:08:29 | Phillip Monteiro | 686480 |  | 162 Tower Rd, Burk's Falls, ON P0A 1C0, Canada | 45.604911 | -79.385056 | J4754382 | J3709130 | 47446 | INSTALLED |  |  |  |  |  | land |
+| 1786034741361-iopkzi | 2026-08-06 12:45:41 | Phillip Monteiro | 686641 |  | 337 Doe Lake Rd, Armour | 45.567512 | -79.370205 | J4754383 | J3299721 | 23041 | INSTALLED |  |  |  |  |  | land |
+| 1786037269234-nsvdky | 2026-08-06 13:27:49 | Phillip Monteiro | 686938 |  | 341 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.567243 | -79.370221 | J4754384 | J3211088 | 20866 | INSTALLED |  |  |  |  |  | land |
+| 1786037313167-o74es4 | 2026-08-06 13:28:33 | Quincy Orta | 624705 |  | 3 ISLAND M8, Muskoka Lakes, ON P0C 1A0, Canada | 45.025717 | -79.60959 | J4646538 | J4148688 | 2225 | INSTALLED |  |  |  |  |  | boat |
+| 1786037735391-h4ccu9 | 2026-08-06 13:35:35 | Phillip Monteiro | 686941 |  | 345 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.567178 | -79.370958 | J4754386 | J3673660 | 11537 | INSTALLED |  |  |  |  |  | land |
+| 1786038104797-epfols | 2026-08-06 13:41:44 | Phillip Monteiro | 693464 |  | 50 Snowshoe Ln, Armour, ON P0A 1C0, Canada | 45.56686 | -79.374199 | J4754387 | J3095659 | 36686 | INSTALLED |  |  |  |  |  | land |
+| 1786038856621-jbaiik | 2026-08-06 13:54:16 | Phillip Monteiro | 693748 |  | 130 Snowshoe Ln, Armour, ON P0A 0A4, Canada | 45.563826 | -79.376804 | J4754385 | J2849315 | 69442 | INSTALLED |  |  |  |  |  | land |
+| 1786039565706-h8jvvz | 2026-08-06 14:06:05 | Phillip Monteiro | 686935 |  | 413 Doe Lake Rd, Armour, ON P0A 1C0, Canada | 45.564793 | -79.369684 | J4754402 | J3385381 | 59616 | INSTALLED |  |  |  |  |  | land |
+| 1786040536298-06c41b | 2026-08-06 14:22:16 | Phillip Monteiro | 687521 |  | 501 Doe Lake Rd, Armour, ON P0A 1L0, Canada | 45.560942 | -79.368844 | J4754401 | J3267059 | 19249 | INSTALLED |  |  |  |  |  | land |
+| 1786041997730-hj39wy | 2026-08-06 14:46:37 | Quincy Orta | 624062 |  | 2 ISLAND M26, Muskoka Lakes, ON P0B 1J0, Canada | 45.058216 | -79.574564 | J4648319 | J3227014 | 14591 | INSTALLED |  |  |  |  |  | boat |
+| 1786042403357-i6uu0g | 2026-08-06 14:53:23 | Phillip Monteiro | 693388 |  | 71 Sunnylea Ave, Burk's Falls, ON P0A 1J0, Canada | 45.586621 | -79.319216 | J4754403 | J3134540 | 95483 | INSTALLED |  |  |  |  |  | land |
+| 1786042756498-mb75i8 | 2026-08-06 14:59:16 | Phillip Monteiro | 693394 |  | 199 Sunnylea Ave, Armour | 45.592498 | -79.319161 | J4754400 | J3096535 | 15104 | INSTALLED |  |  |  |  |  | land |
+| 1786043316344-5ql2zo | 2026-08-06 15:08:36 | Phillip Monteiro | 691444 |  | 281 Sunnylea Ave, Burk's Falls, ON P0A 1J0, Canada | 45.595809 | -79.322066 | J4754396 | J3134222 | 15064 | INSTALLED |  |  |  |  |  | land |
