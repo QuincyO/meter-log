@@ -1,0 +1,12 @@
+# This repo is LF-canonical. Git already stores every text file with LF endings
+# (core.autocrlf normalized them on commit) and CI runs on Linux, so the source-
+# slicing drift tests assume LF — e.g. tests slice a function body with
+# indexOf('\n}\n') and match regexes with bare \n. A Windows checkout WITHOUT this
+# file gets CRLF, the '\n}\n' sentinel never matches '\r\n}\r\n', the slice overruns
+# the whole file, and the tests fail on content that isn't theirs. Forcing LF in the
+# working tree on every platform keeps the checkout identical to what git stores and
+# what CI runs.
+* text=auto eol=lf
+
+# Images are binary — never normalize their bytes.
+*.png binary
