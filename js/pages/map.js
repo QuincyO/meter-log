@@ -6,6 +6,7 @@
 import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { decodeTrack } from '../drive-track.js';
+import { lifetimeRows, modePace, dwellRows } from '../compute/installer-lifetime.js';
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],
@@ -19,7 +20,10 @@ let showDrives = false;   // the 🚗 Drive routes toggle (off by default)
 // grows. The "All" preset still loads the full history on demand.
 const DEFAULT_DAYS = 59;
 let state = { installers:[], from:'', to:'', statuses:{ INSTALLED:true, UTI:true, VISITED:true, UNACCOUNTED:true, DONE:true } };
-let map, markersLayer, driveLayer, highlightLayer, chDay, chDown, chReason;
+let map, markersLayer, driveLayer, highlightLayer, chDay, chDown, chReason, chMode;
+// InstallerMetrics wide rows (lifetime rollups — no date window on the read, so
+// one fetch per page open). null = not loaded yet; [] = loaded but empty.
+let METRICS = null, metricsPromise = null;
 // What load() last fetched: {from,to} when windowed, 'all' after a full pull,
 // null before the first load. Narrowing inside the fetched window is filtered
 // client-side (instant); widening past it refetches.
@@ -444,6 +448,79 @@ function renderAnalytics(){
     names.forEach(n => h += `<tr><td>${esc(n)}</td><td class="num">${byI[n].i}</td><td class="num">${byI[n].u}</td>`
       + `<td class="num">${byI[n].v}</td><td class="num">${byI[n].n}</td><td class="num">${byI[n].d}</td><td class="num">${avgGapFor(n)}</td><td class="num">${byI[n].idle}</td></tr>`);
     $('byInst').innerHTML = h + '</tbody></table>';
+  }
+
+  renderLifetime();
+}
+
+// ── installer lifetime metrics (InstallerMetrics tab — no date window) ────────
+// Fetched lazily on the first analytics render and never again: the tab holds
+// lifetime rollups rebuilt at end of day, so the page's from/to range can't
+// apply to it. The installer chips still do (client-side, by name — the tab is
+// H-number-keyed but carries the roster name on every row).
+function ensureMetrics(){
+  if(metricsPromise) return metricsPromise;
+  metricsPromise = apiGet('installerMetrics', {})
+    .then(r => { METRICS = r.metrics || []; renderLifetime(); })
+    .catch(() => { metricsPromise = null; });   // retry on the next analytics render
+  return metricsPromise;
+}
+const NONE = '—';
+const fm = (v, suf='') => v==null ? NONE : v + suf;
+function renderLifetime(){
+  if(METRICS === null){
+    $('lifeTable').innerHTML = '<div class="empty">Loading lifetime metrics…</div>';
+    $('dwellTable').innerHTML = '<div class="empty">Loading…</div>';
+    blank('blankModePace', 'Loading…');
+    ensureMetrics();
+    return;
+  }
+  const inScope = METRICS.filter(m => instMatch(m.name));
+  const emptyMsg = 'No installer metrics yet — they build at end of day.';
+
+  // lifetime table (+ derived rates). The recent-30 cell carries the pace trend:
+  // ▼ = recently faster than lifetime, ▲ = slower, plain = steady.
+  const rows = lifetimeRows(inScope);
+  if(!rows.length){ $('lifeTable').innerHTML = `<div class="empty">${emptyMsg}</div>`; }
+  else{
+    const trend = r => r.trend==='faster' ? ' <span class="tr-glyph tr-faster" title="Faster than lifetime pace">▼</span>'
+                     : r.trend==='slower' ? ' <span class="tr-glyph tr-slower" title="Slower than lifetime pace">▲</span>' : '';
+    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">Days</th><th class="num">Hours</th>'
+          + '<th class="num">Logs</th><th class="num">Installed</th><th class="num">UTI</th><th class="num">UTI %</th>'
+          + '<th class="num">Avg/day</th><th class="num">Avg/hr</th><th class="num">Avg log</th><th class="num">Recent 30</th>'
+          + '<th class="num">Down min/day</th><th class="num">Hrs/day</th></tr></thead><tbody>';
+    rows.forEach(r => h += `<tr><td>${esc(r.name)}</td><td class="num">${fm(r.days)}</td><td class="num">${fm(r.hours)}</td>`
+      + `<td class="num">${fm(r.logs)}</td><td class="num">${fm(r.installs)}</td><td class="num">${fm(r.utis)}</td>`
+      + `<td class="num">${fm(r.utiRate,'%')}</td><td class="num">${fm(r.avgPerDay)}</td><td class="num">${fm(r.avgPerHour)}</td>`
+      + `<td class="num">${fm(r.avgLogMin,'m')}</td><td class="num">${fm(r.recent30,'m')}${trend(r)}</td>`
+      + `<td class="num">${fm(r.downtimePerDay)}</td><td class="num">${fm(r.hoursPerDay)}</td></tr>`);
+    $('lifeTable').innerHTML = h + '</tbody></table>';
+  }
+
+  // land vs boat avg minutes per log
+  const mp = modePace(inScope);
+  blank('blankModePace', mp.labels.length ? '' : emptyMsg);
+  chMode = remake(chMode, $('chModePace'), mp.labels.length && {
+    type:'bar',
+    data:{ labels:mp.labels, datasets:[
+      { label:'Land', data:mp.land, backgroundColor:COLORS.INSTALLED },
+      { label:'Boat', data:mp.boat, backgroundColor:'#3C7DD9' } ]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:false} } },
+      plugins:{ legend:{ position:'bottom' } } }
+  });
+
+  // dwell model — the measured on-site numbers behind the route planner's ETAs
+  const dw = dwellRows(inScope);
+  if(!dw.length){ $('dwellTable').innerHTML = '<div class="empty">No measured dwell yet — it builds from closed days.</div>'; }
+  else{
+    const badge = s => s ? `<span class="srcbadge src-${esc(s)}">${esc(s)}</span>` : NONE;
+    let h = '<table class="byinst"><thead><tr><th>Installer</th><th class="num">On-site</th>'
+          + '<th class="num">+Per meter</th><th class="num">Travel</th><th>Source</th></tr></thead><tbody>';
+    dw.forEach(r => h += `<tr><td>${esc(r.name)}</td><td class="num">${fm(r.onSiteMin,'m')}</td>`
+      + `<td class="num">${fm(r.extraMeterMin,'m')}</td><td class="num">${fm(r.travelMinPerKm,' min/km')}</td>`
+      + `<td>${badge(r.source)}</td></tr>`);
+    $('dwellTable').innerHTML = h + '</tbody></table>';
   }
 }
 function tile(n,k,cls){ return `<div class="tile ${cls}"><div class="n">${n}</div><div class="k">${k}</div></div>`; }

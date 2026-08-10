@@ -10,7 +10,7 @@
  * straight to the network and, when there's no signal, fail — so the app's own
  * offline queue holds the record on the phone until it can send.
  */
-const CACHE = 'meterlog-v39';
+const CACHE = 'meterlog-v40';
 const SHELL = [
   './', './index.html', './teams.html', './edit.html', './map.html', './reports.html',
   './help.html', './planner.html', './USER-GUIDE.md',
@@ -53,6 +53,9 @@ const SHELL = [
   './js/roadgraph.js', './js/roadpack.js', './js/districts.js', './js/directions.js',
   './js/compute/gaps.js', './js/compute/tally.js', './js/compute/categories.js',
   './js/compute/summary.js', './js/compute/estimate.js',
+  // installer-lifetime.js is a HARD import of pages/map.js — same rule as
+  // route-dwell.js above: missing here means map.html fails to load offline.
+  './js/compute/installer-lifetime.js',
   // cadence.js is a HARD import of worklist.js — same rule as route-dwell.js above.
   './js/compute/cadence.js',
   // on-device daily-log PDF: renderer + vendored jsPDF (UMD)

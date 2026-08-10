@@ -608,7 +608,7 @@ Land installers each run their own route, so they aren't paired as partners and 
 
 **Map** shows a colour-coded pin per stop (legend in the corner). A pin's popup shows the stop's details and has its own **Remove from log…** (archived, restorable from Edit & Daily Log — needs signal).
 
-**Analytics** shows the tiles — Installed, UTI, install rate, downtime minutes, and the pace averages (install→install, between completed WOs, log→log with partner, log→log per boat, dispatch waits) — plus charts: **Installs vs UTI by day**, **Downtime by category (min)**, **UTI reasons**, and the per-installer table.
+**Analytics** shows the tiles — Installed, UTI, install rate, downtime minutes, and the pace averages (install→install, between completed WOs, log→log with partner, log→log per boat, dispatch waits) — plus charts: **Installs vs UTI by day**, **Downtime by category (min)**, **UTI reasons**, and the per-installer table. Below those, **Installer lifetime metrics** shows each installer's all-time rollups — days, hours, logs, installs, UTI rate, pace per day/hour, average minutes per log with a recent-30-workday trend arrow (▼ faster / ▲ slower than lifetime), downtime per day — plus an **Avg minutes per log — land vs boat** chart and the **dwell model** the route planner uses for ETAs (on-site minutes, extra time per second meter, travel minutes per km, and how it was measured: gps, fit, or pace). These are lifetime numbers rebuilt at end of day, so the date range doesn't apply to them; the installer chips do.
 
 ---
 
