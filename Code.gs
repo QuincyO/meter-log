@@ -2765,6 +2765,12 @@ const DWELL_SITE_SHRINK_K     = 4;
 const DWELL_MIN_TRACK_SAMPLES = 15;
 const DWELL_TRACK_MIN_MIN     = 2;     // a shorter stop-and-go is traffic, not a stop
 const DWELL_TRACK_MAX_MIN     = 120;
+// A parked hole only counts as on-site evidence when one of the installer's own
+// logs landed inside it — otherwise a lunch, a coffee stop or a supply run is
+// measured as an install, and at 15 samples a handful of those move the median.
+// The grace covers the ordinary tap-after-pulling-away: a log a beat into the
+// next leg still validates the hole it describes.
+const DWELL_TRACK_LOG_GRACE_MIN = 2;
 const DWELL_ONSITE_FLOOR      = 5;
 const DWELL_ONSITE_CEIL       = 90;
 // A site factor within this band changes no ETA worth shipping over a truck's
@@ -2979,8 +2985,13 @@ function installerOnSiteFit(name, workType, workdays) {
 /** On-site minutes measured from GPS instead of inferred: the hole between one
  *  DriveTracks leg ENDING and the next STARTING is literally time parked at a stop —
  *  true arrive/depart, which a Stops log timestamp can never be (the app records one
- *  moment per stop, never an arrival). Returns '' unless there is enough of it;
- *  recording is opt-in per phone per day, so most installers land on the fit. */
+ *  moment per stop, never an arrival). A hole only counts when one of the installer's
+ *  own logs landed inside it (plus a short pull-away grace): "parked" alone is also
+ *  what lunch looks like, and at the 15-sample bar a few of those move the median.
+ *  The log is deliberately NOT mode-filtered — the leg pair already fixes the mode,
+ *  and a mis-tagged log is still proof the parked time was a job. Returns '' unless
+ *  there is enough of it; recording is opt-in per phone per day, so most installers
+ *  land on the fit. */
 function installerOnSiteFromTracks(name, workType, workdays) {
   const nm = String(name == null ? '' : name).trim();
   if (!nm) return '';
@@ -2994,15 +3005,32 @@ function installerOnSiteFromTracks(name, workType, workdays) {
     if (!d || s == null || e == null) return;
     (byDate[d] = byDate[d] || []).push({ start: s, end: e });
   });
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const logsByDate = {};
+  rows('Stops').forEach(function (r) {
+    if (!sameName(r.installer, nm)) return;
+    if (!printable[String(r.status || '').trim().toUpperCase()]) return;
+    const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
+    if (!d || sec == null) return;
+    (logsByDate[d] = logsByDate[d] || []).push(sec);
+  });
   let dates = Object.keys(byDate).sort();
   const days = Math.max(0, Math.floor(Number(workdays) || 0));
   if (days) dates = dates.slice(-days);
   const gaps = [];
   dates.forEach(function (d) {
     const legs = byDate[d].sort(function (a, b) { return a.start - b.start; });
+    const logs = logsByDate[d] || [];
     for (let i = 1; i < legs.length; i++) {
-      const min = (legs[i].start - legs[i - 1].end) / 60;
-      if (min >= DWELL_TRACK_MIN_MIN && min <= DWELL_TRACK_MAX_MIN) gaps.push(min);
+      const from = legs[i - 1].end, to = legs[i].start;
+      const min = (to - from) / 60;
+      if (min < DWELL_TRACK_MIN_MIN || min > DWELL_TRACK_MAX_MIN) continue;
+      const hi = to + DWELL_TRACK_LOG_GRACE_MIN * 60;
+      let logged = false;
+      for (let j = 0; j < logs.length; j++) {
+        if (logs[j] >= from && logs[j] <= hi) { logged = true; break; }
+      }
+      if (logged) gaps.push(min);
     }
   });
   if (gaps.length < DWELL_MIN_TRACK_SAMPLES) return '';

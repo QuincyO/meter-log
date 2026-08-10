@@ -207,26 +207,70 @@ test('site factors are withheld entirely when there is no usable travel rate', (
   assert.equal(out.note, 'no travel rate');
 });
 
-test('GPS drive-track gaps are read as literal time parked at a stop', () => {
-  // dwell = next leg's start − this leg's end. Ten legs ⇒ nine gaps, one short of
-  // the 15 required, so two days are needed before anything is reported.
-  const legs = [], mk = (date, i, startMin, endMin) => ({
-    id: `${date}-${i}`, date, installer: 'Ann Example', workType: 'land',
-    startTime: `${date} ${clock(startMin)}`, endTime: `${date} ${clock(endMin)}`,
-  });
+// Two recorded days of the same shape: ten 10-minute legs starting every 35
+// minutes, so the parked hole between consecutive legs is always 25 minutes.
+// Nine holes a day ⇒ 18, comfortably past the 15-sample bar. `logAt` places one
+// printable log per hole at the given minutes after the hole opens (or skips it).
+function trackDays(logAt){
+  const legs = [], stops = [];
   ['2026-06-22', '2026-06-23'].forEach(date => {
-    for(let i = 0; i < 10; i++) legs.push(mk(date, i, 480 + i * 35, 480 + i * 35 + 10));
+    for(let i = 0; i < 10; i++){
+      const start = 480 + i * 35;
+      legs.push({ id: `${date}-${i}`, date, installer: 'Ann Example', workType: 'land',
+        startTime: `${date} ${clock(start)}`, endTime: `${date} ${clock(start + 10)}` });
+      if(i < 9 && logAt != null) stops.push({
+        id: `s-${date}-${i}`, timestamp: `${date} ${clock(start + 10 + logAt)}`,
+        installer: 'Ann Example', workOrderId: `w-${date}-${i}`, address: `${i} First St`,
+        lat: '45', lng: '-79', status: 'INSTALLED', workType: 'land' });
+    }
   });
-  // Each leg ends 10 min in and the next starts 35 min after the last start ⇒ 25 on site.
-  const api = spine({ Stops: [], DriveTracks: legs });
+  return { legs, stops };
+}
+
+test('GPS drive-track gaps are read as literal time parked at a stop', () => {
+  // dwell = next leg's start − this leg's end, counted because a log landed in it.
+  const { legs, stops } = trackDays(12);   // logged mid-hole
+  const api = spine({ Stops: stops, DriveTracks: legs });
+  assert.equal(api.installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
+});
+
+test('a parked hole with no log inside it is lunch, not a dwell sample', () => {
+  // Same legs, but every log sits mid-LEG (5 minutes into a 10-minute drive) —
+  // 3 minutes past the previous hole's pull-away grace and 5 minutes short of the
+  // next hole opening, so not one of the 18 parked holes is validated and nothing
+  // is reported. This is what keeps a lunch, a coffee stop or a supply run out of
+  // the on-site median.
+  const { legs } = trackDays(null);
+  const stops = [];
+  ['2026-06-22', '2026-06-23'].forEach(date => {
+    for(let i = 0; i < 10; i++) stops.push({
+      id: `s-${date}-${i}`, timestamp: `${date} ${clock(480 + i * 35 + 5)}`,
+      installer: 'Ann Example', workOrderId: `w-${date}-${i}`, address: `${i} First St`,
+      lat: '45', lng: '-79', status: 'INSTALLED', workType: 'land' });
+  });
+  const api = spine({ Stops: stops, DriveTracks: legs });
+  assert.equal(api.installerOnSiteFromTracks('Ann Example', 'land', 0), '');
+});
+
+test('a log a beat after pulling away still validates its hole', () => {
+  // The ordinary miss: drive off first, tap Log at the stop sign. The hole is 25
+  // minutes (ends at +25 after it opens); a log at +26 is 1 minute into the next
+  // leg — inside the 2-minute grace, so the sample survives.
+  const { legs, stops } = trackDays(26);
+  const api = spine({ Stops: stops, DriveTracks: legs });
   assert.equal(api.installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
 });
 
 test('GPS is ignored below the evidence bar', () => {
-  const legs = [];
-  for(let i = 0; i < 5; i++) legs.push({
-    id: `g${i}`, date: '2026-06-22', installer: 'Ann Example', workType: 'land',
-    startTime: `2026-06-22 ${clock(480 + i * 35)}`, endTime: `2026-06-22 ${clock(490 + i * 35)}` });
-  assert.equal(spine({ Stops: [], DriveTracks: legs })
+  const legs = [], stops = [];
+  for(let i = 0; i < 5; i++){
+    const start = 480 + i * 35;
+    legs.push({ id: `g${i}`, date: '2026-06-22', installer: 'Ann Example', workType: 'land',
+      startTime: `2026-06-22 ${clock(start)}`, endTime: `2026-06-22 ${clock(start + 10)}` });
+    stops.push({ id: `s${i}`, timestamp: `2026-06-22 ${clock(start + 22)}`,
+      installer: 'Ann Example', workOrderId: `w${i}`, address: `${i} First St`,
+      lat: '45', lng: '-79', status: 'INSTALLED', workType: 'land' });
+  }
+  assert.equal(spine({ Stops: stops, DriveTracks: legs })
     .installerOnSiteFromTracks('Ann Example', 'land', 0), '');
 });

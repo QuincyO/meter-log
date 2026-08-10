@@ -1357,9 +1357,16 @@ appended `InstallerMetrics` block `onSiteMin` / `extraMeterMin` / `travelMinPerK
 - **`onSiteSource` is `'gps' | 'fit' | 'pace'`** — GPS wins when available, since the
   hole between one `DriveTracks` leg ending and the next starting is literal
   arrive/depart, the one thing a Stops timestamp can never be (one moment per stop, no
-  arrival). Recording is opt-in per phone per day, so most installers land on the fit.
-  `'pace'` means no evidence and is the safe default until `backfillInstallerMetrics()`
-  runs.
+  arrival). **A hole only counts as a sample when one of the installer's own printable
+  logs landed inside it** (plus a `DWELL_TRACK_LOG_GRACE_MIN` pull-away grace for the
+  tap-at-the-stop-sign case): "parked 2–120 min" alone is also what lunch, a coffee
+  stop or a supply run looks like, and at the 15-sample bar
+  (`DWELL_MIN_TRACK_SAMPLES`) a handful of those move the median — the exact moment a
+  freshly-qualified GPS number outranks a fit built from hundreds of gaps. The
+  validating log is deliberately **not** mode-filtered: the leg pair already fixes the
+  mode, and a mis-tagged log is still proof the parked time was a job. Recording is
+  opt-in per phone per day, so most installers land on the fit. `'pace'` means no
+  evidence and is the safe default until `backfillInstallerMetrics()` runs.
 - **Outliers trim by RESIDUAL, not by gap minutes.** Trimming the slowest gaps looks
   equivalent and is not — they are mostly the longest drives, so it shaves the far end
   off the distance distribution, drags the slope down and pushes the intercept (the
