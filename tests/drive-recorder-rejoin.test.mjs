@@ -5,13 +5,16 @@ import { readFileSync } from 'node:fs';
 const text = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const rec = text('js/drive-recorder.js');
 
-// A day used to fragment into one short leg per drive: iOS kills the PWA during a
-// Google-Maps hand-off, and the old init started a BRAND-NEW segment on every cold
-// reopen — so a 17-stop day produced ~23 legs, all dumped into the queue at Finish.
-// The recorder now REJOINS the still-open leg so the day stays one continuous leg.
+// A day used to fragment into one short leg per COLD-START: iOS kills the PWA
+// during a Google-Maps hand-off, and the old init started a BRAND-NEW segment on
+// every cold reopen — so a 17-stop day produced ~23 arbitrarily-cut legs, all
+// dumped into the queue at Finish. The recorder REJOINS the still-open leg across
+// cold-starts; legs still end on purpose — stillCheck() splits park-to-park at
+// each real stop, which is what feeds the dwell model's between-leg holes.
 
 test('checkpoint persists the raw segment so a cold-start can rejoin it', () => {
-  assert.match(rec, /raw:\s*\{ points: seg\.points, gaps: seg\.gaps, pendingPause: seg\.pendingPause \}/);
+  assert.match(rec,
+    /raw:\s*\{ points: seg\.points, gaps: seg\.gaps, pendingPause: seg\.pendingPause,\s*still: seg\.still \}/);
 });
 
 test('resumeSegment rebuilds the live leg from persisted raw state', () => {

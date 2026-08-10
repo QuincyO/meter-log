@@ -1,12 +1,14 @@
 // Drive-mode track model — the pure, DOM-free core of the driving-leg recorder.
 //
-// A "segment" is one driving leg: everything recorded while the Drive screen is
-// in front, from open to close. The runtime (js/drive.js) feeds GPS fixes in via
-// addFix(), brackets background gaps with markPause()/markResume() (the phone
-// loses GPS while the PWA is backgrounded — e.g. during a Google-Maps hand-off),
-// and calls finalizeSegment() on the way out to build the row that ships to the
-// Sheet. All of that lives here, with no navigator/DOM references, so it unit
-// tests as plain data in / data out (tests/drive-track.test.mjs).
+// A "segment" is one driving leg: park-to-park. The runtime (js/drive-recorder.js)
+// feeds GPS fixes in via addFix(), brackets background gaps with markPause()/
+// markResume() (the phone loses GPS while the PWA is backgrounded — e.g. during a
+// Google-Maps hand-off), asks stillCheck() whether a stationary episode just ended
+// so the leg splits at each real stop (that between-leg hole is what the spine's
+// dwell model measures as on-site time), and calls finalizeSegment() on the way
+// out to build the row that ships to the Sheet. All of that lives here, with no
+// navigator/DOM references, so it unit tests as plain data in / data out
+// (tests/drive-track.test.mjs).
 //
 // The office reads the leg back with decodeTrack() to replay it on the map; the
 // gap anchors let the desktop planner road-route the missing stretch via OSRM.
@@ -101,10 +103,45 @@ export function decodeTrack(str, baseT = 0){
   return pts;
 }
 
+// ── Stationary auto-split ─────────────────────────────────────────────────
+// The dwell model (Code.gs installerOnSiteFromTracks) measures on-site time as
+// the hole BETWEEN two legs — so a leg must end when the truck parks and the
+// next begin when it pulls away. Nothing about driving does that on its own:
+// parked fixes keep appending to the open leg. stillCheck() watches the points
+// as they land and, when a stationary episode of at least STILL_SPLIT_MS breaks
+// (the truck moves beyond STILL_RADIUS_M of where it settled), reports the
+// ARRIVAL point's index. The recorder splits there: old leg = up to arrival,
+// new leg starts at the departure fix, parked jitter between them is dropped.
+export const STILL_SPLIT_MS = 120000;  // parked at least this long ⇒ a real stop
+export const STILL_RADIUS_M = 40;      // wander beyond this breaks the episode
+
+// Call after each KEPT point (addFix/markResume returned true). Maintains
+// seg.still = {lat, lng, t, idx} — the anchor of the current stationary episode
+// — and returns the arrival index when the newest point just broke an episode
+// long enough to split on, else null. A background gap while parked simply
+// stretches the episode: no fixes arrive, the anchor holds, and the resume fix
+// lands inside the radius. The 2-min bar means a red light never fires; a
+// drive-thru queue can, and the spine's log-inside-the-hole rule discards it.
+export function stillCheck(seg){
+  const pts = seg.points;
+  const p = pts[pts.length - 1];
+  if(!p) return null;
+  const a = seg.still;
+  const idle = (p.spd || 0) <= IDLE_SPEED_MS;
+  if(!a){
+    if(idle) seg.still = { lat: p.lat, lng: p.lng, t: p.t, idx: pts.length - 1 };
+    return null;
+  }
+  if(haversineM(a, p) <= STILL_RADIUS_M) return null;   // still parked there
+  const stillMs = p.t - a.t;
+  seg.still = idle ? { lat: p.lat, lng: p.lng, t: p.t, idx: pts.length - 1 } : null;
+  return stillMs >= STILL_SPLIT_MS ? a.idx : null;
+}
+
 // ── Segment state machine ─────────────────────────────────────────────────
 export function createSegment({ id, installer, date, workType } = {}){
   return { id, installer: installer || '', date: date || '', workType: workType || '',
-    points: [], gaps: [], pendingPause: null };
+    points: [], gaps: [], pendingPause: null, still: null };
 }
 
 // Append a GPS fix {lat, lng, t, spd?}. Returns true if kept, false if filtered.

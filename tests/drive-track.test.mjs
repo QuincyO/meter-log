@@ -206,3 +206,68 @@ test('MIN_MOVE_M / MIN_GAP_S are the documented dials', () => {
   assert.equal(MIN_MOVE_M, 15);
   assert.equal(MIN_GAP_S, 3);
 });
+
+// ── stationary auto-split ────────────────────────────────────────────────────
+// A leg used to run open-ended (one leg per day), which left the dwell model's
+// between-leg parked holes empty. stillCheck() watches the appended points and
+// reports the ARRIVAL index once a ≥STILL_SPLIT_MS stationary episode breaks,
+// so the recorder can end the leg at arrival and start the next at departure.
+import { stillCheck, STILL_SPLIT_MS, STILL_RADIUS_M } from '../js/drive-track.js';
+
+// Drive in, sit still, drive off — returns the seg plus the index of the first
+// parked point. `parkMs` is how long the truck sits; `jitterM` wobbles the
+// parked fixes; `checks` collects every stillCheck() result along the way.
+function drivePark(parkMs, { jitterM = 0, resumeViaGap = false } = {}){
+  const seg = createSegment({ id: 'x', installer: 'A', date: '2026-06-22' });
+  const checks = [];
+  const feed = f => { if(addFix(seg, f)) checks.push(stillCheck(seg)); };
+  // approach at speed: 3 fixes, 200 m apart, 15 s apart
+  for(let i = 0; i < 3; i++)
+    feed({ lat: 45 + i * 0.0018, lng: -79, t: T0 + i * 15000, spd: 13 });
+  const parkT = T0 + 45000, parkLat = 45 + 3 * 0.0018;
+  const arrivalIdx = seg.points.length;   // the first parked point lands here
+  // parked fixes every 30 s, optional jitter within the radius
+  const n = Math.floor(parkMs / 30000);
+  for(let i = 0; i <= n; i++)
+    feed({ lat: parkLat + (i % 2 ? jitterM / 111320 : 0), lng: -79,
+           t: parkT + i * 30000, spd: 0 });
+  if(resumeViaGap){
+    markPause(seg);
+    checks.push(stillCheck(seg));
+    markResume(seg, { lat: parkLat, lng: -79, t: parkT + parkMs + 240000, spd: 0 });
+    checks.push(stillCheck(seg));
+    feed({ lat: parkLat + 0.002, lng: -79, t: parkT + parkMs + 250000, spd: 12 });
+  } else {
+    feed({ lat: parkLat + 0.002, lng: -79, t: parkT + parkMs + 10000, spd: 12 });
+  }
+  return { seg, checks, arrivalIdx };
+}
+
+test('a long stationary episode splits the leg at the arrival point', () => {
+  const { checks, arrivalIdx } = drivePark(STILL_SPLIT_MS + 60000);
+  const fired = checks.filter(c => c != null);
+  assert.equal(fired.length, 1, 'exactly one split');
+  assert.equal(fired[0], arrivalIdx);
+  assert.equal(checks[checks.length - 1], fired[0], 'the split fires on the departure fix');
+});
+
+test('a short stop at a light never splits', () => {
+  const { checks } = drivePark(60000);   // 1 min — under the bar
+  assert.ok(checks.every(c => c == null));
+});
+
+test('parked GPS jitter within the radius keeps one episode alive', () => {
+  const { checks, arrivalIdx } = drivePark(STILL_SPLIT_MS + 60000, { jitterM: STILL_RADIUS_M - 10 });
+  const fired = checks.filter(c => c != null);
+  assert.equal(fired.length, 1);
+  assert.equal(fired[0], arrivalIdx);
+});
+
+test('a background gap while parked still counts toward the episode', () => {
+  // Screen locks in the driveway: no fixes for 4 minutes, then a resume fix at
+  // the same spot and a departure. The episode spans the gap, so it still splits.
+  const { checks, arrivalIdx } = drivePark(30000, { resumeViaGap: true });
+  const fired = checks.filter(c => c != null);
+  assert.equal(fired.length, 1);
+  assert.equal(fired[0], arrivalIdx);
+});

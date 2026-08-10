@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { encodeTrack } from '../js/drive-track.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -211,17 +212,25 @@ test('site factors are withheld entirely when there is no usable travel rate', (
 // minutes, so the parked hole between consecutive legs is always 25 minutes.
 // Nine holes a day ⇒ 18, comfortably past the 15-sample bar. `logAt` places one
 // printable log per hole at the given minutes after the hole opens (or skips it).
-function trackDays(logAt){
+// opts.parkAt gives every leg an encoded polyline ENDING there (the parked
+// truck); opts.stopAt moves the logs' pins (defaults to 45/-79). Without
+// parkAt the legs carry no polyline, so the proximity check skips itself.
+function trackDays(logAt, { parkAt, stopAt } = {}){
   const legs = [], stops = [];
+  const pin = stopAt || { lat: 45, lng: -79 };
   ['2026-06-22', '2026-06-23'].forEach(date => {
     for(let i = 0; i < 10; i++){
       const start = 480 + i * 35;
       legs.push({ id: `${date}-${i}`, date, installer: 'Ann Example', workType: 'land',
-        startTime: `${date} ${clock(start)}`, endTime: `${date} ${clock(start + 10)}` });
+        startTime: `${date} ${clock(start)}`, endTime: `${date} ${clock(start + 10)}`,
+        encoded: parkAt ? encodeTrack([
+          { lat: parkAt.lat - 0.01, lng: parkAt.lng, t: 1_700_000_000_000, spd: 12 },
+          { lat: parkAt.lat, lng: parkAt.lng, t: 1_700_000_600_000, spd: 0 },
+        ]) : '' });
       if(i < 9 && logAt != null) stops.push({
         id: `s-${date}-${i}`, timestamp: `${date} ${clock(start + 10 + logAt)}`,
         installer: 'Ann Example', workOrderId: `w-${date}-${i}`, address: `${i} First St`,
-        lat: '45', lng: '-79', status: 'INSTALLED', workType: 'land' });
+        lat: String(pin.lat), lng: String(pin.lng), status: 'INSTALLED', workType: 'land' });
     }
   });
   return { legs, stops };
@@ -259,6 +268,34 @@ test('a log a beat after pulling away still validates its hole', () => {
   const { legs, stops } = trackDays(26);
   const api = spine({ Stops: stops, DriveTracks: legs });
   assert.equal(api.installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
+});
+
+test('a validating log must also be near where the truck parked', () => {
+  // Same holes, logs inside them — but the stop pins sit ~2 km from the leg
+  // polylines' parked endpoint, which is the "hole at the depot while the
+  // installer logged across town" shape. Not one sample survives.
+  const far = trackDays(12, { parkAt: { lat: 45, lng: -79 },
+                              stopAt: { lat: 45 + 2000 / 111320, lng: -79 } });
+  assert.equal(spine({ Stops: far.stops, DriveTracks: far.legs })
+    .installerOnSiteFromTracks('Ann Example', 'land', 0), '');
+  // A pin ~100 m from the parked truck (installer at the meter, car in the
+  // driveway) is comfortably inside the radius and validates as before.
+  const near = trackDays(12, { parkAt: { lat: 45, lng: -79 },
+                               stopAt: { lat: 45 + 100 / 111320, lng: -79 } });
+  assert.equal(spine({ Stops: near.stops, DriveTracks: near.legs })
+    .installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
+});
+
+test('a leg without a polyline or a stop without a pin skips the proximity check', () => {
+  // Legacy rows and pinless logs must stay samples — the check is a tightener,
+  // never a sample-killer.
+  const noPoly = trackDays(12);   // no encoded polylines at all
+  assert.equal(spine({ Stops: noPoly.stops, DriveTracks: noPoly.legs })
+    .installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
+  const noPin = trackDays(12, { parkAt: { lat: 45, lng: -79 } });
+  noPin.stops.forEach(s => { s.lat = ''; s.lng = ''; });
+  assert.equal(spine({ Stops: noPin.stops, DriveTracks: noPin.legs })
+    .installerOnSiteFromTracks('Ann Example', 'land', 0), 25);
 });
 
 test('GPS is ignored below the evidence bar', () => {

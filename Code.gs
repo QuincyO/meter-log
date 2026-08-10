@@ -2771,6 +2771,14 @@ const DWELL_TRACK_MAX_MIN     = 120;
 // The grace covers the ordinary tap-after-pulling-away: a log a beat into the
 // next leg still validates the hole it describes.
 const DWELL_TRACK_LOG_GRACE_MIN = 2;
+// …and the validating log must also be NEAR the parked truck (the previous
+// leg's last recorded point vs the stop's own logged pin) — time alone can't
+// tell "parked at the job" from "parked at the depot while the partner logged
+// across town". Generous on purpose: rural driveways run long and the recorder
+// phone sits in the car while the installer walks to the meter. The check is a
+// tightener, never a sample-killer — a leg with no polyline or a stop with no
+// pin skips it rather than losing the sample.
+const DWELL_TRACK_NEAR_M = 300;
 const DWELL_ONSITE_FLOOR      = 5;
 const DWELL_ONSITE_CEIL       = 90;
 // A site factor within this band changes no ETA worth shipping over a truck's
@@ -2992,6 +3000,26 @@ function installerOnSiteFit(name, workType, workdays) {
  *  and a mis-tagged log is still proof the parked time was a job. Returns '' unless
  *  there is enough of it; recording is opt-in per phone per day, so most installers
  *  land on the fit. */
+/** Last decoded point of a DriveTracks polyline — where the truck parked. A
+ *  hand port of js/drive-track.js decodeTrack's delta walk (Apps Script cannot
+ *  import the module); only lat/lng are accumulated since only the final
+ *  position is needed. Returns {lat, lng} or null. */
+function driveTrackLastPoint(encoded) {
+  const str = String(encoded == null ? '' : encoded);
+  if (!str) return null;
+  const nums = [];
+  let i = 0;
+  while (i < str.length) {
+    let shift = 0, result = 0, b;
+    do { b = str.charCodeAt(i++) - 63; result += (b & 0x1f) * Math.pow(2, shift); shift += 5; }
+    while (b >= 0x20 && i < str.length);
+    nums.push((result % 2) ? -(result + 1) / 2 : result / 2);
+  }
+  let lat = 0, lng = 0, found = false;
+  for (let k = 0; k + 3 < nums.length; k += 4) { lat += nums[k]; lng += nums[k + 1]; found = true; }
+  return found ? { lat: lat / 1e5, lng: lng / 1e5 } : null;
+}
+
 function installerOnSiteFromTracks(name, workType, workdays) {
   const nm = String(name == null ? '' : name).trim();
   if (!nm) return '';
@@ -3003,7 +3031,7 @@ function installerOnSiteFromTracks(name, workType, workdays) {
     if (!sameName(r.installer, nm) || !inMode(r.workType)) return;
     const d = dateOf(r.date), s = secOfDay(r.startTime), e = secOfDay(r.endTime);
     if (!d || s == null || e == null) return;
-    (byDate[d] = byDate[d] || []).push({ start: s, end: e });
+    (byDate[d] = byDate[d] || []).push({ start: s, end: e, encoded: r.encoded });
   });
   const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
   const logsByDate = {};
@@ -3012,11 +3040,18 @@ function installerOnSiteFromTracks(name, workType, workdays) {
     if (!printable[String(r.status || '').trim().toUpperCase()]) return;
     const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
     if (!d || sec == null) return;
-    (logsByDate[d] = logsByDate[d] || []).push(sec);
+    (logsByDate[d] = logsByDate[d] || []).push({
+      sec: sec, lat: numCoord(r.lat), lng: numCoord(r.lng)
+    });
   });
   let dates = Object.keys(byDate).sort();
   const days = Math.max(0, Math.floor(Number(workdays) || 0));
   if (days) dates = dates.slice(-days);
+  // Decode a leg's parked point at most once (legs recur across gaps).
+  const parkOf = function (leg) {
+    if (leg.park === undefined) leg.park = driveTrackLastPoint(leg.encoded);
+    return leg.park;
+  };
   const gaps = [];
   dates.forEach(function (d) {
     const legs = byDate[d].sort(function (a, b) { return a.start - b.start; });
@@ -3026,9 +3061,14 @@ function installerOnSiteFromTracks(name, workType, workdays) {
       const min = (to - from) / 60;
       if (min < DWELL_TRACK_MIN_MIN || min > DWELL_TRACK_MAX_MIN) continue;
       const hi = to + DWELL_TRACK_LOG_GRACE_MIN * 60;
+      const park = parkOf(legs[i - 1]);
       let logged = false;
-      for (let j = 0; j < logs.length; j++) {
-        if (logs[j] >= from && logs[j] <= hi) { logged = true; break; }
+      for (let j = 0; j < logs.length && !logged; j++) {
+        const L = logs[j];
+        if (L.sec < from || L.sec > hi) continue;
+        if (park && L.lat != null && L.lng != null
+            && haversine(L.lat, L.lng, park.lat, park.lng) > DWELL_TRACK_NEAR_M) continue;
+        logged = true;
       }
       if (logged) gaps.push(min);
     }

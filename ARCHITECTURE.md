@@ -1363,10 +1363,18 @@ appended `InstallerMetrics` block `onSiteMin` / `extraMeterMin` / `travelMinPerK
   stop or a supply run looks like, and at the 15-sample bar
   (`DWELL_MIN_TRACK_SAMPLES`) a handful of those move the median — the exact moment a
   freshly-qualified GPS number outranks a fit built from hundreds of gaps. The
-  validating log is deliberately **not** mode-filtered: the leg pair already fixes the
-  mode, and a mis-tagged log is still proof the parked time was a job. Recording is
-  opt-in per phone per day, so most installers land on the fit. `'pace'` means no
-  evidence and is the safe default until `backfillInstallerMetrics()` runs.
+  validating log must also land **within `DWELL_TRACK_NEAR_M` (300 m) of the parked
+  truck** — the previous leg's last decoded polyline point (`driveTrackLastPoint`, a
+  hand port of `decodeTrack`'s delta walk) against the stop's own logged pin — because
+  time alone can't tell "parked at the job" from "parked at the depot while logging
+  happened across town". The radius is generous on purpose (rural driveways; the
+  recorder phone sits in the car while the installer walks to the meter), and the
+  check **skips itself** when the leg has no polyline or the stop no pin — it is a
+  tightener, never a sample-killer. The validating log is deliberately **not**
+  mode-filtered: the leg pair already fixes the mode, and a mis-tagged log is still
+  proof the parked time was a job. Recording is opt-in per phone per day, so most
+  installers land on the fit. `'pace'` means no evidence and is the safe default until
+  `backfillInstallerMetrics()` runs.
 - **Outliers trim by RESIDUAL, not by gap minutes.** Trimming the slowest gaps looks
   equivalent and is not — they are mostly the longest drives, so it shaves the far end
   off the distance distribution, drags the slope down and pushes the intercept (the
@@ -1624,6 +1632,20 @@ and `segmentSummary` (distance/avg/max in m/s, plus **`idleMin`** — time on in
 at or below `IDLE_SPEED_MS` ≈ 0.5 m/s, gaps excluded like distance). A **fix filter** drops a new point
 that is both < 15 m and < 3 s from the last (jitter + battery/storage dial);
 `MAX_POINTS` rolls a very long leg to a fresh row before the 50k-char cell limit.
+
+**A leg is park-to-park, split automatically at each stop** (`stillCheck`): once the
+truck has sat within `STILL_RADIUS_M` (40 m) for at least `STILL_SPLIT_MS` (2 min)
+and then moves off, the recorder ends the old leg **at the arrival point** and starts
+the new one at the departure fix, dropping the parked jitter between them. That
+between-leg hole — leg A `endTime` to leg B `startTime` — is exactly what the dwell
+model's `installerOnSiteFromTracks` measures as on-site time, which is the whole
+reason for the split: before it, a recorded day was deliberately one continuous leg
+(cold-start rejoin and all) and produced **zero** dwell samples however faithfully the
+crew recorded. A background gap while parked just stretches the episode (the anchor
+holds, the resume fix lands inside the radius); a red light is under the 2-min bar; a
+drive-thru queue can fire, and the spine's log-inside-the-hole rule discards it. The
+still anchor rides `raw.still` through checkpoints so a cold-start mid-park keeps the
+episode.
 
 **The platform limit is load-bearing.** A web app gets **no GPS while
 backgrounded**, so the recorder captures only while the PWA is actually in front —

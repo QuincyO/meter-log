@@ -26,7 +26,7 @@ import { idb } from './idb.js';
 import { enqueue } from './queue.js';
 import {
   createSegment, addFix, markPause, markResume, finalizeSegment, segmentSummary,
-  isWorthUploading, MAX_POINTS,
+  isWorthUploading, MAX_POINTS, stillCheck,
 } from './drive-track.js';
 
 const segId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
@@ -159,7 +159,7 @@ function resumeSegment(row){
   const r = row.raw || {};
   seg = { id: row.id, installer: row.installer || '', date: row.date || '',
           workType: row.workType || '', points: r.points || [], gaps: r.gaps || [],
-          pendingPause: r.pendingPause || null };
+          pendingPause: r.pendingPause || null, still: r.still || null };
   if(seg.pendingPause) resumePending = true;   // died mid-hand-off → close the gap next fix
 }
 
@@ -170,7 +170,8 @@ function checkpoint(){
   // finalizeLocal / the upload paths strip `raw` — it never leaves the phone.
   if(!seg) return;
   idb.put('driveTracks', { ...finalizeSegment(seg), active: true, queued: false,
-    raw: { points: seg.points, gaps: seg.gaps, pendingPause: seg.pendingPause } });
+    raw: { points: seg.points, gaps: seg.gaps, pendingPause: seg.pendingPause,
+           still: seg.still } });
 }
 
 // Finalize a leg to the local store WITHOUT enqueueing — uploads are deferred
@@ -192,8 +193,24 @@ function onFix(p){
   };
   // Roll to a fresh leg before a single row could approach the Sheet cell limit.
   if(seg.points.length >= MAX_POINTS){ const done = seg; startSegment(); finalizeLocal(done); }
-  if(resumePending){ markResume(seg, fix); resumePending = false; }
-  else addFix(seg, fix);
+  let kept;
+  if(resumePending){ kept = markResume(seg, fix); resumePending = false; }
+  else kept = addFix(seg, fix);
+  // Stationary auto-split: parked ≥2 min and now moving again ⇒ that was a stop.
+  // End the old leg at the ARRIVAL point (its endTime is what the dwell model
+  // reads as "arrived") and start the new one at this departure fix; the parked
+  // jitter between them is dropped. A gap bracketed while parked stays on the
+  // old leg — both anchors sit in the same driveway, so the map draws a dot.
+  if(kept){
+    const cut = stillCheck(seg);
+    if(cut != null){
+      const brk = seg.points[seg.points.length - 1];
+      const done = { ...seg, points: seg.points.slice(0, cut + 1) };
+      startSegment();
+      addFix(seg, brk);
+      finalizeLocal(done);
+    }
+  }
   checkpoint();
   notify(); // refresh the live HUD (only the Drive screen subscribes)
 }
@@ -265,8 +282,10 @@ export async function initDriveRecorder(){
   let resumedId = null;
   if(recordState().on){
     // Rejoin the still-open leg (the last session was recording when the PWA was
-    // killed) so the day stays ONE leg across cold-starts. Pick the fullest if a
-    // legacy build left more than one; finalize the rest so none is orphaned.
+    // killed) so the CURRENT DRIVE stays one leg across cold-starts — the day
+    // itself is many legs now, one per drive, split by stillCheck() at each stop.
+    // Pick the fullest if more than one is open; finalize the rest so none is
+    // orphaned.
     const open = todayActive.filter(r => r.raw && (r.raw.points || []).length)
                             .sort((a, b) => b.raw.points.length - a.raw.points.length)[0];
     if(open){ resumeSegment(open); resumedId = open.id; }
