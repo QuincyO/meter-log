@@ -239,6 +239,10 @@ export function renderDailyLog(summary){
   const sx = colX[4], sw = gridW(4, 4);
   doc.rect(sx, y, sw, FOOTER_H);
   put(sx, y, sw, FOOTER_H, footerText, { size:7.5 });
+  y += FOOTER_H;
+
+  // ── notes (fills the blank space below the table) ──────────────────────────
+  drawNotesBlock(doc, MARGIN, y, contentW, pageH, collectNotes(s));
 
   return { blob: doc.output('blob'), name: pdfName(s) };
 }
@@ -429,7 +433,11 @@ export function renderLandDailyLog(summary){
   if(unParts.length){
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
     doc.text(fit('Not tied to a WO#: ' + unParts.join(' · ') + ' min', contentW), MARGIN + 2, y + 10);
+    y += 14;
   }
+
+  // ── notes (fills the blank space below the table) ──────────────────────────
+  drawNotesBlock(doc, MARGIN, y, contentW, pageH, collectNotes(s));
 
   return { blob: doc.output('blob'), name: pdfName(s) };
 }
@@ -444,6 +452,78 @@ export async function downloadDailyLog(summary){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   return name;
+}
+
+// ── notes block ──────────────────────────────────────────────────────────────
+// Both templates draw top-down and stop after the totals row, leaving the bottom
+// of the page blank. collectNotes gathers the day's free-text remarks into
+// labelled lines and drawNotesBlock paints them into that blank space.
+//
+// The downtime `note` column is OVERLOADED: the EOD travel review writes
+// `gap HH:MM–HH:MM` machine tags into it (Code.gs saveTravel) to attribute a
+// deduction to a WO→WO gap. Those are not human notes, so they're skipped here.
+const GAP_NOTE = /^\s*gap\s+\d/i;
+
+// Ordered [{ label, text }] of the day's notes: end-of-day first, then downtime
+// remarks, then per-stop notes (in arrival order). Exported for unit testing.
+export function collectNotes(summary){
+  const s = summary || {};
+  const out = [];
+  const eod = String(s.notes==null?'':s.notes).trim();
+  if(eod) out.push({ label:'End of day', text: eod });
+  (s.downtime || []).forEach(d => {
+    const note = String(d.note==null?'':d.note).trim();
+    if(!note || GAP_NOTE.test(note)) return;      // skip gap machine-tags
+    const cat = String(d.category==null?'':d.category).toUpperCase();
+    const bits = [CAT_LABEL[cat] || cat || 'Downtime'];
+    const wo = String(d.workOrderId==null?'':d.workOrderId).trim();
+    if(wo) bits.push('WO ' + wo);
+    const min = Number(d.minutes)||0; if(min) bits.push(min + ' min');
+    out.push({ label: bits.join(' · '), text: note });
+  });
+  (s.stops || []).slice()
+    .sort((a,b) => (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0))
+    .forEach(x => {
+      const note = String(x.notes==null?'':x.notes).trim();
+      if(!note) return;
+      const parts = [];
+      const wo = String(x.workOrderId==null?'':x.workOrderId).trim();
+      if(wo) parts.push(wo);
+      const loc = locLabel(x); if(loc) parts.push(loc);
+      out.push({ label: parts.length ? parts.join(' · ') : 'Stop', text: note });
+    });
+  return out;
+}
+
+// Paint the notes starting at `y`, wrapping each remark to width `w`. A bold
+// "Label: " prefix leads the first wrapped line; continuation lines hang under
+// it. Page-breaks like the row loops. No-op when there are no notes.
+function drawNotesBlock(doc, x, y, w, pageH, notes){
+  if(!notes || !notes.length) return y;
+  const HEAD_H = 16, LINE_H = 11;
+  y += 10;                                          // gap under the totals row
+  if(y + HEAD_H > pageH - MARGIN){ doc.addPage(); y = MARGIN; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Notes', x, y + 9);
+  y += HEAD_H;
+  notes.forEach(n => {
+    const label = n.label ? (n.label + ':  ') : '';
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    const labelW = label ? doc.getTextWidth(label) : 0;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const lines = doc.splitTextToSize(String(n.text==null?'':n.text), Math.max(40, w - labelW));
+    lines.forEach((ln, i) => {
+      if(y + LINE_H > pageH - MARGIN){ doc.addPage(); y = MARGIN; }
+      if(i === 0 && label){
+        doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(label, x, y + 8);
+      }
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.text(ln, x + labelW, y + 8);
+      y += LINE_H;
+    });
+  });
+  return y;
 }
 
 // ── small helpers ────────────────────────────────────────────────────────────

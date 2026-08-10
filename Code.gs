@@ -1016,6 +1016,13 @@ function buildDaySummary(b) {
   const persisted = dayMeta(installer, date);
   const departure = b.departure || persisted.departure || '';
   const returned  = b.returned  || persisted.returned  || '';
+  // The end-of-day note comes from the request. A rebuild/reprint that omits it
+  // (edit.html's previewDailyLog) falls back to the persisted Tracker row so the
+  // reprint carries the same note the original close saved. Guard on `!= null`,
+  // not truthiness — an explicit '' during a live close (a note cleared on
+  // purpose) must be respected, exactly like the bookend fallbacks above.
+  const notes = b.notes != null ? b.notes
+    : ((rows('Tracker').filter(r => sameName(r.installer, installer) && dateOf(r.date) === date)[0] || {}).notes || '');
   const stops = stopsFor(installer, date);
   // The installer's own printable stops (same statuses the PDF prints as rows). Travel
   // is attributed per-person: only the gaps that land on one of these count toward this
@@ -1119,7 +1126,7 @@ function buildDaySummary(b) {
     breaksTotalMin: breaksTotal, byBreak: byBreak, miscTravelMin: miscTravelTotal,
     travelMinutes: travelMinutes, boatDispatchMin: boatDispatchMin,
     perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
-    notes: b.notes || '', weather: b.weather || '', stops, downtime: dt,
+    notes: notes || '', weather: b.weather || '', stops, downtime: dt,
     departure: departure, returned: returned,
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
     boatTeam: hdr.boatTeam, boatName: hdr.boatName,

@@ -1280,6 +1280,10 @@ $('finishDay').onclick = async () => {
       }
       const server = !!summary;
       if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
+      // The prefetched server summary was built before this note was typed (and
+      // previewDailyLog never carries notes) — overlay the freshest typed value so
+      // the PDF's Notes block prints it. See dailylog.js collectNotes.
+      summary.notes = $('eodNotes').value.trim();
       await downloadDailyLog(summary);
       return server;
     });
@@ -1371,6 +1375,8 @@ $('genLog').onclick = async () => {
       }
       if(!summary) summary = await buildSummaryFromCache($('eodIncludeDelays').checked, '');
       if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
+        // previewDailyLog doesn't carry the typed note — overlay it before render.
+        summary.notes = $('eodNotes').value.trim();
         await downloadDailyLog(summary);
         toast('Daily log downloaded — draft (day not closed)');
       } else {
