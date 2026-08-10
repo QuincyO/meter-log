@@ -25,6 +25,7 @@ import { geocodeOne } from '../route.js';
 import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPack, deletePack } from '../roadpack.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 import { jConflicts, normalizeJ, J_LABEL } from '../jdup.js';
+import { normalizeJScan } from '../jnumber.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -394,9 +395,27 @@ function showJConflict(hits, sig){
   $('jcFix').onclick    = () => hideJConflict();
   $('jConflict').classList.remove('hide');
 }
-// Re-typing a J# is a new question — drop both the chooser and the ack.
-['newJ','installOldJ','oldJ','otherOldJ'].forEach(id =>
-  $(id).addEventListener('input', () => { hideJConflict(); jAckedSigs = []; }));
+// Re-typing a J# is a new question — drop both the chooser and the ack — and,
+// in the same handler, normalize the scan. The scanner is a keyboard wedge that
+// types into the focused field, so a second scan appends to the first;
+// normalizeJScan (js/jnumber.js) keeps `J` + up to 7 digits after the LAST J,
+// so a wrong barcode wipes the field, a re-scan replaces (never appends), and
+// casing/trailing-CR are absorbed — no button, no popup, just scan again.
+// Prefill (fillCapture) sets .value directly and fires no input event, so
+// planned-order fills are untouched.
+for(const id of ['newJ','installOldJ','oldJ','otherOldJ']){
+  const el = $(id);
+  el.addEventListener('input', () => {
+    hideJConflict(); jAckedSigs = [];
+    el.value = normalizeJScan(el.value);
+    const n = el.value.length;
+    try { el.setSelectionRange(n, n); } catch(e){}   // caret at end for the next char/scan
+  });
+  el.addEventListener('focus', () => { try { el.select(); } catch(e){} }); // tap to overwrite
+  // Swallow the scanner's trailing Enter so focus stays for back-to-back scans
+  // (there is no <form> here to submit).
+  el.addEventListener('keydown', e => { if(e.key === 'Enter') e.preventDefault(); });
+}
 
 function fillCapture(item){
   if(!item){

@@ -45,7 +45,7 @@ const SHELL = [
   // Keep apostrophes out of comments in this block: tests/cache-refresh.test.mjs
   // reads SHELL entries by matching quoted strings line by line.
   './js/route-dwell.js', './js/route-planday.js',
-  './js/planner-services.js', './js/utiReasons.js',
+  './js/planner-services.js', './js/utiReasons.js', './js/jnumber.js',
   // on-device road routing. The MODULES belong in the shell; the district
   // PACKS (maps/*.pack) deliberately do NOT — they are megabytes, they live in
   // IndexedDB, and refreshShell() re-fetches everything listed here on every
