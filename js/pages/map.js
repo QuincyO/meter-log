@@ -609,6 +609,17 @@ $('toDate').onchange   = e => { state.to=e.target.value;   scheduleRangeChange()
 $('searchBtn').onclick = doSearch;
 $('search').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
 
+// ⓘ explainers on the lifetime cards — a tap/click toggles the card's inline
+// infobox (an overlay tooltip would need hover, which phones don't have).
+document.querySelectorAll('.infobtn').forEach(b => {
+  b.onclick = () => {
+    const box = $('info-' + b.dataset.info);
+    const show = box.hidden;
+    box.hidden = !show;
+    b.setAttribute('aria-expanded', String(show));
+  };
+});
+
 $('viewSel').onchange = e => {
   if(e.target.value==='teams'){ window.location.href = 'teams.html'; return; }
   if(e.target.value==='edit'){ window.location.href = 'edit.html'; return; }

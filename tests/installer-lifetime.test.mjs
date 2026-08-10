@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { lifetimeRows, paceTrend, modePace, dwellRows }
   from '../js/compute/installer-lifetime.js';
 
@@ -89,6 +90,22 @@ test('modePace keeps only installers with a mode pace, null-padding the missing 
   assert.deepEqual(mp.labels, ['Land Only', 'Quincy Orta']);
   assert.deepEqual(mp.land, [16, 20]);
   assert.deepEqual(mp.boat, [null, 53]);
+});
+
+test('every lifetime card carries an explainer, and the dwell one covers all three sources', () => {
+  // The srcbadge values (gps/fit/pace) are jargon: the ⓘ infobox is what makes
+  // them readable. A source rendered on the card must stay explained in it.
+  const html = readFileSync(new URL('../map.html', import.meta.url), 'utf8');
+  for (const key of ['life', 'mode', 'dwell']) {
+    assert.match(html, new RegExp(`data-info="${key}"`), `missing ⓘ button for ${key}`);
+    assert.match(html, new RegExp(`id="info-${key}"`), `missing infobox for ${key}`);
+  }
+  const dwell = html.slice(html.indexOf('id="info-dwell"'), html.indexOf('id="dwellTable"'));
+  for (const src of ['GPS', 'FIT', 'PACE'])
+    assert.match(dwell, new RegExp(`<b>${src}</b>`), `dwell infobox must explain ${src}`);
+  // and the page wires the toggle
+  const mapJs = readFileSync(new URL('../js/pages/map.js', import.meta.url), 'utf8');
+  assert.match(mapJs, /\.infobtn/);
 });
 
 test('dwellRows keeps rows with any dwell evidence and rounds travel to 1 decimal', () => {

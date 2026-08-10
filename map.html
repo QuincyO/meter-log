@@ -90,9 +90,45 @@
         <p>All-time rollups, rebuilt at end of day — the date range above does not apply. Installer chips do.</p>
       </div>
       <div class="cards">
-        <div class="card wide"><h3>Lifetime by installer</h3><div class="tscroll" id="lifeTable"></div></div>
-        <div class="card"><h3>Avg minutes per log — land vs boat</h3><div class="chartbox"><canvas id="chModePace"></canvas><div class="blank" id="blankModePace"></div></div></div>
-        <div class="card"><h3>Dwell model (feeds route ETAs)</h3><div id="dwellTable"></div></div>
+        <div class="card wide">
+          <h3>Lifetime by installer <button type="button" class="infobtn" data-info="life" aria-expanded="false" aria-label="What does this card show?">ⓘ</button></h3>
+          <div class="infobox" id="info-life" hidden>
+            Each installer's all-time record, rebuilt every night from their closed days.
+            <b>Avg log</b> is the average minutes between two of their consecutive logs — lower is faster.
+            <b>Recent 30</b> is the same average over their last 30 workdays: ▼ means they've been faster
+            than their lifetime pace lately, ▲ slower, no arrow means steady.
+            <b>UTI %</b> is the share of all logs that ended as a UTI.
+            <b>Down min/day</b> is their logged downtime averaged per working day.
+          </div>
+          <div class="tscroll" id="lifeTable"></div>
+        </div>
+        <div class="card">
+          <h3>Avg minutes per log — land vs boat <button type="button" class="infobtn" data-info="mode" aria-expanded="false" aria-label="What does this card show?">ⓘ</button></h3>
+          <div class="infobox" id="info-mode" hidden>
+            The same minutes-per-log pace, split by work mode. A land day and a boat day are different
+            jobs — moving between boat stops takes longer — so comparing an installer to <i>themselves</i>
+            across modes says more than one blended number. Shorter bar = faster. An installer who has
+            only worked one mode shows a single bar.
+          </div>
+          <div class="chartbox"><canvas id="chModePace"></canvas><div class="blank" id="blankModePace"></div></div>
+        </div>
+        <div class="card">
+          <h3>Dwell model (feeds route ETAs) <button type="button" class="infobtn" data-info="dwell" aria-expanded="false" aria-label="What does this card show?">ⓘ</button></h3>
+          <div class="infobox" id="info-dwell" hidden>
+            The measured numbers the route planner uses to predict arrival times.
+            <b>On-site</b> is the minutes an installer actually spends at a stop;
+            <b>+Per meter</b> is the extra time when one stop has a second meter;
+            <b>Travel</b> is their real driving pace in minutes per km.
+            <b>Source</b> says how those were measured:
+            <b>GPS</b> — from the phone's recorded driving legs (the most direct: time at a stop is the gap
+            between two logs minus the real recorded drive between them);
+            <b>FIT</b> — a line fitted through the installer's stop-to-stop gaps against distance, net of
+            logged downtime (the flat part of the line is on-site time, the slope is travel speed);
+            <b>PACE</b> — not measured yet: too few closed days, so the planner still falls back on the
+            generic pace guess until enough data builds up.
+          </div>
+          <div id="dwellTable"></div>
+        </div>
       </div>
     </div>
   </div>
