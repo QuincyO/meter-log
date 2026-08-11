@@ -1,6 +1,6 @@
 # Stops
 
-_709 rows · exported 2026-08-10 03:52 America/Toronto_
+_747 rows · exported 2026-08-11 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -713,3 +713,41 @@ _709 rows · exported 2026-08-10 03:52 America/Toronto_
 | 1786042403357-i6uu0g | 2026-08-06 14:53:23 | Phillip Monteiro | 693388 |  | 71 Sunnylea Ave, Burk's Falls, ON P0A 1J0, Canada | 45.586621 | -79.319216 | J4754403 | J3134540 | 95483 | INSTALLED |  |  |  |  |  | land |
 | 1786042756498-mb75i8 | 2026-08-06 14:59:16 | Phillip Monteiro | 693394 |  | 199 Sunnylea Ave, Armour | 45.592498 | -79.319161 | J4754400 | J3096535 | 15104 | INSTALLED |  |  |  |  |  | land |
 | 1786043316344-5ql2zo | 2026-08-06 15:08:36 | Phillip Monteiro | 691444 |  | 281 Sunnylea Ave, Burk's Falls, ON P0A 1J0, Canada | 45.595809 | -79.322066 | J4754396 | J3134222 | 15064 | INSTALLED |  |  |  |  |  | land |
+| 1786368138878-vaw7xd | 2026-08-10 09:22:18 | Phillip Monteiro | 687924 |  | 287 S Horn Lake Rd, Armour, ON P0A 1C0, Canada | 45.6515 | -79.429731 | J4754398 | J3299202 | 88006 | INSTALLED |  |  |  |  |  | land |
+| 1786369614291-5djya6 | 2026-08-10 09:46:54 | Phillip Monteiro | 695670 |  | 38 Elm Ln, Magnetawan, ON P0A 1C0, Canada | 45.661255 | -79.469886 | J4754399 | J3242967 | 23909 | INSTALLED |  |  |  |  |  | land |
+| 1786370568111-u8ppb1 | 2026-08-10 10:02:48 | Phillip Monteiro | 695695 | A | 1309 S Horn Lake Rd, Ryerson | 45.660035 | -79.469817 | J4754397 | J3240542 | 8809 | INSTALLED |  |  |  |  |  | land |
+| 1786371603939-bzjnnj | 2026-08-10 10:20:03 | Phillip Monteiro | 695747 |  | 2503 S Horn Lake Rd, Magnetawan, ON P0A 1C0, Canada | 45.644493 | -79.53273 | J4776421 | J3541080 | 76973 | INSTALLED |  |  |  |  |  | land |
+| 1786371810387-q843fw | 2026-08-10 10:23:30 | Quincy Orta | 689515 |  | 1 Camp Arowhon Road, Algonquin Park, ON P0A 1H0, Canada | 45.597512 | -78.732454 | J4646529 | J3081019 | 99014 | INSTALLED |  |  |  |  |  | land |
+| 1786372290726-cfe097 | 2026-08-10 10:31:30 | Quincy Orta | 688786 |  | 1 Camp Arowhon Road, Algonquin Park, ON P0A 1H0, Canada | 45.597488 | -78.73236 | J4751297 | J4200446 | 0 | INSTALLED |  |  |  | 2438 |  | land |
+| 1786372370252-z5ey2n | 2026-08-10 10:32:50 | Phillip Monteiro | 696444 |  | 1383 S Horn Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.657304 | -79.471154 | J4776419 | J3242009 | 28952 | INSTALLED |  |  |  |  |  | land |
+| 1786372686289-lktcbe | 2026-08-10 10:38:06 | Quincy Orta | 692227 |  | 1 Camp Arowhon Road, Algonquin Park, ON P0A 1H0, Canada | 45.597968 | -78.732913 | J4751298 | J3483566 | 22523 | INSTALLED |  |  |  |  |  | land |
+| 1786372690776-e2ib9t | 2026-08-10 10:38:10 | Phillip Monteiro | 696375 |  | 1391 S Horn Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.65695 | -79.471457 | J4776418 | J2091928 | 21837 | INSTALLED |  |  |  |  |  | land |
+| 1786373079780-o0uw2q | 2026-08-10 10:44:39 | Phillip Monteiro | 695665 |  | 1412 S Horn Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.656408 | -79.472808 | J4776420 | J3541081 | 98100 | INSTALLED |  |  |  |  |  | land |
+| 1786373440617-t8f2o7 | 2026-08-10 10:50:40 | Phillip Monteiro | 695858 |  | 1455 S Horn Lake Rd, Ryerson | 45.657272 | -79.474618 | J4776422 | J3777778 | 9901 | INSTALLED |  |  |  |  |  | land |
+| 1786373923130-kpmjt2 | 2026-08-10 10:58:43 | Phillip Monteiro | 694478 |  | 84 Picnic Point Rd, Magnetawan, ON P0A 1C0, Canada | 45.66202 | -79.477668 | J4776424 | J3613996 | 87840 | INSTALLED |  |  |  |  |  | land |
+| 1786373985332-po2m5g | 2026-08-10 10:59:45 | Quincy Orta | 692829 |  | 1 Camp Arowhen Road | 45.596471 | -78.731936 |  |  |  | UTI | Could Not Locate | Cannot locate meter staff on site could not locate either. J3081018 is on site but not registered. |  |  |  | land |
+| 1786375827556-dji8j5 | 2026-08-10 11:30:27 | Phillip Monteiro | 695119 |  | 1761 S Horn Lake Rd, Magnetawan, ON P0A 1C0, Canada | 45.657122 | -79.490874 | J4776423 | J3111953 | 73055 | INSTALLED |  |  |  |  |  | land |
+| 1786376215263-9yi1wf | 2026-08-10 11:36:55 | Phillip Monteiro | 696532 |  | 1873 S Horn Lake Rd, Magnetawan, ON P0A 1C0, Canada | 45.654904 | -79.496516 | J4776425 | J3264763 | 61469 | INSTALLED |  |  |  |  |  | land |
+| 1786377241321-p0jmd2 | 2026-08-10 11:54:01 | Phillip Monteiro | 696402 |  | 81 Ash Ln, Magnetawan, ON P0A 1C0, Canada | 45.666958 | -79.468217 | J4776407 | J3273429 | 54064 | INSTALLED |  |  |  |  |  | land |
+| 1786378342119-2phoai | 2026-08-10 12:12:22 | Phillip Monteiro | 694667 |  | 31 Forest Haven Rd, Chapman | 45.677624 | -79.48653 | J4776409 | J3319731 | 23785 | INSTALLED |  |  |  |  |  | land |
+| 1786379097098-yors9c | 2026-08-10 12:24:57 | Phillip Monteiro | 695717 |  | 17 Coopers Hawk Ln, Magnetawan, ON P0A 1C0, Canada | 45.677852 | -79.488263 | J4776406 | J3179535 | 40927 | INSTALLED |  |  |  |  |  | land |
+| 1786379269613-zoncq4 | 2026-08-10 12:27:49 | Quincy Orta | 692598 |  | 1097 Millyard Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.363727 | -78.724373 | J4751296 | J3129385 | 9786 | INSTALLED |  |  |  |  |  | land |
+| 1786379903361-tiyok2 | 2026-08-10 12:38:23 | Phillip Monteiro | 695160 | B | 13 Coopers Hawk Lane, Chapman | 45.677281 | -79.488909 | J4776408 | J3273070 | 14168 | INSTALLED |  |  |  |  |  | land |
+| 1786380725479-eefxbd | 2026-08-10 12:52:05 | Phillip Monteiro | 695399 |  | 31 Coopers Hawk Ln, Magnetawan, ON P0A 1C0, Canada | 45.677871 | -79.488139 | J4776417 | J3105781 | 93416 | INSTALLED |  |  |  |  |  | land |
+| 1786382702111-m10j51 | 2026-08-10 13:25:02 | Phillip Monteiro | 694403 | A | 13 Coopers Hawk Ln, Magnetawan, ON P0A 1C0, Canada | 45.677855 | -79.488952 | J4776414 | J3385767 | 18039 | INSTALLED |  |  |  |  |  | land |
+| 1786383027893-e8dqgs | 2026-08-10 13:30:27 | Quincy Orta | 689821 |  | 1369 Sinclair Trail | 45.25739 | -78.824265 | J4751299 | J4444502 | 3247 | INSTALLED |  |  |  |  |  | land |
+| 1786383737076-oj2rgn | 2026-08-10 13:42:17 | Phillip Monteiro | 695618 |  | 7 Campbells Rd, Chapman | 45.678574 | -79.501102 | J4776415 | J3535482 | 59360 | INSTALLED |  |  |  |  |  | land |
+| 1786383937185-28yhcw | 2026-08-10 13:45:37 | Quincy Orta | 687891 |  | 1345 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.257749 | -78.82535 | J4607557 | J3201911 | 99285 | INSTALLED |  |  |  |  |  | land |
+| 1786384274634-5axi8j | 2026-08-10 13:51:14 | Quincy Orta | 686519 |  | 1343 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.257701 | -78.825385 | J4607560 | J3210497 | 78997 | INSTALLED |  |  |  |  |  | land |
+| 1786384809347-6tcss7 | 2026-08-10 14:00:09 | Quincy Orta | 687441 |  | 1293 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.257526 | -78.828177 | J4607559 | J4147083 | 8650 | INSTALLED |  |  |  |  |  | land |
+| 1786385214672-z848wc | 2026-08-10 14:06:54 | Phillip Monteiro | 695518 |  | 8 Campbells Rd, Chapman | 45.678288 | -79.501941 | J4776416 | J3110901 | 46101 | INSTALLED |  |  |  |  |  | land |
+| 1786385244143-srya5y | 2026-08-10 14:07:24 | Quincy Orta | 686571 |  | 1305 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.25745 | -78.827085 | J4607558 | J3296317 | 25628 | INSTALLED |  |  |  |  |  | land |
+| 1786385664607-b99kn1 | 2026-08-10 14:14:24 | Quincy Orta | 682980 |  | 1307 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.257698 | -78.826242 | J4607561 | J3110375 | 24218 | INSTALLED |  |  |  |  |  | land |
+| 1786386054639-ytaow0 | 2026-08-10 14:20:54 | Quincy Orta | 687470 |  | 1295 Sinclair Trl, Algonquin Highlands, ON P0A 1E0, Canada | 45.257428 | -78.827499 | J4607563 | J4161162 | 429 | INSTALLED |  |  |  |  |  | land |
+| 1786386900676-e7w8wd | 2026-08-10 14:35:00 | Quincy Orta | 693806 |  | 1569 Russell Landing Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.266127 | -78.814118 | J4607564 | J3945038 | 23333 | INSTALLED |  |  |  |  |  | land |
+| 1786387071001-2xngyb | 2026-08-10 14:37:50 | Phillip Monteiro | 695422 | C | 48 Cherry Lane, Chapman | 45.658668 | -79.49033 | J4776412 | J3110725 | 16408 | INSTALLED |  |  |  |  |  | land |
+| 1786387603824-d0od36 | 2026-08-10 14:46:43 | Phillip Monteiro | 695478 | A | 48 Cherry Lane, Chapman | 45.659639 | -79.488629 | J4776411 | J3111338 | 9653 | INSTALLED |  |  |  |  |  | land |
+| 1786388090904-xyr2jh | 2026-08-10 14:54:50 | Quincy Orta | 682772 |  | 1041 Tradewinds Lane | 45.257552 | -78.823178 | J4607562 | J3210049 | 21829 | INSTALLED |  |  |  |  |  | land |
+| 1786389154888-qjgrpc | 2026-08-10 15:12:34 | Quincy Orta | 691013 |  | 1043 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.257488 | -78.822348 | J4619307 | J3107275 | 25339 | INSTALLED |  |  |  |  |  | land |
+| 1786389546438-runzz5 | 2026-08-10 15:19:06 | Quincy Orta | 686364 |  | 1045 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.257782 | -78.821775 | J4619308 | J3107325 | 25653 | INSTALLED |  |  |  |  |  | land |
+| 1786389907836-42csn2 | 2026-08-10 15:25:07 | Quincy Orta | 682568 |  | 1051 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.258 | -78.821175 | J4619306 | J3385830 | 15266 | INSTALLED |  |  |  |  |  | land |

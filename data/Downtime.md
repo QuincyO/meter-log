@@ -1,6 +1,6 @@
 # Downtime
 
-_226 rows · exported 2026-08-10 03:52 America/Toronto_
+_240 rows · exported 2026-08-11 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -230,3 +230,17 @@ _226 rows · exported 2026-08-10 03:52 America/Toronto_
 | 1786047419552-fzyvt7 | 2026-08-06 12:00:00 | Quincy Orta | DISPATCH | 20 | 639975 | gap 09:12–09:12 |  |
 | 1786047419552-c5c22m | 2026-08-06 12:00:00 | Quincy Orta | BAD_WEATHER | 30 | 640675 | gap 09:48–10:35 |  |
 | 1786047419552-edu29a | 2026-08-06 12:00:00 | Quincy Orta | DISPATCH | 40 | 624062 | gap 13:28–14:46 |  |
+| 1786390793587-sthq80 | 2026-08-10 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 689515 | gap 10:23–10:23 |  |
+| 1786390793587-i5e67o | 2026-08-10 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 689515 | gap 10:23–10:23 |  |
+| 1786390793587-8x5dwf | 2026-08-10 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 689515 | gap 10:23–10:23 |  |
+| 1786390793587-lcp0vw | 2026-08-10 12:00:00 | Quincy Orta | DISPATCH | 60 | 689515 | gap 10:23–10:23 |  |
+| 1786390793587-p5i6fp | 2026-08-10 12:00:00 | Quincy Orta | DISPATCH | 60 | 692598 | gap 10:59–12:27 |  |
+| 1786391108848-6zlzo0 | 2026-08-10 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 687924 | gap 09:22–09:22 |  |
+| 1786391108848-twt23q | 2026-08-10 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 687924 | gap 09:22–09:22 |  |
+| 1786391108848-3oa1mq | 2026-08-10 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 687924 | gap 09:22–09:22 |  |
+| 1786391108848-sqqbbw | 2026-08-10 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 687924 | gap 09:22–09:22 |  |
+| 1786391108848-3k51og | 2026-08-10 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 695670 | gap 09:22–09:46 |  |
+| 1786391108848-fy0pji | 2026-08-10 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 695119 | gap 10:58–11:30 |  |
+| 1786391108848-455zla | 2026-08-10 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 694403 | gap 12:52–13:25 |  |
+| 1786391108848-0y1c24 | 2026-08-10 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 15 | 695422 | gap 14:06–14:37 |  |
+| 1786391108848-nzwr9h | 2026-08-10 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 695478 | gap 14:37–14:46 |  |
