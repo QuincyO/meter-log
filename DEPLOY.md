@@ -164,6 +164,15 @@ Set up OSRM once (Windows, ~20 minutes, mostly download time):
    docker run -d --restart unless-stopped -p 5000:5000 -v ${PWD}:/data osrm/osrm-backend osrm-routed --algorithm ch --max-table-size 1000 /data/ontario-latest.osrm
    ```
 
+   **The run flag must match how you preprocessed**, and OSRM has two pipelines:
+   `osrm-contract` (step 3 above) writes `<base>.osrm.hsgr` and pairs with
+   `--algorithm ch`; `osrm-partition` + `osrm-customize` writes `.partition`,
+   `.cells`, `.cell_metrics` and `.mldgr`, and pairs with `--algorithm mld`.
+   Mismatch them and the container starts, fails to load the graph and exits
+   seconds later — `docker ps` shows nothing, and the reason is only in
+   `docker logs osrm-ontario`. The data currently in `D:\osrm` on this machine is
+   **MLD** (there is no `.hsgr`), so it is served with `--algorithm mld`.
+
 5. Smoke test — should print a `distances` matrix:
 
    ```powershell
@@ -273,8 +282,40 @@ copy the already-built data on an SSD. Two `scripts/` helpers do it:
   from local Docker storage (Postgres won't run off an exFAT SSD), so the copy
   is a one-time few-minute local read, not a re-import.
 
+  It picks the OSRM algorithm by testing for `<base>.osrm.hsgr` rather than
+  assuming `ch` (see the pairing rule above), names the containers
+  `osrm-ontario` and `nominatim` so a re-run can replace them, and polls both
+  endpoints before reporting success instead of trusting `docker run`. On an
+  ARM64 host it first builds `arm64-patch\` into a variant image, because the
+  amd64 Nominatim's apache2 dies under QEMU emulation.
+
 Re-run the export whenever you refresh the Ontario map (new `.pbf` → re-run the
 OSRM preprocess + the Nominatim import once on the primary PC, then re-export).
+
+**The same bundle is the recovery path when Docker is wiped on the PC that
+already worked.** A `docker system prune -a`, a Docker Desktop *Reset to factory
+defaults*, or deleting the `docker-desktop` WSL distro takes both images with it,
+and Nominatim's imported DB lives *inside* its image — so it does not survive and
+cannot be restarted, only reloaded. The planner's own files are never involved;
+the symptom is both readiness badges going offline while `git status` is clean.
+`D:\osrm` is untouched by any of that, so point the script at the graph already
+there instead of copying a second set to `C:\osrm`:
+
+```powershell
+F:\geo-bundle\setup-geo-on-new-pc.ps1 -Bundle F:\geo-bundle -OsrmData D:\osrm
+```
+
+With Docker already installed and its engine running, this needs no elevation.
+Check `netstat -ano | findstr :5000` first if OSRM comes back unreachable — an
+unrelated app holding that port answers the probe with a bare 404, which reads as
+"offline" on the badge and blocks the container from binding.
+
+**A `did not answer within … s` warning at the end is not proof of failure.** On a
+restore the 5.3 GB `docker load` and the OSRM data copy saturate the disk, and
+loading the MLD graph can outrun the script's 180 s / 600 s waits while both
+containers are in fact healthy. `docker ps` showing them `Up`, plus OSRM's log
+line `running and waiting for requests`, is the real signal — re-probe both
+endpoints by hand before concluding anything is broken.
 
 ## Offline road maps for the phone (district packs)
 
