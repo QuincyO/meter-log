@@ -1,6 +1,6 @@
 # Timing
 
-_818 rows · exported 2026-08-11 03:52 America/Toronto_
+_856 rows · exported 2026-08-12 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -822,3 +822,41 @@ _818 rows · exported 2026-08-11 03:52 America/Toronto_
 | 2026-08-10 00:00:00 | Phillip Monteiro | 1899-12-30 14:06:00 | 1899-12-30 14:37:00 | 31 | 2361 | Flagged | mixed | 695422 | INSTALLED | INSTALLED |
 | 2026-08-10 00:00:00 | Phillip Monteiro | 1899-12-30 14:37:00 | 1899-12-30 14:46:00 | 9 | 171 | Travel | delay | 695478 | INSTALLED | INSTALLED |
 | 2026-08-10 00:00:00 | Phillip Monteiro | 1899-12-30 14:46:00 | 1899-12-30 16:00:00 | 73 |  | Return | travel |  | INSTALLED |  |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 09:50:00 | 140 |  | Launch | travel | 695515 |  | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 09:50:00 | 1899-12-30 10:02:00 | 13 | 333 | Travel | travel | 695248 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 10:02:00 | 1899-12-30 10:24:00 | 22 | 2846 | Flagged | mixed | 694850 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 10:24:00 | 1899-12-30 10:35:00 | 11 | 3033 | Travel | travel | 694442 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 10:35:00 | 1899-12-30 10:51:00 | 15 | 4657 | Travel | travel | 695087 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 10:51:00 | 1899-12-30 11:03:00 | 12 | 1901 | Travel | travel | 696135 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 11:03:00 | 1899-12-30 11:13:00 | 10 | 1462 | Travel | travel | 694250 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 11:13:00 | 1899-12-30 11:27:00 | 14 | 2353 | Travel | travel | 694408 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 11:27:00 | 1899-12-30 11:55:00 | 28 | 5277 | Flagged | mixed | 695931 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 11:55:00 | 1899-12-30 12:08:00 | 13 | 1515 | Travel | mixed | 695979 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 12:08:00 | 1899-12-30 12:22:00 | 13 | 64 | Travel | mixed | 696531 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 12:22:00 | 1899-12-30 12:41:00 | 19 | 1335 | Travel | mixed | 696161 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 12:41:00 | 1899-12-30 12:49:00 | 8 | 95 | Travel | travel | 695117 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 12:49:00 | 1899-12-30 12:56:00 | 8 | 73 | Travel | travel | 696426 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 12:56:00 | 1899-12-30 13:20:00 | 24 | 3288 | Flagged | mixed | 696199 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 13:20:00 | 1899-12-30 14:51:00 | 90 | 33131 | Flagged | mixed | 685641 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Phillip Monteiro | 1899-12-30 14:51:00 | 1899-12-30 16:00:00 | 69 |  | Return | travel |  | INSTALLED |  |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 09:53:00 | 143 |  | Launch | travel | 692720 |  | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 09:53:00 | 1899-12-30 10:00:00 | 7 | 69 | Travel | travel | 686722 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:00:00 | 1899-12-30 10:05:00 | 6 | 47 | Travel | travel | 690392 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:05:00 | 1899-12-30 10:12:00 | 7 | 83 | Travel | travel | 689106 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:12:00 | 1899-12-30 10:19:00 | 7 | 14 | Travel | travel | 682996 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:19:00 | 1899-12-30 10:30:00 | 11 | 39 | Travel | travel | 688409 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:30:00 | 1899-12-30 10:36:00 | 6 | 42 | Travel | travel | 690735 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:36:00 | 1899-12-30 10:44:00 | 8 | 33 | Travel | travel | 693349 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:44:00 | 1899-12-30 10:50:00 | 6 | 53 | Travel | travel | 686390 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 10:50:00 | 1899-12-30 11:00:00 | 9 | 28 | Travel | travel | 689789 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 11:00:00 | 1899-12-30 11:07:00 | 8 | 36 | Travel | travel | 691037 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 11:07:00 | 1899-12-30 11:27:00 | 20 | 2737 | Flagged | travel | 682559 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 11:27:00 | 1899-12-30 11:55:00 | 27 | 1260 | Flagged | travel | 693906 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 11:55:00 | 1899-12-30 12:55:00 | 60 | 2002 | Flagged | travel | 688966 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 12:55:00 | 1899-12-30 13:11:00 | 16 | 41 | Travel | travel | 692915 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:11:00 | 1899-12-30 13:21:00 | 10 | 126 | Travel | travel | 682977 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:21:00 | 1899-12-30 13:31:00 | 10 | 17 | Travel | travel | 686721 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:31:00 | 1899-12-30 13:37:00 | 7 | 51 | Travel | travel | 692451 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:37:00 | 1899-12-30 13:48:00 | 10 | 65 | Travel | travel | 682201 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:48:00 | 1899-12-30 13:57:00 | 9 | 33 | Travel | travel | 693313 | INSTALLED | INSTALLED |
+| 2026-08-11 00:00:00 | Quincy Orta | 1899-12-30 13:57:00 | 1899-12-30 16:00:00 | 123 |  | Return | travel |  | INSTALLED |  |

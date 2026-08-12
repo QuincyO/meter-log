@@ -1,6 +1,6 @@
 # Stops
 
-_747 rows · exported 2026-08-11 03:52 America/Toronto_
+_799 rows · exported 2026-08-12 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -751,3 +751,55 @@ _747 rows · exported 2026-08-11 03:52 America/Toronto_
 | 1786389154888-qjgrpc | 2026-08-10 15:12:34 | Quincy Orta | 691013 |  | 1043 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.257488 | -78.822348 | J4619307 | J3107275 | 25339 | INSTALLED |  |  |  |  |  | land |
 | 1786389546438-runzz5 | 2026-08-10 15:19:06 | Quincy Orta | 686364 |  | 1045 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.257782 | -78.821775 | J4619308 | J3107325 | 25653 | INSTALLED |  |  |  |  |  | land |
 | 1786389907836-42csn2 | 2026-08-10 15:25:07 | Quincy Orta | 682568 |  | 1051 Trade Winds Ln, Algonquin Highlands, ON P0A 1E0, Canada | 45.258 | -78.821175 | J4619306 | J3385830 | 15266 | INSTALLED |  |  |  |  |  | land |
+| 1786456208666-fhe5vm | 2026-08-11 09:50:08 | Phillip Monteiro | 695515 |  | 498 Chapman Dr, Magnetawan, ON P0A 1C0, Canada | 45.643868 | -79.55061 | J4776413 | J3135936 | 5259 | INSTALLED |  |  |  |  |  | land |
+| 1786456396783-e23ku7 | 2026-08-11 09:53:16 | Quincy Orta | 692720 |  | 4075 Kawagama lake rd, Township of Algonquin Highlands | 45.278477 | -78.755676 | J4619305 | J2071154 | 95436 | INSTALLED |  |  |  |  |  | land |
+| 1786456801378-l6yahe | 2026-08-11 10:00:01 | Quincy Orta | 686722 |  | 4069 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277991 | -78.755129 | J4619302 | J3535006 | 41706 | INSTALLED |  |  |  |  |  | land |
+| 1786456964580-z5ns29 | 2026-08-11 10:02:44 | Phillip Monteiro | 695248 |  | 448 Chapman Dr, Magnetawan, ON P0A 1C0, Canada | 45.643868 | -79.554888 | J4776410 | J3299059 | 20579 | INSTALLED |  |  |  |  |  | land |
+| 1786457159426-n8o8co | 2026-08-11 10:05:59 | Quincy Orta | 690392 |  | 4055 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277702 | -78.755571 | J4619304 | J3567708 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786457572480-c3xbtm | 2026-08-11 10:12:52 | Quincy Orta | 689106 |  | 4045 Kawagama lake rd, Township of Algonquin Highlands | 45.277397 | -78.756535 | J4619301 | J3535007 | 38476 | INSTALLED |  |  |  |  |  | land |
+| 1786457963742-luss81 | 2026-08-11 10:19:23 | Quincy Orta | 682996 |  | 4041 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277275 | -78.756482 | J4619303 | J3535005 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786458296766-0tabdj | 2026-08-11 10:24:56 | Phillip Monteiro | 694850 |  | 531 Baker Rd, Magnetawan, ON P0A 1C0, Canada | 45.666741 | -79.538455 | J4781954 | J4142255 | 23444 | INSTALLED |  |  |  |  |  | land |
+| 1786458615254-f851vt | 2026-08-11 10:30:15 | Quincy Orta | 688409 |  | 4031 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277336 | -78.756975 | J4607611 | J3542190 | 66934 | INSTALLED |  |  |  |  |  | land |
+| 1786458955610-z5i7mt | 2026-08-11 10:35:55 | Phillip Monteiro | 694442 |  | 58 Chapman Dr, Magnetawan, ON P0A 1P0, Canada | 45.650892 | -79.57022 | J4781957 | J4027261 | 91874 | INSTALLED |  |  |  |  |  | land |
+| 1786458985263-zbdzsr | 2026-08-11 10:36:25 | Quincy Orta | 690735 |  | 4029 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277146 | -78.757446 | J4607609 | J3104369 | 63367 | INSTALLED |  |  |  |  |  | land |
+| 1786459483530-b6rdxk | 2026-08-11 10:44:43 | Quincy Orta | 693349 |  | 4017 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.276902 | -78.757697 | J4607610 | J3214354 | 11823 | INSTALLED |  |  |  |  |  | land |
+| 1786459858161-7pc7m5 | 2026-08-11 10:50:58 | Quincy Orta | 686390 |  | 4015 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.277095 | -78.758313 | J4607612 | J3240250 | 57739 | INSTALLED |  |  |  |  |  | land |
+| 1786459880701-2hrvsj | 2026-08-11 10:51:20 | Phillip Monteiro | 695087 |  | 424 River Rd, Magnetawan, ON P0A 1Z0, Canada | 45.683696 | -79.607488 | J4781956 | J2084840 | 8372 | INSTALLED |  |  |  |  |  | land |
+| 1786460404684-8qloir | 2026-08-11 11:00:04 | Quincy Orta | 689789 |  | 4011 Kawagama lake rd, Township of Algonquin Highlands | 45.277179 | -78.758647 | J4619297 | J4229608 | 1866 | INSTALLED |  |  |  |  |  | land |
+| 1786460620436-p2su32 | 2026-08-11 11:03:40 | Phillip Monteiro | 696135 |  | 28 River Rd, Sundridge, ON P0A 1Z0, Canada | 45.699615 | -79.616427 | J4781955 | J3292495 | 51633 | INSTALLED |  |  |  |  |  | land |
+| 1786460860354-e31b1u | 2026-08-11 11:07:40 | Quincy Orta | 691037 |  | 4009 Kawagama Lake Rd, Algonquin Highlands, ON P0A 1E0, Canada | 45.276906 | -78.758894 | J4619298 | J3219929 | 62433 | INSTALLED |  |  |  |  |  | land |
+| 1786461220408-ohuk93 | 2026-08-11 11:13:40 | Phillip Monteiro | 694250 |  | 51 Cemetery Rd, Magnetawan, ON P0A 1P0, Canada | 45.695574 | -79.634341 | J4781953 | J4147088 | 12195 | INSTALLED |  |  |  |  |  | land |
+| 1786462034662-c753e6 | 2026-08-11 11:27:14 | Phillip Monteiro | 694408 |  | 28 Spruce Ln, Magnetawan, ON P0A 1P0, Canada | 45.691844 | -79.664166 | J4781952 | J3177576 | 28298 | INSTALLED |  |  |  |  |  | land |
+| 1786462077924-dv95k9 | 2026-08-11 11:27:57 | Quincy Orta | 682559 |  | 1017 Laser Lane | 45.271575 | -78.793045 | J4619300 | J4444523 | 2399 | INSTALLED |  |  |  |  |  | land |
+| 1786463713264-i8jadc | 2026-08-11 11:55:13 | Quincy Orta | 693906 |  | 1019 McComb Point Dr | 45.261524 | -78.785605 | J4619299 | J3535130 | 9049 | INSTALLED |  |  |  |  |  | land |
+| 1786463733957-rut7m4 | 2026-08-11 11:55:33 | Phillip Monteiro | 695931 |  | 307 Deer Run Rd, Magnetawan, ON P0A 1P0, Canada | 45.660668 | -79.612954 | J4781951 | J3945046 | 27851 | INSTALLED |  |  |  |  |  | land |
+| 1786464530645-vav8zr | 2026-08-11 12:08:50 | Phillip Monteiro | 695979 |  | 639 Deer Run Rd, Magnetawan, ON P0A 1P0, Canada | 45.649753 | -79.601294 | J4781950 | J4147110 | 8982 | INSTALLED |  |  |  |  |  | land |
+| 1786465333869-g0m9ii | 2026-08-11 12:22:13 | Phillip Monteiro | 696531 |  | 665 Deer Run Road, Magnetawan, ON, Canada | 45.649775 | -79.600469 | J4781949 | J4125143 | 9528 | INSTALLED |  |  |  |  |  | land |
+| 1786466482275-lwb1tc | 2026-08-11 12:41:22 | Phillip Monteiro | 696161 |  | 17 Dalwhinnie Ln, Magnetawan, ON P0A 1P0, Canada | 45.640601 | -79.589385 | J4781947 | J3819436 | 34640 | INSTALLED |  |  |  |  |  | land |
+| 1786466941973-x7g2g5 | 2026-08-11 12:49:01 | Phillip Monteiro | 695117 |  | 21 Dalwhinnie Ln, Magnetawan, ON P0A 1P0, Canada | 45.64144 | -79.589607 | J4781948 | J3249263 | 13223 | INSTALLED |  |  |  |  |  | land |
+| 1786467340383-6xlt6d | 2026-08-11 12:55:40 | Quincy Orta | 688966 |  | 1087 Pathfinder Dr, Algonquin Highlands, ON P0A 1E0, Canada | 45.261502 | -78.811187 | J4607601 | J3187095 | 25813 | INSTALLED |  |  |  |  |  | land |
+| 1786467395426-xx0hh8 | 2026-08-11 12:56:35 | Phillip Monteiro | 696426 |  | 25 Dalwhinnie Ln, Magnetawan, ON P0A 1P0, Canada | 45.641806 | -79.590383 | J4781946 | J3228262 | 22380 | INSTALLED |  |  |  |  |  | land |
+| 1786468280272-7un1po | 2026-08-11 13:11:20 | Quincy Orta | 692915 |  | 1083 Pathfinder Dr, Algonquin Highlands, ON P0A 1E0, Canada | 45.26159 | -78.811696 | J4607602 | J3945103 | 14672 | INSTALLED |  |  |  |  |  | land |
+| 1786468408830-uy9sxw | 2026-08-11 13:13:28 | Richard Bonvanie | 687320 | 7 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542172 | -79.268013 | J4774639 | J3978309 | 13764 | INSTALLED |  | Meter bank.  In Bsmt elec rm.  need key. Listed as outside. |  |  |  | land |
+| 1786468531222-ra5vad | 2026-08-11 13:15:31 | Richard Bonvanie | 687319 | 8 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542071 | -79.267951 | J4774640 | J3978310 | 8844 | INSTALLED |  | Meter bank. In bsmt elec rm. need key |  |  |  | land |
+| 1786468825135-nx78e2 | 2026-08-11 13:20:25 | Richard Bonvanie | 687317 | 9 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542057 | -79.267894 | J4774641 | J3978357 | 29125 | INSTALLED |  |  |  |  |  | land |
+| 1786468858389-3ytdxf | 2026-08-11 13:20:58 | Phillip Monteiro | 696199 |  | 163 Baker Rd, Magnetawan, ON P0A 1C0, Canada | 45.657671 | -79.554687 | J4776402 | J3776742 | 54415 | INSTALLED |  |  |  |  |  | land |
+| 1786468882020-lu1wpe | 2026-08-11 13:21:22 | Quincy Orta | 682977 |  | 1065 Pathfinder Dr, Algonquin Highlands, ON P0A 1E0, Canada | 45.261389 | -78.813274 | J4607603 | J3186551 | 88995 | INSTALLED |  |  |  |  |  | land |
+| 1786468908135-mifhiy | 2026-08-11 13:21:48 | Richard Bonvanie | 687316 | 10 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542058 | -79.267897 | J4774642 | J3978358 | 34985 | INSTALLED |  |  |  |  |  | land |
+| 1786469014682-7v1y7d | 2026-08-11 13:23:34 | Richard Bonvanie | 687318 | 11 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542075 | -79.267899 | J4774643 | J3978359 | 16551 | INSTALLED |  |  |  |  |  | land |
+| 1786469094793-3ue8i5 | 2026-08-11 13:24:54 | Richard Bonvanie | 687321 | 12 | 301 Birchdale Rd, Perry, ON P0A 1J0, Canada | 45.542063 | -79.267894 | J4774644 | J3978360 | 15955 | INSTALLED |  |  |  |  |  | land |
+| 1786469488646-airmh5 | 2026-08-11 13:31:28 | Quincy Orta | 686721 |  | 1055 Pathfinder Dr, Algonquin Highlands, ON P0A 1E0, Canada | 45.261364 | -78.813489 | J4607604 | J3223208 | 37097 | INSTALLED |  |  |  |  |  | land |
+| 1786469879044-8a9284 | 2026-08-11 13:37:59 | Quincy Orta | 692451 |  | 1049 Pathfinder Dr, Algonquin Highlands, ON P0A 1E0, Canada | 45.261096 | -78.81402 | J4619309 | J3191141 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786470503860-skntz7 | 2026-08-11 13:48:23 | Quincy Orta | 682201 |  | 1047 Pathfinder Dr, Haliburton County, ON P0A 1E0, Canada | 45.260681 | -78.8146 | J4619310 | J4229556 | 10224 | INSTALLED |  |  |  |  |  | land |
+| 1786471025475-mip6id | 2026-08-11 13:57:05 | Quincy Orta | 693313 |  | 1047 Pathfinder Dr | 45.260478 | -78.814912 | J4619311 | J3239246 | 5193 | INSTALLED |  |  |  |  |  | land |
+| 1786474283225-jndkii | 2026-08-11 14:51:23 | Phillip Monteiro | 685641 |  | 20 George St, Novar, ON P0A 1R0, Canada | 45.450498 | -79.248867 | J4776403 | J3791964 | 82515 | INSTALLED |  |  |  |  |  | land |
+| 1786475708811-jdytun | 2026-08-11 15:15:08 | Richard Bonvanie | 689026 |  | 301 Birchdale road H1 |  |  | J4777338 | 280 | 5079 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786475799044-b4p9j2 | 2026-08-11 15:16:39 | Richard Bonvanie | 692164 |  | 301 Birchdale road, unit 1 |  |  | J4777340 | 33 | 28196 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786475871688-tl7xkq | 2026-08-11 15:17:51 | Richard Bonvanie | 692162 |  | 301 Birchdale road, unit 2 |  |  | J4777340 | 34 | 27036 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786475937639-kgijme | 2026-08-11 15:18:57 | Richard Bonvanie | 692163 |  | 301 Birchdale road, unit 3 |  |  | J4777341 | 35 | 19563 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786476041604-b1o5aj | 2026-08-11 15:20:41 | Richard Bonvanie | 692167 |  | 301 Birchdale road, unit 4 |  |  | J4777342 | 36 | 26712 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786476091021-op9icl | 2026-08-11 15:21:31 | Richard Bonvanie | 692165 |  | 301 Birchdale road, unit 5 |  |  | J4777343 | 37 | 21663 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786476138293-cerzte | 2026-08-11 15:22:18 | Richard Bonvanie | 692166 |  | 301 Birchdale road, unit 6 |  |  | J4777344 | 38 | 20395 | INSTALLED |  | Meter bank. In bsmt elec rm |  |  |  | land |
+| 1786476261581-7y452r | 2026-08-11 15:24:21 | Richard Bonvanie | 693585 |  | 3 Regent St, Kearney | 45.549627 | -79.224866 | J4774645 | 562 | 31297 | INSTALLED |  |  |  |  |  | land |
+| 1786476342952-ngbz12 | 2026-08-11 15:25:42 | Richard Bonvanie | 691327 |  | 7 Regent St, Kearney, ON P0A 1J0, Canada | 45.54962 | -79.224854 | J4774646 | 303 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786476387121-51dqrj | 2026-08-11 15:26:27 | Richard Bonvanie | 689028 |  | 11 Regent St, Kearney | 45.549619 | -79.22486 | J4774647 | 24 | 94866 | INSTALLED |  |  |  |  |  | land |

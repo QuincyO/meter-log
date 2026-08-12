@@ -1,6 +1,6 @@
 # Employees
 
-_7 rows · exported 2026-08-11 03:52 America/Toronto_
+_8 rows · exported 2026-08-12 03:52 America/Toronto_
 
 | hNumber | firstName | lastName | active | subName | homeAddress | homeLat | homeLng |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -11,3 +11,4 @@ _7 rows · exported 2026-08-11 03:52 America/Toronto_
 | E57714 | Josue | Vasquez | true | Darren |  |  |  |
 | E58067 | Owen | McCagherty | true | Jason |  |  |  |
 | H000001 | Andrew | Goff | true |  |  |  |  |
+| H643995 | Richard | Bonvanie | true | Buzz |  |  |  |

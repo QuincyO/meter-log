@@ -1,6 +1,6 @@
 # Downtime
 
-_240 rows · exported 2026-08-11 03:52 America/Toronto_
+_259 rows · exported 2026-08-12 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -244,3 +244,22 @@ _240 rows · exported 2026-08-11 03:52 America/Toronto_
 | 1786391108848-455zla | 2026-08-10 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 694403 | gap 12:52–13:25 |  |
 | 1786391108848-0y1c24 | 2026-08-10 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 15 | 695422 | gap 14:06–14:37 |  |
 | 1786391108848-nzwr9h | 2026-08-10 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 695478 | gap 14:37–14:46 |  |
+| 1786449735607-rxw22c | 2026-08-11 12:00:00 | Richard Bonvanie | WAREHOUSE | 15 | 687320 | gap 08:00–08:00 |  |
+| 1786449735607-bd234y | 2026-08-11 12:00:00 | Richard Bonvanie | TOOLS_MATERIAL | 15 | 687320 | gap 08:00–08:00 |  |
+| 1786468689727-s2ifn3 | 2026-08-11 13:18:09 | Richard Bonvanie | WAREHOUSE | 30 |  |  | land |
+| 1786476732282-c3fd5p | 2026-08-11 15:32:12 | Richard Bonvanie | WAREHOUSE | 15 | 693585 |  | land |
+| 1786476996556-fwa209 | 2026-08-11 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 695515 | gap 09:50–09:50 |  |
+| 1786476996557-64fco7 | 2026-08-11 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 695515 | gap 09:50–09:50 |  |
+| 1786476996557-6fgl8v | 2026-08-11 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 695515 | gap 09:50–09:50 |  |
+| 1786476996557-32tn9y | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 60 | 695515 | gap 09:50–09:50 |  |
+| 1786476996557-glg23c | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 694850 | gap 10:02–10:24 |  |
+| 1786476996557-u2ybv4 | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 695931 | gap 11:27–11:55 |  |
+| 1786476996557-cn9zd3 | 2026-08-11 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 5 | 695979 | gap 11:55–12:08 |  |
+| 1786476996557-wq3vgv | 2026-08-11 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 5 | 696531 | gap 12:08–12:22 |  |
+| 1786476996557-sjn7yb | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 696161 | gap 12:22–12:41 |  |
+| 1786476996557-yw8q6j | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 696199 | gap 12:56–13:20 |  |
+| 1786476996557-a98jun | 2026-08-11 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 685641 | gap 13:20–14:51 |  |
+| 1786476996557-tpgs84 | 2026-08-11 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 685641 | gap 13:20–14:51 |  |
+| 1786485915031-37f7ho | 2026-08-11 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 692720 | gap 09:53–09:53 |  |
+| 1786485915031-cq7ehe | 2026-08-11 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 692720 | gap 09:53–09:53 |  |
+| 1786485915031-5137uv | 2026-08-11 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 692720 | gap 09:53–09:53 |  |
