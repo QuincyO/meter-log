@@ -31,6 +31,17 @@ another. Two consequences that matter more than they sound:
   Commit directly to `main` unless told otherwise; on a feature branch, push that
   branch. **Run the tests before pushing** — a push to `main` here is a production
   deploy, so "evidence before assertions" matters more, not less.
+  **A commit on a feature branch has not shipped either, and that failure is disguised.**
+  Both deploy paths read `main` only, so a branch commit changes nothing the crew can
+  reach — while every signal you have says otherwise: tests green, branch pushed, phone
+  refreshed. The bug is still there, which reads as *"the fix doesn't work"* rather than
+  *"the fix isn't there"*, and the next move is to re-open working code. It cost a full
+  round trip on 2026-08-13 (the pin-first Navigate change: the crew's phone drove 35 km to
+  the wrong town off the address string with a correct pin on the route map two screens
+  away, and Settings ▸ ⟳ Force update was doing its job perfectly — re-fetching the old
+  bytes from `main`). **Before concluding a shipped change didn't work, check what
+  `main` actually holds** — `git show origin/main:<file>` settles it in one command. If
+  the branch needs to reach the field, say so and ask; merging is the user's call.
 - **Write the changelog entry in the same commit as the change.** Not as a later sweep —
   reconstructing *why* a change was made from a diff, weeks on, is exactly the work it exists
   to prevent. Two files, both required:
