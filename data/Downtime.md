@@ -1,6 +1,6 @@
 # Downtime
 
-_259 rows · exported 2026-08-12 03:52 America/Toronto_
+_278 rows · exported 2026-08-13 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -263,3 +263,22 @@ _259 rows · exported 2026-08-12 03:52 America/Toronto_
 | 1786485915031-37f7ho | 2026-08-11 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 692720 | gap 09:53–09:53 |  |
 | 1786485915031-cq7ehe | 2026-08-11 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 692720 | gap 09:53–09:53 |  |
 | 1786485915031-5137uv | 2026-08-11 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 692720 | gap 09:53–09:53 |  |
+| 1786540662021-sgpezl | 2026-08-12 09:17:42 | Richard Bonvanie | TRUCK_ISSUES | 15 | 695658 |  | land |
+| 1786540687741-zm2v5x | 2026-08-12 09:18:07 | Richard Bonvanie | TRAVEL_TIME | 45 | 695658 |  | land |
+| 1786546084022-b59da9 | 2026-08-12 10:48:04 | Richard Bonvanie | TRAVEL_TIME | 60 | 693261 |  | land |
+| 1786548952469-gdx244 | 2026-08-12 11:35:52 | Quincy Orta | TOOLS_MATERIAL | 10 | 665272 |  | land |
+| 1786561521533-rhnkgp | 2026-08-12 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 682129 | gap 10:13–10:13 |  |
+| 1786561521533-3i21lg | 2026-08-12 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 682129 | gap 10:13–10:13 |  |
+| 1786561521533-vemesi | 2026-08-12 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 682129 | gap 10:13–10:13 |  |
+| 1786561521533-3ceb0r | 2026-08-12 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 682129 | gap 10:13–10:13 |  |
+| 1786561521533-vndjrd | 2026-08-12 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 692944 | gap 10:13–10:41 |  |
+| 1786561521533-dy8fa1 | 2026-08-12 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 690814 | gap 11:24–11:45 |  |
+| 1786561521533-0a1yrw | 2026-08-12 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 685701 | gap 12:05–12:28 |  |
+| 1786561521533-uxsfzj | 2026-08-12 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 688323 | gap 13:20–13:55 |  |
+| 1786561521533-8pq9ug | 2026-08-12 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 690861 | gap 14:17–14:37 |  |
+| 1786564380325-dp10br | 2026-08-12 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 675973 | gap 09:35–09:35 |  |
+| 1786564380325-rhzei1 | 2026-08-12 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 675973 | gap 09:35–09:35 |  |
+| 1786564380325-n3n0am | 2026-08-12 12:00:00 | Quincy Orta | DISPATCH | 60 | 675973 | gap 09:35–09:35 |  |
+| 1786564380325-to4q83 | 2026-08-12 12:00:00 | Quincy Orta | BAD_WEATHER | 30 | 677144 | gap 14:38–14:47 |  |
+| 1786565074546-02ugo3 | 2026-08-12 16:04:34 | Richard Bonvanie | NEXT_GEN | 5 | 687519 |  | land |
+| 1786565094780-wve1dg | 2026-08-12 16:04:54 | Richard Bonvanie | NEXT_GEN | 5 | 690546 |  | land |

@@ -1,6 +1,6 @@
 # Stops
 
-_799 rows · exported 2026-08-12 03:52 America/Toronto_
+_862 rows · exported 2026-08-13 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -803,3 +803,66 @@ _799 rows · exported 2026-08-12 03:52 America/Toronto_
 | 1786476261581-7y452r | 2026-08-11 15:24:21 | Richard Bonvanie | 693585 |  | 3 Regent St, Kearney | 45.549627 | -79.224866 | J4774645 | 562 | 31297 | INSTALLED |  |  |  |  |  | land |
 | 1786476342952-ngbz12 | 2026-08-11 15:25:42 | Richard Bonvanie | 691327 |  | 7 Regent St, Kearney, ON P0A 1J0, Canada | 45.54962 | -79.224854 | J4774646 | 303 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1786476387121-51dqrj | 2026-08-11 15:26:27 | Richard Bonvanie | 689028 |  | 11 Regent St, Kearney | 45.549619 | -79.22486 | J4774647 | 24 | 94866 | INSTALLED |  |  |  |  |  | land |
+| 1786540614748-mvrnjp | 2026-08-12 09:16:54 | Richard Bonvanie | 695658 |  | 1230 Forrest Lake Rd | 45.801388 | -79.312006 | J4777347 | 46 | 56287 | INSTALLED |  | TR1 completed on time. 45 mins from meeting and away from cluster. |  |  |  | land |
+| 1786541719223-uc09n8 | 2026-08-12 09:35:19 | Quincy Orta | 675973 |  | 1211 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.257066 | -78.934111 | J4779135 | J3535466 | 25570 | INSTALLED |  |  |  |  |  | land |
+| 1786542374647-n79asn | 2026-08-12 09:46:14 | Quincy Orta | 679427 |  | 1209 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.257513 | -78.934504 | J4779134 | J3709149 | 76653 | INSTALLED |  |  |  |  |  | land |
+| 1786543034686-k16g97 | 2026-08-12 09:57:14 | Quincy Orta | 668331 |  | 1221 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.256009 | -78.934143 | J4779127 | J3531010 | 19865 | INSTALLED |  |  |  |  |  | land |
+| 1786543885693-jcbnwb | 2026-08-12 10:11:25 | Quincy Orta | 669196 |  | 1030 Delbrooke Dr, Lake of Bays, ON P0A 1H0, Canada | 45.251642 | -78.935543 | J4779136 | J3195523 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786544013341-vpxic5 | 2026-08-12 10:13:33 | Phillip Monteiro | 682129 |  | 38 Stewarts Rd, Perry | 45.497724 | -79.358469 | J4776404 | J3098707 | 77614 | INSTALLED |  |  |  |  |  | land |
+| 1786544419972-jkntnf | 2026-08-12 10:20:19 | Quincy Orta | 678281 | 2 | 1032 Delbrooke Dr, Lake of Bays, ON P0A 1H0, Canada | 45.251171 | -78.934135 | J4779137 | J4238305 | 6792 | INSTALLED |  |  |  |  |  | land |
+| 1786544999413-p9etv2 | 2026-08-12 10:29:59 | Quincy Orta | 668333 |  | 1026 Delbrooke Dr, Lake of Bays, ON P0A 1H0, Canada | 45.251773 | -78.936509 | J4779129 | J3222707 | 32783 | INSTALLED |  |  |  |  |  | land |
+| 1786545510714-sjgic0 | 2026-08-12 10:38:30 | Quincy Orta | 668332 |  | 1020 Delbrooke Dr, Lake of Bays, ON P0A 1H0, Canada | 45.25303 | -78.9365 | J4779126 | J3248410 | 15482 | INSTALLED |  |  |  |  |  | land |
+| 1786545661755-uzq2sk | 2026-08-12 10:41:01 | Phillip Monteiro | 692944 |  | 1050 Fern Glen Rd, Perry | 45.49125 | -79.35305 | J4776405 | J3255485 | 86984 | INSTALLED |  |  |  |  |  | land |
+| 1786546086354-9k9b0q | 2026-08-12 10:48:06 | Richard Bonvanie | 693261 |  | 819 C West Bear Lake | 45.423843 | -79.589551 | J4777348 | 658 | 79209 | INSTALLED |  | 60 mins from TR location |  |  |  | land |
+| 1786547318373-ubdlg9 | 2026-08-12 11:08:38 | Quincy Orta | 675975 |  | 1250 Delbrooke Dr, Lake of Bays, ON P0A 1H0, Canada | 45.254469 | -78.935688 | J4619312 | J3530908 | 50152 | INSTALLED |  |  |  |  |  | land |
+| 1786548027482-rgekyk | 2026-08-12 11:20:27 | Quincy Orta | 669219 |  | 1017 Bayview Point Rd, Lake of Bays, ON P0A 1H0, Canada | 45.255135 | -78.93723 | J4779128 | J3245505 | 67891 | INSTALLED |  |  |  |  |  | land |
+| 1786549166806-pwmbi6 | 2026-08-12 11:39:26 | Quincy Orta | 665272 |  | 1019 Bayview Point Rd, Lake of Bays, ON P0A 1H0, Canada | 45.254928 | -78.937422 | J4779114 | J3245101 | 58808 | INSTALLED |  |  |  |  |  | land |
+| 1786549665047-6zl2ho | 2026-08-12 11:47:45 | Quincy Orta | 676764 | 2 | 1025 Bayview Point Rd, Lake of Bays, ON P0A 1H0, Canada | 45.255038 | -78.938722 | J4779117 | J3245043 | 33576 | INSTALLED |  |  |  |  |  | land |
+| 1786549682258-ortpcp | 2026-08-12 11:48:02 | Richard Bonvanie | 687797 |  | 3420 Hwy 518 |  |  | J4777349 | 970 | 83568 | INSTALLED |  | In gated fence to left |  |  |  | land |
+| 1786550222180-ifndc1 | 2026-08-12 11:57:02 | Richard Bonvanie | 693750 |  | 5232 Hwy 518 |  |  | J4777350 | 68 |  | INSTALLED |  | In fenced area at end of long laneway | Missing segments |  |  | land |
+| 1786550584768-r3t292 | 2026-08-12 12:03:04 | Quincy Orta | 677180 |  | 1031 Bayview Point Rd, Lake of Bays, ON P0A 1H0, Canada | 45.25631 | -78.938514 | J4779115 | J3535417 | 68254 | INSTALLED |  |  |  |  |  | land |
+| 1786551018344-uroud3 | 2026-08-12 12:10:18 | Quincy Orta | 675960 |  | 1033 Bayview Point Rd, Lake of Bays, ON P0A 1H0, Canada | 45.256617 | -78.938553 | J4779116 | J3535419 | 13532 | INSTALLED |  |  |  |  |  | land |
+| 1786546168011-fmnz5a | 2026-08-12 10:49:28 | Phillip Monteiro | 693352 |  | 1010 Fern Glen Rd, Perry | 45.493264 | -79.353632 | J4777250 | J3904995 | 33781 | INSTALLED |  |  |  |  |  | land |
+| 1786546620653-1ad1ob | 2026-08-12 10:57:00 | Phillip Monteiro | 682393 |  | 987 Fern Glen Rd, Perry | 45.494255 | -79.35314 | J4777253 | J3753396 | 37904 | INSTALLED |  |  |  |  |  | land |
+| 1786547014130-y5xc7g | 2026-08-12 11:03:34 | Phillip Monteiro | 687847 |  | 986 Fern Glen Rd, Perry | 45.494241 | -79.354198 | J4777251 | J3904997 | 47770 | INSTALLED |  |  |  |  |  | land |
+| 1786547532143-fzoqsk | 2026-08-12 11:12:12 | Phillip Monteiro | 682391 |  | 960 Fern Glen Rd, Perry | 45.495333 | -79.35489 | J4777252 | J3105667 | 33106 | INSTALLED |  |  |  |  |  | land |
+| 1786547965233-eogyl5 | 2026-08-12 11:19:25 | Phillip Monteiro | 688292 |  | 940 Fern Glen Rd, Perry | 45.495943 | -79.355179 | J4777265 | J4160882 | 45867 | INSTALLED |  |  |  |  |  | land |
+| 1786548299424-f7433a | 2026-08-12 11:24:59 | Phillip Monteiro | 689431 |  | 921 Fern Glen Rd, Perry | 45.496838 | -79.355238 | J4777264 | J3264782 | 3213 | INSTALLED |  |  |  |  |  | land |
+| 1786549541784-lx9hg8 | 2026-08-12 11:45:41 | Phillip Monteiro | 690814 |  | 908 Fern Glen Rd, Perry | 45.497343 | -79.355892 | J4777262 | J3385262 | 79038 | INSTALLED |  |  |  |  |  | land |
+| 1786552377987-o0wio2 | 2026-08-12 12:32:57 | Richard Bonvanie | 682544 |  | 4809 B Hwy 518 |  |  | J4777351 | 497 | 64448 | INSTALLED |  |  |  |  |  | land |
+| 1786553140998-wh21to | 2026-08-12 12:45:40 | Quincy Orta | 677838 |  | 1297 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.251237 | -78.932631 | J4779131 | J3195698 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786553247766-zmpn8j | 2026-08-12 12:47:27 | Richard Bonvanie | 686293 |  | 4795 Hwy 518 |  |  | J4777352 | 499 | 77077 | INSTALLED |  |  |  |  |  | land |
+| 1786553529785-y0kxn0 | 2026-08-12 12:52:09 | Quincy Orta | 677065 |  | 1289 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.251463 | -78.931432 | J4779132 | J3530909 | 22301 | INSTALLED |  |  |  |  |  | land |
+| 1786553982843-50a37u | 2026-08-12 12:59:42 | Quincy Orta | 666971 |  | 1285 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.251566 | -78.930898 | J4779130 | J3749072 | 96469 | INSTALLED |  |  |  |  |  | land |
+| 1786554825047-9pfpvu | 2026-08-12 13:13:45 | Quincy Orta | 680128 |  | 1281 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.2519 | -78.93049 | J4779133 | J3246815 | 49754 | INSTALLED |  |  |  |  |  | land |
+| 1786555375398-1giprw | 2026-08-12 13:22:55 | Richard Bonvanie | 687519 |  | 4740 Hwy 518 |  |  | J4777353 | 682 | 48905 | INSTALLED |  |  |  |  |  | land |
+| 1786556153790-bmqe16 | 2026-08-12 13:35:53 | Richard Bonvanie | 693415 |  | 4729 Hwy 518 |  |  | J4777354 | 467 | 20875 | INSTALLED |  |  |  |  |  | land |
+| 1786556669605-0ofrge | 2026-08-12 13:44:29 | Richard Bonvanie | 686671 |  | 4730 Hwy 518 |  |  | J4777355 | 674 | 11899 | INSTALLED |  |  |  |  |  | land |
+| 1786557004746-qb0xot | 2026-08-12 13:50:04 | Richard Bonvanie | 693258 |  | 4720 Hwy 518 |  |  | J4777356 | 466 | 55152 | INSTALLED |  |  |  |  |  | land |
+| 1786557009279-mbuoyt | 2026-08-12 13:50:09 | Quincy Orta | 680020 |  | 1273 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.252853 | -78.931122 | J4646482 | J2196041 | 73523 | INSTALLED |  |  |  |  |  | land |
+| 1786558041471-u375z3 | 2026-08-12 14:07:21 | Quincy Orta | 679348 |  | 1279 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.252306 | -78.930675 | J4646483 | J3204597 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1786558341203-werp4v | 2026-08-12 14:12:21 | Richard Bonvanie | 691658 |  | 2 Beach St |  |  | J4777357 | 913 | 97699 | INSTALLED |  |  |  |  |  | land |
+| 1786558832642-5iktfl | 2026-08-12 14:20:32 | Richard Bonvanie | 686734 |  | 10 Beach St |  |  | J4777358 | 779 | 26533 | INSTALLED |  |  |  |  |  | land |
+| 1786559104863-7fra0c | 2026-08-12 14:25:04 | Quincy Orta | 669007 |  | 1269 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.253243 | -78.930999 | J4646481 | J3534985 | 61377 | INSTALLED |  |  |  |  |  | land |
+| 1786559301198-xpl6ul | 2026-08-12 14:28:21 | Richard Bonvanie | 692219 |  | 13 Beach St |  |  | J4777359 | 988 | 4444 | INSTALLED |  |  |  |  |  | land |
+| 1786549998283-uqi8y7 | 2026-08-12 11:53:18 | Phillip Monteiro | 690244 |  | 44 Expressway Rd, Perry | 45.499928 | -79.356515 | J4777263 | J4110267 | 74868 | INSTALLED |  |  |  |  |  | land |
+| 1786550739024-fyay9m | 2026-08-12 12:05:39 | Phillip Monteiro | 686124 |  | 221 Expressway Rd, Perry | 45.507333 | -79.360525 | J4777259 | J3756760 | 42868 | INSTALLED |  |  |  |  |  | land |
+| 1786552123566-116tdj | 2026-08-12 12:28:43 | Phillip Monteiro | 685701 |  | 273 Expressway Rd, Perry | 45.509014 | -79.360761 | J4777260 | J3996338 | 24604 | INSTALLED |  |  |  |  |  | land |
+| 1786553344461-lfb0bh | 2026-08-12 12:49:04 | Phillip Monteiro | 691365 |  | 670 Fern Glen Rd, Perry | 45.501851 | -79.34318 | J4777258 | J3236936 | 78975 | INSTALLED |  |  |  |  |  | land |
+| 1786553994368-jwk5g2 | 2026-08-12 12:59:54 | Phillip Monteiro | 692569 |  | 770 Fern Glen Rd, Perry | 45.500374 | -79.348741 | J4777261 | J3229027 | 12261 | INSTALLED |  |  |  |  |  | land |
+| 1786554884739-br1a1y | 2026-08-12 13:14:44 | Phillip Monteiro | 692377 |  | 785 Fern Glen Rd, Perry | 45.499363 | -79.349488 | J4777248 | J3229147 | 63175 | INSTALLED |  |  |  |  |  | land |
+| 1786555257983-d519h5 | 2026-08-12 13:20:57 | Phillip Monteiro | 693142 | B | 785 Fern Glen Rd, Perry | 45.499543 | -79.350292 | J4777246 | J3135710 | 4065 | INSTALLED |  |  |  |  |  | land |
+| 1786557322948-djtghw | 2026-08-12 13:55:22 | Phillip Monteiro | 688323 |  | 811 Fern Glen Rd, Perry | 45.498917 | -79.351269 | J4777249 | J3197066 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786557799877-m9rdd4 | 2026-08-12 14:03:19 | Phillip Monteiro | 690873 |  | 840 Fern Glen Rd, Perry | 45.499204 | -79.352973 | J4777247 | J3273134 | 17354 | INSTALLED |  |  |  |  |  | land |
+| 1786558665654-k96rqz | 2026-08-12 14:17:45 | Phillip Monteiro | 689330 |  | 879 Fern Glen Rd, Perry | 45.498244 | -79.354003 | J4777244 | J4227656 | 12745 | INSTALLED |  |  |  |  |  | land |
+| 1786559491812-oasq1m | 2026-08-12 14:31:31 | Quincy Orta | 678497 |  | 1267 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.253487 | -78.930398 | J4646484 | J3886480 | 13938 | INSTALLED |  |  |  |  |  | land |
+| 1786559851561-px1md7 | 2026-08-12 14:37:31 | Phillip Monteiro | 690861 |  | 50 Fern Glen Rd, Perry, ON P0A 1J0, Canada | 45.511366 | -79.310319 |  | J2091974 |  | UTI | Key Required | Gas pipeline |  |  |  | land |
+| 1786559921711-lk0saw | 2026-08-12 14:38:41 | Quincy Orta | 672258 |  | 1265 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.2541 | -78.93116 | J4779121 | J3530911 | 91908 | INSTALLED |  |  |  |  |  | land |
+| 1786559953331-wwkk1m | 2026-08-12 14:39:13 | Richard Bonvanie | 690546 |  | 15 Beach St |  |  | J4777360 | 481 | 23467 | INSTALLED |  |  |  |  |  | land |
+| 1786560371278-yj5u5m | 2026-08-12 14:46:11 | Richard Bonvanie | 691826 |  | 21 Beach St |  |  | J4777361 | 255 | 68013 | INSTALLED |  |  |  |  |  | land |
+| 1786560454799-kd22fg | 2026-08-12 14:47:34 | Quincy Orta | 677144 |  | 1261 Delbrooke Rd, Lake of Bays, ON P0A 1H0, Canada | 45.254564 | -78.931623 | J4779118 | J3792230 | 56415 | INSTALLED |  |  |  |  |  | land |
+| 1786562044897-ki87t1 | 2026-08-12 15:14:04 | Richard Bonvanie | 686774 |  | 4705 Hwy 518 |  |  | J4781898 | 498 | 12963 | INSTALLED |  |  |  |  |  | land |
+| 1786562683833-8hfh4p | 2026-08-12 15:24:43 | Richard Bonvanie | 689213 |  | 4699 Hwy 518 |  |  | J4781899 | 484 | 17443 | INSTALLED |  |  |  |  |  | land |
+| 1786563690570-rslp9u | 2026-08-12 15:41:30 | Richard Bonvanie | 690999 |  | 4689 Hwy 518 |  |  | J4781900 | 469 | 65128 | INSTALLED |  |  |  |  |  | land |
+| 1786564580532-6zt9uj | 2026-08-12 15:56:20 | Richard Bonvanie | 682349 |  | 6 OLine St |  |  | J4781901 | 67 | 4231 | INSTALLED |  | Address is wrong and not displayed.  Lot is on the left at end of OLine on pedestal. Possibly 15 OLine St. |  |  |  | land |
+| 1786566187696-61mb5o | 2026-08-12 16:23:07 | Richard Bonvanie | 691890 |  | 20 OLine St |  |  | J4781902 | 87 | 30091 | INSTALLED |  |  |  |  |  | land |
