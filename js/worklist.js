@@ -350,16 +350,26 @@ async function pruneDoneWorklist(){
 // installed — detected by whether the page ever backgrounds (the app opened).
 // Android/desktop keep the Google universal dir link, which Android hands to
 // whichever maps app the user has set as default (a choice iOS doesn't offer).
-// Navigation goes by the order's ADDRESS (+ ", ON" to stay in-province) — the
-// text the installer typed is the source of truth, and a mis-geocoded pin must
-// not steer the truck to the wrong spot. Coords are only the fallback for an
-// addressless order (the button isn't even rendered without an address).
+// Navigation goes by the order's PIN when it has a trusted one — the same
+// coordinates the route map draws, which is the exact spot the route was built
+// around. Handing the maps app the address TEXT instead lets it geocode a second
+// time, with its own guess: a rural line lands on the wrong side of a lake, and a
+// road name that repeats in three townships picks one. (This used to be the other
+// way round — address first, on the reasoning that a mis-geocoded pin must not
+// steer the truck. The flagged-pin carve-out below is what that reasoning bought,
+// and the field verdict on the rest of it was that the pin is the better guide.)
+// A PARKED order is the carve-out: geoFail (📍 fix address) / geoAmbig (⚠ pick a
+// town) orders keep their last-known pin — it is never blanked — and that pin is
+// exactly the one known to be wrong, so those fall back to the address text.
+// `isParked` is the repo's single "must not be routed on this pin" test; don't
+// grow a second rule here. No trusted pin and no address means no destination.
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function destOf(item){
-  const addr = String(item.address || '').trim();
-  const c = coordsOf(item);
-  return addr ? enc(addr + ', ON') : (c ? enc(c.lat + ',' + c.lng) : '');
+  const c = isParked(item) ? null : coordsOf(item);
+  if(c) return enc(c.lat + ',' + c.lng);
+  const addr = String(item.address || '').trim();   // + ", ON" to stay in-province
+  return addr ? enc(addr + ', ON') : '';
 }
 // The address line exactly as the card shows it — what lands on the clipboard.
 function addressLabel(item){
@@ -1750,8 +1760,10 @@ function makeWlCard(item){
   // Town chips right on the card (same one-tap pick as the Edit form).
   if(cands) [...card.querySelectorAll('.wl-towns .chip')].forEach((b, i) =>
     b.onclick = () => pickTown(item, cands[i]));
-  // Directions hands the address to the OS maps app in a new context — never
-  // navigate the PWA itself away mid-shift. Shown on done cards too (revisits).
+  // Directions hands the order's destination (its pin, else the address — see
+  // destOf) to the OS maps app in a new context, and copies the address line —
+  // never navigate the PWA itself away mid-shift. Shown on done cards too
+  // (revisits).
   const mapBtn = card.querySelector('[data-act="map"]');
   if(mapBtn) mapBtn.onclick = () => openDirections(item);
   card.querySelector('[data-act="edit"]').onclick = () => wlOpenForm(item);

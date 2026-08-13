@@ -150,7 +150,7 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 2. Tap **Save order** and keep adding; **Done** closes the form.
 3. **Have a whole list of work order numbers?** Hold **＋ Add order** for two seconds and a paste box opens: paste the numbers, one per line, and tap **Add orders**. Numbers already on your list are skipped, and the message tells you how many were added and how many skipped. The new orders land under **Needs address**, ready for 📝 Fill in missing addresses (below).
 4. Drag the **⠿** handle to put the orders in driving order. Drag a card to the **top or bottom edge of the screen** and the list scrolls under your finger, so you can move an order all the way up a long list in one go — no more dropping it, scrolling, and picking it up again.
-5. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+5. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app — to the order's map pin, or its address if it hasn't got one — *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
 
 ### Filling in missing addresses
 
@@ -265,7 +265,7 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
 - If the road distances couldn't be fetched, the finished message says **why** (for example the map key was rejected) and the route is planned on straight-line distances instead — still usable, just blind to rivers and detours.
-- The directions button (🧭) hands the order's **address** to your maps app — it navigates to what's written on the card, so even if the planning pin landed oddly, the truck still goes to the right door. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default. It also **copies the address to your clipboard** on the way out, ready to paste wherever you need it.
+- The directions button (🧭) sends your maps app to the order's **map pin** — the same spot you see on the route map — rather than to the address text, so the maps app doesn't get to make its own guess about which road or which town you meant. If the order has **no pin**, or its card is flagged **📍 fix address** or **⚠ pick a town** (those keep an old pin that's known to be in the wrong place), it navigates by the written address instead. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default. Either way it **copies the address to your clipboard** on the way out, ready to paste wherever you need it.
 
 Re-running it any time is safe — completed orders stay done, and only what's left is re-planned.
 
@@ -433,7 +433,7 @@ If the GPS address disagrees with the planned one, the form asks "GPS found a di
 Tap **🚗 Drive** on the worklist to open a clean, one-card driving screen. It shows just the current order — work order number, address, Old J# — with a big **Navigate** button that hands off to Google Maps, and **‹ Back** / **Next ›** to flip through your orders.
 
 - **Back and Next only change what you're looking at.** They do not mark anything done and do not change your list. An order is still completed the normal way — when you log its meter.
-- **Navigate** opens Google Maps for the current address (and copies the address, like the 🧭 button on the worklist). When you're done, switch back to the app and your card is still there.
+- **Navigate** opens Google Maps for the current order — its map pin when it has one, its address otherwise — and copies the address, exactly like the 🧭 button on the worklist. When you're done, switch back to the app and your card is still there.
 
 **"Arrive ~10:42 · in 12 min"** under the address is when you're due at that order — the same arrival time the worklist and the route map show, so you don't have to go back to read it. Once you've tapped **▶ Start drive tracking**, it's measured **from where the truck actually is**, not from the last house you finished, so it sharpens as you drive and it's right after a walk-up or anything else you did off the list. Without tracking on it still works, measured from your last completed stop instead. Two things it will tell you rather than hide: the "in N min" disappears once the arrival time has gone by (the route hasn't re-timed yet), and the whole line greys out and says **(stale)** if the route couldn't be solved — those times are from an earlier plan and want a re-optimize.
 

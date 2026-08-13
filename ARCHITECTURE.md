@@ -596,10 +596,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   the card glued to the finger. Each card with an
   address gets a 🧭 **Directions** button — it opens the OS maps app in a new
   context (Apple Maps on iOS, the Google Maps universal dir link elsewhere) on
-  the order's **address text** plus an `", ON"` region hint (the typed address is
-  the source of truth: a mis-geocoded pin must not steer the truck), falling back
-  to the cached coords only for an addressless order. It also **copies the
-  address line to the clipboard** on the way out — the crew pastes it into the
+  the order's **cached pin**, the same coordinates the route map draws, falling
+  back to the **address text** plus an `", ON"` region hint when there is no
+  trusted pin. Handing over the address instead makes the maps app geocode a
+  second time with a guess of its own — the wrong side of a lake, or one of the
+  three townships that share a road name — while the pin is the exact spot the
+  route was built around. **A parked order is the carve-out:** `geoFail`
+  (📍 fix address) / `geoAmbig` (⚠ pick a town) orders keep their last-known pin
+  (it is never blanked) and that pin is the one already known to be wrong, so
+  `isParked` sends those to the address text. It was the other way round until
+  2026-08-13 — address first, on the reasoning that a mis-geocoded pin must not
+  steer the truck; the flagged-pin carve-out is what survives of that. It also
+  **copies the address line to the clipboard** on the way out — the crew pastes it into the
   work app while the route loads; the write is issued synchronously in the tap
   handler, before the iOS scheme hand-off takes the page away, and a
   denied/unsupported clipboard never blocks directions. The explicit
