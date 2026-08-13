@@ -9,12 +9,43 @@
 // already flagged in compute/gaps.js. Team header + whole-boat dispatch come from
 // the cached `boatMeta` the spine returns on each log / day read.
 import { parseLocalMs } from '../time.js';
-import { computeGapsLocal } from './gaps.js';
+import { computeGapsLocal, gapNoteTimes } from './gaps.js';
 import { BREAK_CATS, TRAVEL_ADJ_CATS } from './categories.js';
 
 // Categories that don't subtract from a gap's travel (legacy "whole gap was
 // travel" marker). Everything else entered on a gap is a deduction.
 const NON_DEDUCTION = { TRAVEL_TIME: 1 };
+
+// The end-of-day travel review's deductions are Downtime rows the spine has not been
+// told about yet, and the PDF prints its delays FROM the downtime rows: the land
+// template's per-WO DELAYS grid, the boat "Delay Time" box and the "Delays:" footer
+// all read `summary.downtime`. Netting them out of travel (below) without also
+// printing them is how a fallback PDF came out with a blank delay grid for work the
+// installer had just typed — while the same minutes reached the Sheet moments later
+// via saveTravel. So synthesize the rows saveTravel would have written: same
+// `gap HH:MM–HH:MM` note, the arriving WO, the category and the minutes.
+//
+// saveTravel REPLACES the day's gap-tagged rows rather than adding to them, so a
+// partly-synced review must drop the existing gap-tagged rows before appending, or a
+// deduction already on the Sheet would be counted twice. Gated on a non-empty pending
+// list for the same reason computeGapsLocal is: with nothing pending, the saved rows
+// ARE the review, and the printed rows and the travel netting must always describe
+// the same set.
+function mergePendingTravel(downtime, pending, o){
+  if(!pending || !pending.length) return downtime;
+  const date = o.date || '';
+  return downtime.filter(d => !gapNoteTimes(d.note)).concat(
+    pending.filter(a => a && a.category && (Number(a.minutes) || 0) > 0).map((a, i) => ({
+      id: 'pending-' + i,
+      timestamp: date ? (date + ' 12:00:00') : '',   // anchored on the day, like saveTravel
+      installer: o.installer || '',
+      category: String(a.category).toUpperCase(),
+      minutes: Number(a.minutes) || 0,
+      workOrderId: a.workOrderId || '',
+      note: 'gap ' + a.fromTime + '–' + a.toTime,
+      workType: o.workType === 'land' ? 'land' : 'boat'
+    })));
+}
 
 export function buildLocalSummary(opts){
   const o = opts || {};
@@ -22,9 +53,9 @@ export function buildLocalSummary(opts){
   // feed the footer's "Visited" tally, exactly like the spine's stopsFor(). The
   // renderer filters to INSTALLED/UTI for the body rows.
   const stops    = o.stops || [];
-  const downtime = o.downtime || [];
   const day      = o.day || {};
   const bm       = o.boatMeta || {};
+  const downtime = mergePendingTravel(o.downtime || [], o.pendingTravel, o);
 
   // Net travel per arriving stop = gap minutes − the minutes subtracted from it.
   const gaps = computeGapsLocal(stops, downtime, o.pendingTravel);

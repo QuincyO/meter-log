@@ -237,7 +237,13 @@ database, `meterlog`, with **four** object stores:
   signal queues `saveTravel` + `saveDay` + `endOfDay` and **renders the PDF on the
   device** from the cached day (the phone draws it with jsPDF — no connection
   needed; see "Daily-log PDF"); when online the authoritative `idle` overrides the
-  local gaps.
+  local gaps **until the installer starts working in the review**, after which the
+  late `day`/`idle` render is skipped entirely (`eodTouched`) — see `AGENTS.md`
+  §"Things that are easy to get wrong". Those in-progress deductions are also **printed**,
+  not merely netted out of travel: `buildLocalSummary` folds `pendingTravel` into
+  the `downtime` rows it returns, shaped exactly like the gap-tagged rows
+  `saveTravel` writes (and replacing any already there, since `saveTravel` is a
+  whole-day replace), so an un-synced review reaches the PDF's delay columns.
 - **`worklist`** (keyPath `id`) — the installer's locally-built **planned
   orders** (a personal to-do list). Add / edit / delete all run against
   IndexedDB, so the list is fully editable offline. An order is marked done when

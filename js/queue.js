@@ -43,17 +43,30 @@ export async function migrateLegacyQueue(){
 // Re-entrancy guard: flush() is triggered from enqueue + online/focus/visibility +
 // explicit awaits, which fire near-simultaneously when signal returns. Without this,
 // two concurrent runs each take their own queue snapshot and re-send/lose items.
-let flushing = false;
+//
+// It holds the in-flight run's PROMISE, not a boolean, and a re-entrant call gets
+// that promise back — so `await flush()` is a real barrier. It used to be
+// `if(flushing) return;`, which resolves instantly, and every call site that awaits
+// the queue before reading the Sheet (`previewDailyLog`, `endOfDay`, the End-of-day
+// open) was silently not waiting at all: `enqueue` fires an un-awaited flush(), so
+// the guard is armed for the whole drain, and a summary built during it reads a
+// Sheet that is still missing the rows the phone just queued. The loop re-reads the
+// queue each pass, so awaiting the run already in flight also covers anything
+// enqueued while it was running.
+let flushing = null;
 // Whether the last flush attempt failed at the network layer. This — not the
 // unreliable navigator.onLine — drives the "offline" pill: some mobile browsers
 // leave navigator.onLine stuck at a false `false` after a WiFi sleep/wake, which
 // used to wedge the whole queue. We now always attempt the send and let the real
 // fetch outcome decide.
 let lastFlushFailed = false;
-export async function flush(){
-  if(flushing) return;
-  const c = cfg(); if(!c.url) { paint(); return; }
-  flushing = true;
+export function flush(){
+  if(flushing) return flushing;
+  const c = cfg(); if(!c.url) { paint(); return Promise.resolve(); }
+  flushing = drain(c).finally(() => { flushing = null; });
+  return flushing;
+}
+async function drain(c){
   try{
     while(true){
       const q = await queueAll();   // re-read each pass so a mid-flush enqueue is picked up
@@ -100,8 +113,12 @@ export async function flush(){
       lastFlushFailed = !(resp.ok && respBody);
       break;
     }
-  } finally { flushing = false; }
-  paint();
+  }
+  // Never reject: callers `await flush()` bare, and now that they really do wait on
+  // the shared run, a thrown IndexedDB error would take the awaiting handler (the
+  // End-of-day open, the close) down with it.
+  catch {/* keep the queue; the next trigger retries */}
+  finally { paint(); }     // resetting `flushing` is the caller's .finally()
 }
 
 // The parked (set-aside poison) items, for the "Stuck uploads" review screen.

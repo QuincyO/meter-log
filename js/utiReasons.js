@@ -4,6 +4,14 @@
 // "Other" is not in this list — it's appended by the option builder and reveals
 // a free-text box; the stored value then becomes "Other: <text>".
 
+// The reason that counts as an EER (emergency electrical repair) on the day's
+// clipboard tally — see js/compute/tally.js tallyBlock. Named here rather than
+// written as a literal at the counting site so the tally and the picklist can
+// never drift apart silently; tests/day-tally-block.test.mjs fails the build if
+// this string stops being one of the reasons below, because a rename would
+// otherwise just zero the EER line with nothing on screen saying so.
+export const EER_UTI_REASON = 'Electrical Repair';
+
 export const UTI_REASONS = [
   'Appointment Needed',
   'Bad Road',
