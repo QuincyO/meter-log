@@ -148,8 +148,9 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 
 1. Tap **＋ Add order** and enter the **Work order #**, the address (house **No.** + **Street / landmark** — recent streets appear as tap-to-fill chips), and the **Old J#** if you know it.
 2. Tap **Save order** and keep adding; **Done** closes the form.
-3. Drag the **⠿** handle to put the orders in driving order. Drag a card to the **top or bottom edge of the screen** and the list scrolls under your finger, so you can move an order all the way up a long list in one go — no more dropping it, scrolling, and picking it up again.
-4. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+3. **Have a whole list of work order numbers?** Hold **＋ Add order** for two seconds and a paste box opens: paste the numbers, one per line, and tap **Add orders**. Numbers already on your list are skipped, and the message tells you how many were added and how many skipped. The new orders land under **Needs address**, ready for 📝 Fill in missing addresses (below).
+4. Drag the **⠿** handle to put the orders in driving order. Drag a card to the **top or bottom edge of the screen** and the list scrolls under your finger, so you can move an order all the way up a long list in one go — no more dropping it, scrolling, and picking it up again.
+5. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
 
 ### Filling in missing addresses
 

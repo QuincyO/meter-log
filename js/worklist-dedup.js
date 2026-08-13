@@ -93,3 +93,26 @@ export function dedupePlan(items){
   }
   return { groups, keepIds, removeIds, dupCount: removeIds.length };
 }
+
+/** The bulk-paste plan: one WO# per line of `text` → which to add, and how
+ *  many were skipped as duplicates (of a non-done item already on the list, or
+ *  of an earlier line — same rule as wlSave's guard, so a done order's number
+ *  can be pasted again for a revisit). Blank lines are ignored, not counted:
+ *  they are noise, and "skipped" is the toast's duplicate count. add[] keeps
+ *  the trimmed original text — the card shows the number as the office wrote
+ *  it, while matching runs on normalizeWo. */
+export function bulkAddPlan(text, items){
+  const existing = new Set((items || [])
+    .filter(x => x && x.wlStatus !== 'done')
+    .map(x => normalizeWo(x.workOrderId)).filter(Boolean));
+  const seen = new Set();
+  const add = []; let skipped = 0;
+  for(const line of String(text == null ? '' : text).split('\n')){
+    const wo = line.trim();
+    if(!wo) continue;
+    const key = normalizeWo(wo);
+    if(existing.has(key) || seen.has(key)){ skipped++; continue; }
+    seen.add(key); add.push(wo);
+  }
+  return { add, skipped };
+}

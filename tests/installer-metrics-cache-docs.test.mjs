@@ -67,7 +67,7 @@ test('the service-worker cache includes planner services, route variants and dri
   // The version is pinned so that adding a module forces the CACHE bump that
   // actually ships it; bump it here too. (The title used to name a version and
   // drifted a release behind — don't put it back.)
-  assert.match(worker, /const CACHE = 'meterlog-v41';/);
+  assert.match(worker, /const CACHE = 'meterlog-v42';/);
   assert.match(worker, /['\"]\.\/js\/planner-services\.js['\"]/);
   // A new shared module only reaches phones if it is in SHELL and CACHE moved.
   assert.match(worker, /['\"]\.\/js\/route-variants\.js['\"]/);

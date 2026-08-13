@@ -35,7 +35,7 @@ import {
   addressQueue, hasNoAddress, initWorklistAddressFill, joinAddr, recentStreets,
   sinkAddressless, splitAddr,
 } from './worklist-address-fill.js';
-import { dedupePlan, normalizeWo } from './worklist-dedup.js';
+import { bulkAddPlan, dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
@@ -1028,6 +1028,9 @@ async function optimizeRouteHandler(useNetwork){
 // run, straight-line otherwise. Holding for two seconds skips the pack and asks
 // the network instead (Google → ORS → straight-line). The recognizer itself is
 // js/press-hold.js (pure, and unit-tested); this is only the DOM wiring for it.
+// The binder is generic tap-vs-hold wiring despite the name, and is bound twice:
+// #wlOptimize (above), and #wlAddBtn — tap opens the single-order form, hold
+// opens the #wlBulkAdd bulk-paste sheet. Don't rename it: tests pin the source.
 // Three details are load-bearing:
 //
 // **Never preventDefault() `touchstart` here.** It was added once to stop iOS
@@ -1040,9 +1043,9 @@ async function optimizeRouteHandler(useNetwork){
 // instead aborts itself, so a swipe that starts on the button just scrolls.
 //
 // Pointer capture is taken on the press because the hold fires while the finger
-// is still down, and it opens the #wlStartAsk sheet under that finger — without
-// capture, the release would hit-test into a freshly drawn sheet button and
-// answer the question for the installer.
+// is still down, and it opens a sheet (#wlStartAsk; #wlBulkAdd on the Add hold)
+// under that finger — without capture, the release would hit-test into a freshly
+// drawn sheet button and answer the question for the installer.
 //
 // move/up/cancel are on `window`, not the button, for the same reason as
 // wireDrag: capture can be lost, and a finger that leaves the button still has to
@@ -1093,6 +1096,7 @@ function updateRouteProgress(p){
 export async function openWorklist(){
   _wlEditId = null;
   $('wlForm').classList.add('hide');
+  $('wlBulkAdd').classList.add('hide');
   $('wlAddBtn').textContent = '＋ Add order';
   hideAddTo();   // an undecided add from a previous visit reverts to "leave for later"
   $('captureMain').classList.add('hide');
@@ -2047,6 +2051,55 @@ async function wlSave(){
     renderChips();
     $('wlWo').focus();
   }
+  await renderWorklist();
+  await planAdvance();
+  await offerAddTo();
+}
+
+// ── Bulk paste: hold ＋ Add order → the #wlBulkAdd sheet ─────────────────────
+// A worklist is built from WO#s first — the office hands over a list of numbers
+// and the addresses are filled in afterwards (📝, worklist-address-fill.js). The
+// sheet takes one number per line; parse + dedupe is bulkAddPlan (pure, in
+// worklist-dedup.js, tested in tests/worklist-bulk-add.test.mjs).
+
+function openBulkAdd(){
+  // The single-order form and the sheet fight over the same button; close the
+  // form (it may be sitting in its "✕ Cancel" state) before opening the sheet.
+  if(!$('wlForm').classList.contains('hide')){
+    $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order'; _wlEditId = null;
+  }
+  $('wlBulkAdd').classList.remove('hide');
+  $('wlBulkText').focus();
+}
+
+async function wlBulkAdd(){
+  const items = await allSorted();
+  const { add, skipped } = bulkAddPlan($('wlBulkText').value, items);
+  if(!add.length){
+    // Leave the sheet (and the paste) up — "all duplicates" usually means the
+    // wrong list was pasted, and the text is the evidence.
+    toast(skipped ? 'Nothing added — all already on the list' : 'Nothing to add');
+    return;
+  }
+  const now = stamp();
+  const last = items.filter(x => x.order != null).pop();
+  const base = last ? Number(last.order) : -10;
+  for(let i = 0; i < add.length; i++){
+    const item = {
+      // wlSave's id shape + the index: a loop mints many per millisecond.
+      id: now + '-' + i + '-' + Math.random().toString(36).slice(2,6),
+      workOrderId: add[i], address:'', oldJNumber:'',
+      appointmentDate:'', appointmentTime:'',
+      wlStatus:'pending', order: base + (i + 1) * 10,
+      createdAt: now, updatedAt: now
+    };
+    await idb.put('worklist', item);
+    addToQueue.push(String(item.id));   // same day-lock funnel as a single add
+  }
+  $('wlBulkText').value = '';
+  $('wlBulkAdd').classList.add('hide');
+  toast(`Added ${add.length} order${add.length === 1 ? '' : 's'}`
+    + (skipped ? ` · skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}` : ''));
   await renderWorklist();
   await planAdvance();
   await offerAddTo();
@@ -3025,12 +3078,19 @@ export function initWorklist(opts){
   $('wlPlanToggle').onclick = () => setPlan(!planActive());
   $('planSkip').onclick = planSkip;
   $('planExit').onclick = () => setPlan(false);
-  $('wlAddBtn').onclick = () => {
-    if(!$('wlForm').classList.contains('hide')){
-      $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; return;
-    }
-    wlOpenForm(null);
-  };
+  // Tap = the single-order form (the old onclick toggle, verbatim); a
+  // two-second hold = the bulk-paste sheet. Same binder as Optimize, so the
+  // pointer-capture / synthetic-click / contextmenu lessons carry over.
+  bindOptimizeGesture($('wlAddBtn'),
+    () => {
+      if(!$('wlForm').classList.contains('hide')){
+        $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; return;
+      }
+      wlOpenForm(null);
+    },
+    () => openBulkAdd());
+  $('wlBulkSave').onclick = wlBulkAdd;
+  $('wlBulkCancel').onclick = () => $('wlBulkAdd').classList.add('hide');
   $('wlFormCancel').onclick = () => { $('wlForm').classList.add('hide'); $('wlAddBtn').textContent='＋ Add order'; _wlEditId=null; };
   $('wlFormSave').onclick = wlSave;
   pruneDoneWorklist().then(applyTodayAnchor).then(() => {

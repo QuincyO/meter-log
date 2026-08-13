@@ -559,6 +559,24 @@
     </div>
   </div>
 
+  <!-- Bulk-paste sheet: hold ＋ Add order two seconds. A worklist is built from
+       WO#s first (one per line, straight off the office's list) and the addresses
+       are filled in afterwards through 📝 Fill in missing addresses. The textarea
+       is cleared only after a successful add — a stray backdrop tap must not eat
+       a forty-line paste. -->
+  <div class="sheet hide" id="wlBulkAdd">
+    <div class="card">
+      <h2>Add many orders</h2>
+      <p>Paste work order numbers — one per line. Numbers already on the list are skipped. Add the addresses later with 📝 Fill in missing addresses.</p>
+      <label for="wlBulkText">Work order #s</label>
+      <textarea id="wlBulkText" class="mono" rows="8" autocapitalize="characters" placeholder="One number per line"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="ghost" id="wlBulkCancel" type="button" style="flex:1">Cancel</button>
+        <button class="primary" id="wlBulkSave" type="button" style="flex:2;margin-top:0">Add orders</button>
+      </div>
+    </div>
+  </div>
+
   <div class="sheet hide" id="lookupSheet">
     <div class="card">
       <h2>Look up a stop</h2>

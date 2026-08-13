@@ -1177,6 +1177,14 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   label) the button was both unscrollable and liable to start a route optimization on
   an accidental brush. Text selection is suppressed in CSS instead — see the
   `#wlOptimize` rule in `css/capture.css` and the note in AGENTS.md.
+  `bindOptimizeGesture` is generic tap-vs-hold wiring despite its name and is bound
+  **twice**: `#wlOptimize`, and `#wlAddBtn` — where a tap opens the single-order form
+  as ever and a two-second hold opens the `#wlBulkAdd` **bulk-paste sheet** (paste WO#s
+  one per line; parse + dedupe is the pure `bulkAddPlan` in `js/worklist-dedup.js`,
+  duplicates of non-done orders skipped and reported). Bulk-added orders take the same
+  path as a single add: `addToQueue` → `offerAddTo`, so the day lock is never bypassed,
+  and having no address they sink to the "Needs address" group for the 📝 walkthrough.
+  `#wlAddBtn` carries the same CSS selection guard as `#wlOptimize`, as its own rule.
   **Which start is used is asked on every Optimize, not armed ahead of time.**
   The old persistent "Start from here" pill is gone: it was a mode the crew had to
   remember to set, and the answer changes with every mid-day re-optimize. The phone's
