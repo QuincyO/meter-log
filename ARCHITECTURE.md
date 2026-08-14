@@ -596,17 +596,28 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   the card glued to the finger. Each card with an
   address gets a 🧭 **Directions** button — it opens the OS maps app in a new
   context (Apple Maps on iOS, the Google Maps universal dir link elsewhere) on
-  the order's **cached pin**, the same coordinates the route map draws, falling
-  back to the **address text** plus an `", ON"` region hint when there is no
-  trusted pin. Handing over the address instead makes the maps app geocode a
-  second time with a guess of its own — the wrong side of a lake, or one of the
-  three townships that share a road name — while the pin is the exact spot the
-  route was built around. **A parked order is the carve-out:** `geoFail`
-  (📍 fix address) / `geoAmbig` (⚠ pick a town) orders keep their last-known pin
-  (it is never blanked) and that pin is the one already known to be wrong, so
-  `isParked` sends those to the address text. It was the other way round until
-  2026-08-13 — address first, on the reasoning that a mis-geocoded pin must not
-  steer the truck; the flagged-pin carve-out is what survives of that. It also
+  the order's **cached pin** by default, the same coordinates the route map
+  draws, with the **address text** plus an `", ON"` region hint as the fallback.
+  Handing over the address instead makes the maps app geocode a second time with
+  a guess of its own — the wrong side of a lake, or one of the three townships
+  that share a road name — while the pin is the exact spot the route was built
+  around. **Which one leads is the installer's switch, not this file's opinion**
+  (`destOf` → `navByPin()`): Route tuning ▸ *Navigate by address instead of map
+  pin*, `localStorage['wlNavBy']`, device-local, default `'pin'`. The reverse
+  argument is real too — a new build or a landmark can be a place the maps app
+  knows better than our geocoder did — and the field answer turned out to vary by
+  day and by address, which is why it stopped being a source edit (it was flipped
+  twice) and became a toggle. **It picks a preference, not a rule:** each mode
+  falls back to the other when the order hasn't got it, so Navigate is never a
+  dead button. **A parked order is the carve-out, and it holds in both modes:**
+  `geoFail` (📍 fix address) / `geoAmbig` (⚠ pick a town) orders keep their
+  last-known pin (it is never blanked) and that pin is the one already known to be
+  wrong, so `isParked` sends those to the address text. The gate sits on the line
+  *above* the branch on purpose — a parked order simply has no pin to prefer, so
+  neither mode can steer by it; gate it inside one arm and "coordinates mode"
+  quietly starts driving to known-bad pins. Address-first was the shipped default
+  until 2026-08-13, on the reasoning that a mis-geocoded pin must not steer the
+  truck; the flagged-pin carve-out is what survives of that. It also
   **copies the address line to the clipboard** on the way out — the crew pastes it into the
   work app while the route loads; the write is issued synchronously in the tap
   handler, before the iOS scheme hand-off takes the page away, and a
@@ -1427,7 +1438,9 @@ screen, not just `#drive`.
 
 - **Driver-facing (`js/drive.js`):** shows **only the current order's card** — WO#,
   unit+address, Old J#, appointment/notes — with a big **Navigate** button (the shared
-  `openDirections()` Google-Maps hand-off) and **Advance / Back** buttons. Navigate
+  `openDirections()` Google-Maps hand-off, so the pin-vs-address preference above
+  governs this button and the worklist's 🧭 together — one setting, because it is one
+  function) and **Advance / Back** buttons. Navigate
   **advances the display to the next order before handing off** — so the next card is
   already showing when the driver switches back from Maps — while still routing to the
   order that was pressed. Advance/Back move a **local display pointer** across the
@@ -1438,7 +1451,10 @@ screen, not just `#drive`.
   distance / avg km/h / idle / max km/h — avg is **moving** speed, idle excluded —
   in **metric** to match the office map) can be switched on
   **per phone** via the `#tuning` screen's *Show driving stats* toggle
-  (`localStorage['driveShowMetrics']`, default OFF, **never uploaded**). It shows only
+  (`localStorage['driveShowMetrics']`, default OFF, **never uploaded** — one of the two
+  keys in that screen's device-local block below **Save**, the other being `wlNavBy`;
+  both save the instant they are tapped, and neither goes through `save()`, whose toast
+  promises an Upload that would not carry them). It shows only
   while this phone is actively recording, updates each GPS fix from `liveMetrics()`
   (recorder-side day totals = finalized legs + the live leg), and is labeled *"Maps gaps
   not counted"* because foreground-only tracking undercounts a same-phone Maps hand-off

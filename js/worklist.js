@@ -25,7 +25,7 @@ import { computeGapsLocal } from './compute/gaps.js';
 import { observedOnSiteMin } from './compute/cadence.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
-import { initWorklistTuning } from './worklist-tuning.js';
+import { initWorklistTuning, navByPin } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 import { createPressHold } from './press-hold.js';
@@ -350,26 +350,32 @@ async function pruneDoneWorklist(){
 // installed — detected by whether the page ever backgrounds (the app opened).
 // Android/desktop keep the Google universal dir link, which Android hands to
 // whichever maps app the user has set as default (a choice iOS doesn't offer).
-// Navigation goes by the order's PIN when it has a trusted one — the same
-// coordinates the route map draws, which is the exact spot the route was built
-// around. Handing the maps app the address TEXT instead lets it geocode a second
-// time, with its own guess: a rural line lands on the wrong side of a lake, and a
-// road name that repeats in three townships picks one. (This used to be the other
-// way round — address first, on the reasoning that a mis-geocoded pin must not
-// steer the truck. The flagged-pin carve-out below is what that reasoning bought,
-// and the field verdict on the rest of it was that the pin is the better guide.)
-// A PARKED order is the carve-out: geoFail (📍 fix address) / geoAmbig (⚠ pick a
-// town) orders keep their last-known pin — it is never blanked — and that pin is
-// exactly the one known to be wrong, so those fall back to the address text.
-// `isParked` is the repo's single "must not be routed on this pin" test; don't
-// grow a second rule here. No trusted pin and no address means no destination.
+// Navigation goes by the order's PIN by default — the same coordinates the route
+// map draws, which is the exact spot the route was built around. Handing the maps
+// app the address TEXT instead lets it geocode a second time, with its own guess:
+// a rural line lands on the wrong side of a lake, and a road name that repeats in
+// three townships picks one. But the reverse argument is real too — a new build or
+// a landmark can be a place the maps app knows better than our geocoder did — and
+// which one wins turned out to vary by day and by address, so it is the
+// installer's switch rather than this file's opinion: Route tuning ▸ "Navigate by
+// address instead of map pin" (`navByPin()`, device-local, defaults to the pin).
+// **The toggle picks a PREFERENCE, not a rule.** Whichever is chosen falls back to
+// the other when the order hasn't got it, so Navigate is never a dead button.
+// A PARKED order is the carve-out, and it holds in BOTH modes: geoFail (📍 fix
+// address) / geoAmbig (⚠ pick a town) orders keep their last-known pin — it is
+// never blanked — and that pin is exactly the one known to be wrong. The gate sits
+// on the line above the branch on purpose: a parked order simply has no pin to
+// prefer, so neither mode can steer the truck by it. `isParked` is the repo's
+// single "must not be routed on this pin" test; don't grow a second rule here.
+// No trusted pin and no address means no destination.
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function destOf(item){
   const c = isParked(item) ? null : coordsOf(item);
-  if(c) return enc(c.lat + ',' + c.lng);
   const addr = String(item.address || '').trim();   // + ", ON" to stay in-province
-  return addr ? enc(addr + ', ON') : '';
+  const pinDest = c ? enc(c.lat + ',' + c.lng) : '';
+  const addrDest = addr ? enc(addr + ', ON') : '';
+  return navByPin() ? (pinDest || addrDest) : (addrDest || pinDest);
 }
 // The address line exactly as the card shows it — what lands on the clipboard.
 function addressLabel(item){

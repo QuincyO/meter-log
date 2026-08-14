@@ -393,6 +393,10 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
   background: var(--card, rgba(127,127,127,.08)); line-height: 1.6; }
 /* Device-local preference block — separated from the syncing dials above. */
 .tune-local { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+/* .drive-toggle carries no margin of its own (on the Drive screen it sits in a
+   flex column with a gap), so a second toggle here would butt against the hint
+   paragraph of the first. */
+.tune-local .tune-hint + .drive-toggle { margin-top: 18px; }
 
 /* Route drive-out start pin */
 .wl-route-pin.wl-route-start { background: #475569; color: #fff; }

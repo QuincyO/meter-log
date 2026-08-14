@@ -150,7 +150,7 @@ Open it with **☰ → 📋 Worklist**. It's your planned route, saved on the ph
 2. Tap **Save order** and keep adding; **Done** closes the form.
 3. **Have a whole list of work order numbers?** Hold **＋ Add order** for two seconds and a paste box opens: paste the numbers, one per line, and tap **Add orders**. Numbers already on your list are skipped, and the message tells you how many were added and how many skipped. The new orders land under **Needs address**, ready for 📝 Fill in missing addresses (below).
 4. Drag the **⠿** handle to put the orders in driving order. Drag a card to the **top or bottom edge of the screen** and the list scrolls under your finger, so you can move an order all the way up a long list in one go — no more dropping it, scrolling, and picking it up again.
-5. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app — to the order's map pin, or its address if it hasn't got one — *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
+5. On each order: **Use →** loads it into the capture form, **🧭** opens directions in the phone's maps app — to the order's map pin or its address, whichever you've picked on the **Route tuning** screen (see *Which one does Navigate use?* below) — *and copies the address to the clipboard*, **Edit** changes it, **🚫** sets it aside, **✕** deletes it for good.
 
 ### Filling in missing addresses
 
@@ -433,7 +433,7 @@ If the GPS address disagrees with the planned one, the form asks "GPS found a di
 Tap **🚗 Drive** on the worklist to open a clean, one-card driving screen. It shows just the current order — work order number, address, Old J# — with a big **Navigate** button that hands off to Google Maps, and **‹ Back** / **Next ›** to flip through your orders.
 
 - **Back and Next only change what you're looking at.** They do not mark anything done and do not change your list. An order is still completed the normal way — when you log its meter.
-- **Navigate** opens Google Maps for the current order — its map pin when it has one, its address otherwise — and copies the address, exactly like the 🧭 button on the worklist. When you're done, switch back to the app and your card is still there.
+- **Navigate** opens Google Maps for the current order — its map pin or its address, whichever you've picked on the **Route tuning** screen (below) — and copies the address, exactly like the 🧭 button on the worklist. It's one setting for both buttons. When you're done, switch back to the app and your card is still there.
 
 **"Arrive ~10:42 · in 12 min"** under the address is when you're due at that order — the same arrival time the worklist and the route map show, so you don't have to go back to read it. Once you've tapped **▶ Start drive tracking**, it's measured **from where the truck actually is**, not from the last house you finished, so it sharpens as you drive and it's right after a walk-up or anything else you did off the list. Without tracking on it still works, measured from your last completed stop instead. Two things it will tell you rather than hide: the "in N min" disappears once the arrival time has gone by (the route hasn't re-timed yet), and the whole line greys out and says **(stale)** if the route couldn't be solved — those times are from an earlier plan and want a re-optimize.
 
@@ -450,6 +450,17 @@ Recording only happens while the Drive screen is in front. When you open Google 
 **Want to see your own numbers?** Turn on **Show driving stats in Drive mode** on the **Route tuning** screen (this switch stays on your phone and isn't sent to the office). While you're recording, the Drive screen then shows your current speed, total distance, average moving speed (idle time excluded so it reflects how fast you actually drive), top speed, and idle time. Because the phone can't track while you're in Google Maps, these count only what it recorded on the app — so they read low if you navigate on the same phone; the card says "Maps gaps not counted" as a reminder.
 
 That same switch also keeps the Drive screen **up to date on its own**. With it on, while you're recording and sitting on the Drive screen, the app re-checks the sheet **every 3 minutes** — your saved list, and the meters logged today — and re-times the rest of your route from where you are now. So the card, the arrival times and the "Route done ~" clock stay right without you going back to tap **⇩ Download**, which matters most when someone else on the crew is logging the meters. It needs signal; with no bars it quietly keeps the last good copy and tries again. An order you've already logged never comes back, even if the sheet hasn't caught up yet.
+
+### Which one does Navigate use?
+
+**Route tuning ▸ Navigate by address instead of map pin.** Both the worklist's 🧭 and the Drive screen's **Navigate** send Maps to the same place most days, and this switch decides which one they hand over when they don't agree.
+
+- **Map pin** (the switch off — how it comes) is the exact spot your route was planned around, so Maps takes you where the route view says. That's usually the right one on a rural address or a road name that repeats in a few townships, because your route already worked out which one is yours.
+- **Address** hands Maps the typed address and lets it look the place up itself. That can land better on a new build or a landmark, where Maps knows something our lookup didn't.
+
+If Navigate has been putting you in the wrong spot, flip it and try the other one — there's no wrong answer, it varies by day and by address. Two things it won't do: an order flagged **📍 fix address** or **⚠ pick a town** always goes by its address either way (its pin is the one you already know is wrong), and whichever you pick, Navigate falls back to the other if the order hasn't got one — so the button always does something.
+
+The switch saves the moment you tap it — no need to press **Save** — and stays on this phone. It isn't sent to the office and it changes nothing about how your route is planned, only where Maps takes you.
 
 ### Moving the list between devices
 

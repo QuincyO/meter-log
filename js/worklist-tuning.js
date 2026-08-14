@@ -19,6 +19,23 @@ import { hhmmMin } from './time.js';
 import { ROUTE_DAY_END } from './config.js';
 import { projectDayReal } from './compute/estimate.js';
 
+// ── Navigate destination preference (device-local) ──────────────────────────
+// Which destination the maps hand-off prefers — see js/worklist.js destOf(). It
+// is saved the instant it is tapped (like driveShowMetrics) and NEVER uploaded:
+// it changes nothing the office or the router reads, so it has no business in
+// the Save/Upload path above.
+//
+// It lives in this module rather than beside destOf() because js/worklist.js
+// already imports initWorklistTuning from here — the reverse import would be a
+// cycle (the same reason js/drive.js never imports worklist.js back; see its
+// header). One key, one default, one place.
+//
+// Default 'pin', the behaviour shipped 2026-08-13. `wlNavBy` is a brand-new key,
+// so unlike the workMode rename there is no legacy value in the field for the
+// default to fight — a default never fires on a key that is already set.
+export function navByPin(){ return store.get('wlNavBy') !== 'address'; }
+export function setNavByPin(on){ store.set('wlNavBy', on ? 'pin' : 'address'); }
+
 // A commute-pull dial value clamped to 0–100; blank/garbage ⇒ the 70 default.
 function pullVal(v){
   const n = Math.round(Number(v));
@@ -84,6 +101,8 @@ function loadControls(){
   pull.value = String(pullVal(store.get('wlCommutePull')));
   $('tuneCommutePullVal').textContent = pull.value + '%';
   $('tuneShowDriveMetrics').checked = showMetricsPref();
+  // Unchecked is the default (the pin), so an untouched phone reads as today.
+  $('tuneNavByAddress').checked = !navByPin();
   // Blank means "use the measurement" — so show the override only when there is
   // one, and let the placeholder carry the measured number.
   const override = Number(store.get('wlOnSiteOverride'));
@@ -130,6 +149,14 @@ export function initWorklistTuning(opts){
   $('tuneSave').onclick = save;
   // Device-local: save on toggle, independent of Save/Upload — it never syncs.
   $('tuneShowDriveMetrics').onchange = e => setShowMetricsPref(e.target.checked);
+  // Same deal, and deliberately NOT routed through save(): that toast says
+  // "Upload your list to sync these to the office", which would be a lie about a
+  // key that never leaves the phone. It gets its own toast because the effect is
+  // invisible until the next Navigate press and there is no Save press to confirm it.
+  $('tuneNavByAddress').onchange = e => {
+    setNavByPin(!e.target.checked);
+    toast(e.target.checked ? 'Navigate by address' : 'Navigate by map pin');
+  };
   $('tuneBack').onclick = () => location.hash === '#tuning' ? history.back() : close();
   return { open, close };
 }
