@@ -48,8 +48,15 @@ const tuningJs = readFileSync(new URL('../js/worklist-tuning.js', import.meta.ur
 test('the Navigate toggle saves on tap, outside the Save/Upload path', () => {
   assert.match(tuningJs, /export function navByPin\(/);
   assert.match(tuningJs, /export function setNavByPin\(/);
-  assert.match(tuningJs, /\$\('tuneNavByAddress'\)\.onchange\s*=/);
-  assert.match(tuningJs, /\$\('tuneNavByAddress'\)\.checked = !navByPin\(\)/);
+  // Both bindings go through a null-checked local rather than `$('…').onchange =`
+  // directly. That is not style: sw.js refreshes each shell file on its own
+  // schedule, so this module can run against an index.html that predates the
+  // element — and the unguarded form threw, aborting capture.js's module
+  // evaluation and unbinding End of day with it (2026-08-14; see
+  // tests/shell-skew-survivable.test.mjs and AGENTS.md §cross-file contract).
+  assert.match(tuningJs, /const navBox = \$\('tuneNavByAddress'\);/);
+  assert.match(tuningJs, /if\(navBox\) navBox\.onchange\s*=/);
+  assert.match(tuningJs, /if\(navBox\) navBox\.checked = !navByPin\(\)/);
   // save() toasts "Upload your list to sync these to the office" — a lie about a
   // key that never leaves the phone. Like driveShowMetrics, this one is instant.
   const saveBody = tuningJs.match(/function save\(\)\{([\s\S]*?)\n\}/)?.[1] || '';

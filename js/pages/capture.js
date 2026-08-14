@@ -452,7 +452,35 @@ function fillCapture(item){
 // The plan-mode banner's landing estimate now comes from the shared real-data
 // model inside worklist.js (renderPlanEstimate → drivePace), the same one the
 // Drive-screen on-pace line uses, so the two never disagree.
-initWorklist({ fillCapture });
+//
+// ── Wrapped, and the wrapper is load-bearing ────────────────────────────────
+// The worklist screen is a SIBLING of the capture form, not a dependency of it:
+// Log stop, the downtime form, Today, the daily-log PDF and the entire
+// end-of-day close-out are all wired BELOW this line. A module stops evaluating
+// at its first uncaught exception, so a throw in here left ~40 later handlers
+// simply never bound — a phone that looks completely alive with every button on
+// it dead, and nothing on screen saying so.
+//
+// That is not hypothetical. On 2026-08-14 js/worklist-tuning.js bound the new
+// #tuneNavByAddress unconditionally; sw.js is stale-while-revalidate **per
+// file**, so a phone whose service worker still held the previous index.html ran
+// the new module against markup with no such element, `$()` returned null, and
+// the TypeError landed here. The crew reported it as "the End of day button does
+// not work" — Log stop was dead too, which is the more expensive half.
+//
+// So: a broken worklist screen must cost the worklist screen and nothing else.
+// The capture form and the close-out are the safety-critical path (this is field
+// data capture — the record has to survive), and they are wired below. Degrade,
+// never destroy — the same rule the duplicate-J warning follows.
+try {
+  initWorklist({ fillCapture });
+} catch (err) {
+  // Loud in the console for whoever debugs it, visible to the installer, and
+  // survivable for the day: everything below this line still binds.
+  console.error('[capture] worklist init failed — capture + end of day stay usable', err);
+  showNotice('flag', 'Worklist screen unavailable — Settings ▸ ⟳ Force update from GitHub. '
+    + 'Logging stops and End of day still work.', []);
+}
 
 // ── app-wide drive recorder ──────────────────────────────────────────────────
 // The GPS leg recorder runs whenever this PWA is open (see js/drive-recorder.js),

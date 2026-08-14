@@ -102,7 +102,10 @@ function loadControls(){
   $('tuneCommutePullVal').textContent = pull.value + '%';
   $('tuneShowDriveMetrics').checked = showMetricsPref();
   // Unchecked is the default (the pin), so an untouched phone reads as today.
-  $('tuneNavByAddress').checked = !navByPin();
+  // Guarded for the same reason as the binding in initWorklistTuning below —
+  // this screen can legitimately run against markup that predates the element.
+  const navBox = $('tuneNavByAddress');
+  if(navBox) navBox.checked = !navByPin();
   // Blank means "use the measurement" — so show the override only when there is
   // one, and let the placeholder carry the measured number.
   const override = Number(store.get('wlOnSiteOverride'));
@@ -153,7 +156,26 @@ export function initWorklistTuning(opts){
   // "Upload your list to sync these to the office", which would be a lie about a
   // key that never leaves the phone. It gets its own toast because the effect is
   // invisible until the next Navigate press and there is no Save press to confirm it.
-  $('tuneNavByAddress').onchange = e => {
+  //
+  // GUARDED ON PURPOSE — this is structural, not defensive style. sw.js is
+  // stale-while-revalidate **per file**, so this module and the index.html that
+  // carries #tuneNavByAddress refresh on their own schedules: for an open or two
+  // after a deploy (longer on a truck with poor signal, where the background
+  // re-fetch just fails) a phone legitimately runs THIS file against the PREVIOUS
+  // markup. `$()` returns null for a missing id rather than throwing, so an
+  // unguarded assignment here throws a TypeError — and initWorklist() is called
+  // from js/pages/capture.js at module top level, so that throw aborted the whole
+  // capture module and left every handler below it unbound: Log stop, the downtime
+  // form and the entire end-of-day close-out. It shipped that way on 2026-08-14 and
+  // was reported as "the End of day button does not work".
+  //
+  // The rule it earns: **an element in a page's markup is a cross-file contract
+  // with the module that binds it**, so bind a freshly-added id defensively. There
+  // is no atomic-shell alternative here: the sw.js CACHE version is never bumped
+  // (AGENTS.md standing rule — the field updates manually via Settings ▸ ⟳ Force
+  // update), so a phone may run this file against older markup indefinitely.
+  const navBox = $('tuneNavByAddress');
+  if(navBox) navBox.onchange = e => {
     setNavByPin(!e.target.checked);
     toast(e.target.checked ? 'Navigate by address' : 'Navigate by map pin');
   };
