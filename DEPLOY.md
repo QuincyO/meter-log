@@ -529,6 +529,20 @@ as a bare number.
 - **The `/exec` URL changed** — someone created a new deployment instead of
   redeploying. Put the old deployment's ID back, or update `DEPLOYMENT_ID` in the
   workflow **and** `WEB_APP_URL` in all three HTML files to match.
+- **Every phone says it can't reach the server, and `/exec` returns Google's
+  HTML "Access Denied — You need access" page (HTTP 403)** — the wall is
+  upstream of `doGet`, so the token and `Code.gs` are not suspects. If nothing
+  changed in git, suspect a **revoked authorization**: the web app runs
+  `executeAs: USER_DEPLOYING`, and Google can silently revoke that grant (it
+  happened overnight on 2026-08-14 — no email, no console warning, and the
+  same revocation kills the 3am export trigger, so a missing
+  `Nightly sheet export` commit brackets the outage window). **Test and fix in
+  one step:** the owner opens the `/exec` URL in a signed-in browser — a
+  consent screen confirms it; granting restores service instantly. A redeploy
+  does *not* fix this (proven: a successful `clasp deploy` with the manifest's
+  `ANYONE_ANONYMOUS` left the 403 in place). During the outage the phones'
+  queues hold all field work — tell the crew to keep logging and **never**
+  clear site data. See `changelog/2026-08-14.md`.
 - **The optimize toast says "straight-line (…)" or "lookups failed: …" even
   though the key is set** — the toast names the cause; the full Google
   response is in the browser console (`console.warn`).
