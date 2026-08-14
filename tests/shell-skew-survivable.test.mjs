@@ -77,6 +77,31 @@ test('the newest tuning-screen element is bound defensively', () => {
   assert.match(TUNING, /if\(navBox\) navBox\.checked/);
 });
 
+test('the newest capture-page element is bound defensively', () => {
+  // #copyTally shipped 2026-08-13 on the End-of-day branch and merged 2026-08-14.
+  // It is bound at capture.js TOP LEVEL, above finishDay/genLog/openToday/the nav/
+  // saveSettings — and above #refreshApp, which is the only route code has to these
+  // phones. Bare, it reproduces the #tuneNavByAddress outage one element later.
+  assert.ok(HTML.includes('id="copyTally"'), 'index.html is missing #copyTally');
+  assert.doesNotMatch(CAPTURE, /\$\('copyTally'\)\.onclick\s*=/,
+    'capture.js binds #copyTally unguarded — a phone on older markup loses Finish day and Force update');
+  assert.match(CAPTURE, /const tallyBtn = \$\('copyTally'\);/);
+  assert.match(CAPTURE, /if\(tallyBtn\) tallyBtn\.onclick/);
+});
+
+test('#refreshApp stays reachable — it is the only way code reaches a phone', () => {
+  // The escape hatch must not sit behind an unguarded binding of a NEW element.
+  // Every top-level `$('x').onclick =` above #refreshApp is a chance to unbind it,
+  // so the two ids known to be recent must both be guarded (asserted above); this
+  // test pins the relationship that makes that matter.
+  const refresh = /^\$\('refreshApp'\)\.onclick/m.exec(CAPTURE);
+  assert.ok(refresh, 'capture.js no longer binds #refreshApp at the top level');
+  for (const id of ['copyTally', 'tuneNavByAddress']) {
+    assert.doesNotMatch(CAPTURE, new RegExp(`^\\$\\('${id}'\\)\\.`, 'm'),
+      `#${id} is bound bare at top level, above #refreshApp — it can unbind Force update`);
+  }
+});
+
 test('the skew rule is written down where the next agent will look', () => {
   assert.match(AGENTS, /cross-file contract/i,
     'AGENTS.md does not record that markup is a cross-file contract with the module that binds it');

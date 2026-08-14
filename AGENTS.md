@@ -555,6 +555,46 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   second lookup for those is how you arrive back at two models. `MIN_ONSITE_MIN`
   survives as a floor and nothing more: a pathological median (two stops logged a
   minute apart) must not divide the afternoon into hundreds of installs.
+- **The end-of-day review is LIVE installer state. A late server read must never
+  re-render it — and a summary is only as fresh as its fingerprint.** Three separate
+  bugs, one field report: *"it kicks me out, and if I hit finish too quickly none of
+  my downtime is on the PDF"*.
+  (1) **The re-render.** `loadDay('eod')` paints twice — instantly from `dayCache`,
+  then again when `day` + `idle` land, and `apiGet` has no timeout, so at quitting
+  time the second paint can arrive ten seconds in. It calls `setGapData` (which
+  **replaces `eodGaps` wholesale**, `_views` and all) and `renderEod` (`innerHTML=''`,
+  every card rebuilt collapsed). Typing 20 minutes into a work order and having the
+  response land is enough to lose it. The **`.sheet` is a bottom-anchored backdrop**
+  (`css/base.css`, `align-items:flex-end`), so the rebuild also moves the card under
+  the finger and the tap in flight lands on the dim area — which `closeSheets()` read
+  as "dismiss every sheet". Hence *kicked out*. Two guards now: `eodTouched` skips the
+  second render entirely once the installer has opened a card or typed anything (the
+  cost is that this open keeps the local gaps rather than the spine's merged-boat
+  ones — display-only, since the PDF's travel column is built spine-side at Finish),
+  and the backdrop dismiss requires the **pointerdown** to have started on the
+  backdrop, so no reflow can fake the gesture. **This was data loss, not just UI**:
+  `saveTravel` REPLACES the day's gap-tagged rows, so a wiped `eodGaps` posted over
+  deductions already on the Sheet.
+  (2) **The PDF printed what it had netted but not what it had counted.**
+  `buildLocalSummary` fed `pendingTravel` to `computeGapsLocal` (so Travel was right)
+  and left it out of the `downtime` array — and every delay figure on both templates
+  reads `summary.downtime`. So a Finish that outran the 2s-debounced prefetch fell
+  back to the local builder and printed a **blank DELAYS grid**, while the same
+  minutes reached the Sheet seconds later via the step-2 `saveTravel`. It now
+  synthesizes the rows `saveTravel` would have written, **dropping the existing
+  gap-tagged ones first** (whole-day replace ⇒ never double-count) and gated on a
+  non-empty pending list, the same rule `computeGapsLocal` uses — the printed rows and
+  the netting must always describe one set.
+  (3) **`await flush()` was not a barrier.** The guard was `if(flushing) return;`,
+  which resolves instantly, and `enqueue` fires an un-awaited flush — so every
+  "drain, then read the Sheet" call site (`previewDailyLog`, `endOfDay`, the EOD open)
+  could read a Sheet still missing rows the phone had just queued. It holds the
+  in-flight **promise** now. Two consequences: it must never reject (the awaiting
+  handlers have no try/catch), and End of day opens the sheet *before* draining, or a
+  long queue leaves a dead button.
+  Also here: `eodStateKey` fingerprints the day's rows now, not just the gap
+  allocations — without that, a summary prefetched before a downtime existed still
+  "matched" at Finish and was reused verbatim.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at
@@ -887,6 +927,21 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 ## Daily-log PDF
 
 **The PDF is rendered on the phone, not the spine.** `js/dailylog.js` (`renderDailyLog`) draws it with a vendored jsPDF (`js/vendor/jspdf.umd.min.js`, loaded as a classic `<script>` before the page module) — a close reproduction of the old paper template. It takes a `summary` object: online, the spine's `previewDailyLog`/`endOfDay` summary (high-fidelity merged-boat travel); offline, one built locally by `js/compute/summary.js` (`buildLocalSummary`) from the cached day. So **Generate / Close work with no signal**, and there's no Drive archive copy. **`previewDailyLog` must be POSTed the form's `departure`/`returned`.** `buildDaySummary` reads the bookends from the request body, falling back to the persisted `Days` row — but on the phone `saveDay` runs *after* the PDF is generated, so at preview time the `Days` row is still empty; a `previewDailyLog` call that omits the typed times prints a PDF with **blank Start/End** (the offline `buildLocalSummary` path reads the form directly and was never affected). Every caller — `prefetchEodSummary`/`genLog` in `capture.js` and `genLog` in `edit.js` — passes them; `tests/daily-log-bookends.test.mjs` guards it. The team header + whole-boat dispatch (the only inputs the phone can't derive from its own stops) come from `boatMeta`, which the spine returns on every `addStop` and the `day`/`range` reads and the client caches. The `endOfDay` Tracker/Timing/Days/BoatDays writes are unchanged; it just returns the summary instead of PDF bytes. If you change the layout, edit `dailylog.js` (the `HEADER_BOXES` grid + body/footer) — the old `DailyLog Template` tab / `ANCHORS` are gone. **Land days render a different template** (`renderLandDailyLog`, picked by `summary.workType`): header strip + per-WO delay columns + totals row, no travel column — edit `LAND_*` in the same file.
+
+**Every PDF also puts the day's hand-off tally on the clipboard** — `Dispatched:` (empty
+on purpose; that number lives in a system this app never sees, so the installer types it
+on paste), `Installed`, `UTI`, `TR`, `EER`, one per line. `js/compute/tally.js
+tallyBlock` is the shape; `EER` is the subset of UTIs whose reason is
+`utiReasons.js EER_UTI_REASON` ('Electrical Repair') and is deliberately **also** counted
+on the UTI line, and `TR` is the day's timed appointments, which live only on the worklist
+orders (`worklist.js todayAppointmentCount`), never on a logged stop — so a hand-typed
+order that was never on the list can't be counted, and `edit.html` reprints get no tally.
+**The copy must fire synchronously at the top of the handler**, like the plan-mode WO#
+copy: both PDF buttons sit behind several `await`s (up to a 5s race on Finish) plus
+jsPDF's lazy load, and a `writeText` down there is refused on iOS. That is why the numbers
+come from a preloaded `tallyCache` rather than a read at tap time, and why the End-of-day
+sheet also carries a **📋 Copy tally** button — an implicit copy can always be refused,
+and the crew wants it again after the paste anyway.
 
 ## Security note
 

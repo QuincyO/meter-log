@@ -42,3 +42,17 @@ export const ROUTE_DEPART_TIME = '08:15';
 // the target silently inert above whatever the clock allowed: 16, 24 and 40 all
 // produced the same day. A constant, because nobody needs to tune when 4pm is.
 export const ROUTE_DAY_END = '16:00';
+
+// What the End-of-day bookend boxes (Start / End, Departure / Returned) open at
+// when the day has none saved yet — the crew's normal shift, typed over on a day
+// that ran differently. Prefill only: a time already on the day's Days row (or in
+// the phone's cached copy) still wins, and edit.html deliberately does NOT use
+// these, so a reprint of an old day with no recorded times stays blank rather than
+// gaining an invented 07:30–16:00.
+//
+// Deliberately NOT ROUTE_DEPART_TIME / ROUTE_DAY_END, whatever the coincidence of
+// the 16:00: those two are route-planning inputs, each documented as answering
+// exactly one question, and giving either a second job is how the finish-by dial
+// came back last time. These describe hours actually worked; those describe a plan.
+export const DAY_START_DEFAULT = '07:30';
+export const DAY_END_DEFAULT   = '16:00';

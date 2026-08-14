@@ -13,10 +13,10 @@ import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks, retryParked, 
 import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
-import { PRINTABLE, countDay, tallyText } from '../compute/tally.js';
+import { PRINTABLE, countDay, tallyText, tallyBlock } from '../compute/tally.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
-import { initWorklist, openWorklist, openTuning, markWorklistDone, resetWorklistOrder, planAdvance, syncWorklist, planActive, exitPlan, paintOptimizeGate } from '../worklist.js';
+import { initWorklist, openWorklist, openTuning, markWorklistDone, resetWorklistOrder, planAdvance, syncWorklist, planActive, exitPlan, paintOptimizeGate, todayAppointmentCount } from '../worklist.js';
 import {
   initDriveRecorder, finishAndUpload, isRecording, armedToday,
   startRecording, stopRecording, subscribe as subscribeDrive,
@@ -26,6 +26,7 @@ import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPac
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 import { jConflicts, normalizeJ, J_LABEL } from '../jdup.js';
 import { normalizeJScan } from '../jnumber.js';
+import { DAY_START_DEFAULT, DAY_END_DEFAULT } from '../config.js';
 
 // ── duplicate / J# conflict notice ──────────────────────────────────────────
 // The queue calls this hook once the server acks a write, so a duplicate /
@@ -634,7 +635,7 @@ $('logStop').onclick = () => {
   // before the next order is picked.
   // Mark the planned order done, advance plan mode, then silently push the whole
   // list so the sheet copy tracks this log (online-only; offline it no-ops).
-  markWorklistDone(base.workOrderId).then(() => { planAdvance(); syncWorklist(); });
+  markWorklistDone(base.workOrderId).then(() => { planAdvance(); syncWorklist(); refreshTallyCache(); });
   toast(
     (status==='INSTALLED'  ? (noRead ? 'Install logged · no read ✓' : 'Install logged ✓') :
      status==='UTI'        ? 'UTI logged ✓' :
@@ -782,6 +783,10 @@ function makeStopCard(s, onSaved, opts){
   const editBlock = card.querySelector('.sc-edit');
   const toggleBtn = card.querySelector('[data-act="toggle"]');
   toggleBtn.onclick = () => {
+    // `opts.travel` marks the End-of-day render (only it shows the travel slot):
+    // opening a card there means the installer is working in the review, which
+    // freezes it against a late re-render. Look up / Today don't re-render.
+    if(opts && opts.travel) touchEod();
     editBlock.classList.toggle('hide');
     toggleBtn.textContent = editBlock.classList.contains('hide') ? 'Edit' : 'Close';
   };
@@ -893,18 +898,25 @@ $('doLookup').onclick = async () => {
 
 // ── end of day: review, edit, then finish ──────────────────────────────────
 // Re-draw the 1st WO's launch leg as the Departure time is typed.
-$('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); schedulePersistEod(); });
-$('eodReturned').addEventListener('input', schedulePersistEod);
+$('eodDeparture').addEventListener('input', () => { if(updateLaunch) updateLaunch(); touchEod(); schedulePersistEod(); });
+$('eodReturned').addEventListener('input', () => { touchEod(); schedulePersistEod(); });
 
 $('endDay').onclick = async () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
-  await flush();
   $('eodNotes').value=''; $('eodTally').textContent='Loading…'; $('eodList').innerHTML='';
-  $('eodDeparture').value=''; $('eodReturned').value=''; $('eodIdle').innerHTML=''; eodGaps=[];
+  // The bookends open on the crew's normal shift; a time already saved for the day
+  // overwrites it in renderDayData, and either can be typed over.
+  $('eodDeparture').value=DAY_START_DEFAULT; $('eodReturned').value=DAY_END_DEFAULT;
+  $('eodIdle').innerHTML=''; eodGaps=[]; eodTouched=false;
   // Fresh review → drop any prior day's prefetched high-fidelity summary.
   eodServerSummary = null; eodSummaryJob = null;
+  // Open first, THEN drain: flush() is a real barrier now, so a long queue would
+  // otherwise leave the button dead for the length of the drain with nothing on
+  // screen. The sheet shows "Loading…" while it runs.
   openSheet('eodSheet');
+  refreshTallyCache();
+  await flush();
   await loadDay('eod');
 };
 
@@ -913,6 +925,15 @@ $('endDay').onclick = async () => {
 // allocations are stashed in `eodGaps` and saved (saveTravel) at Finish, so the
 // math is idempotent and editable up to the last moment.
 let eodGaps = [];
+
+// Set the moment the installer starts working inside the review — expanding a card,
+// typing minutes, editing a bookend. While it is true, a late `day`/`idle` response
+// must NOT re-render: `setGapData` replaces eodGaps wholesale and `renderEod` rebuilds
+// every card collapsed, so a slow spine used to throw away minutes already typed and
+// (because saveTravel REPLACES the day's gap-tagged rows) could then post the emptied
+// review over deductions already on the Sheet. Cleared on each End-of-day open.
+let eodTouched = false;
+function touchEod(){ eodTouched = true; }
 
 // gapByToId maps a gap to its arriving stop (g.toId === stop.id), so each gap shows
 // as an inline "Travel in" dropdown on its work-order card.
@@ -936,8 +957,8 @@ function gapNet(g){
 }
 // Re-sync every place a gap is shown. syncNet on minutes typing (keeps focus);
 // syncDraw rebuilds rows on add/delete.
-function syncNet(g){ (g._views||[]).forEach(v => v.onNet && v.onNet()); schedulePersistEod(); }
-function syncDraw(g){ (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); schedulePersistEod(); }
+function syncNet(g){ touchEod(); (g._views||[]).forEach(v => v.onNet && v.onNet()); schedulePersistEod(); }
+function syncDraw(g){ touchEod(); (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); schedulePersistEod(); }
 
 // Shared subtract-downtime editor (rows + "add"), bound to gap `g`. `onNet` lets the
 // host update its own net display; registers itself in g._views.
@@ -957,7 +978,10 @@ function allocEditor(g, onNet){
         <select class="mono" data-f="cat" style="flex:1">${opts(a.category)}</select>
         <button class="mini" data-act="del" style="min-width:44px">✕</button>`;
       row.querySelector('[data-f="min"]').oninput = e => { a.minutes = parseInt(e.target.value,10)||0; syncNet(g); };
-      row.querySelector('[data-f="cat"]').onchange = e => { a.category = e.target.value; };
+      // Through syncNet like the minutes box: a category change is a real edit, and
+      // hanging it off nothing left it out of the dayCache stash and out of the
+      // summary prefetch's trigger.
+      row.querySelector('[data-f="cat"]').onchange = e => { a.category = e.target.value; syncNet(g); };
       row.querySelector('[data-act="del"]').onclick = () => { g.allocations.splice(ai,1); syncDraw(g); };
       allocBox.appendChild(row);
     });
@@ -1003,7 +1027,7 @@ function renderStopTravel(box, s, pos){
         toggle.innerHTML = `${arrow()} Downtime: <b style="color:var(--install)">${used} min</b>`; }
     : () => { const n = gapNet(g);
         toggle.innerHTML = `${arrow()} Travel in: <b style="color:${n.over?'#c0392b':'var(--install)'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
-  toggle.onclick = () => { body.classList.toggle('hide'); onNet(); };
+  toggle.onclick = () => { touchEod(); body.classList.toggle('hide'); onNet(); };
   const meta = document.createElement('div'); meta.className = 'sc-meta'; meta.style.marginBottom = '4px';
   meta.textContent = g.lead ? 'First stop · downtime on this WO' : `${g.start}–${g.end} · ${g.idleMin} min gap`;
   body.appendChild(meta);
@@ -1065,11 +1089,17 @@ let eodSummaryJob = null;      // { key, promise }
 // prefetched summary still matches the installer's current edits. The work mode is
 // part of it: it picks the PDF template, and Settings can change it between the
 // prefetch and the submit, which would otherwise reuse the other mode's summary.
+// The day's own rows are in it too. They used to be left out, so a summary prefetched
+// before a downtime row was added still "matched" at Finish and was reused verbatim —
+// the PDF printed a day that no longer existed, with nothing forcing a rebuild.
 function eodStateKey(){
+  const rows = (eodData.downtime||[]).map(d =>
+    `${d.id||''}:${d.category||''}:${d.minutes||0}:${d.workOrderId||''}`).join(',');
   return JSON.stringify(collectGapAllocations(eodGaps))
        + '|' + ($('eodDeparture').value||'') + '|' + ($('eodReturned').value||'')
        + '|' + ($('eodNotes').value||'') + '|' + (!!$('eodIncludeDelays').checked)
-       + '|' + workMode();
+       + '|' + workMode()
+       + '|' + (eodData.stops||[]).length + '|' + rows;
 }
 
 // Best-effort background build of the spine summary for the current edit state.
@@ -1200,10 +1230,23 @@ async function loadDay(mode){
       const idata = await idleP;
       if(idata && idata.gaps) gaps = idata.gaps;
     }
-    renderDayData(mode, stops, downtime, d.day||{}, gaps);
+    // Never re-render a review the installer has already started working in — the
+    // rebuild would collapse the open card, drop the typed deductions and (because a
+    // `.sheet` is a bottom-anchored backdrop) re-aim their tap at the dismiss area.
+    // The day is still cached above and the tally still refreshes; what the review
+    // keeps for this open is the locally-computed gaps rather than the spine's
+    // merged-boat ones. That is display-only — the PDF's travel column is built
+    // spine-side at Finish — and a re-open with nothing touched renders them again.
+    if(mode==='eod' && eodTouched){
+      eodData = { stops, downtime };   // the rows the close + the summary key read
+      $('eodTally').textContent = tallyText(countDay(stops, downtime));
+    }
+    else renderDayData(mode, stops, downtime, d.day||{}, gaps);
     // Gaps/bookends are now authoritative — start building the high-fidelity
-    // close summary in the background so the Finish PDF is instant.
-    if(mode==='eod') prefetchEodSummary();
+    // close summary in the background so the Finish PDF is instant, and re-read the
+    // clipboard tally off the day we just merged (a stop logged on another device
+    // lands here and nowhere else).
+    if(mode==='eod'){ prefetchEodSummary(); refreshTallyCache(); }
   } catch {
     if(!renderedFromCache){
       const msg = '<p class="muted">Couldn\'t load — check the connection.</p>';
@@ -1241,6 +1284,54 @@ function renderEod(stops, downtime){
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 
+// ── the day's clipboard tally ───────────────────────────────────────────────
+// Every daily-log PDF also puts the hand-off numbers on the clipboard, ready to
+// paste into the report the office wants: Dispatched (blank, filled in by hand),
+// Installed, UTI, TR (the day's timed appointments), EER (the electrical-repair
+// UTIs — a subset of UTI, counted on both lines). Shape lives in compute/tally.js.
+//
+// The whole design is dictated by ONE constraint: `navigator.clipboard.writeText`
+// needs the user gesture, and both PDF buttons sit behind several awaits (up to a
+// 5s network race on Finish) plus jsPDF's lazy load — a write down there is refused
+// on iOS. So the copy fires synchronously at the top of each handler, and every
+// number it needs must already be in memory. `tallyCache` is that pre-read, the
+// same trick `recentJStops` uses for the synchronous duplicate check: refreshed on
+// load, after each log, and when the End-of-day sheet opens.
+let tallyCache = { stops:[], appt:0 };
+async function refreshTallyCache(){
+  const c = cfg(); if(!c.name) return;
+  try{
+    const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
+    tallyCache = { stops:(cached && cached.stops) || [], appt: await todayAppointmentCount() };
+  } catch {/* a tally is never worth breaking a screen over */}
+}
+// Best-effort, gesture-synchronous. Reads only the cache — deliberately not
+// `eodData`, which holds whatever review was last opened and would still be
+// yesterday's on a phone left running past midnight. Returns whether the write was
+// attempted, for the toast suffix — the same shape as the plan-mode WO# copy.
+function copyDayTally(){
+  if(!navigator.clipboard?.writeText) return false;
+  navigator.clipboard.writeText(tallyBlock(tallyCache.stops, tallyCache.appt)).catch(() => {});
+  return true;
+}
+// GUARDED, and for a reason this file paid for the same morning this merged:
+// #copyTally is the NEWEST element in index.html, and sw.js is
+// stale-while-revalidate **per file** — so a phone can run this capture.js against
+// the index.html it had yesterday, where the element does not exist. `$()` returns
+// null rather than throwing, and an unguarded assignment here would throw a
+// TypeError at module top level, unbinding every handler BELOW this line:
+// finishDay, genLog, openToday, the whole nav, saveSettings — and #refreshApp,
+// which is Settings ▸ ⟳ Force update, the only way code reaches these phones.
+// That is exactly the 2026-08-14 outage (#tuneNavByAddress, reported as "the End
+// of day button does not work") reappearing one element later, and it would have
+// read as "the Finish day button does not work". Never bind a freshly-added id
+// bare here — see AGENTS.md §"an element in a page's markup is a CROSS-FILE
+// CONTRACT" and tests/shell-skew-survivable.test.mjs.
+const tallyBtn = $('copyTally');
+if(tallyBtn) tallyBtn.onclick = () => {
+  toast(copyDayTally() ? 'Tally copied 📋' : "This browser won't let the app copy");
+};
+
 // Hand the day's close writes (travel deductions + bookends + endOfDay) to the
 // offline queue. All three are idempotent and the queue now drains via flush()
 // regardless of navigator.onLine, so this is the safe fallback whenever an
@@ -1260,6 +1351,9 @@ function queueClose(c, weather){
 }
 
 $('finishDay').onclick = async () => {
+  // FIRST, before any await: the clipboard write only counts as user-initiated while
+  // we're still inside the tap. See copyDayTally.
+  const tallyCopied = copyDayTally();
   const c = cfg();
   const btn = $('finishDay');
   // Ending the day turns the drive recorder off and ships the day's track: stop
@@ -1286,7 +1380,8 @@ $('finishDay').onclick = async () => {
     try{ await withActivity('Generating PDF…',
       async () => downloadDailyLog(await buildSummaryFromCache($('eodIncludeDelays').checked, ''))); }catch{}
     closeSheets();
-    toast('Day closed offline ✓ · PDF downloaded — will sync when online');
+    toast('Day closed offline ✓ · PDF downloaded' + (tallyCopied ? ' · tally copied 📋' : '')
+          + ' — will sync when online');
     return;
   }
 
@@ -1316,7 +1411,7 @@ $('finishDay').onclick = async () => {
       return server;
     });
     closeSheets();
-    toast('Day closed ✓ · PDF downloaded');
+    toast('Day closed ✓ · PDF downloaded' + (tallyCopied ? ' · tally copied 📋' : ''));
 
     // 2. Finalize the close on the Sheet (the PDF is already delivered). Weather is
     // recorded on the Sheet but intentionally left off the instant PDF.
@@ -1384,6 +1479,8 @@ async function fetchWeather(lat,lng){
 // (no Tracker row); weather stays blank — the real End of day fills it. Online we
 // use the spine's summary (merged-boat travel); offline we build it from cache.
 $('genLog').onclick = async () => {
+  // Same gesture rule as Finish day — fire the clipboard write before any await.
+  const tallyCopied = copyDayTally();
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
   const btn = $('genLog');
@@ -1406,7 +1503,7 @@ $('genLog').onclick = async () => {
         // previewDailyLog doesn't carry the typed note — overlay it before render.
         summary.notes = $('eodNotes').value.trim();
         await downloadDailyLog(summary);
-        toast('Daily log downloaded — draft (day not closed)');
+        toast('Daily log downloaded — draft (day not closed)' + (tallyCopied ? ' · tally copied 📋' : ''));
       } else {
         toast('No stops logged today yet');
       }
@@ -1827,7 +1924,22 @@ async function refreshAppShell(){
 }
 
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.add('hide')); }
-document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target===s) closeSheets(); }));
+// Tap the dimmed area around the card to dismiss — but only when the gesture STARTED
+// there. A `.sheet` is a full-viewport, bottom-anchored backdrop with the card floating
+// on it, so anything that changes the card's height re-aims a tap already in flight at
+// the backdrop, and the click-target test alone read that as "dismiss". That is how the
+// End-of-day sheet closed itself the moment a slow `day`/`idle` response rebuilt the
+// list under the installer's finger — every sheet at once, mid-review, with no
+// confirmation. Requiring the pointerdown makes a reflow unable to fake the gesture.
+document.querySelectorAll('.sheet').forEach(s => {
+  let downOnBackdrop = false;
+  s.addEventListener('pointerdown', e => { downOnBackdrop = (e.target === s); });
+  s.addEventListener('click', e => {
+    const started = downOnBackdrop;
+    downOnBackdrop = false;                   // one click per press, never a stale true
+    if(e.target === s && started) closeSheets();
+  });
+});
 
 // ── nav dropdown ──────────────────────────────────────────────────────────────
 $('navBtn').onclick = e => { e.stopPropagation(); $('navMenu').classList.toggle('hide'); };
@@ -1917,6 +2029,7 @@ migrateLegacyQueue().then(() => {
   // Seed the duplicate-J# index from whatever is already stored, so the check
   // works on a cold offline start; a successful pull refreshes it below.
   refreshJIndex();
+  refreshTallyCache();   // so a draft log copied before any log today still has numbers
   if(store.get('name') && navigator.onLine){
     backfillAddresses(enqueue);
     cacheRecentDays(7).then(refreshJIndex).catch(()=>{});

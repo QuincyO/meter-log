@@ -515,7 +515,7 @@ When the day's done, close it out — this files the day's record and produces t
 
 1. Tap **End of day**.
 2. Skim the tally and stop list; tap any stop to fix it.
-3. Enter the day's bookend times: **Departure time (left dock)** and **Returned to land** on a boat day; **Start time** and **End time** on a land day.
+3. Check the day's bookend times: **Departure time (left dock)** and **Returned to land** on a boat day; **Start time** and **End time** on a land day. They start filled in at **7:30 AM** and **4:00 PM** — type over either one on a day that ran differently. (If times were already saved for the day, those show instead.)
 4. Do the **travel review**: the app shows the gap between each pair of work orders. For each gap, the untouched part counts as travel; add a reason + minutes row to carve out anything that wasn't travel (a lunch on the water, a wait). If you flagged a stop **Requested ✓**, a **Dispatch** row is already filled in with the calculated wait — adjust it if it's off.
 5. Add day **Notes** if you have any.
 6. Leave **Include delays & travel time on PDF** checked unless told otherwise.
@@ -524,6 +524,14 @@ When the day's done, close it out — this files the day's record and produces t
 The PDF is built on the phone (no signal needed) and lands in the phone's downloads. Boat days print the boat template with the travel column; Land days print the land template with per-work-order delay columns.
 
 Need the paper before the day's over? **Generate daily log (draft)** builds the same PDF without closing anything.
+
+### The tally on your clipboard
+
+Every time a daily log is generated — draft or Finish day — the day's numbers are copied to the clipboard, ready to paste. Five lines, one per row — `Dispatched:` on its own, then `Installed: 14`, `UTI: 3`, `TR: 1`, `EER: 0` with that day's counts.
+
+**Dispatched is left blank on purpose** — the app never sees that number, so type it in after you paste. **TR** counts the timed appointments on your worklist for the day (an appointment you couldn't get to still counts; a work order you typed in by hand that was never on the list can't be). **EER** counts the UTIs whose reason was **Electrical Repair** — those are still counted on the UTI line too, so the two overlap.
+
+If the paste comes up empty (some phones only allow a copy you asked for), tap **📋 Copy tally** at the bottom of the End of day screen — it copies the same block, and it's there any time you want it again.
 
 Closed the day and then found a mistake? Fix the stop, then close again — closing twice is safe and just replaces the day's record. The office can also do it from Edit & Daily Log.
 

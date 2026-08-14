@@ -330,6 +330,22 @@ function sortItems(items){
 }
 async function allSorted(){ return sortItems((await idb.all('worklist')) || []); }
 
+// The day's timed appointments — the "TR" line on the clipboard tally the daily-log
+// PDF copies (js/compute/tally.js tallyBlock). An appointment lives only on the
+// worklist order, never on the logged stop, and "timed" here means what it means
+// everywhere else on this screen: both halves present (see the #wlTimed checkbox).
+//
+// Counted by DATE, deliberately regardless of wlStatus: an appointment kept but
+// logged as a UTI, and one the crew never reached, both still happened that day.
+// A hand-typed work order that was never on the list can't be counted at all —
+// nothing links it to an appointment.
+export async function todayAppointmentCount(){
+  const today = localDate();
+  return ((await idb.all('worklist')) || [])
+    .filter(x => x && String(x.appointmentDate||'').slice(0,10) === today && x.appointmentTime)
+    .length;
+}
+
 // Done orders matter only for the day they're logged. On startup drop any done
 // item completed before today (updatedAt is a Toronto-local "YYYY-MM-DD HH:MM:SS"
 // stamp, so its date prefix is lexically comparable with localDate()). Today's
