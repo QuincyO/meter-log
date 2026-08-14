@@ -527,7 +527,9 @@ Need the paper before the day's over? **Generate daily log (draft)** builds the 
 
 ### The tally on your clipboard
 
-Every time a daily log is generated — draft or Finish day — the day's numbers are copied to the clipboard, ready to paste. Five lines, one per row — `Dispatched:` on its own, then `Installed: 14`, `UTI: 3`, `TR: 1`, `EER: 0` with that day's counts.
+Every time a daily log is generated — draft or Finish day — the day's numbers are copied to the clipboard, ready to paste. Six lines, one per row — **the date first**, then `Dispatched:` on its own, then `Installed: 14`, `UTI: 3`, `TR: 1`, `EER: 0` with that day's counts.
+
+The date line is there for two reasons: it says which day the numbers are for, and it stops iPhones garbling the paste. Without it the block began `Dispatched:`, which iOS reads as a web link rather than text — Messages then pasted `Dispatched:%0AInstalled%3A%2017…` instead of the tally. If you ever see a paste full of `%` codes like that, the date line has gone missing.
 
 **Dispatched is left blank on purpose** — the app never sees that number, so type it in after you paste. **TR** counts the timed appointments on your worklist for the day (an appointment you couldn't get to still counts; a work order you typed in by hand that was never on the list can't be). **EER** counts the UTIs whose reason was **Electrical Repair** — those are still counted on the UTI line too, so the two overlap.
 

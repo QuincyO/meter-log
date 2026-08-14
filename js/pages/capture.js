@@ -1297,12 +1297,16 @@ let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 // number it needs must already be in memory. `tallyCache` is that pre-read, the
 // same trick `recentJStops` uses for the synchronous duplicate check: refreshed on
 // load, after each log, and when the End-of-day sheet opens.
-let tallyCache = { stops:[], appt:0 };
+let tallyCache = { stops:[], appt:0, date:'' };
 async function refreshTallyCache(){
   const c = cfg(); if(!c.name) return;
   try{
-    const cached = await idb.get('dayCache', `${c.name}|${localDate()}`);
-    tallyCache = { stops:(cached && cached.stops) || [], appt: await todayAppointmentCount() };
+    // The date is captured HERE, alongside the stops it describes, rather than read
+    // again at tap time — on a phone left running past midnight the two would
+    // otherwise disagree, and the tally would date yesterday's counts as today.
+    const date = localDate();
+    const cached = await idb.get('dayCache', `${c.name}|${date}`);
+    tallyCache = { stops:(cached && cached.stops) || [], appt: await todayAppointmentCount(), date };
   } catch {/* a tally is never worth breaking a screen over */}
 }
 // Best-effort, gesture-synchronous. Reads only the cache — deliberately not
@@ -1311,7 +1315,7 @@ async function refreshTallyCache(){
 // attempted, for the toast suffix — the same shape as the plan-mode WO# copy.
 function copyDayTally(){
   if(!navigator.clipboard?.writeText) return false;
-  navigator.clipboard.writeText(tallyBlock(tallyCache.stops, tallyCache.appt)).catch(() => {});
+  navigator.clipboard.writeText(tallyBlock(tallyCache.stops, tallyCache.appt, tallyCache.date)).catch(() => {});
   return true;
 }
 // GUARDED, and for a reason this file paid for the same morning this merged:

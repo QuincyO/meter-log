@@ -9,16 +9,55 @@ const captureJs = readFileSync(new URL('../js/pages/capture.js', import.meta.url
 
 const stop = (status, utiReason) => ({ id:String(Math.random()), status, utiReason });
 
-test('the five lines come out in order, with Dispatched left empty', () => {
+const DAY = '2026-08-14';
+
+test('the lines come out in order, dated, with Dispatched left empty', () => {
   // Dispatched is a number this app never sees — the installer types it in on paste,
   // and a fabricated 0 would read as a real count.
-  const out = tallyBlock([stop('INSTALLED'), stop('INSTALLED')], 0);
-  assert.equal(out, 'Dispatched:\nInstalled: 2\nUTI: 0\nTR: 0\nEER: 0');
+  const out = tallyBlock([stop('INSTALLED'), stop('INSTALLED')], 0, DAY);
+  assert.equal(out, '2026-08-14\nDispatched:\nInstalled: 2\nUTI: 0\nTR: 0\nEER: 0');
   assert.ok(!/Dispatched: /.test(out), 'no trailing space after Dispatched:');
 });
 
 test('zeros print as 0 rather than vanishing', () => {
-  assert.equal(tallyBlock([], 0), 'Dispatched:\nInstalled: 0\nUTI: 0\nTR: 0\nEER: 0');
+  assert.equal(tallyBlock([], 0, DAY), '2026-08-14\nDispatched:\nInstalled: 0\nUTI: 0\nTR: 0\nEER: 0');
+});
+
+// ── The reason the date line exists ─────────────────────────────────────────
+// A `Word:` at position 0 is a valid URI scheme, so the old block parsed as a URL
+// with scheme `dispatched:`. iOS's pasteboard sniffed it, published a public.url
+// flavour beside the plain text, and Messages pasted the percent-encoded form —
+// `Dispatched:%0AInstalled%3A%2017%0AUTI%3A%204…` — to the office on 2026-08-14.
+// A leading YYYY-MM-DD defeats it structurally: a scheme may not start with a digit.
+test('the block is NOT parseable as a URL — this is what the date line is for', () => {
+  const out = tallyBlock([stop('INSTALLED'), stop('UTI', EER_UTI_REASON)], 2, DAY);
+  assert.throws(() => new URL(out),
+    'the tally parses as a URL again — iOS will percent-encode the whole paste');
+  assert.match(out, /^\d{4}-\d{2}-\d{2}\n/,
+    'the first line must be a date starting with a digit, or URL sniffing returns');
+});
+
+test('the fixes that look obvious but do NOT work stay rejected', () => {
+  // Recorded as executable notes: each of these was tested against the real bug and
+  // still parses as a URL, so none of them may replace the date line.
+  for(const bad of [
+    'Dispatched:\nInstalled: 1',        // the shipped bug
+    'Installed: 1\nDispatched:',        // reordering — `installed:` is a scheme too
+    'Dispatched: 0\nInstalled: 1',      // filling the value in changes nothing
+    '\nDispatched:\nInstalled: 1',      // a leading newline is trimmed first
+    ' Dispatched:\nInstalled: 1',       // so is a leading space
+  ]) assert.doesNotThrow(() => new URL(bad),
+    `"${bad.split('\n')[0]}" no longer parses as a URL — re-check the date-line reasoning`);
+});
+
+test('a missing or malformed date falls back to today, never to a blank line', () => {
+  // A blank first line would be trimmed by the same sniffing and hand the bug back.
+  for(const bad of [undefined, '', null, 'yesterday', '2026-8-4']){
+    const out = tallyBlock([], 0, bad);
+    assert.match(out, /^\d{4}-\d{2}-\d{2}\nDispatched:/,
+      `a ${JSON.stringify(bad)} date must fall back to a real one`);
+    assert.throws(() => new URL(out));
+  }
 });
 
 test('an electrical-repair UTI counts on BOTH the UTI and EER lines', () => {
