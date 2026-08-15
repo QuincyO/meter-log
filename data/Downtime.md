@@ -1,6 +1,6 @@
 # Downtime
 
-_278 rows · exported 2026-08-13 03:52 America/Toronto_
+_315 rows · exported 2026-08-15 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -282,3 +282,40 @@ _278 rows · exported 2026-08-13 03:52 America/Toronto_
 | 1786564380325-to4q83 | 2026-08-12 12:00:00 | Quincy Orta | BAD_WEATHER | 30 | 677144 | gap 14:38–14:47 |  |
 | 1786565074546-02ugo3 | 2026-08-12 16:04:34 | Richard Bonvanie | NEXT_GEN | 5 | 687519 |  | land |
 | 1786565094780-wve1dg | 2026-08-12 16:04:54 | Richard Bonvanie | NEXT_GEN | 5 | 690546 |  | land |
+| 1786639232911-or7acg | 2026-08-13 12:40:32 | Richard Bonvanie | NEXT_GEN | 5 | 682545 |  | land |
+| 1786639263170-7kxqt0 | 2026-08-13 12:41:03 | Richard Bonvanie | TRAVEL_TIME | 45 | 689499 |  | land |
+| 1786639526316-k4qxzr | 2026-08-13 12:45:26 | Richard Bonvanie | OTHER | 5 | 686292 | Had to search property and buildings to find meter location. Next gen said pole, but service went underground. Pin location was on an out building, but no meter. Found on side of second building. | land |
+| 1786643513450-d46mcn | 2026-08-13 13:51:53 | Richard Bonvanie | NEXT_GEN | 5 | 691396 |  | land |
+| 1786643525660-8lrdtl | 2026-08-13 13:52:05 | Richard Bonvanie | TRAVEL_TIME | 10 | 691396 |  | land |
+| 1786649064925-waxmtc | 2026-08-13 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 685842 | gap 11:39–11:39 |  |
+| 1786649064925-ik1x6m | 2026-08-13 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 685842 | gap 11:39–11:39 |  |
+| 1786649064925-zasynz | 2026-08-13 12:00:00 | Quincy Orta | TRUCK_ISSUES | 120 | 685842 | gap 11:39–11:39 |  |
+| 1786649064925-33six3 | 2026-08-13 12:00:00 | Quincy Orta | NEXT_GEN | 15 | 685842 | gap 11:39–11:39 |  |
+| 1786649064925-kztrlf | 2026-08-13 12:00:00 | Quincy Orta | DISPATCH | 30 | 685842 | gap 11:39–11:39 |  |
+| 1786649183224-khx086 | 2026-08-13 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 691631 | gap 09:14–09:14 |  |
+| 1786649183225-2kovqh | 2026-08-13 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 691631 | gap 09:14–09:14 |  |
+| 1786649183225-lxrazi | 2026-08-13 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 691631 | gap 09:14–09:14 |  |
+| 1786649183225-rve8ju | 2026-08-13 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 691631 | gap 09:14–09:14 |  |
+| 1786649183225-rzygm2 | 2026-08-13 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 687821 | gap 09:14–09:40 |  |
+| 1786649183225-9wz78i | 2026-08-13 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 5 | 689232 | gap 10:13–10:32 |  |
+| 1786649183225-q6ai1t | 2026-08-13 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 692456 | gap 10:58–11:30 |  |
+| 1786649183225-sk7t4f | 2026-08-13 12:00:00 | Phillip Monteiro | DISPATCH | 30 | 688364 | gap 13:21–13:49 |  |
+| 1786649183225-p0w2xv | 2026-08-13 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 688364 | gap 13:21–13:49 |  |
+| 1786715912007-m3te47 | 2026-08-14 09:58:32 | Richard Bonvanie | TRAVEL_TIME | 45 | 691961 |  | land |
+| 1786724103478-iuosr2 | 2026-08-14 12:15:03 | Richard Bonvanie | NEXT_GEN | 5 | 688627 |  | land |
+| 1786733058757-0yu8zz | 2026-08-14 14:44:18 | Richard Bonvanie | OTHER | 5 | 692757 | Address wrong. Should be 26 Lakeview Dr | land |
+| 1786736361333-8cdrti | 2026-08-14 15:39:21 | Richard Bonvanie | OTHER | 5 | 692757 | Look for house | land |
+| 1786736391558-372cr0 | 2026-08-14 15:39:51 | Richard Bonvanie | NEXT_GEN | 5 | 686147 |  | land |
+| 1786736862214-q9ibxu | 2026-08-14 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 693445 | gap 12:34–12:34 |  |
+| 1786736862214-zh1u99 | 2026-08-14 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 693445 | gap 12:34–12:34 |  |
+| 1786736862214-y0nuot | 2026-08-14 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 693445 | gap 12:34–12:34 |  |
+| 1786736862214-76wwws | 2026-08-14 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 693445 | gap 12:34–12:34 |  |
+| 1786736862214-smbmer | 2026-08-14 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 180 | 693445 | gap 12:34–12:34 |  |
+| 1786736862214-cp9rpp | 2026-08-14 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 690173 | gap 12:34–13:05 |  |
+| 1786736862214-qkfdaa | 2026-08-14 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 15 | 693724 | gap 14:37–15:31 |  |
+| 1786736862214-skcz75 | 2026-08-14 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 693724 | gap 14:37–15:31 |  |
+| 1786739605414-2q1p6v | 2026-08-14 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 690236 | gap 10:02–10:02 |  |
+| 1786739605414-kbgcnf | 2026-08-14 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 690236 | gap 10:02–10:02 |  |
+| 1786739605414-4q1zct | 2026-08-14 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 690236 | gap 10:02–10:02 |  |
+| 1786739605414-0gfn0c | 2026-08-14 12:00:00 | Quincy Orta | DISPATCH | 20 | 690236 | gap 10:02–10:02 |  |
+| 1786739605414-yq0y4m | 2026-08-14 12:00:00 | Quincy Orta | TRUCK_ISSUES | 30 | 690236 | gap 10:02–10:02 |  |

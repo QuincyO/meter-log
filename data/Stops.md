@@ -1,6 +1,6 @@
 # Stops
 
-_862 rows · exported 2026-08-13 03:52 America/Toronto_
+_983 rows · exported 2026-08-15 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -866,3 +866,124 @@ _862 rows · exported 2026-08-13 03:52 America/Toronto_
 | 1786563690570-rslp9u | 2026-08-12 15:41:30 | Richard Bonvanie | 690999 |  | 4689 Hwy 518 |  |  | J4781900 | 469 | 65128 | INSTALLED |  |  |  |  |  | land |
 | 1786564580532-6zt9uj | 2026-08-12 15:56:20 | Richard Bonvanie | 682349 |  | 6 OLine St |  |  | J4781901 | 67 | 4231 | INSTALLED |  | Address is wrong and not displayed.  Lot is on the left at end of OLine on pedestal. Possibly 15 OLine St. |  |  |  | land |
 | 1786566187696-61mb5o | 2026-08-12 16:23:07 | Richard Bonvanie | 691890 |  | 20 OLine St |  |  | J4781902 | 87 | 30091 | INSTALLED |  |  |  |  |  | land |
+| 1786626873406-cmcks3 | 2026-08-13 09:14:33 | Phillip Monteiro | 691631 |  | 2413 Fern Glen Rd, Perry | 45.472574 | -79.410005 | J4777245 | J3081374 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786628748795-fkfore | 2026-08-13 09:45:48 | Richard Bonvanie | 689499 |  | 80 Sanborn Dr |  |  | J4781903 | 406 | 58482 | INSTALLED |  | Drive to cluster from meeting point |  |  |  | land |
+| 1786628434942-g7egen | 2026-08-13 09:40:34 | Phillip Monteiro | 687821 |  | 3122 Fern Glen Rd, Perry | 45.466412 | -79.443114 | J4777242 | J3299240 | 93646 | INSTALLED |  |  |  |  |  | land |
+| 1786628878044-ubcfz7 | 2026-08-13 09:47:58 | Phillip Monteiro | 690973 |  | 3021 Fern Glen Rd, Perry | 45.464179 | -79.435482 | J4777243 | J4142343 | 21338 | INSTALLED |  |  |  |  |  | land |
+| 1786629452962-h3duji | 2026-08-13 09:57:32 | Phillip Monteiro | 691439 |  | 3016 Fern Glen Rd, Perry | 45.467904 | -79.437886 | J4772132 | J3299238 | 76460 | INSTALLED |  |  |  |  |  | land |
+| 1786630072560-xmd5ws | 2026-08-13 10:07:52 | Phillip Monteiro | 686263 | A | 2503 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.472849 | -79.414314 | J4772134 | J3135778 | 21555 | INSTALLED |  |  |  |  |  | land |
+| 1786630210782-7qup0w | 2026-08-13 10:10:10 | Richard Bonvanie | 686292 |  | 94 Sanborn Dr |  |  | J4781904 | 408 | 44333 | INSTALLED |  | Location on house. Not pole |  |  |  | land |
+| 1786630435531-aeyu40 | 2026-08-13 10:13:55 | Phillip Monteiro | 687815 | B | 2503 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.472441 | -79.415155 | J4772130 | J3299220 | 42558 | INSTALLED |  |  |  |  |  | land |
+| 1786630629106-bhdr68 | 2026-08-13 10:17:09 | Richard Bonvanie | 686986 |  | 92 Sanborn Dr |  |  | J4781905 | 405 | 33025 | INSTALLED |  |  |  |  |  | land |
+| 1786631115698-zv49vx | 2026-08-13 10:25:15 | Richard Bonvanie | 688666 |  | 90 Sanborn Dr |  |  | J4781906 | 97 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786631541995-tiyvbf | 2026-08-13 10:32:21 | Phillip Monteiro | 689232 | D | 2503 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.471702 | -79.416065 | J4772137 | J3135828 | 31906 | INSTALLED |  |  |  |  |  | land |
+| 1786631891180-49nfyy | 2026-08-13 10:38:11 | Phillip Monteiro | 689190 | E | 2503 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.471319 | -79.416442 | J4772135 | J3135827 | 66730 | INSTALLED |  |  |  |  |  | land |
+| 1786632493485-zkj8j4 | 2026-08-13 10:48:13 | Richard Bonvanie | 689494 |  | 45 N Reddam Rd |  |  | J4781907 | 509 | 85331 | INSTALLED |  |  |  |  |  | land |
+| 1786632505702-0rc0rp | 2026-08-13 10:48:25 | Phillip Monteiro | 686268 |  | 2469 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.473412 | -79.414026 | J4772131 | J3695631 | 12282 | INSTALLED |  |  |  |  |  | land |
+| 1786633112224-10toao | 2026-08-13 10:58:32 | Phillip Monteiro | 691485 |  | 2452 Fern Glen Rd, Perry | 45.473485 | -79.41083 | J4772136 | J4160886 | 37556 | INSTALLED |  |  |  |  |  | land |
+| 1786634280587-sixuck | 2026-08-13 11:18:00 | Richard Bonvanie | 691942 |  | 27 Reddam Rd |  |  | J4781908 | 595 | 2310 | INSTALLED |  |  |  |  |  | land |
+| 1786635006867-v1d3a9 | 2026-08-13 11:30:06 | Phillip Monteiro | 692456 |  | 2383 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.471381 | -79.408688 | J4772133 | J3793621 | 2803 | INSTALLED |  |  |  |  |  | land |
+| 1786635510346-25pp90 | 2026-08-13 11:38:30 | Richard Bonvanie | 682545 |  | 19 N Reddam Rd |  |  | J4781909 | 483 | 40886 | INSTALLED |  |  |  |  |  | land |
+| 1786635554468-mu5n87 | 2026-08-13 11:39:14 | Quincy Orta | 685842 |  | 98 Branch Ln, Ryerson, ON P0A 1C0, Canada | 45.528421 | -79.486694 |  |  |  | UTI | No Access |  |  |  |  | land |
+| 1786635723223-qqlom2 | 2026-08-13 11:42:03 | Phillip Monteiro | 683072 |  | 2367 Fern Glen Rd, Perry | 45.470876 | -79.408057 | J4772139 | J3096350 | 8391 | INSTALLED |  |  |  |  |  | land |
+| 1786636212064-uo4b4a | 2026-08-13 11:50:12 | Phillip Monteiro | 689144 |  | 2365 Fern Glen Rd, Perry | 45.470522 | -79.407109 | J4772138 | J3096349 | 49709 | INSTALLED |  |  |  |  |  | land |
+| 1786636221002-ddurbk | 2026-08-13 11:50:20 | Quincy Orta | 692502 |  | 62 Branch Ln, Ryerson, ON P0A 1C0, Canada | 45.527542 | -79.48659 | J4749056 | J3136099 | 64502 | INSTALLED |  |  |  |  |  | land |
+| 1786636587003-ufufg5 | 2026-08-13 11:56:27 | Phillip Monteiro | 691193 |  | 2351 Fern Glen Rd, Perry | 45.470273 | -79.40653 | J4772141 | J3096352 | 17958 | INSTALLED |  |  |  |  |  | land |
+| 1786636912974-z1o6z8 | 2026-08-13 12:01:52 | Phillip Monteiro | 691124 |  | 2317 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.470015 | -79.405272 | J4772140 | J3756511 | 58323 | INSTALLED |  |  |  |  |  | land |
+| 1786636922885-mjs5qe | 2026-08-13 12:02:02 | Richard Bonvanie | 692487 |  | 4694 Hwy 518 |  |  | J4781910 | 961 | 10597 | INSTALLED |  |  |  |  |  | land |
+| 1786637352275-0p35ac | 2026-08-13 12:09:12 | Richard Bonvanie | 693588 |  | 4690 Hwy 518 |  |  | J4781911 | 776 | 730 | INSTALLED |  |  |  |  |  | land |
+| 1786637440252-n2unxx | 2026-08-13 12:10:40 | Quincy Orta | 693619 |  | 56 Branch Ln, Ryerson, ON P0A 1C0, Canada | 45.526939 | -79.486903 | J4749059 | J3298877 | 8335 | INSTALLED |  |  |  |  |  | land |
+| 1786638152279-jsgijp | 2026-08-13 12:22:32 | Quincy Orta | 688154 |  | 46 Branch Ln, Ryerson, ON P0A 1C0, Canada | 45.526301 | -79.486923 | J4749058 | J3929434 | 11990 | INSTALLED |  |  |  |  |  | land |
+| 1786638343176-28eox7 | 2026-08-13 12:25:43 | Richard Bonvanie | 686672 |  | 4685 Hwy 518 |  |  | J4781912 | 462 | 19471 | INSTALLED |  |  |  |  |  | land |
+| 1786638590380-z17b45 | 2026-08-13 12:29:50 | Phillip Monteiro | 681901 |  | 2309 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.470144 | -79.40478 | J4772145 | J3756441 | 86665 | INSTALLED |  |  |  |  |  | land |
+| 1786638680470-pzi6oh | 2026-08-13 12:31:20 | Quincy Orta | 690188 |  | 615 Old Rainy Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.526669 | -79.490134 | J4749057 | J3136113 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786638743990-3mp5uy | 2026-08-13 12:32:23 | Richard Bonvanie | 691244 |  | 4679 Hwy 518 |  |  | J4781913 | 236 | 16141 | INSTALLED |  |  |  |  |  | land |
+| 1786639039503-5qq7mb | 2026-08-13 12:37:19 | Phillip Monteiro | 691855 |  | 2300 Fern Glen Rd, Perry | 45.470615 | -79.404143 | J4772143 | J3606430 | 53128 | INSTALLED |  |  |  |  |  | land |
+| 1786639145584-20v122 | 2026-08-13 12:39:05 | Quincy Orta | 686702 |  | 615 Old Rainy Lake Rd, Ryerson, ON P0A 1C0, Canada | 45.526789 | -79.489641 | J4749052 | J3136114 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786639540773-5ac15b | 2026-08-13 12:45:40 | Phillip Monteiro | 682377 |  | 2290 Fern Glen Rd, Perry | 45.470485 | -79.403769 | J4772142 | J3215309 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786640069438-robj8n | 2026-08-13 12:54:29 | Richard Bonvanie | 689923 |  | 4673 Hwy 518 |  |  | J4781914 | 474 | 11685 | INSTALLED |  |  |  |  |  | land |
+| 1786639847382-7b63nj | 2026-08-13 12:50:47 | Quincy Orta | 686055 |  | 526 Old rainy lake rd | 45.522863 | -79.487618 |  |  |  | UTI | No Access |  |  |  |  | land |
+| 1786640262186-et4gdc | 2026-08-13 12:57:42 | Quincy Orta | 693421 |  | 486 Old rainy lake rd | 45.521115 | -79.48764 | J4749053 | J3136115 | 20648 | INSTALLED |  |  |  |  |  | land |
+| 1786640479774-6efotr | 2026-08-13 13:01:19 | Richard Bonvanie | 686673 |  | 4669 Hwy 518 | 45.456922 | -79.583107 | J4781915 | 475 | 7152 | INSTALLED |  |  |  |  | Y | land |
+| 1786640231279-s3k532 | 2026-08-13 12:57:11 | Phillip Monteiro | 685905 |  | 2135 Fern Glen Rd, Perry | 45.466393 | -79.393898 | J4772144 | J3996790 | 34876 | INSTALLED |  |  |  |  |  | land |
+| 1786641022436-jg6t7f | 2026-08-13 13:10:22 | Richard Bonvanie | 689267 |  | 4668 Hwy 518 |  |  | J4781916 | 743 | 37954 | INSTALLED |  | Siding over meter base. Removed and reinstalled |  |  |  | land |
+| 1786641679056-jee19g | 2026-08-13 13:21:19 | Phillip Monteiro | 692283 |  | 1860 Fern Glen Rd, McMurrich/Monteith, ON P0A 1J0, Canada | 45.473442 | -79.379773 | J4772146 | J3532767 | 80093 | INSTALLED |  |  |  |  |  | land |
+| 1786643367672-giu0rd | 2026-08-13 13:49:27 | Phillip Monteiro | 688364 |  | 1777 Hwy 518, Kearney | 45.559036 | -79.227383 | J4772147 | J3323053 | 9388 | INSTALLED |  |  |  |  |  | land |
+| 1786643453527-5sut1x | 2026-08-13 13:50:53 | Quincy Orta | 687251 |  | 758 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.526982 | -79.260874 | J4749054 | J4227739 | 1257 | INSTALLED |  |  |  |  |  | land |
+| 1786643488856-5wde29 | 2026-08-13 13:51:28 | Richard Bonvanie | 691396 |  | 708 East Bear Lake Rd |  |  | J4781917 | 441 | 1274 | INSTALLED |  |  |  |  |  | land |
+| 1786644342166-bbpukl | 2026-08-13 14:05:42 | Quincy Orta | 692379 |  | 103 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.51775 | -79.29641 | J4749055 | J3105457 | 29989 | INSTALLED |  |  |  |  |  | land |
+| 1786645553263-7z6mya | 2026-08-13 14:25:53 | Quincy Orta | 691843 |  | 67 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.518109 | -79.298172 | J4779120 | J3569311 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786645566156-hm59it | 2026-08-13 14:26:06 | Richard Bonvanie | 686768 |  | 607 East Bear Lake Rd |  |  | J4781918 | 583 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786646073431-wk7ihr | 2026-08-13 14:34:33 | Quincy Orta | 688311 |  | 81 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.517877 | -79.297917 | J4779119 | J4000786 | 20817 | INSTALLED |  |  |  |  |  | land |
+| 1786646724822-bqx9zk | 2026-08-13 14:45:24 | Richard Bonvanie | 693589 |  | 606 East Bear Lake Rd |  |  | J4781919 | 584 | 10192 | INSTALLED |  | No address sign. Looks abandoned |  |  |  | land |
+| 1786647061777-s54g3t | 2026-08-13 14:51:01 | Quincy Orta | 690803 |  | 14 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.519466 | -79.302134 | J4646508 | J3385592 | 90725 | INSTALLED |  |  |  |  |  | land |
+| 1786647687208-l9cmkm | 2026-08-13 15:01:27 | Quincy Orta | 688321 |  | 8 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.519671 | -79.302676 | J4646506 | J3533213 | 25254 | INSTALLED |  |  |  |  |  | land |
+| 1786648010369-rtyu4t | 2026-08-13 15:06:50 | Quincy Orta | 692953 |  | 53 Supersign Rd, Perry, ON P0A 1J0, Canada | 45.518315 | -79.299399 | J4646505 | J3253164 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786648017514-kxi04g | 2026-08-13 15:06:57 | Richard Bonvanie | 692858 |  | 589 East Bear Lake Rd |  |  | J4781920 | 353 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786648437228-dqejau | 2026-08-13 15:13:57 | Quincy Orta | 686859 |  | 37 Trainers Rd, Perry, ON P0A 1J0, Canada | 45.514713 | -79.295955 | J4646507 | J4436954 | 6600 | INSTALLED |  |  |  |  |  | land |
+| 1786648586061-4zfybm | 2026-08-13 15:16:26 | Richard Bonvanie | 686295 |  | 582 East Bear Lake Rd |  |  | J4781921 | 354 | 52832 | INSTALLED |  |  |  |  |  | land |
+| 1786649937345-gowkbt | 2026-08-13 15:38:57 | Richard Bonvanie | 693587 |  | 548 C East Bear Lake Rd |  |  | J4775542 | 827 | 2769 | INSTALLED |  |  |  |  |  | land |
+| 1786650425117-flof0e | 2026-08-13 15:47:05 | Richard Bonvanie | 691663 |  | 548 E East Bear Lake Rd |  |  | J4775543 | 467 | 32522 | INSTALLED |  |  |  |  |  | land |
+| 1786650862046-2salty | 2026-08-13 15:54:22 | Richard Bonvanie | 689275 |  | 548 D East Bear Lake Rd |  |  | J4775544 | 299 | 38267 | INSTALLED |  |  |  |  |  | land |
+| 1786651443512-jcc7gf | 2026-08-13 16:04:03 | Richard Bonvanie | 692489 |  | 548 B East Bear Lake Rd |  |  | J4775545 | 962 | 39731 | INSTALLED |  |  |  |  |  | land |
+| 1786651983848-7c45aw | 2026-08-13 16:13:03 | Richard Bonvanie | 682547 |  | 548 A East Bear Lake Rd |  |  | J4775546 | 675 | 26026 | INSTALLED |  |  |  |  |  | land |
+| 1786715891845-03rh5k | 2026-08-14 09:58:11 | Richard Bonvanie | 691961 |  | 653 East Bear Lake Rd |  |  | J4775547 | 748 | 14666 | INSTALLED |  |  |  |  |  | land |
+| 1786716150893-66ov5b | 2026-08-14 10:02:30 | Quincy Orta | 690236 |  | 19 Trainers Rd, Perry, ON P0A 1J0, Canada | 45.514318 | -79.295144 | J4779123 | J3840476 | 87578 | INSTALLED |  |  |  |  |  | land |
+| 1786717072802-dnc4uv | 2026-08-14 10:17:52 | Quincy Orta | 692946 |  | 135 Station Rd, Perry, ON P0A 1J0, Canada | 45.50063 | -79.289693 | J4779124 | J3229019 | 86154 | INSTALLED |  |  |  |  |  | land |
+| 1786717110713-9rppj2 | 2026-08-14 10:18:30 | Richard Bonvanie | 691924 |  | 578 East Bear Lake Rd |  |  | J4775548 | 419 | 71517 | INSTALLED |  |  |  |  |  | land |
+| 1786717979353-9d2215 | 2026-08-14 10:32:59 | Quincy Orta | 693642 |  | 148 Station Rd, Perry, ON P0A 1J0, Canada | 45.501281 | -79.290501 | J4779122 | J3756565 | 61015 | INSTALLED |  |  |  |  |  | land |
+| 1786717984925-11j8hn | 2026-08-14 10:33:04 | Richard Bonvanie | 687539 |  | 532 A East Bear Lake Rd |  |  | J4775549 | 676 | 83475 | INSTALLED |  |  |  |  |  | land |
+| 1786718422695-tcbygi | 2026-08-14 10:40:22 | Richard Bonvanie | 686145 |  | 532 B East Bear Lake Rd |  |  | J4775550 | 729 | 3774 | INSTALLED |  |  |  |  |  | land |
+| 1786718742161-3xlnvw | 2026-08-14 10:45:42 | Quincy Orta | 692952 |  | 145 Station Rd, Perry, ON P0A 1J0, Canada | 45.501083 | -79.28971 | J4779125 | J3255507 | 92400 | INSTALLED |  |  |  |  |  | land |
+| 1786718880477-bnu7gd | 2026-08-14 10:48:00 | Richard Bonvanie | 692495 |  | 532 C East Bear Lake Rd |  |  | J4775551 | 673 | 84462 | INSTALLED |  |  |  |  |  | land |
+| 1786720472168-ql8n8v | 2026-08-14 11:14:32 | Richard Bonvanie | 689269 |  | 95 Breezy Point Rd |  |  | J4775552 | 356 | 23192 | INSTALLED |  |  |  |  |  | land |
+| 1786720630710-gp1nxo | 2026-08-14 11:17:10 | Quincy Orta | 693653 |  | 275 Station Rd, Township of Perry | 45.506438 | -79.292799 |  |  |  | UTI | Inside Meter - Need Appointment |  |  |  |  | land |
+| 1786720826156-iqpvqd | 2026-08-14 11:20:26 | Richard Bonvanie | 685915 |  | 94 Breezy Point Rd |  |  | J4775553 | 443 | 32278 | INSTALLED |  |  |  |  |  | land |
+| 1786721343331-vezows | 2026-08-14 11:29:03 | Quincy Orta | 691999 |  | 289 Station Rd, Perry, ON P0A 1J0, Canada | 45.506302 | -79.294333 | J4646549 | J3753387 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786722581580-02jz9z | 2026-08-14 11:49:41 | Richard Bonvanie | 688627 |  | 89 Breezy Point Rd |  |  | J4775554 | 421 | 19873 | INSTALLED |  |  |  |  |  | land |
+| 1786722608315-97usyn | 2026-08-14 11:50:08 | Quincy Orta | 686854 |  | 294 Station Rd, Perry, ON P0A 1J0, Canada | 45.505897 | -79.294096 | J4646552 | J3945036 | 71780 | INSTALLED |  |  |  |  |  | land |
+| 1786723033770-uig0dw | 2026-08-14 11:57:13 | Quincy Orta | 693710 |  | 311 Station Rd, Perry, ON P0A 1J0, Canada | 45.506744 | -79.294817 | J4646550 | J3904923 | 49579 | INSTALLED |  |  |  |  |  | land |
+| 1786723107384-1z0raq | 2026-08-14 11:58:27 | Richard Bonvanie | 688017 |  | 86 A Breezy Point Rd |  |  | J4775555 | 442 | 51508 | INSTALLED |  |  |  |  |  | land |
+| 1786723482136-i7x3es | 2026-08-14 12:04:42 | Quincy Orta | 691262 |  | 363 Station Rd, Perry, ON P0A 1J0, Canada | 45.507705 | -79.296197 |  |  |  | UTI | Appointment Needed | Locked gate. Cx didn't pick up phone |  |  |  | land |
+| 1786724598538-2p029s | 2026-08-14 12:23:18 | Richard Bonvanie | 682548 |  | 77 B Breezy Point Rd |  |  | J4775556 | 354 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786724822651-w24wha | 2026-08-14 12:27:02 | Quincy Orta | 690247 |  | 382 Station Rd, Perry, ON P0A 1J0, Canada | 45.508668 | -79.296068 | J4646551 | J4242800 | 3638 | INSTALLED |  |  |  |  |  | land |
+| 1786725050490-7bja6v | 2026-08-14 12:30:50 | Quincy Orta | 688304 |  | 388 Station Rd, Perry, ON P0A 1J0, Canada | 45.508857 | -79.295811 | J4607607 | J3242070 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786725255122-gig75a | 2026-08-14 12:34:15 | Phillip Monteiro | 693445 |  | 218 Selena Dr, McMurrich | 45.444862 | -79.41769 | J4772148 | J3298722 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786725558048-yb9siw | 2026-08-14 12:39:18 | Richard Bonvanie | 691659 |  | 77 A Breezy Point Rd |  |  | J4775557 | 355 | 24815 | INSTALLED |  |  |  |  |  | land |
+| 1786726369242-ktc7lx | 2026-08-14 12:52:49 | Quincy Orta | 688659 |  | 390 Station Rd, Perry, ON P0A 1J0, Canada | 45.509643 | -79.295659 | J4607606 | J3135713 | 15117 | INSTALLED |  |  |  |  |  | land |
+| 1786727631651-ox4g2a | 2026-08-14 13:13:51 | Quincy Orta | 686860 |  | 404 Station Rd, Perry, ON P0A 1J0, Canada | 45.510825 | -79.294484 |  |  |  | UTI | Unsafe Conditions | Heavy brush and chest hight grass can't walk to meter |  |  |  | land |
+| 1786727928168-ylfxru | 2026-08-14 13:18:48 | Quincy Orta | 689425 |  | 412 Station Rd, Township of Perry | 45.510963 | -79.294349 |  |  |  | UTI | Unsafe Conditions | Heavy Brush and chest height grass can't see where I'm walking |  |  |  | land |
+| 1786728402236-vceyuv | 2026-08-14 13:26:42 | Richard Bonvanie | 689212 |  | 49 A Breezy Point Rd |  |  | J4772034 | 353 | 12814 | INSTALLED |  |  |  |  |  | land |
+| 1786728758473-1moflj | 2026-08-14 13:32:38 | Richard Bonvanie | 688670 |  | 49 B Breezy Point Rd |  |  | J4772035 | 653 | 23233 | INSTALLED |  |  |  |  |  | land |
+| 1786728757676-twvxfm | 2026-08-14 13:32:37 | Quincy Orta | 687696 |  | 10 Wooden Bridge Rd, Perry, ON P0A 1J0, Canada | 45.497648 | -79.288547 | J4607608 | J3360925 | 11831 | INSTALLED |  |  |  |  |  | land |
+| 1786729727246-hlnq67 | 2026-08-14 13:48:47 | Quincy Orta | 691811 |  | 15 Wooden bridge Rd | 45.497131 | -79.287948 | J4607605 | J3697757 | 67081 | INSTALLED |  |  |  |  |  | land |
+| 1786729812716-jvsflg | 2026-08-14 13:50:12 | Richard Bonvanie | 689214 |  | 27 Breezy Point Rd |  |  | J4772036 | 655 | 31379 | INSTALLED |  |  |  |  |  | land |
+| 1786730541422-hwkjd6 | 2026-08-14 14:02:21 | Richard Bonvanie | 691776 |  | 20 Breezy Point Rd |  |  | J4772037 | 654 | 44106 | INSTALLED |  |  |  |  |  | land |
+| 1786731446875-1x6maj | 2026-08-14 14:17:26 | Quincy Orta | 691109 |  | 26 Wooden Bridge Rd, Perry, ON P0A 1J0, Canada | 45.497992 | -79.287741 | J4749065 | J3467186 | 83856 | INSTALLED |  |  |  |  |  | land |
+| 1786731561357-vdk1px | 2026-08-14 14:19:21 | Richard Bonvanie | 686776 |  | 15 Breezy Point Rd |  |  | J4772038 | 656 | 22380 | INSTALLED |  |  |  |  |  | land |
+| 1786732093999-40pxlp | 2026-08-14 14:28:13 | Quincy Orta | 690156 |  | 41 Wooden bridge Rd | 45.497394 | -79.28643 | J4749067 | J3299257 | 3992 | INSTALLED |  |  |  |  |  | land |
+| 1786732557644-wqccrm | 2026-08-14 14:35:57 | Quincy Orta | 692956 |  | 46 Wooden Bridge Rd, Perry, ON P0A 1J0, Canada | 45.498257 | -79.286703 | J4749064 | J3908937 | 89462 | INSTALLED |  |  |  |  |  | land |
+| 1786732967648-9bw2rc | 2026-08-14 14:42:47 | Richard Bonvanie | 692757 |  | 22 B Breezy Point Rd |  |  | J4772039 | 517 | 73261 | INSTALLED |  | Address wrong. Should be 26 Lakeview Dr. |  |  |  | land |
+| 1786727116717-veda50 | 2026-08-14 13:05:16 | Phillip Monteiro | 690173 |  | 671 Selena Dr, McMurrich | 45.435299 | -79.396378 | J4772149 | J3134507 | 3016 | INSTALLED |  |  |  |  |  | land |
+| 1786727719827-b0ycub | 2026-08-14 13:15:19 | Phillip Monteiro | 683073 |  | 665 Selena Dr, McMurrich | 45.435632 | -79.396615 | J4746662 | J3134505 | 26602 | INSTALLED |  |  |  |  |  | land |
+| 1786728022494-3rlmme | 2026-08-14 13:20:22 | Phillip Monteiro | 687720 |  | 659 Selena Dr, McMurrich | 45.435823 | -79.39674 | J4746663 | J3134510 | 17589 | INSTALLED |  |  |  |  |  | land |
+| 1786728471142-s76ip7 | 2026-08-14 13:27:51 | Phillip Monteiro | 690172 |  | 641 Selena Dr, McMurrich | 45.436106 | -79.396945 | J4746652 | J3134512 | 53579 | INSTALLED |  |  |  |  |  | land |
+| 1786728846051-g62j5t | 2026-08-14 13:34:06 | Phillip Monteiro | 693566 |  | 635 Selena Dr, McMurrich | 45.436738 | -79.397292 | J4746660 | J3134511 | 75968 | INSTALLED |  |  |  |  |  | land |
+| 1786729218849-tdgy3e | 2026-08-14 13:40:18 | Phillip Monteiro | 692146 |  | 631 Selena Dr, McMurrich | 45.436855 | -79.397584 | J4746655 | J3791969 | 60186 | INSTALLED |  |  |  |  |  | land |
+| 1786729838965-7aavkf | 2026-08-14 13:50:38 | Phillip Monteiro | 688644 |  | 627 Selena Dr, McMurrich | 45.436791 | -79.398116 | J4746661 | J3134509 | 19506 | INSTALLED |  |  |  |  |  | land |
+| 1786730538894-2gy4br | 2026-08-14 14:02:18 | Phillip Monteiro | 689968 |  | 619 Selena Dr, McMurrich | 45.437317 | -79.397613 | J4746653 | J3134513 | 14028 | INSTALLED |  |  |  |  |  | land |
+| 1786730846137-3mzwsn | 2026-08-14 14:07:26 | Phillip Monteiro | 688642 |  | 613 Selena Dr, McMurrich | 45.437435 | -79.39804 | J4772151 | J3134516 | 49022 | INSTALLED |  |  |  |  |  | land |
+| 1786731282414-k78eav | 2026-08-14 14:14:42 | Phillip Monteiro | 687721 |  | 605 Selena Dr, McMurrich | 45.437799 | -79.398024 | J4772152 | J3134515 | 17831 | INSTALLED |  |  |  |  |  | land |
+| 1786731746387-0wewyd | 2026-08-14 14:22:26 | Phillip Monteiro | 691627 | A | 589 Selena Dr, McMurrich | 45.438161 | -79.398448 | J4772153 | J3134563 | 7338 | INSTALLED |  |  |  |  |  | land |
+| 1786732062968-vyzv0e | 2026-08-14 14:27:42 | Phillip Monteiro | 689233 | B | 589 Selena Dr, McMurrich | 45.438349 | -79.398592 | J4746654 | J3099194 | 89353 | INSTALLED |  |  |  |  |  | land |
+| 1786732627568-00noic | 2026-08-14 14:37:07 | Phillip Monteiro | 688164 |  | 575 Selena Dr, McMurrich | 45.438146 | -79.399458 | J4772150 | J3904990 | 79966 | INSTALLED |  |  |  |  |  | land |
+| 1786733824872-11lpbb | 2026-08-14 14:57:04 | Richard Bonvanie | 691336 |  | 480 East Bear Lake Rd |  |  | J4772040 | 403 | 30531 | INSTALLED |  |  |  |  |  | land |
+| 1786734411757-hf6f2e | 2026-08-14 15:06:51 | Richard Bonvanie | 689218 |  | 446 East Bear Lake Rd |  |  | J4772041 | 975 | 70342 | INSTALLED |  |  |  |  |  | land |
+| 1786734764514-hrpof7 | 2026-08-14 15:12:44 | Quincy Orta | 690252 |  | 117 Wooden bridge Rd | 45.498715 | -79.282184 | J4749066 | J3221877 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786735116880-vtjo6w | 2026-08-14 15:18:36 | Richard Bonvanie | 686147 |  | 428 East Bear Lake Rd |  |  | J4772042 | 259 | 10439 | INSTALLED |  |  |  |  |  | land |
+| 1786735440800-uvhwcl | 2026-08-14 15:24:00 | Quincy Orta | 692789 |  | 139 Wooden Bridge Rd, Perry, ON P0A 1J0, Canada | 45.499038 | -79.281175 | J4749063 | J3756567 | 69567 | INSTALLED |  |  |  |  |  | land |
+| 1786735911506-wb0wfu | 2026-08-14 15:31:51 | Phillip Monteiro | 693724 |  | 290 Selena Dr, McMurrich |  |  |  |  |  | UTI | Unsafe Conditions | Aggressive dog on premises. Could not safely get to meter. |  |  |  | land |
+| 1786735950047-cuekpb | 2026-08-14 15:32:30 | Richard Bonvanie | 686993 |  | 422 East Bear Lake Rd |  |  | J4772043 | 682 | 87745 | INSTALLED |  |  |  |  |  | land |
+| 1786736760405-st01eh | 2026-08-14 15:46:00 | Richard Bonvanie | 688669 |  | 414 East Bear Lake Rd |  |  | J4772044 | 402 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786738034256-w9h98d | 2026-08-14 16:07:14 | Richard Bonvanie | 682167 |  | 410 East Bear Lake Rd |  |  | J4772045 | 140 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786739250810-y5wots | 2026-08-14 16:27:30 | Richard Bonvanie | 688148 |  | 406 East Bear Lake Rd |  |  | J4772046 | 984 | 31451 | INSTALLED |  |  |  |  |  | land |

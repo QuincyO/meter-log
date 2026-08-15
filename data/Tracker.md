@@ -1,6 +1,6 @@
 # Tracker
 
-_69 rows · exported 2026-08-13 03:52 America/Toronto_
+_76 rows · exported 2026-08-15 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -73,3 +73,10 @@ _69 rows · exported 2026-08-13 03:52 America/Toronto_
 | 2026-08-11 00:00:00 | Quincy Orta | 20 | 0 | 60 | 30 | 0 | 0 | 15 | 15 | 0 | 0 | 0 | 0 | 0 | Clear · W 16 km/h · 25°C |  | 0 | 0 |  | 244 |  | land |
 | 2026-08-12 00:00:00 | Phillip Monteiro | 19 | 1 | 160 | 30 | 40 | 0 | 15 | 35 | 40 | 0 | 0 | 0 | 0 | Clear · W 11 km/h · 24°C |  | 0 | 0 |  | 204 |  | land |
 | 2026-08-12 00:00:00 | Quincy Orta | 23 | 0 | 130 | 0 | 0 | 30 | 15 | 25 | 60 | 0 | 0 | 0 | 0 | Partly cloudy · SW 11 km/h · 24°C |  | 0 | 0 |  | 302 |  | land |
+| 2026-08-13 00:00:00 | Quincy Orta | 14 | 2 | 195 | 15 | 0 | 0 | 15 | 15 | 30 | 120 | 0 | 0 | 0 | Clear · NW 11 km/h · 24°C |  | 0 | 0 |  | 214 |  | land |
+| 2026-08-13 00:00:00 | Phillip Monteiro | 21 | 0 | 175 | 30 | 25 | 0 | 15 | 35 | 70 | 0 | 0 | 0 | 0 | Clear · NW 12 km/h · 24°C |  | 0 | 0 |  | 220 |  | land |
+| 2026-08-11 00:00:00 | Richard Bonvanie | 16 | 0 | 75 | 0 | 0 | 0 | 60 | 15 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 133 |  | land |
+| 2026-08-12 00:00:00 | Richard Bonvanie | 20 | 0 | 25 | 10 | 0 | 0 | 0 | 0 | 0 | 15 | 0 | 0 | 0 |  |  | 0 | 0 |  | 428 |  | land |
+| 2026-08-13 00:00:00 | Richard Bonvanie | 24 | 0 | 15 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |  |  | 0 | 0 |  | 389 |  | land |
+| 2026-08-14 00:00:00 | Quincy Orta | 17 | 4 | 110 | 30 | 0 | 0 | 15 | 15 | 20 | 30 | 0 | 0 | 0 |  |  | 0 | 0 |  | 321 |  | land |
+| 2026-08-14 00:00:00 | Phillip Monteiro | 14 | 1 | 325 | 30 | 25 | 0 | 15 | 35 | 40 | 180 | 0 | 0 | 0 | Mainly clear · N 12 km/h · 24°C | Truck issues in the morning had to go to Ford dealership. | 0 | 0 |  | 131 |  | land |
