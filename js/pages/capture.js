@@ -1957,13 +1957,18 @@ $('navHelp').onclick      = () => { window.location.href = 'help.html'; };
 $('refreshApp').onclick = refreshAppShell;
 $('packGet').onclick    = downloadRoadPack;
 $('packDrop').onclick   = deleteRoadPack;
-// Picking a district that is already downloaded switches to it; picking one that
-// isn't just arms the Download button. Setting a not-installed district active
-// would leave the app believing it has a map it can't load.
+// Picking a district that is already downloaded switches to it (and repaints so the
+// "Using…" line, Delete button and Optimize gate follow). Picking one that isn't
+// downloaded must NOT repaint: setActivePack is deliberately skipped for it (activating
+// a map the app can't load is wrong), so a repaint would re-derive the selected <option>
+// from the unchanged active id and snap the dropdown back — looking frozen. Leaving the
+// native <select> alone keeps the crew's choice visible, which is what arms Download.
 $('packPick').onchange  = async e => {
   const id = e.target.value;
-  if((await installedPacks()).some(p => p.id === id)) await setActivePack(id);
-  paintRoadPacks();
+  if((await installedPacks()).some(p => p.id === id)){
+    await setActivePack(id);
+    paintRoadPacks();
+  }
 };
 
 $('saveSettings').onclick = () => {
