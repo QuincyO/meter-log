@@ -15,6 +15,22 @@
       "segments": 47375,
       "addresses": 56486,
       "builtAt": "2026-07-27"
+    },
+    {
+      "id": "owen-sound-meg",
+      "name": "Owen Sound Meg",
+      "file": "maps/owen-sound-meg.pack",
+      "bbox": {
+        "minLat": 43.18915769654922,
+        "minLng": -81.82983443140985,
+        "maxLat": 45.27488643704894,
+        "maxLng": -79.28100630640984
+      },
+      "bytes": 49787712,
+      "nodes": 555341,
+      "segments": 715122,
+      "addresses": 1082764,
+      "builtAt": "2026-08-17"
     }
   ]
 }
