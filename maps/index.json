@@ -1,22 +1,6 @@
 {
   "districts": [
     {
-      "id": "huntsville-meg",
-      "name": "Huntsville Meg",
-      "file": "maps/huntsville-meg.pack",
-      "bbox": {
-        "minLat": 44.62175409623327,
-        "minLng": -80.47210693359376,
-        "maxLat": 46.03129569755734,
-        "maxLng": -77.82897971570493
-      },
-      "bytes": 6153716,
-      "nodes": 41378,
-      "segments": 47375,
-      "addresses": 56486,
-      "builtAt": "2026-07-27"
-    },
-    {
       "id": "owen-sound-meg",
       "name": "Owen Sound Meg",
       "file": "maps/owen-sound-meg.pack",
