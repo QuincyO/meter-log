@@ -1,6 +1,6 @@
 # Timing
 
-_1035 rows · exported 2026-08-16 03:52 America/Toronto_
+_1058 rows · exported 2026-08-17 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1039,3 +1039,26 @@ _1035 rows · exported 2026-08-16 03:52 America/Toronto_
 | 2026-08-14 00:00:00 | Quincy Orta | 1899-12-30 14:35:00 | 1899-12-30 15:12:00 | 37 | 356 | Flagged | travel | 690252 | INSTALLED | INSTALLED |
 | 2026-08-14 00:00:00 | Quincy Orta | 1899-12-30 15:12:00 | 1899-12-30 15:24:00 | 11 | 86 | Travel | travel | 692789 | INSTALLED | INSTALLED |
 | 2026-08-14 00:00:00 | Quincy Orta | 1899-12-30 15:24:00 | 1899-12-30 16:30:00 | 66 |  | Return | travel |  | INSTALLED |  |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 09:58:00 | 1899-12-30 10:18:00 | 20 |  | Flagged | travel | 691924 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 10:18:00 | 1899-12-30 10:33:00 | 15 |  | Travel | travel | 687539 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 10:33:00 | 1899-12-30 10:40:00 | 7 |  | Travel | travel | 686145 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 10:40:00 | 1899-12-30 10:48:00 | 8 |  | Travel | travel | 692495 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 10:48:00 | 1899-12-30 11:14:00 | 27 |  | Flagged | travel | 689269 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 11:14:00 | 1899-12-30 11:20:00 | 6 |  | Travel | travel | 685915 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 11:20:00 | 1899-12-30 11:49:00 | 29 |  | Flagged | travel | 688627 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 11:49:00 | 1899-12-30 11:58:00 | 9 |  | Travel | travel | 688017 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 11:58:00 | 1899-12-30 12:23:00 | 25 |  | Flagged | travel | 682548 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 12:23:00 | 1899-12-30 12:39:00 | 16 |  | Travel | travel | 691659 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 12:39:00 | 1899-12-30 13:26:00 | 47 |  | Flagged | travel | 689212 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 13:26:00 | 1899-12-30 13:32:00 | 6 |  | Travel | travel | 688670 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 13:32:00 | 1899-12-30 13:50:00 | 18 |  | Travel | travel | 689214 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 13:50:00 | 1899-12-30 14:02:00 | 12 |  | Travel | travel | 691776 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 14:02:00 | 1899-12-30 14:19:00 | 17 |  | Travel | travel | 686776 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 14:19:00 | 1899-12-30 14:42:00 | 23 |  | Flagged | travel | 692757 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 14:42:00 | 1899-12-30 14:57:00 | 14 |  | Travel | travel | 691336 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 14:57:00 | 1899-12-30 15:06:00 | 10 |  | Travel | travel | 689218 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 15:06:00 | 1899-12-30 15:18:00 | 12 |  | Travel | travel | 686147 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 15:18:00 | 1899-12-30 15:32:00 | 14 |  | Travel | travel | 686993 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 15:32:00 | 1899-12-30 15:46:00 | 14 |  | Travel | travel | 688669 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 15:46:00 | 1899-12-30 16:07:00 | 21 |  | Flagged | travel | 682167 | INSTALLED | INSTALLED |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 1899-12-30 16:07:00 | 1899-12-30 16:27:00 | 20 |  | Flagged | travel | 688148 | INSTALLED | INSTALLED |

@@ -1,6 +1,6 @@
 # Tracker
 
-_76 rows · exported 2026-08-16 03:52 America/Toronto_
+_77 rows · exported 2026-08-17 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -80,3 +80,4 @@ _76 rows · exported 2026-08-16 03:52 America/Toronto_
 | 2026-08-13 00:00:00 | Richard Bonvanie | 24 | 0 | 15 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |  |  | 0 | 0 |  | 389 |  | land |
 | 2026-08-14 00:00:00 | Quincy Orta | 17 | 4 | 110 | 30 | 0 | 0 | 15 | 15 | 20 | 30 | 0 | 0 | 0 |  |  | 0 | 0 |  | 321 |  | land |
 | 2026-08-14 00:00:00 | Phillip Monteiro | 14 | 1 | 325 | 30 | 25 | 0 | 15 | 35 | 40 | 180 | 0 | 0 | 0 | Mainly clear · N 12 km/h · 24°C | Truck issues in the morning had to go to Ford dealership. | 0 | 0 |  | 131 |  | land |
+| 2026-08-14 00:00:00 | Richard Bonvanie | 24 | 0 | 20 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |  |  | 0 | 0 |  | 390 |  | land |
