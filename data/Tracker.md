@@ -1,6 +1,6 @@
 # Tracker
 
-_77 rows · exported 2026-08-17 03:52 America/Toronto_
+_79 rows · exported 2026-08-18 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -81,3 +81,5 @@ _77 rows · exported 2026-08-17 03:52 America/Toronto_
 | 2026-08-14 00:00:00 | Quincy Orta | 17 | 4 | 110 | 30 | 0 | 0 | 15 | 15 | 20 | 30 | 0 | 0 | 0 |  |  | 0 | 0 |  | 321 |  | land |
 | 2026-08-14 00:00:00 | Phillip Monteiro | 14 | 1 | 325 | 30 | 25 | 0 | 15 | 35 | 40 | 180 | 0 | 0 | 0 | Mainly clear · N 12 km/h · 24°C | Truck issues in the morning had to go to Ford dealership. | 0 | 0 |  | 131 |  | land |
 | 2026-08-14 00:00:00 | Richard Bonvanie | 24 | 0 | 20 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |  |  | 0 | 0 |  | 390 |  | land |
+| 2026-08-17 00:00:00 | Quincy Orta | 24 | 0 | 60 | 15 | 0 | 0 | 15 | 15 | 15 | 0 | 0 | 0 | 0 | Clear · N 16 km/h · 23°C |  | 0 | 0 |  | 344 |  | land |
+| 2026-08-17 00:00:00 | Phillip Monteiro | 25 | 1 | 105 | 30 | 0 | 0 | 15 | 35 | 25 | 0 | 0 | 0 | 0 | Clear · N 15 km/h · 23°C |  | 0 | 0 |  | 232 |  | land |

@@ -1,6 +1,6 @@
 # Downtime
 
-_315 rows · exported 2026-08-17 03:52 America/Toronto_
+_327 rows · exported 2026-08-18 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -319,3 +319,15 @@ _315 rows · exported 2026-08-17 03:52 America/Toronto_
 | 1786739605414-4q1zct | 2026-08-14 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 690236 | gap 10:02–10:02 |  |
 | 1786739605414-0gfn0c | 2026-08-14 12:00:00 | Quincy Orta | DISPATCH | 20 | 690236 | gap 10:02–10:02 |  |
 | 1786739605414-yq0y4m | 2026-08-14 12:00:00 | Quincy Orta | TRUCK_ISSUES | 30 | 690236 | gap 10:02–10:02 |  |
+| 1786975146785-ia85ae | 2026-08-17 09:59:06 | Richard Bonvanie | TRAVEL_TIME | 30 | 770341 |  | land |
+| 1786993791100-kky093 | 2026-08-17 15:09:51 | Richard Bonvanie | NEXT_GEN | 5 | 771614 |  | land |
+| 1786993815757-yh8hy4 | 2026-08-17 15:10:15 | Richard Bonvanie | NEXT_GEN | 5 | 766332 |  | land |
+| 1786994370612-mf35br | 2026-08-17 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 768591 | gap 09:28–09:28 |  |
+| 1786994370613-x6ev8m | 2026-08-17 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 768591 | gap 09:28–09:28 |  |
+| 1786994370613-erzhpc | 2026-08-17 12:00:00 | Quincy Orta | NEXT_GEN | 15 | 768591 | gap 09:28–09:28 |  |
+| 1786994370613-vr7ah5 | 2026-08-17 12:00:00 | Quincy Orta | DISPATCH | 15 | 768591 | gap 09:28–09:28 |  |
+| 1786997158138-x89cep | 2026-08-17 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 770367 | gap 11:03–11:03 |  |
+| 1786997158138-z37h4p | 2026-08-17 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 770367 | gap 11:03–11:03 |  |
+| 1786997158138-2fi8pu | 2026-08-17 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 770367 | gap 11:03–11:03 |  |
+| 1786997158138-nv0bql | 2026-08-17 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 770367 | gap 11:03–11:03 |  |
+| 1786997158138-8wz0co | 2026-08-17 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 768206 | gap 14:53–15:00 |  |

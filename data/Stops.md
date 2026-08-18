@@ -1,6 +1,6 @@
 # Stops
 
-_983 rows · exported 2026-08-17 03:52 America/Toronto_
+_1054 rows · exported 2026-08-18 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -987,3 +987,74 @@ _983 rows · exported 2026-08-17 03:52 America/Toronto_
 | 1786736760405-st01eh | 2026-08-14 15:46:00 | Richard Bonvanie | 688669 |  | 414 East Bear Lake Rd |  |  | J4772044 | 402 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1786738034256-w9h98d | 2026-08-14 16:07:14 | Richard Bonvanie | 682167 |  | 410 East Bear Lake Rd |  |  | J4772045 | 140 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1786739250810-y5wots | 2026-08-14 16:27:30 | Richard Bonvanie | 688148 |  | 406 East Bear Lake Rd |  |  | J4772046 | 984 | 31451 | INSTALLED |  |  |  |  |  | land |
+| 1786973309051-zqz6n3 | 2026-08-17 09:28:29 | Quincy Orta | 768591 |  | 117 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450336 | -80.884734 | J4774699 | J2341863 | 15416 | INSTALLED |  |  |  |  |  | land |
+| 1786973546896-9y9006 | 2026-08-17 09:32:26 | Richard Bonvanie | 767092 |  | 316136 Hwy 6 |  |  | J4772047 | 682 | 75590 | INSTALLED |  |  |  |  |  | land |
+| 1786973630333-isexum | 2026-08-17 09:33:50 | Quincy Orta | 770064 |  | 115 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450417 | -80.88491 | J4774698 | J2341862 | 24474 | INSTALLED |  |  |  |  |  | land |
+| 1786974007144-mmad8d | 2026-08-17 09:40:07 | Quincy Orta | 766807 |  | 113 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450482 | -80.885343 | J4774701 | J2341861 | 11231 | INSTALLED |  |  |  |  |  | land |
+| 1786974231242-15g6n5 | 2026-08-17 09:43:51 | Richard Bonvanie | 770341 |  | 316139 Hwy 6 |  |  | J4772048 | 855 | 40569 | INSTALLED |  |  |  |  |  | land |
+| 1786974375927-op3vu4 | 2026-08-17 09:46:15 | Quincy Orta | 767648 |  | 111 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450283 | -80.885781 | J4749060 | J2341889 | 57559 | INSTALLED |  |  |  |  |  | land |
+| 1786974711408-uumdyu | 2026-08-17 09:51:51 | Quincy Orta | 770094 |  | 106 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449829 | -80.885736 | J4774700 | J2341860 | 74554 | INSTALLED |  |  |  |  |  | land |
+| 1786974823765-u2g61k | 2026-08-17 09:53:43 | Richard Bonvanie | 768634 |  | 316151 Hwy 6 |  |  | J4772049 | 360 | 37599 | INSTALLED |  |  |  |  |  | land |
+| 1786975058280-6olmuq | 2026-08-17 09:57:38 | Quincy Orta | 768741 |  | 108 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449867 | -80.885495 | J4774720 | J2341858 | 65359 | INSTALLED |  |  |  |  |  | land |
+| 1786975440896-00rf08 | 2026-08-17 10:04:00 | Quincy Orta | 767000 |  | 110 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449904 | -80.885008 | J4749062 | J3306698 | 97019 | INSTALLED |  |  |  |  |  | land |
+| 1786975883844-hwmoib | 2026-08-17 10:11:23 | Richard Bonvanie | 770301 |  | 316168 Hwy 6 |  |  | J4772050 | 403 | 4412 | INSTALLED |  |  |  |  |  | land |
+| 1786976660590-k0nuwg | 2026-08-17 10:24:20 | Richard Bonvanie | 769642 |  | 316208 Hwy 6 |  |  | J4772051 | 920 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786977706842-2717bs | 2026-08-17 10:41:46 | Richard Bonvanie | 771890 |  | 316224 Hwy 6 |  |  | J4772052 | 616 | 99988 | INSTALLED |  |  |  |  |  | land |
+| 1786978325439-usez4s | 2026-08-17 10:52:05 | Richard Bonvanie | 771614 |  | 316240 Hwy 6 |  |  | J4772053 | 837 | 35162 | INSTALLED |  |  |  |  |  | land |
+| 1786979000778-7e5gf0 | 2026-08-17 11:03:20 | Phillip Monteiro | 770367 |  | 102 Nicholson Dr, Chatsworth, ON N0H 2V0, Canada | 44.359037 | -80.916774 | J4746659 | J2374109 | 80124 | INSTALLED |  |  |  |  |  | land |
+| 1786979644930-thee9u | 2026-08-17 11:14:04 | Richard Bonvanie | 766440 |  | 316247 Hwy 6 |  |  | J4772054 | 530 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786981226730-0vz54l | 2026-08-17 11:40:26 | Richard Bonvanie | 767299 |  | 316260 Hwy 6 |  |  | J4772055 | 252 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786982997495-0flllw | 2026-08-17 12:09:57 | Quincy Orta | 767988 |  | 109 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450182 | -80.886144 | J4774710 | J2341890 | 71368 | INSTALLED |  |  |  |  |  | land |
+| 1786983024446-bi13ko | 2026-08-17 12:10:24 | Richard Bonvanie | 766226 |  | 316279 Hwy 6 |  |  | J4772056 | 765 | 15287 | INSTALLED |  |  |  |  |  | land |
+| 1786983308544-jc1ono | 2026-08-17 12:15:08 | Quincy Orta | 769310 |  | 107 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450214 | -80.886428 | J4774711 | J3272852 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786983521333-io2ypo | 2026-08-17 12:18:41 | Quincy Orta | 768429 |  | 105 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.450091 | -80.886594 | J4774713 | J2040596 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786983927894-uwaz00 | 2026-08-17 12:25:27 | Quincy Orta | 768194 |  | 103 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449889 | -80.886974 | J4749061 | J3630423 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786984152847-x6ebyk | 2026-08-17 12:29:12 | Richard Bonvanie | 768068 |  | 316286 Hwy 6 |  |  | J4772057 | 981 | 48746 | INSTALLED |  |  |  |  |  | land |
+| 1786984327819-173s9g | 2026-08-17 12:32:07 | Quincy Orta | 766221 |  | 102 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449489 | -80.88639 | J4774712 | J2331644 | 71825 | INSTALLED |  |  |  |  |  | land |
+| 1786984784844-m0b3cw | 2026-08-17 12:39:44 | Quincy Orta | 766110 |  | 104 Hatten Dr, Chatsworth, ON N0H 1G0, Canada | 44.449753 | -80.886092 | J4774718 | J2341859 | 7185 | INSTALLED |  |  |  |  |  | land |
+| 1786985412437-c05fqj | 2026-08-17 12:50:12 | Quincy Orta | 766413 |  | 777987 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.4493 | -80.886093 | J4774719 | J2331643 | 56943 | INSTALLED |  |  |  |  |  | land |
+| 1786985720102-xcdq9t | 2026-08-17 12:55:20 | Richard Bonvanie | 770558 |  | 316293 Hwy 6 |  |  | J4749292 | 164 | 66207 | INSTALLED |  |  |  |  |  | land |
+| 1786986885565-td5hg9 | 2026-08-17 13:14:45 | Quincy Orta | 766165 |  | 777983 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.449103 | -80.885844 | J4774716 | J3880295 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786986977058-p7dh0l | 2026-08-17 13:16:17 | Richard Bonvanie | 769564 |  | 316310 Hwy 6 |  |  | J4749293 | 180 | 55143 | INSTALLED |  |  |  |  |  | land |
+| 1786987362367-qc9bed | 2026-08-17 13:22:42 | Quincy Orta | 768413 |  | 777971 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.448176 | -80.884205 | J4774721 | J3297173 | 51182 | INSTALLED |  |  |  |  |  | land |
+| 1786987643732-x7aq1e | 2026-08-17 13:27:23 | Richard Bonvanie | 768000 |  | 316315 Hwy 6 |  |  | J4749294 | 985 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1786988041249-1ko0es | 2026-08-17 13:34:01 | Richard Bonvanie | 764382 |  | 316315 Hwy 6 |  |  | J4749295 | 692 | 0 | INSTALLED |  |  |  | 5035 |  | land |
+| 1786989232046-yjmq31 | 2026-08-17 13:53:52 | Richard Bonvanie | 769448 |  | 316326 Hwy 6 |  |  | J4749296 | 23 | 32561 | INSTALLED |  |  |  |  |  | land |
+| 1786990032082-mmmn1e | 2026-08-17 14:07:12 | Richard Bonvanie | 766332 |  | 316338 Hwy 6 |  |  | J4749297 | 919 | 22457 | INSTALLED |  |  |  |  |  | land |
+| 1786979466435-kk493p | 2026-08-17 11:11:06 | Phillip Monteiro | 771361 |  | 104 Nicholson Dr, Sullivan | 44.359104 | -80.91684 | J4746656 | J3881338 | 19467 | INSTALLED |  |  |  |  |  | land |
+| 1786979864411-hsfhsp | 2026-08-17 11:17:44 | Phillip Monteiro | 769659 |  | 106 Nicholson Dr, Sullivan | 44.359448 | -80.916788 | J4746657 | J3711448 | 7578 | INSTALLED |  |  |  |  |  | land |
+| 1786980155443-ndiq67 | 2026-08-17 11:22:35 | Phillip Monteiro | 769668 |  | 108 Nicholson Dr, Sullivan | 44.359481 | -80.916612 | J4746658 | J2374104 | 11745 | INSTALLED |  |  |  |  |  | land |
+| 1786980931064-gefnik | 2026-08-17 11:35:31 | Phillip Monteiro | 764625 |  | 110 Nicholson Dr, Sullivan | 44.359798 | -80.916564 | J4774696 | J3352980 | 77896 | INSTALLED |  |  |  |  |  | land |
+| 1786981272270-btfwa6 | 2026-08-17 11:41:12 | Phillip Monteiro | 764647 |  | 112 Nicholson Dr, Sullivan | 44.359785 | -80.916372 | J4774695 | J2374107 | 36722 | INSTALLED |  |  |  |  |  | land |
+| 1786982091508-wv7fvf | 2026-08-17 11:54:51 | Phillip Monteiro | 769410 |  | 114 Nicholson Dr, Sullivan | 44.360025 | -80.916168 | J4774675 | J3352979 | 75305 | INSTALLED |  |  |  |  |  | land |
+| 1786982489909-r8pbhm | 2026-08-17 12:01:29 | Phillip Monteiro | 764701 |  | 116 Nicholson Dr, Sullivan | 44.36012 | -80.916208 | J4774674 | J2346648 | 27567 | INSTALLED |  |  |  |  |  | land |
+| 1786982958711-m00z58 | 2026-08-17 12:09:18 | Phillip Monteiro | 768931 |  | 118 Nicholson Dr, Sullivan | 44.360377 | -80.916023 | J4774676 | J2346650 | 21447 | INSTALLED |  |  |  |  |  | land |
+| 1786991429707-uyg83m | 2026-08-17 14:30:29 | Quincy Orta | 764727 |  | 49 George St, Chatsworth, ON N0H 1G0, Canada | 44.451068 | -80.893979 | J4746668 | J4128468 | 22388 | INSTALLED |  |  |  |  |  | land |
+| 1786983343354-2utshp | 2026-08-17 12:15:43 | Phillip Monteiro | 769162 |  | 120 Nicholson Dr, Sullivan | 44.360765 | -80.91602 | J4774677 | J3609865 | 92516 | INSTALLED |  |  |  |  |  | land |
+| 1786983617238-ifi4bg | 2026-08-17 12:20:17 | Phillip Monteiro | 770174 |  | 122 Nicholson Dr, Sullivan | 44.360829 | -80.915957 | J4774690 | J2346179 | 44781 | INSTALLED |  |  |  |  |  | land |
+| 1786983965117-hiifzh | 2026-08-17 12:26:05 | Phillip Monteiro | 766774 |  | 124 Nicholson Dr, Sullivan | 44.361108 | -80.915733 | J4774694 | J3334744 | 55997 | INSTALLED |  |  |  |  |  | land |
+| 1786991737336-hkci7w | 2026-08-17 14:35:37 | Quincy Orta | 770720 |  | 40 George St, Chatsworth, ON N0H 1G0, Canada | 44.451141 | -80.894611 | J4746669 | J2166568 | 9852 | INSTALLED |  |  |  |  |  | land |
+| 1786984468756-p55plz | 2026-08-17 12:34:28 | Phillip Monteiro | 769520 |  | 126 Nicholson Dr, Sullivan | 44.361471 | -80.915735 | J4774697 | J2376105 | 43431 | INSTALLED |  |  |  |  |  | land |
+| 1786985198634-ybj89k | 2026-08-17 12:46:38 | Phillip Monteiro | 768403 |  | 260 McCullough Lake Dr, Sullivan | 44.358817 | -80.91639 | J4774693 | J3353168 | 94340 | INSTALLED |  |  |  |  |  | land |
+| 1786992054654-9d69bj | 2026-08-17 14:40:54 | Quincy Orta | 770738 |  | 48 George St, Chatsworth, ON N0H 1G0, Canada | 44.450976 | -80.894692 | J4746670 | J3941669 | 42898 | INSTALLED |  |  |  |  |  | land |
+| 1786992086822-zbgzom | 2026-08-17 14:41:26 | Richard Bonvanie | 768436 |  | 316386 Hwy 6 |  |  | J4749298 | 372 | 71883 | INSTALLED |  |  |  |  |  | land |
+| 1786992352558-9n7n3c | 2026-08-17 14:45:52 | Quincy Orta | 765228 |  | 54 George St, Chatsworth, ON N0H 1G0, Canada | 44.45057 | -80.894726 | J4746671 | J4109266 | 30516 | INSTALLED |  |  |  |  |  | land |
+| 1786992679914-7b80wi | 2026-08-17 14:51:19 | Quincy Orta | 770644 |  | 60 George St, Chatsworth, ON N0H 1G0, Canada | 44.450371 | -80.894654 | J4774717 | J2166441 | 28600 | INSTALLED |  |  |  |  |  | land |
+| 1786992907627-2q086x | 2026-08-17 14:55:07 | Richard Bonvanie | 768466 |  | 316399 Hwy 6 |  |  | J4749299 | 57 | 41914 | INSTALLED |  |  |  |  |  | land |
+| 1786993202380-qv5rik | 2026-08-17 15:00:02 | Quincy Orta | 764849 |  | 68 George St, Chatsworth, ON N0H 1G0, Canada | 44.450075 | -80.894482 | J4646527 | J2166443 | 15186 | INSTALLED |  |  |  |  |  | land |
+| 1786993544873-lybix3 | 2026-08-17 15:05:44 | Richard Bonvanie | 772076 |  | 316400 Hwy 6 |  |  | J4749300 | 931 | 20032 | INSTALLED |  |  |  |  |  | land |
+| 1786993594640-bjcyf1 | 2026-08-17 15:06:34 | Quincy Orta | 769841 |  | 76 George St, Chatsworth, ON N0H 1G0, Canada | 44.44998 | -80.894268 | J4774715 | J2166486 | 27362 | INSTALLED |  |  |  |  |  | land |
+| 1786993903425-j2790x | 2026-08-17 15:11:43 | Quincy Orta | 768402 |  | 59 George St, Chatsworth, ON N0H 1G0, Canada | 44.450212 | -80.893889 | J4774714 | J2166488 | 81163 | INSTALLED |  |  |  |  |  | land |
+| 1786995084978-4jyqp8 | 2026-08-17 15:31:24 | Richard Bonvanie | 765402 |  | 316424 Hwy 6 |  |  | J4749301 | 920 | 32398 | INSTALLED |  |  |  |  |  | land |
+| 1786985584298-l3wbu9 | 2026-08-17 12:53:04 | Phillip Monteiro | 770194 |  | 262 McCullough Lake Dr, Sullivan | 44.358941 | -80.916586 | J4774691 | J2374110 | 46118 | INSTALLED |  |  |  |  |  | land |
+| 1786987049339-e6ztpx | 2026-08-17 13:17:29 | Phillip Monteiro | 770269 |  | 215824 Concession 4, Sullivan | 44.36207 | -80.915721 | J4774692 | J3247248 | 34319 | INSTALLED |  |  |  |  |  | land |
+| 1786987777845-7f8s73 | 2026-08-17 13:29:37 | Phillip Monteiro | 764486 |  | 215828 Concession 4, Sullivan | 44.362429 | -80.915452 | J4774687 | J3248571 | 15662 | INSTALLED |  |  |  |  |  | land |
+| 1786988122120-qgzgcq | 2026-08-17 13:35:22 | Phillip Monteiro | 770177 |  | 215830 Concession 4, Sullivan | 44.36262 | -80.915502 | J4774688 | J3249048 | 39756 | INSTALLED |  |  |  |  |  | land |
+| 1786988754999-p8qfpn | 2026-08-17 13:45:54 | Phillip Monteiro | 766489 |  | 215610 Concession 4, Sullivan | 44.343455 | -80.909744 | J4774683 | J3353174 | 64608 | INSTALLED |  |  |  |  |  | land |
+| 1786989265485-q4t7iu | 2026-08-17 13:54:25 | Phillip Monteiro | 768376 |  | 215621 Concession 4, Sullivan | 44.344824 | -80.909409 |  |  |  | UTI | No Access | Locked gate, no answer from Cx |  |  |  | land |
+| 1786989770862-kego6b | 2026-08-17 14:02:50 | Phillip Monteiro | 768264 |  | 215625 Concession 4, Sullivan | 44.344932 | -80.909095 | J4774685 | J3657800 | 44023 | INSTALLED |  |  |  |  |  | land |
+| 1786990174181-enerq9 | 2026-08-17 14:09:34 | Phillip Monteiro | 765328 |  | 215627 Concession 4, Sullivan | 44.345396 | -80.909276 | J4774678 | J3952475 | 84616 | INSTALLED |  |  |  |  |  | land |
+| 1786990553137-tlu4g0 | 2026-08-17 14:15:53 | Phillip Monteiro | 765457 |  | 215631 Concession 4, Sullivan | 44.345728 | -80.909281 | J4774682 | J3851714 | 86146 | INSTALLED |  |  |  |  |  | land |
+| 1786991981117-f5auld | 2026-08-17 14:39:41 | Phillip Monteiro | 770502 |  | 215858 CONC 4, Chatsworth, ON N0H 2V0, Canada | 44.364704 | -80.913872 | J4774684 | J4229243 | 17375 | INSTALLED |  |  |  |  |  | land |
+| 1786992816690-x99f9x | 2026-08-17 14:53:36 | Phillip Monteiro | 765502 |  | 215860 Concession 4, Sullivan | 44.362913 | -80.915644 | J4774679 | J3698576 | 27130 | INSTALLED |  |  |  |  |  | land |
+| 1786993235914-zbup61 | 2026-08-17 15:00:35 | Phillip Monteiro | 768206 |  | 215862 Concession 4, Sullivan | 44.362792 | -80.9159 | J4774686 | J3650200 | 34473 | INSTALLED |  |  |  |  |  | land |
