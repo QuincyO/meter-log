@@ -1,6 +1,6 @@
 # Tracker
 
-_79 rows · exported 2026-08-18 03:52 America/Toronto_
+_82 rows · exported 2026-08-19 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -83,3 +83,6 @@ _79 rows · exported 2026-08-18 03:52 America/Toronto_
 | 2026-08-14 00:00:00 | Richard Bonvanie | 24 | 0 | 20 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |  |  | 0 | 0 |  | 390 |  | land |
 | 2026-08-17 00:00:00 | Quincy Orta | 24 | 0 | 60 | 15 | 0 | 0 | 15 | 15 | 15 | 0 | 0 | 0 | 0 | Clear · N 16 km/h · 23°C |  | 0 | 0 |  | 344 |  | land |
 | 2026-08-17 00:00:00 | Phillip Monteiro | 25 | 1 | 105 | 30 | 0 | 0 | 15 | 35 | 25 | 0 | 0 | 0 | 0 | Clear · N 15 km/h · 23°C |  | 0 | 0 |  | 232 |  | land |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 21 | 0 | 10 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 359 |  | land |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 24 | 0 | 165 | 30 | 0 | 0 | 15 | 35 | 85 | 0 | 0 | 0 | 0 | Overcast · SW 21 km/h · 24°C |  | 0 | 0 |  | 236 |  | land |
+| 2026-08-18 00:00:00 | Quincy Orta | 24 | 0 | 75 | 30 | 0 | 0 | 15 | 15 | 15 | 0 | 0 | 0 | 0 | Overcast · SW 18 km/h · 25°C |  | 0 | 0 |  | 335 |  | land |

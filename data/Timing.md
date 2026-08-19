@@ -1,6 +1,6 @@
 # Timing
 
-_1110 rows · exported 2026-08-18 03:52 America/Toronto_
+_1180 rows · exported 2026-08-19 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1114,3 +1114,73 @@ _1110 rows · exported 2026-08-18 03:52 America/Toronto_
 | 2026-08-17 00:00:00 | Phillip Monteiro | 1899-12-30 14:39:00 | 1899-12-30 14:53:00 | 14 | 244 | Travel | travel | 765502 | INSTALLED | INSTALLED |
 | 2026-08-17 00:00:00 | Phillip Monteiro | 1899-12-30 14:53:00 | 1899-12-30 15:00:00 | 7 | 24 | Travel | delay | 768206 | INSTALLED | INSTALLED |
 | 2026-08-17 00:00:00 | Phillip Monteiro | 1899-12-30 15:00:00 | 1899-12-30 16:00:00 | 59 |  | Return | travel |  | INSTALLED |  |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 09:32:00 | 1899-12-30 09:43:00 | 11 |  | Travel | travel | 770341 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 09:43:00 | 1899-12-30 09:53:00 | 10 |  | Travel | travel | 768634 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 09:53:00 | 1899-12-30 10:11:00 | 18 |  | Travel | travel | 770301 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 10:11:00 | 1899-12-30 10:24:00 | 13 |  | Travel | travel | 769642 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 10:24:00 | 1899-12-30 10:41:00 | 17 |  | Travel | travel | 771890 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 10:41:00 | 1899-12-30 10:52:00 | 10 |  | Travel | travel | 771614 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 10:52:00 | 1899-12-30 11:14:00 | 22 |  | Flagged | travel | 766440 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 11:14:00 | 1899-12-30 11:40:00 | 26 |  | Flagged | travel | 767299 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 11:40:00 | 1899-12-30 12:10:00 | 30 |  | Flagged | travel | 766226 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 12:10:00 | 1899-12-30 12:29:00 | 19 |  | Travel | travel | 768068 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 12:29:00 | 1899-12-30 12:55:00 | 26 |  | Flagged | travel | 770558 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 12:55:00 | 1899-12-30 13:16:00 | 21 |  | Flagged | travel | 769564 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 13:16:00 | 1899-12-30 13:27:00 | 11 |  | Travel | travel | 768000 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 13:27:00 | 1899-12-30 13:34:00 | 7 |  | Travel | travel | 764382 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 13:34:00 | 1899-12-30 13:53:00 | 20 |  | Travel | travel | 769448 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 13:53:00 | 1899-12-30 14:07:00 | 13 |  | Travel | travel | 766332 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 14:07:00 | 1899-12-30 14:41:00 | 34 |  | Flagged | travel | 768436 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 14:41:00 | 1899-12-30 14:55:00 | 14 |  | Travel | travel | 768466 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 14:55:00 | 1899-12-30 15:05:00 | 11 |  | Travel | travel | 772076 | INSTALLED | INSTALLED |
+| 2026-08-17 00:00:00 | Richard Bonvanie | 1899-12-30 15:05:00 | 1899-12-30 15:31:00 | 26 |  | Flagged | travel | 765402 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 10:16:00 | 166 |  | Launch | travel | 802610 |  | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:16:00 | 1899-12-30 10:22:00 | 6 | 83 | Travel | travel | 803868 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:22:00 | 1899-12-30 10:28:00 | 6 | 75 | Travel | travel | 804493 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:28:00 | 1899-12-30 10:37:00 | 9 | 19 | Travel | travel | 798889 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:37:00 | 1899-12-30 10:46:00 | 9 | 88 | Travel | travel | 802122 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:46:00 | 1899-12-30 10:52:00 | 6 | 22 | Travel | travel | 803458 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:52:00 | 1899-12-30 10:56:00 | 5 | 50 | Travel | travel | 802987 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 10:56:00 | 1899-12-30 11:10:00 | 14 | 35 | Travel | travel | 801711 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:10:00 | 1899-12-30 11:18:00 | 7 | 19 | Travel | travel | 794245 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:18:00 | 1899-12-30 11:24:00 | 6 | 112 | Travel | travel | 801998 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:24:00 | 1899-12-30 11:42:00 | 19 | 93 | Travel | travel | 804539 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:42:00 | 1899-12-30 11:51:00 | 9 | 34 | Travel | travel | 801025 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:51:00 | 1899-12-30 11:58:00 | 6 | 11 | Travel | travel | 802595 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 11:58:00 | 1899-12-30 12:08:00 | 10 | 43 | Travel | travel | 800959 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 12:08:00 | 1899-12-30 12:17:00 | 9 | 75 | Travel | travel | 803911 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 12:17:00 | 1899-12-30 12:42:00 | 25 | 69 | Flagged | travel | 801376 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 12:42:00 | 1899-12-30 12:46:00 | 4 | 10 | Travel | travel | 799010 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 12:46:00 | 1899-12-30 12:55:00 | 10 | 16 | Travel | travel | 802285 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 12:55:00 | 1899-12-30 13:03:00 | 7 | 61 | Travel | travel | 800620 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 13:03:00 | 1899-12-30 13:45:00 | 42 | 44 | Flagged | travel | 804292 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 13:45:00 | 1899-12-30 13:51:00 | 6 | 55 | Travel | travel | 801299 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 13:51:00 | 1899-12-30 13:58:00 | 7 | 19 | Travel | travel | 798964 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 13:58:00 | 1899-12-30 14:52:00 | 54 | 36849 | Flagged | mixed | 770238 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 14:52:00 | 1899-12-30 15:02:00 | 11 | 396 | Travel | delay | 770340 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Phillip Monteiro | 1899-12-30 15:02:00 | 1899-12-30 16:00:00 | 57 |  | Return | travel |  | INSTALLED |  |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 08:45:00 | 76 |  | Launch | travel | 769928 |  | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 08:45:00 | 1899-12-30 08:55:00 | 10 | 20 | Travel | travel | 769764 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 08:55:00 | 1899-12-30 09:04:00 | 8 | 32 | Travel | travel | 771088 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 09:04:00 | 1899-12-30 10:25:00 | 82 | 111 | Flagged | travel | 767242 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 10:25:00 | 1899-12-30 10:43:00 | 18 | 44 | Travel | travel | 764985 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 10:43:00 | 1899-12-30 10:53:00 | 10 | 121 | Travel | travel | 764454 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 10:53:00 | 1899-12-30 11:03:00 | 10 | 147 | Travel | travel | 769994 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:03:00 | 1899-12-30 11:32:00 | 28 | 8 | Flagged | travel | 770679 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:32:00 | 1899-12-30 11:38:00 | 6 | 78 | Travel | travel | 768363 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:38:00 | 1899-12-30 11:44:00 | 6 | 76 | Travel | travel | 768340 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:44:00 | 1899-12-30 11:50:00 | 6 | 30 | Travel | travel | 768339 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:50:00 | 1899-12-30 11:56:00 | 7 | 65 | Travel | travel | 765028 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 11:56:00 | 1899-12-30 12:04:00 | 7 | 24 | Travel | travel | 769918 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 12:04:00 | 1899-12-30 12:11:00 | 7 | 81 | Travel | travel | 770579 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 12:11:00 | 1899-12-30 12:19:00 | 7 | 16 | Travel | travel | 765860 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 12:19:00 | 1899-12-30 12:58:00 | 39 | 54 | Flagged | travel | 766809 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 12:58:00 | 1899-12-30 13:05:00 | 7 | 40 | Travel | travel | 767565 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 13:05:00 | 1899-12-30 13:31:00 | 27 | 69 | Flagged | travel | 768491 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 13:31:00 | 1899-12-30 13:37:00 | 6 | 41 | Travel | travel | 769095 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 13:37:00 | 1899-12-30 13:44:00 | 8 | 249 | Travel | travel | 771242 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 13:44:00 | 1899-12-30 13:53:00 | 8 | 291 | Travel | travel | 764435 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 13:53:00 | 1899-12-30 14:02:00 | 9 | 70 | Travel | travel | 767671 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 14:02:00 | 1899-12-30 14:07:00 | 5 | 10 | Travel | travel | 767048 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 14:07:00 | 1899-12-30 14:21:00 | 14 | 62 | Travel | travel | 766927 | INSTALLED | INSTALLED |
+| 2026-08-18 00:00:00 | Quincy Orta | 1899-12-30 14:21:00 | 1899-12-30 16:00:00 | 99 |  | Return | travel |  | INSTALLED |  |

@@ -1,6 +1,6 @@
 # StopsArchive
 
-_9 rows · exported 2026-08-18 03:52 America/Toronto_
+_10 rows · exported 2026-08-19 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -13,3 +13,4 @@ _9 rows · exported 2026-08-18 03:52 America/Toronto_
 | 1784401690284-68ktjc | 2026-07-18 15:08:10 | Quincy Orta |  |  | 14 Christine Pl, Orillia, ON L3V 7P1, Canada | 44.596264 | -79.430242 |  |  |  | DONE |  |  |  |  |  | land | 2026-08-06 07:40:31 | map viewer | Error |
 | 1786449652260-0mt9bx | 2026-08-11 08:00:52 | Richard Bonvanie | 687320 |  | 111 Howland Dr, Huntsville, ON P1H 2P4, Canada | 45.344983 | -79.230316 | J9875365 | J1234557 | 12345 | INSTALLED |  |  |  |  |  | land | 2026-08-11 08:03:09 | Richard Bonvanie |  |
 | 1786449928191-anlnqi | 2026-08-11 08:05:28 | Richard Bonvanie | 5746406 |  | 111 Howland Dr, Huntsville, ON P1H 2P4, Canada | 45.344961 | -79.230314 | J5677535 | J645777 | 5856 | INSTALLED |  |  |  |  |  | land | 2026-08-11 08:06:54 | Richard Bonvanie |  |
+| 1787076042949-lrdb5q | 2026-08-18 14:00:42 | Quincy Orta | 767048 |  | 777998 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.450225 | -80.890021 | J4749971 | J3940757 | 60733 | INSTALLED |  |  |  |  |  | land | 2026-08-18 14:01:20 | Quincy Orta | reset order |
