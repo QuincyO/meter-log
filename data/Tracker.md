@@ -1,6 +1,6 @@
 # Tracker
 
-_82 rows · exported 2026-08-19 03:52 America/Toronto_
+_84 rows · exported 2026-08-20 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -86,3 +86,5 @@ _82 rows · exported 2026-08-19 03:52 America/Toronto_
 | 2026-08-17 00:00:00 | Richard Bonvanie | 21 | 0 | 10 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |  |  | 0 | 0 |  | 359 |  | land |
 | 2026-08-18 00:00:00 | Phillip Monteiro | 24 | 0 | 165 | 30 | 0 | 0 | 15 | 35 | 85 | 0 | 0 | 0 | 0 | Overcast · SW 21 km/h · 24°C |  | 0 | 0 |  | 236 |  | land |
 | 2026-08-18 00:00:00 | Quincy Orta | 24 | 0 | 75 | 30 | 0 | 0 | 15 | 15 | 15 | 0 | 0 | 0 | 0 | Overcast · SW 18 km/h · 25°C |  | 0 | 0 |  | 335 |  | land |
+| 2026-08-19 00:00:00 | Quincy Orta | 24 | 0 | 105 | 15 | 0 | 0 | 15 | 15 | 15 | 15 | 30 | 0 | 0 | Clear · NW 12 km/h · 22°C | At the end of the day mountain someone with fight hanging off a utility line so I called Buzz to see how I should proceed | 0 | 0 |  | 252 |  | land |
+| 2026-08-19 00:00:00 | Phillip Monteiro | 23 | 0 | 155 | 30 | 0 | 0 | 15 | 35 | 75 | 0 | 0 | 0 | 0 | Clear · NW 15 km/h · 21°C |  | 0 | 0 |  | 214 |  | land |

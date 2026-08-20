@@ -1,6 +1,6 @@
 # Stops
 
-_1102 rows · exported 2026-08-19 03:52 America/Toronto_
+_1149 rows · exported 2026-08-20 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1106,3 +1106,50 @@ _1102 rows · exported 2026-08-19 03:52 America/Toronto_
 | 1787077265080-5e45rb | 2026-08-18 14:21:05 | Quincy Orta | 766927 |  | 777996 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.449759 | -80.889698 | J4749990 | J2341868 | 37526 | INSTALLED |  |  |  |  |  | land |
 | 1787079130860-ac1fwa | 2026-08-18 14:52:10 | Phillip Monteiro | 770238 |  | 216731 CONC 4, Chatsworth, ON N0H 1G0, Canada | 44.428815 | -80.927124 | J4752329 | J3979764 | 49216 | INSTALLED |  |  |  |  |  | land |
 | 1787079768797-5untcv | 2026-08-18 15:02:48 | Phillip Monteiro | 770340 |  | 216690 CONC 4, Chatsworth, ON N0H 1G0, Canada | 44.425261 | -80.927483 | J4752328 | J3352932 | 95449 | INSTALLED |  |  |  |  |  | land |
+| 1787148108856-c468ol | 2026-08-19 10:01:48 | Quincy Orta | 768792 | 1 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457469 | -80.893805 | J4794972 | J3668711 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787148369501-4opapz | 2026-08-19 10:06:09 | Quincy Orta | 768850 | 2 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457443 | -80.893756 | J4749965 | J3668712 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787148589694-fv687u | 2026-08-19 10:09:49 | Quincy Orta | 769171 | 3 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457447 | -80.893765 | J4749967 | J3668713 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787148869395-fqs0h0 | 2026-08-19 10:14:29 | Quincy Orta | 768246 | 4 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457479 | -80.893788 | J4749964 | J3668714 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787149220515-5nrlkr | 2026-08-19 10:20:20 | Quincy Orta | 765623 | 5 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457455 | -80.894061 | J4749966 | J3519830 | 29794 | INSTALLED |  |  |  |  |  | land |
+| 1787149484536-qgcyzy | 2026-08-19 10:24:44 | Quincy Orta | 765475 | 6 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457394 | -80.894034 | J4749988 | J3530307 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787149743505-yaqpt7 | 2026-08-19 10:29:03 | Quincy Orta | 765424 | 7 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457426 | -80.894049 | J4749991 | J3543382 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787149943458-k4c1x6 | 2026-08-19 10:32:23 | Quincy Orta | 765517 | 8 | 76 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.4574 | -80.894025 | J4749989 | J3513991 | 34187 | INSTALLED |  |  |  |  |  | land |
+| 1787150299009-nzgk4f | 2026-08-19 10:38:19 | Phillip Monteiro | 800824 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466439 | -81.389946 | J4752330 | J2206387 | 98948 | INSTALLED |  |  |  |  |  | land |
+| 1787150598265-dzc4os | 2026-08-19 10:43:18 | Phillip Monteiro | 803281 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466449 | -81.389889 | J4752331 | J4161292 | 18675 | INSTALLED |  |  |  |  |  | land |
+| 1787150963121-lw4ln8 | 2026-08-19 10:49:23 | Phillip Monteiro | 805698 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466431 | -81.389901 | J4752322 | J4427178 | 441 | INSTALLED |  |  |  |  |  | land |
+| 1787151405384-y8zxr8 | 2026-08-19 10:56:45 | Phillip Monteiro | 805792 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466435 | -81.389883 | J4782871 | J2547524 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787151890841-5tf0r5 | 2026-08-19 11:04:50 | Phillip Monteiro | 804376 | 1A | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466438 | -81.390272 | J4782861 | J3703323 | 71545 | INSTALLED |  |  |  |  |  | land |
+| 1787152142413-gc93ya | 2026-08-19 11:09:02 | Phillip Monteiro | 805581 | 1B | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466458 | -81.390262 | J4782858 | J3698557 | 64694 | INSTALLED |  |  |  |  |  | land |
+| 1787152491185-y6usac | 2026-08-19 11:14:51 | Phillip Monteiro | 800970 | 2 | 92 Miramichi Bay Rd, Sargent Shores | 44.466158 | -81.39017 | J4782870 | J2547526 | 83100 | INSTALLED |  |  |  |  |  | land |
+| 1787152783991-x92p76 | 2026-08-19 11:19:43 | Phillip Monteiro | 796682 |  | 92 Miramichi Bay Rd, Sargent Shores | 44.465958 | -81.390003 | J4782872 | J3456504 | 85344 | INSTALLED |  |  |  |  |  | land |
+| 1787152977154-gvabap | 2026-08-19 11:22:57 | Quincy Orta | 764616 |  | 74 Jane St, Chatsworth | 44.457095 | -80.894147 | J4794968 | J4427147 | 5777 | INSTALLED |  |  |  |  |  | land |
+| 1787153244906-as528u | 2026-08-19 11:27:24 | Phillip Monteiro | 799843 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466178 | -81.389701 | J4782873 | J2183261 | 25721 | INSTALLED |  |  |  |  |  | land |
+| 1787153426248-52m5f0 | 2026-08-19 11:30:26 | Quincy Orta | 770689 |  | 72 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.457046 | -80.894022 | J4794962 | J2166621 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787153734460-c11s78 | 2026-08-19 11:35:34 | Phillip Monteiro | 801979 | 7 | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466062 | -81.389587 | J4782859 | J2375578 | 88194 | INSTALLED |  |  |  |  |  | land |
+| 1787154304900-d49y8p | 2026-08-19 11:45:04 | Phillip Monteiro | 795134 | 14 | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.465945 | -81.389629 | J4782860 | J2375520 | 96066 | INSTALLED |  |  |  |  |  | land |
+| 1787154565393-13p26r | 2026-08-19 11:49:25 | Phillip Monteiro | 803673 | 12 | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.466015 | -81.389636 | J4782862 | J2375515 | 32878 | INSTALLED |  |  |  |  |  | land |
+| 1787155097274-5ipjzb | 2026-08-19 11:58:17 | Phillip Monteiro | 801419 | 11 | 92 Miramichi Bay Rd, Sargent Shores | 44.465766 | -81.389769 | J4782865 | J2375521 | 66426 | INSTALLED |  |  |  |  |  | land |
+| 1787156228960-t7v9j1 | 2026-08-19 12:17:08 | Phillip Monteiro | 806675 | 15 | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.465803 | -81.389695 | J4782863 | J2375522 | 82800 | INSTALLED |  |  |  |  |  | land |
+| 1787156705205-ssos9o | 2026-08-19 12:25:05 | Phillip Monteiro | 798094 | 16 | 92 Miramichi Bay Rd, Sargent Shores | 44.465233 | -81.38959 | J4782878 | J3894516 | 17647 | INSTALLED |  |  |  |  |  | land |
+| 1787157200661-x15q45 | 2026-08-19 12:33:20 | Phillip Monteiro | 802299 | 17 | 92 Miramichi Bay Rd, Sargent Shores | 44.465383 | -81.389587 | J4782869 | J2375576 | 34802 | INSTALLED |  |  |  |  |  | land |
+| 1787157349557-8ouu19 | 2026-08-19 12:35:49 | Quincy Orta | 766647 |  | 73 Jane St, Chatsworth | 44.45713 | -80.893308 | J4794965 | J2166624 | 71183 | INSTALLED |  |  |  |  |  | land |
+| 1787157800647-l8rofp | 2026-08-19 12:43:20 | Quincy Orta | 765774 |  | 71 Jane St, Chatsworth | 44.457041 | -80.89327 | J4794963 | J4157934 | 37771 | INSTALLED |  |  |  |  |  | land |
+| 1787157833458-axjtpl | 2026-08-19 12:43:53 | Phillip Monteiro | 793535 |  | 92 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.465976 | -81.389392 | J4782864 | J2375577 | 48608 | INSTALLED |  |  |  |  |  | land |
+| 1787158119104-qgvwl5 | 2026-08-19 12:48:39 | Quincy Orta | 772045 |  | 70 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456719 | -80.893861 | J4794973 | J2134641 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787158473101-vs7xew | 2026-08-19 12:54:33 | Quincy Orta | 769582 |  | 68 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456548 | -80.89345 | J4794970 | J3244912 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787158824329-a3jasr | 2026-08-19 13:00:24 | Quincy Orta | 765216 |  | 67 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456619 | -80.892924 | J4794964 | J2166630 | 49884 | INSTALLED |  |  |  |  |  | land |
+| 1787159189966-rua0zn | 2026-08-19 13:06:29 | Quincy Orta | 764100 |  | 66 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456344 | -80.893435 | J4794971 | J2134642 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787159978791-13jl4c | 2026-08-19 13:19:38 | Quincy Orta | 770759 |  | 65 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456486 | -80.892775 | J4794959 | J3859781 | 92742 | INSTALLED |  |  |  |  |  | land |
+| 1787160330213-wub6eb | 2026-08-19 13:25:30 | Quincy Orta | 766793 |  | 64 Jane St, Chatsworth | 44.45615 | -80.893326 | J4794951 | J2134643 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787160544507-gaqpvs | 2026-08-19 13:29:04 | Phillip Monteiro | 801975 | 8 | 92 Miramichi Bay Rd, Sargent Shores | 44.466038 | -81.389038 | J4782879 | J2183263 | 35881 | INSTALLED |  |  |  |  |  | land |
+| 1787161481357-domasf | 2026-08-19 13:44:41 | Phillip Monteiro | 803984 |  | 102 Miramichi Bay Rd, Sargent Shores | 44.467686 | -81.388927 | J4782881 | J2837107 | 76276 | INSTALLED |  |  |  |  |  | land |
+| 1787161545945-7sowvx | 2026-08-19 13:45:45 | Quincy Orta | 769438 |  | 63 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.456127 | -80.892456 | J4794952 | J2166629 | 71282 | INSTALLED |  |  |  |  |  | land |
+| 1787161819014-tythy5 | 2026-08-19 13:50:19 | Quincy Orta | 768451 |  | 61 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455963 | -80.892302 | J4794950 | J4166173 | 12471 | INSTALLED |  |  |  |  |  | land |
+| 1787162231032-kmf7yj | 2026-08-19 13:57:11 | Quincy Orta | 767543 |  | 62 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455854 | -80.893159 | J4794967 | J2166625 | 65216 | INSTALLED |  |  |  |  |  | land |
+| 1787162633675-x3kjy9 | 2026-08-19 14:03:53 | Quincy Orta | 767735 |  | 59 Jane St, Chatsworth | 44.455909 | -80.892125 | J4794953 | J3940213 | 21705 | INSTALLED |  |  |  |  |  | land |
+| 1787163241749-hph4bl | 2026-08-19 14:14:01 | Quincy Orta | 764340 |  | 57 Jane St, Chatsworth | 44.455709 | -80.891716 | J4794969 | J2166577 | 14689 | INSTALLED |  |  |  |  |  | land |
+| 1787163690878-k9t8id | 2026-08-19 14:21:30 | Quincy Orta | 768851 |  | 55 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455308 | -80.891591 | J4794966 | J3223370 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787161909838-20303r | 2026-08-19 13:51:49 | Phillip Monteiro | 801088 |  | 112 Miramichi Bay Rd, Sargent Shores | 44.468268 | -81.388945 | J4782867 | J2375649 | 58468 | INSTALLED |  |  |  |  |  | land |
+| 1787162371826-8ipbkt | 2026-08-19 13:59:31 | Phillip Monteiro | 799874 |  | 116 Miramichi Bay Rd, Sargent Shores | 44.468794 | -81.388725 | J4782880 | J2183250 | 72345 | INSTALLED |  |  |  |  |  | land |
+| 1787162786603-z795kb | 2026-08-19 14:06:26 | Phillip Monteiro | 805241 |  | 118 Miramichi Bay Rd, Sargent Shores | 44.468826 | -81.388727 | J4782866 | J2183249 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1787166060846-77tqqk | 2026-08-19 15:01:00 | Phillip Monteiro | 766203 |  | 236636 CONC 2A, Chatsworth, ON N0H 1G0, Canada | 44.424231 | -80.920702 | J4782868 | J3747496 | 21077 | INSTALLED |  |  |  |  |  | land |
