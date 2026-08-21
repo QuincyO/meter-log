@@ -1,6 +1,6 @@
 # Stops
 
-_1149 rows · exported 2026-08-20 03:52 America/Toronto_
+_1197 rows · exported 2026-08-21 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1153,3 +1153,51 @@ _1149 rows · exported 2026-08-20 03:52 America/Toronto_
 | 1787162371826-8ipbkt | 2026-08-19 13:59:31 | Phillip Monteiro | 799874 |  | 116 Miramichi Bay Rd, Sargent Shores | 44.468794 | -81.388725 | J4782880 | J2183250 | 72345 | INSTALLED |  |  |  |  |  | land |
 | 1787162786603-z795kb | 2026-08-19 14:06:26 | Phillip Monteiro | 805241 |  | 118 Miramichi Bay Rd, Sargent Shores | 44.468826 | -81.388727 | J4782866 | J2183249 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
 | 1787166060846-77tqqk | 2026-08-19 15:01:00 | Phillip Monteiro | 766203 |  | 236636 CONC 2A, Chatsworth, ON N0H 1G0, Canada | 44.424231 | -80.920702 | J4782868 | J3747496 | 21077 | INSTALLED |  |  |  |  |  | land |
+| 1787227538640-hmuii5 | 2026-08-20 08:05:38 | Phillip Monteiro | 806245 |  | 460 Doll Sideroad, Southampton, ON N0H 2L0, Canada | 44.481365 | -81.323706 | J4782874 | J3836077 | 62767 | INSTALLED |  | TR |  |  |  | land |
+| 1787233606289-sxzi8v | 2026-08-20 09:46:46 | Phillip Monteiro | 800394 |  | 1089 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453417 | -81.381391 | J4777256 | J4030492 | 13312 | INSTALLED |  |  |  |  |  | land |
+| 1787233836377-pjj6t2 | 2026-08-20 09:50:36 | Phillip Monteiro | 800498 |  | 1091 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453422 | -81.381402 | J4782877 | J4030490 | 12219 | INSTALLED |  |  |  |  |  | land |
+| 1787234269505-kc820r | 2026-08-20 09:57:49 | Phillip Monteiro | 800874 |  | 1093 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453439 | -81.381366 | J4782876 | J4030491 | 7820 | INSTALLED |  |  |  |  |  | land |
+| 1787234561610-cx7m9e | 2026-08-20 10:02:41 | Phillip Monteiro | 800499 |  | 1095 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453495 | -81.381318 | J4782875 | J4030489 | 6797 | INSTALLED |  |  |  |  |  | land |
+| 1787235056667-qbh5cu | 2026-08-20 10:10:56 | Quincy Orta | 805607 |  | 412 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451315 | -81.387009 | J4785751 | J3780892 | 52127 | INSTALLED |  |  |  |  |  | land |
+| 1787235294974-8akqya | 2026-08-20 10:14:54 | Phillip Monteiro | 802909 | 32 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453349 | -81.380896 | J4643762 | J4483979 | 7265 | INSTALLED |  |  |  |  |  | land |
+| 1787235342064-w650oo | 2026-08-20 10:15:42 | Quincy Orta | 804645 |  | 408 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.4513 | -81.387084 | J4785750 | J3780889 | 64557 | INSTALLED |  |  |  |  |  | land |
+| 1787235690909-p0vp1a | 2026-08-20 10:21:30 | Phillip Monteiro | 803019 | 33 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453359 | -81.380863 | J4643761 | J4483980 | 8796 | INSTALLED |  |  |  |  |  | land |
+| 1787235767516-69btjg | 2026-08-20 10:22:47 | Quincy Orta | 798333 |  | 359 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452494 | -81.3892 | J4785753 | J3793364 | 52881 | INSTALLED |  |  |  |  |  | land |
+| 1787235996238-apf2uf | 2026-08-20 10:26:36 | Phillip Monteiro | 803164 | 34 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453383 | -81.380964 | J4643764 | J4483981 | 10372 | INSTALLED |  |  |  |  |  | land |
+| 1787236564927-a6k8jj | 2026-08-20 10:36:04 | Quincy Orta | 798203 |  | 356 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452345 | -81.389579 | J4785752 | J3793361 | 89032 | INSTALLED |  |  |  |  |  | land |
+| 1787236574820-myzqu5 | 2026-08-20 10:36:14 | Phillip Monteiro | 803046 | 35 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453357 | -81.380882 | J4643763 | J4483982 | 13135 | INSTALLED |  |  |  |  |  | land |
+| 1787237206210-8nt0w8 | 2026-08-20 10:46:46 | Phillip Monteiro | 809644 | 28 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453341 | -81.380987 | J4754395 | J4428445 | 19 | INSTALLED |  |  |  |  |  | land |
+| 1787237511455-lb8wy2 | 2026-08-20 10:51:51 | Phillip Monteiro | 809649 | 29 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453373 | -81.380943 | J4754393 | J4428446 | 91 | INSTALLED |  |  |  |  |  | land |
+| 1787237781224-y4d586 | 2026-08-20 10:56:21 | Phillip Monteiro | 809784 | 30 | 1071 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.453367 | -81.380959 | J4754392 | J4428447 | 1110 | INSTALLED |  |  |  |  |  | land |
+| 1787238057467-k2x14s | 2026-08-20 11:00:57 | Phillip Monteiro | 809653 | 31 | 1079 Waterloo St., Saugeen Shores, ON N0H 2C6, Canada | 44.45334 | -81.380946 | J4754394 | J4428448 | 3617 | INSTALLED |  |  |  |  |  | land |
+| 1787238766364-971n5z | 2026-08-20 11:12:46 | Quincy Orta | 800331 |  | 347 Devonshire Rd, Port Elgin | 44.452749 | -81.389833 | J4785853 | J3982181 | 32726 | INSTALLED |  |  |  |  |  | land |
+| 1787239009160-u2od96 | 2026-08-20 11:16:49 | Quincy Orta | 800645 |  | 343 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452772 | -81.390196 | J4785850 | J3979759 | 55378 | INSTALLED |  |  |  |  |  | land |
+| 1787239529753-q70qoa | 2026-08-20 11:25:29 | Quincy Orta | 800561 |  | 335 Devonshire Rd, Port Elgin | 44.453115 | -81.390668 | J4785851 | J4107633 | 71311 | INSTALLED |  |  |  |  |  | land |
+| 1787239761556-9fid7y | 2026-08-20 11:29:21 | Quincy Orta | 800875 |  | 331 Devonshire Rd, Port Elgin | 44.453092 | -81.390681 | J4785852 | J3942626 | 59037 | INSTALLED |  |  |  |  |  | land |
+| 1787242516056-4x95tr | 2026-08-20 12:15:16 | Phillip Monteiro | 800301 |  | 347 Mary Rose Ave, Port Elgin, ON N0H 2C3, Canada | 44.454087 | -81.38773 | J477725 | J3966410 | 29798 | INSTALLED |  | TR |  |  |  | land |
+| 1787243101330-gliss4 | 2026-08-20 12:25:01 | Quincy Orta | 798291 |  | 340 Devonshire Rd, Port Elgin | 44.452689 | -81.390501 | J4785754 | J3876021 | 54087 | INSTALLED |  |  |  |  |  | land |
+| 1787243367153-77ektg | 2026-08-20 12:29:27 | Phillip Monteiro | 793290 |  | 120 Miramichi Bay Rd, Sargent Shores | 44.469092 | -81.388731 | J4777254 | J2375648 | 38799 | INSTALLED |  |  |  |  |  | land |
+| 1787243452385-nn4x02 | 2026-08-20 12:30:52 | Quincy Orta | 800609 |  | 336 Devonshire Rd, Port Elgin | 44.452685 | -81.3906 | J4785757 | J3925713 | 58050 | INSTALLED |  |  |  |  |  | land |
+| 1787243751247-v3pz3t | 2026-08-20 12:35:51 | Quincy Orta | 800203 |  | 332 Devonshire Rd, Port Elgin | 44.452843 | -81.390761 | J4785755 | J3925758 | 41961 | INSTALLED |  |  |  |  |  | land |
+| 1787244027342-mviq0s | 2026-08-20 12:40:27 | Quincy Orta | 797222 |  | 328 Devonshire Rd, Port Elgin | 44.452904 | -81.390989 | J4785756 | J3902310 | 38121 | INSTALLED |  |  |  |  |  | land |
+| 1787244335323-mhpow9 | 2026-08-20 12:45:35 | Quincy Orta | 798058 |  | 324 Devonshire Rd, Port Elgin | 44.452944 | -81.391196 | J4785774 | J3902256 | 45347 | INSTALLED |  |  |  |  |  | land |
+| 1787244677641-6z401k | 2026-08-20 12:51:17 | Quincy Orta | 798062 |  | 320 Devonshire Rd, Port Elgin, ON N0H 2C3, Canada | 44.453058 | -81.391417 | J4785775 | J3902255 | 83116 | INSTALLED |  |  |  |  |  | land |
+| 1787244968775-0l2vnc | 2026-08-20 12:56:08 | Quincy Orta | 797213 |  | 323 Devonshire Rd, Port Elgin | 44.453268 | -81.391064 | J4785776 | J3910265 | 51695 | INSTALLED |  |  |  |  |  | land |
+| 1787245249241-rcwkm0 | 2026-08-20 13:00:49 | Quincy Orta | 798064 |  | 327 Devonshire Rd, Port Elgin | 44.453157 | -81.390975 | J4785777 | J3902650 | 19038 | INSTALLED |  |  |  |  |  | land |
+| 1787246641920-1wwnvv | 2026-08-20 13:24:01 | Quincy Orta | 798152 |  | 319 Devonshire Rd, Port Elgin | 44.453394 | -81.391419 | J4794984 | J3851576 | 77570 | INSTALLED |  |  |  |  |  | land |
+| 1787247041812-juqwnc | 2026-08-20 13:30:41 | Quincy Orta | 798330 |  | 303 Devonshire Rd, Port Elgin | 44.452963 | -81.392107 | J4794974 | J3904082 | 58121 | INSTALLED |  |  |  |  |  | land |
+| 1787243818985-yfgeef | 2026-08-20 12:36:58 | Phillip Monteiro | 802118 |  | 122 Miramichi Bay Rd, Sargent Shores | 44.469271 | -81.388733 | J4777257 | J4429908 | 4871 | INSTALLED |  |  |  |  |  | land |
+| 1787244862374-g0l3yr | 2026-08-20 12:54:22 | Phillip Monteiro | 801187 |  | 124 Miramichi Bay Rd, Sargent Shores | 44.469564 | -81.388625 | J4795680 | J2183285 | 72340 | INSTALLED |  |  |  |  |  | land |
+| 1787245332651-7wppdb | 2026-08-20 13:02:12 | Phillip Monteiro | 804056 |  | 128 Miramichi Bay Rd, Sargent Shores | 44.470062 | -81.388819 | J4795679 | J2183288 | 69268 | INSTALLED |  |  |  |  |  | land |
+| 1787245685095-kkf5rv | 2026-08-20 13:08:05 | Phillip Monteiro | 794161 |  | 132 Miramichi Bay Rd, Port Elgin | 44.470198 | -81.389123 | J4795678 | J2183248 | 96834 | INSTALLED |  |  |  |  |  | land |
+| 1787246114008-9jka0e | 2026-08-20 13:15:14 | Phillip Monteiro | 801136 |  | 137 Miramichi Bay Rd, Sargent Shores | 44.470906 | -81.389878 | J4795681 | J2376176 | 97170 | INSTALLED |  |  |  |  |  | land |
+| 1787246501664-bobcxl | 2026-08-20 13:21:41 | Phillip Monteiro | 804479 |  | 148 Miramichi Bay Rd, Sargent Shores | 44.471412 | -81.38876 | J4795676 | J3876041 | 20421 | INSTALLED |  |  |  |  |  | land |
+| 1787246859473-486hqj | 2026-08-20 13:27:39 | Phillip Monteiro | 800914 |  | 150 Miramichi Bay Rd, Sargent Shores | 44.471368 | -81.388635 | J4795677 | J2375405 | 18532 | INSTALLED |  |  |  |  |  | land |
+| 1787250290612-p2kff9 | 2026-08-20 14:24:50 | Quincy Orta | 771459 |  | 109 Crawford St, Chatsworth, ON N0H 1G0, Canada | 44.454631 | -80.89311 | J4794977 | J3876873 | 6173 | INSTALLED |  |  |  |  |  | land |
+| 1787250729760-d9sufx | 2026-08-20 14:32:09 | Quincy Orta | 765146 |  | 50 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455751 | -80.894177 | J4794975 | J2163317 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787251205327-4hrey9 | 2026-08-20 14:40:05 | Quincy Orta | 769887 |  | 49 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455161 | -80.892955 | J4794976 | J2166778 | 73962 | INSTALLED |  |  |  |  |  | land |
+| 1787251611405-vdoyhy | 2026-08-20 14:46:51 | Quincy Orta | 767877 |  | 60 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455739 | -80.892944 | J4794958 | J4236270 | 14949 | INSTALLED |  |  |  |  |  | land |
+| 1787252066244-wp4hn1 | 2026-08-20 14:54:26 | Quincy Orta | 764830 |  | 51 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.45528 | -80.892317 | J4794961 | J2166580 | 80269 | INSTALLED |  |  |  |  |  | land |
+| 1787252215371-yf1i4l | 2026-08-20 14:56:55 | Phillip Monteiro | 767098 |  | 216565 CONC 4, Chatsworth, ON N0H 1G0, Canada | 44.415272 | -80.924445 | J4795675 | J4049189 | 68440 | INSTALLED |  |  |  |  |  | land |
+| 1787252410444-jb0kga | 2026-08-20 15:00:10 | Quincy Orta | 767550 |  | 53 Jane St, Chatsworth, ON N0H 1G0, Canada | 44.455317 | -80.892075 | J4794960 | J4416568 | 1746 | INSTALLED |  |  |  |  |  | land |
+| 1787252717549-k973m7 | 2026-08-20 15:05:17 | Phillip Monteiro | 764789 |  | 216549 CONC 4, Chatsworth, ON N0H 1G0, Canada | 44.413204 | -80.923802 | J4795690 | J3602405 | 73504 | INSTALLED |  |  |  |  |  | land |
