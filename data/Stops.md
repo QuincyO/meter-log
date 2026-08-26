@@ -1,6 +1,6 @@
 # Stops
 
-_1244 rows · exported 2026-08-24 03:52 America/Toronto_
+_1292 rows · exported 2026-08-26 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1248,3 +1248,51 @@ _1244 rows · exported 2026-08-24 03:52 America/Toronto_
 | 1787338321078-ksr62e | 2026-08-21 14:52:01 | Phillip Monteiro | 771564 |  | 782574 SIDERD 3, Chatsworth, ON N0H 1G0, Canada | 44.421945 | -80.922908 | J4786264 | J3602404 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1787339362374-bx2um8 | 2026-08-21 15:09:22 | Quincy Orta | 771574 | 5 | 9 Toronto Sydenham St, Chatsworth, ON N0H 1G0, Canada | 44.455562 | -80.896392 | J4785778 | J2166558 | 83231 | INSTALLED |  |  |  |  |  | land |
 | 1787339769775-jpf32w | 2026-08-21 15:16:09 | Quincy Orta | 766881 |  | 55 Toronto Sydenham St, Chatsworth, ON N0H 1G0, Canada | 44.454303 | -80.894487 | J4794980 | J2166626 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787579568238-qrlr6x | 2026-08-24 09:52:48 | Quincy Orta | 804684 |  | 467 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450507 | -81.383657 | J4785604 | J3763365 | 61331 | INSTALLED |  |  |  |  |  | land |
+| 1787579888822-3mmy88 | 2026-08-24 09:58:08 | Quincy Orta | 804735 |  | 463 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450509 | -81.383795 | J4785605 | J3728601 | 62458 | INSTALLED |  |  |  |  |  | land |
+| 1787580162451-jupu6m | 2026-08-24 10:02:42 | Quincy Orta | 804790 |  | 459 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450581 | -81.384005 | J4785603 | J3738149 | 31180 | INSTALLED |  |  |  |  |  | land |
+| 1787580465190-psagrk | 2026-08-24 10:07:45 | Quincy Orta | 805470 |  | 455 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450619 | -81.384171 | J4785602 | J3738147 | 52614 | INSTALLED |  |  |  |  |  | land |
+| 1787580748998-f0rh3h | 2026-08-24 10:12:28 | Quincy Orta | 804809 |  | 451 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450649 | -81.384349 | J4785611 | J3728599 | 51343 | INSTALLED |  |  |  |  |  | land |
+| 1787581262754-x604cr | 2026-08-24 10:21:02 | Quincy Orta | 804833 |  | 447 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450666 | -81.384583 | J4785612 | J3747478 | 77008 | INSTALLED |  |  |  |  |  | land |
+| 1787581597149-re1dod | 2026-08-24 10:26:37 | Quincy Orta | 805412 |  | 448 Devonshire Rd, Port Elgin | 44.450422 | -81.385034 | J4785610 | J3780910 | 85228 | INSTALLED |  |  |  |  |  | land |
+| 1787581914121-3mr000 | 2026-08-24 10:31:54 | Quincy Orta | 798286 |  | 452 Devonshire Rd, Port Elgin | 44.450342 | -81.384804 | J4785613 | J3780839 | 41061 | INSTALLED |  |  |  |  |  | land |
+| 1787584881989-4uc1if | 2026-08-24 11:21:21 | Quincy Orta | 804859 |  | 443 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450736 | -81.384827 | J4785609 | J3747477 | 78305 | INSTALLED |  |  |  |  |  | land |
+| 1787585267683-ec7xw8 | 2026-08-24 11:27:47 | Quincy Orta | 804839 |  | 439 Devonshire Rd, Port Elgin | 44.450894 | -81.385186 | J4785606 | J3747553 | 62323 | INSTALLED |  |  |  |  |  | land |
+| 1787585563652-m6xmdq | 2026-08-24 11:32:43 | Quincy Orta | 805591 |  | 435 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450824 | -81.385359 | J4785567 | J3751789 | 79994 | INSTALLED |  |  |  |  |  | land |
+| 1787585879590-tzmd4u | 2026-08-24 11:37:59 | Quincy Orta | 804622 |  | 431 Devonshire Rd, Port Elgin | 44.45102 | -81.385555 | J4785608 | J3733089 | 69573 | INSTALLED |  |  |  |  |  | land |
+| 1787586215539-2sp8ha | 2026-08-24 11:43:35 | Quincy Orta | 804838 |  | 432 Devonshire Rd, Port Elgin | 44.450733 | -81.385804 | J4785569 | J3711459 | 6343 | INSTALLED |  |  |  |  |  | land |
+| 1787586485266-f8a13b | 2026-08-24 11:48:05 | Quincy Orta | 804835 |  | 436 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450596 | -81.385529 | J4785568 | J3751788 | 67129 | INSTALLED |  |  |  |  |  | land |
+| 1787586749437-md32tb | 2026-08-24 11:52:29 | Quincy Orta | 805573 |  | 440 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450506 | -81.385268 | J4785566 | J3747494 | 47018 | INSTALLED |  |  |  |  |  | land |
+| 1787586997690-f3b50m | 2026-08-24 11:56:37 | Quincy Orta | 805448 |  | 444 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450449 | -81.385044 | J4785607 | J3751790 | 93482 | INSTALLED |  |  |  |  |  | land |
+| 1787587899821-ub8onu | 2026-08-24 12:11:39 | Quincy Orta | 804736 |  | 427 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451015 | -81.385764 | J4785572 | J3711227 | 29338 | INSTALLED |  |  |  |  |  | land |
+| 1787588144736-mfb9sd | 2026-08-24 12:15:44 | Quincy Orta | 804728 |  | 423 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451081 | -81.385884 | J4785571 | J3711446 | 42140 | INSTALLED |  |  |  |  |  | land |
+| 1787588409962-ykqnze | 2026-08-24 12:20:09 | Quincy Orta | 804826 |  | 424 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450795 | -81.386029 | J4785570 | J3221260 | 25829 | INSTALLED |  |  |  |  |  | land |
+| 1787588669681-sebb4p | 2026-08-24 12:24:29 | Quincy Orta | 804785 |  | 428 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450747 | -81.385864 | J4785573 | J3763364 | 38387 | INSTALLED |  |  |  |  |  | land |
+| 1787594404525-ehvu00 | 2026-08-24 14:00:04 | Quincy Orta | 769439 |  | 12 Toronto Sydenham St, Chatsworth | 44.455389 | -80.896652 | J4785575 | J2166548 | 69832 | INSTALLED |  |  |  |  |  | land |
+| 1787594853098-rwktyc | 2026-08-24 14:07:33 | Quincy Orta | 765533 |  | 7 Toronto Sydenham St, Chatsworth | 44.456176 | -80.896196 | J4785577 | J3791918 | 86880 | INSTALLED |  |  |  |  |  | land |
+| 1787595180779-548c3f | 2026-08-24 14:13:00 | Quincy Orta | 770880 |  | 7 Toronto Sydenham St, Chatsworth, ON N0H 1G0, Canada | 44.455753 | -80.896935 | J4785574 | J4014544 | 20580 | INSTALLED |  |  |  |  |  | land |
+| 1787595965958-g9ivsx | 2026-08-24 14:26:05 | Quincy Orta | 767900 |  | 1 Toronto Sydenham St, Chatsworth | 44.456397 | -80.897535 | J4785576 | J3825730 | 56070 | INSTALLED |  |  |  |  |  | land |
+| 1787664961167-8si4cg | 2026-08-25 09:36:01 | Quincy Orta | 800358 |  | 420 Devonshire Rd, Port Elgin | 44.450891 | -81.386142 | J4787322 | J3944437 | 61789 | INSTALLED |  |  |  |  |  | land |
+| 1787665664272-8doivt | 2026-08-25 09:47:44 | Quincy Orta | 805413 |  | 419 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.45124 | -81.385955 | J4787323 | J3544054 | 69803 | INSTALLED |  |  |  |  |  | land |
+| 1787666544651-gn7pvd | 2026-08-25 10:02:24 | Quincy Orta | 798111 |  | 411 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451407 | -81.386707 | J4787324 | J3791919 | 46706 | INSTALLED |  |  |  |  |  | land |
+| 1787666902318-r1344k | 2026-08-25 10:08:22 | Quincy Orta | 805460 |  | 407 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451478 | -81.386901 | J4787325 | J3711443 | 33922 | INSTALLED |  |  |  |  |  | land |
+| 1787667165619-cvnc41 | 2026-08-25 10:12:45 | Quincy Orta | 805567 |  | 403 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451641 | -81.387102 | J4787327 | J3711445 | 60291 | INSTALLED |  |  |  |  |  | land |
+| 1787667647514-5xe5ni | 2026-08-25 10:20:47 | Quincy Orta | 805604 |  | 399 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451654 | -81.387201 | J4787328 | J3753593 | 59137 | INSTALLED |  |  |  |  |  | land |
+| 1787668002332-wgn674 | 2026-08-25 10:26:42 | Quincy Orta | 805554 |  | 400 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451459 | -81.387447 | J4787329 | J3747493 | 67327 | INSTALLED |  |  |  |  |  | land |
+| 1787668320216-359bxe | 2026-08-25 10:32:00 | Quincy Orta | 804811 |  | 404 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451334 | -81.387243 | J4787326 | J3747507 | 63581 | INSTALLED |  |  |  |  |  | land |
+| 1787670522377-c01oo6 | 2026-08-25 11:08:42 | Quincy Orta | 805587 |  | 395 Devonshire Rd, Port Elgin | 44.451639 | -81.387328 | J4787314 | J3780826 | 56250 | INSTALLED |  |  |  |  |  | land |
+| 1787670854518-56josx | 2026-08-25 11:14:14 | Quincy Orta | 804650 |  | 391 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451765 | -81.387568 | J4787317 | J3769220 | 74374 | INSTALLED |  |  |  |  |  | land |
+| 1787671094066-3idald | 2026-08-25 11:18:14 | Quincy Orta | 798368 |  | 387 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451858 | -81.387723 | J4787315 | J3774862 | 86374 | INSTALLED |  |  |  |  |  | land |
+| 1787671349801-chgxmp | 2026-08-25 11:22:29 | Quincy Orta | 797209 |  | 383 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451981 | -81.387944 | J4787316 | J3825775 | 73592 | INSTALLED |  |  |  |  |  | land |
+| 1787671710395-xg1w84 | 2026-08-25 11:28:30 | Quincy Orta | 798271 |  | 384 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451751 | -81.388238 | J4787319 | J3844669 | 45986 | INSTALLED |  |  |  |  |  | land |
+| 1787671984157-pny10u | 2026-08-25 11:33:04 | Quincy Orta | 798263 |  | 388 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451693 | -81.388015 | J4787318 | J3851662 | 28908 | INSTALLED |  |  |  |  |  | land |
+| 1787672256468-7vg6a5 | 2026-08-25 11:37:36 | Quincy Orta | 805523 |  | 392 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451566 | -81.387689 | J4787321 | J3774860 | 56162 | INSTALLED |  |  |  |  |  | land |
+| 1787672576381-3xlm69 | 2026-08-25 11:42:56 | Quincy Orta | 804827 |  | 396 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451555 | -81.387545 | J4787320 | J3747492 | 49703 | INSTALLED |  |  |  |  |  | land |
+| 1787675634484-67bwwq | 2026-08-25 12:33:54 | Quincy Orta | 798238 |  | 379 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452059 | -81.388145 | J4787310 | J3791862 | 95790 | INSTALLED |  |  |  |  |  | land |
+| 1787675912478-eqwlts | 2026-08-25 12:38:32 | Quincy Orta | 797262 |  | 375 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452174 | -81.38824 | J4787313 | J3802908 | 91993 | INSTALLED |  |  |  |  |  | land |
+| 1787676263181-ffv13s | 2026-08-25 12:44:23 | Quincy Orta | 798275 |  | 376 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.451844 | -81.388517 | J4787312 | J3851574 | 47580 | INSTALLED |  |  |  |  |  | land |
+| 1787676544882-7y6w5w | 2026-08-25 12:49:04 | Quincy Orta | 798361 |  | 380 Devonshire Rd, Port Elgin, ON N0H 2C3, Canada | 44.451823 | -81.388299 | J4787311 | J3774822 | 31816 | INSTALLED |  |  |  |  |  | land |
+| 1787683268780-x6mgtq | 2026-08-25 14:41:08 | Quincy Orta | 769843 |  | 144 Loucks Ln, Chatsworth, ON N0H 1G0, Canada | 44.453959 | -80.891677 | J4787306 | J2166484 | 23839 | INSTALLED |  |  |  |  |  | land |
+| 1787683742604-u1f6h7 | 2026-08-25 14:49:02 | Quincy Orta | 766724 |  | 154 Loucks Lane, Chatsworth | 44.453978 | -80.891264 | J4787309 | J4236271 | 5982 | INSTALLED |  |  |  |  |  | land |
+| 1787684072902-xie3a5 | 2026-08-25 14:54:32 | Quincy Orta | 767908 |  | 166 Loucks Lane, Chatsworth | 44.454204 | -80.890895 | J4787308 | J2166482 | 45173 | INSTALLED |  |  |  |  |  | land |
+| 1787684483926-sco7kz | 2026-08-25 15:01:23 | Quincy Orta | 764090 |  | 176 Loucks Ln, Chatsworth, ON N0H 1G0, Canada | 44.454229 | -80.890795 | J4787307 | J2166504 | 12693 | INSTALLED |  |  |  |  |  | land |
