@@ -1,6 +1,6 @@
 # Stops
 
-_1292 rows · exported 2026-08-26 03:52 America/Toronto_
+_1361 rows · exported 2026-08-27 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1296,3 +1296,72 @@ _1292 rows · exported 2026-08-26 03:52 America/Toronto_
 | 1787683742604-u1f6h7 | 2026-08-25 14:49:02 | Quincy Orta | 766724 |  | 154 Loucks Lane, Chatsworth | 44.453978 | -80.891264 | J4787309 | J4236271 | 5982 | INSTALLED |  |  |  |  |  | land |
 | 1787684072902-xie3a5 | 2026-08-25 14:54:32 | Quincy Orta | 767908 |  | 166 Loucks Lane, Chatsworth | 44.454204 | -80.890895 | J4787308 | J2166482 | 45173 | INSTALLED |  |  |  |  |  | land |
 | 1787684483926-sco7kz | 2026-08-25 15:01:23 | Quincy Orta | 764090 |  | 176 Loucks Ln, Chatsworth, ON N0H 1G0, Canada | 44.454229 | -80.890795 | J4787307 | J2166504 | 12693 | INSTALLED |  |  |  |  |  | land |
+| 1787748981285-vctoy3 | 2026-08-26 08:56:21 | Josue Vasquez | 744322 |  | 683409 Chatsworth road 24 |  |  | J4789418 | J3491045 | 48629 | INSTALLED |  |  |  |  |  | land |
+| 1787752116756-tdt7cr | 2026-08-26 09:48:36 | Phillip Monteiro | 775117 |  | 1590 4th Ave W, Owen Sound, ON N4K 4X3, Canada | 44.576338 | -80.951653 | J4786267 | J4484018 | 620 | INSTALLED |  |  |  |  |  | land |
+| 1787752731980-x2n3or | 2026-08-26 09:58:51 | Phillip Monteiro | 775751 |  | 1606 4th Ave W, Owen Sound | 44.576866 | -80.95155 | J4786265 | J2115451 | 7885 | INSTALLED |  |  |  |  |  | land |
+| 1787754352650-7li669 | 2026-08-26 10:25:52 | Phillip Monteiro | 781342 |  | 1628 4th Ave W, Owen Sound | 44.576981 | -80.951354 | J4786263 | J3602526 | 56586 | INSTALLED |  |  |  |  |  | land |
+| 1787754406735-f4jbnk | 2026-08-26 10:26:46 | Josue Vasquez | 768947 |  | 16-83 victoria st |  |  | J4789419 | J2305013 | 46214 | INSTALLED |  |  |  |  |  | land |
+| 1787754545205-t913ic | 2026-08-26 10:29:05 | Phillip Monteiro | 780868 |  | 1628 4th Ave W, Owen Sound, ON N4K 4X4, Canada | 44.576953 | -80.951371 | J4786262 | J2115465 | 8740 | INSTALLED |  |  |  |  |  | land |
+| 1787754890947-aymxd5 | 2026-08-26 10:34:50 | Phillip Monteiro | 777153 |  | 1636 4th Ave W, Owen Sound, ON N4K 4X4, Canada | 44.576983 | -80.951362 | J4790424 | J2115468 | 66191 | INSTALLED |  |  |  |  |  | land |
+| 1787755359633-pd5uqo | 2026-08-26 10:42:39 | Quincy Orta | 798164 |  | 315 Devonshire Rd, Saugeen Shores, ON N0H 2C2, Canada | 44.453405 | -81.391667 | J4790358 | J3904086 | 99005 | INSTALLED |  |  |  |  |  | land |
+| 1787755466494-sithd7 | 2026-08-26 10:44:26 | Phillip Monteiro | 781186 |  | 1658 4th Ave W, Owen Sound, ON N4K 4X4, Canada | 44.577193 | -80.951166 | J4790417 | J2115404 | 27184 | INSTALLED |  |  |  |  |  | land |
+| 1787755686779-4up7ro | 2026-08-26 10:48:06 | Quincy Orta | 800595 |  | 311 Devonshire Rd, Saugeen Shores, ON N0H 2C2, Canada | 44.453363 | -81.391713 | J4790361 | J3909064 | 67103 | INSTALLED |  |  |  |  |  | land |
+| 1787755714803-1yejyb | 2026-08-26 10:48:34 | Phillip Monteiro | 780458 |  | 1672 4th Ave W, Owen Sound, ON N4K 4X4, Canada | 44.577364 | -80.951362 | J4790414 | J4157990 | 12543 | INSTALLED |  |  |  |  |  | land |
+| 1787755920123-adkl3f | 2026-08-26 10:52:00 | Josue Vasquez | 769528 |  | 17-83 victoria st, meaford |  |  | J4789420 | J2305014 | 76503 | INSTALLED |  |  |  |  |  | land |
+| 1787756035465-6sakx3 | 2026-08-26 10:53:55 | Phillip Monteiro | 778386 |  | 1687 4th Ave W, Owen Sound, ON N4K 4X5, Canada | 44.577426 | -80.95076 | J4790402 | J4441517 | 11434 | INSTALLED |  |  |  |  |  | land |
+| 1787756304992-c6ndp7 | 2026-08-26 10:58:24 | Phillip Monteiro | 781788 |  | 1698 4th Ave W, Owen Sound, ON N4K 4X4, Canada | 44.577484 | -80.951073 | J4790416 | J2115402 | 69414 | INSTALLED |  |  |  |  |  | land |
+| 1787756332291-8fs1ym | 2026-08-26 10:58:52 | Quincy Orta | 800487 |  | 339 Devonshire Rd, Port Elgin | 44.45302 | -81.390422 | J4790360 | J4107635 | 74855 | INSTALLED |  |  |  |  |  | land |
+| 1787756488865-eipmij | 2026-08-26 11:01:28 | Josue Vasquez | 771682 |  | 19-83 victoria st,meaford |  |  | J4789421 | J2305037 | 78899 | INSTALLED |  |  |  |  |  | land |
+| 1787756709498-0coqbv | 2026-08-26 11:05:09 | Phillip Monteiro | 778142 | 2 | 1699 4th Ave W, Owen Sound | 44.57745 | -80.950784 | J4790403 | J3319051 | 38113 | INSTALLED |  |  |  |  |  | land |
+| 1787757034314-uum8pa | 2026-08-26 11:10:34 | Josue Vasquez | 770793 |  | 18-83 victoria st, meaford |  |  | J4789422 | J2305040 | 71051 | INSTALLED |  |  |  |  |  | land |
+| 1787757071535-2zq6km | 2026-08-26 11:11:11 | Phillip Monteiro | 784610 | 1 | 1699 4th Ave W, Owen Sound | 44.577685 | -80.950668 | J4790415 | J3340234 | 58813 | INSTALLED |  |  |  |  |  | land |
+| 1787757315137-r0jiqs | 2026-08-26 11:15:15 | Josue Vasquez | 770838 |  | 14-83 victoria st, meaford |  |  | J4789423 | J2305251 | 95685 | INSTALLED |  |  |  |  |  | land |
+| 1787757323569-3vuemg | 2026-08-26 11:15:23 | Quincy Orta | 798194 |  | 348 Devonshire Rd, Port Elgin | 44.452481 | -81.389948 | J4790359 | J3876009 | 74288 | INSTALLED |  |  |  |  |  | land |
+| 1787757403916-57cb1p | 2026-08-26 11:16:43 | Phillip Monteiro | 779845 |  | 1699 4th Ave W, Owen Sound, ON N4K 4B3, Canada | 44.577487 | -80.950824 | J4790405 | J2123376 | 42428 | INSTALLED |  |  |  |  |  | land |
+| 1787757676423-hlhgju | 2026-08-26 11:21:16 | Josue Vasquez | 766049 |  | 15-83 victoria st, meaford |  |  | J4789424 | J2305252 | 58517 | INSTALLED |  |  |  |  |  | land |
+| 1787757915244-lve75s | 2026-08-26 11:25:15 | Phillip Monteiro | 783484 |  | 1708 4th Ave W, Owen Sound, ON N4K 4X7, Canada | 44.577925 | -80.95089 | J4790422 | J3881285 | 44769 | INSTALLED |  |  |  |  |  | land |
+| 1787758111887-yvtg4r | 2026-08-26 11:28:31 | Quincy Orta | 798304 |  | 355 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452539 | -81.389222 | J4790374 | J3774819 | 55687 | INSTALLED |  |  |  |  |  | land |
+| 1787758140244-m3s5hn | 2026-08-26 11:29:00 | Phillip Monteiro | 779318 |  | 1708 4th Ave W, Owen Sound | 44.577917 | -80.950987 | J4790423 | J2115415 | 29650 | INSTALLED |  |  |  |  |  | land |
+| 1787758232750-zn4uup | 2026-08-26 11:30:32 | Josue Vasquez | 769436 |  | 20-83 victoria st, meaford |  |  | J4789425 | J2305038 | 65994 | INSTALLED |  |  |  |  |  | land |
+| 1787758387095-otwil4 | 2026-08-26 11:33:07 | Quincy Orta | 798349 |  | 363 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452384 | -81.388929 | J4790375 | J3793342 | 60870 | INSTALLED |  |  |  |  |  | land |
+| 1787758499352-66uy73 | 2026-08-26 11:34:59 | Phillip Monteiro | 780047 |  | 1728 4th Ave W, Owen Sound, ON N4K 4X6, Canada | 44.578314 | -80.951263 | J4790404 | J3319161 | 66023 | INSTALLED |  |  |  |  |  | land |
+| 1787758653361-dl1wrk | 2026-08-26 11:37:33 | Quincy Orta | 798088 |  | 367 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452329 | -81.388666 | J4790377 | J3793355 | 61691 | INSTALLED |  |  |  |  |  | land |
+| 1787758700733-xwsa3t | 2026-08-26 11:38:20 | Phillip Monteiro | 777126 |  | 1728 4th Ave W, Owen Sound, ON N4K 4X6, Canada | 44.578293 | -80.951255 | J4790425 | J2115476 | 34150 | INSTALLED |  |  |  |  |  | land |
+| 1787759006807-gujsq0 | 2026-08-26 11:43:26 | Quincy Orta | 798235 |  | 371 Devonshire Rd, Port Elgin | 44.452223 | -81.388723 | J4790376 | J4166243 | 22020 | INSTALLED |  |  |  |  |  | land |
+| 1787759521141-n17fex | 2026-08-26 11:52:01 | Quincy Orta | 798253 |  | 372 Devonshire Rd, Port Elgin | 44.45201 | -81.38884 | J4790365 | J3774821 | 77743 | INSTALLED |  |  |  |  |  | land |
+| 1787759684434-sy01y8 | 2026-08-26 11:54:44 | Josue Vasquez | 765074 |  | 118 william st, meaford |  |  | J4789426 | J2305249 | 82603 | INSTALLED |  |  |  |  |  | land |
+| 1787759829799-upn3io | 2026-08-26 11:57:09 | Quincy Orta | 798189 |  | 368 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452036 | -81.388905 | J4790363 | J3851575 | 41749 | INSTALLED |  |  |  |  |  | land |
+| 1787760098916-0gg1mc | 2026-08-26 12:01:38 | Quincy Orta | 798283 |  | 364 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452169 | -81.389186 | J4790364 | J3825089 | 59821 | INSTALLED |  |  |  |  |  | land |
+| 1787760122350-gcr9hx | 2026-08-26 12:02:02 | Phillip Monteiro | 780463 |  | 1750 4th Ave W, Owen Sound, ON N4K 4X6, Canada | 44.578201 | -80.951124 | J4790418 | J2115473 | 29769 | INSTALLED |  |  |  |  |  | land |
+| 1787760147827-1wfvrz | 2026-08-26 12:02:27 | Josue Vasquez | 772051 |  | 124 william st, meaford |  |  | J4789427 | J2305250 | 67006 | INSTALLED |  |  |  |  |  | land |
+| 1787760408320-9s39ci | 2026-08-26 12:06:48 | Quincy Orta | 798232 |  | 360 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.452213 | -81.389422 | J4790362 | J3809791 | 78757 | INSTALLED |  |  |  |  |  | land |
+| 1787760409984-9l8s7u | 2026-08-26 12:06:49 | Phillip Monteiro | 775257 |  | 1760 4th Ave W, Owen Sound | 44.578556 | -80.950917 | J4790421 | J2115474 | 82100 | INSTALLED |  |  |  |  |  | land |
+| 1787760645264-ehpuh5 | 2026-08-26 12:10:45 | Phillip Monteiro | 782897 |  | 1770 4th Ave W, Owen Sound | 44.578525 | -80.950962 | J4790408 | J4413295 | 9267 | INSTALLED |  |  |  |  |  | land |
+| 1787761017294-3wlfz7 | 2026-08-26 12:16:57 | Josue Vasquez | 765645 |  | 3-78 victoria st, meaford |  |  | J4789428 | J4046098 | 14481 | INSTALLED |  |  |  |  |  | land |
+| 1787761070404-2jw1oe | 2026-08-26 12:17:50 | Phillip Monteiro | 780227 |  | 1755 4th Ave W, Owen Sound | 44.578357 | -80.950393 | J4790406 | J2123399 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1787761233016-5p73fu | 2026-08-26 12:20:33 | Josue Vasquez | 765415 |  | 1-78 victoria st, meaford |  |  | J4789429 | J4030353 | 18748 | INSTALLED |  |  |  |  |  | land |
+| 1787761416825-axaqbt | 2026-08-26 12:23:36 | Phillip Monteiro | 781411 |  | 1775 4th Ave W, Owen Sound, ON N4K 4X7, Canada | 44.578598 | -80.950451 | J4790419 | J4161874 | 12545 | INSTALLED |  |  |  |  |  | land |
+| 1787761883997-265lhl | 2026-08-26 12:31:23 | Phillip Monteiro | 775339 |  | 1778 4th Ave W, Owen Sound | 44.57879 | -80.950776 | J4790409 | J4203850 | 21593 | INSTALLED |  |  |  |  |  | land |
+| 1787762245302-poglia | 2026-08-26 12:37:25 | Phillip Monteiro | 780498 |  | 1790 4th Ave W, Owen Sound, ON N4K 4X6, Canada | 44.578787 | -80.950701 | J4790407 | J3942705 | 24943 | INSTALLED |  |  |  |  |  | land |
+| 1787762604330-vyrswx | 2026-08-26 12:43:24 | Phillip Monteiro | 783027 |  | 1785 4th Ave W, Owen Sound, ON N4K 4X7, Canada | 44.578733 | -80.950351 | J4790420 | J3485103 | 91949 | INSTALLED |  |  |  |  |  | land |
+| 1787764032909-cggu62 | 2026-08-26 13:07:12 | Josue Vasquez | 765408 |  | 23-78 victoria st, meaford |  |  | J4789694 | J3698201 | 55187 | INSTALLED |  |  |  |  |  | land |
+| 1787764305727-f4tycz | 2026-08-26 13:11:45 | Quincy Orta | 805548 |  | 471 Devonshire Rd, Port Elgin | 44.450492 | -81.38341 | J4790370 | J3728598 | 47494 | INSTALLED |  |  |  |  |  | land |
+| 1787764376653-nc2woq | 2026-08-26 13:12:56 | Josue Vasquez | 765665 |  | 17-78 victoria st, meaford |  |  | J4789695 | J3698882 | 42208 | INSTALLED |  |  |  |  |  | land |
+| 1787764724898-l0b12i | 2026-08-26 13:18:44 | Quincy Orta | 805464 |  | 475 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450512 | -81.383321 | J4790371 | J3728600 | 49440 | INSTALLED |  |  |  |  |  | land |
+| 1787764870326-gdumyq | 2026-08-26 13:21:10 | Josue Vasquez | 765463 |  | 15-78 victoria st, meaford |  |  | J4789696 | J3728642 | 43691 | INSTALLED |  |  |  |  |  | land |
+| 1787765034379-hn4smz | 2026-08-26 13:23:54 | Quincy Orta | 805396 |  | 479 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450459 | -81.38314 | J4790373 | J3763436 | 62875 | INSTALLED |  |  |  |  |  | land |
+| 1787765297544-iicioj | 2026-08-26 13:28:17 | Josue Vasquez | 765486 | 19-78 | victoria st, meaford |  |  | J4789697 | J3542066 | 44661 | INSTALLED |  |  |  |  |  | land |
+| 1787765299558-6j18yg | 2026-08-26 13:28:19 | Quincy Orta | 804750 |  | 483 Devonshire Rd, Saugeen Shores, ON N0H 2C3, Canada | 44.450376 | -81.38297 | J4790372 | J3673421 | 72735 | INSTALLED |  |  |  |  |  | land |
+| 1787765600404-1iy8cf | 2026-08-26 13:33:20 | Quincy Orta | 804712 |  | 487 Devonshire Rd, Port Elgin | 44.45044 | -81.382881 | J4790368 | J3539321 | 67348 | INSTALLED |  |  |  |  |  | land |
+| 1787765998457-65h2vs | 2026-08-26 13:39:58 | Josue Vasquez | 765676 |  | 13-78 victoria st, meaford |  |  | J4789702 | J3738140 | 51731 | INSTALLED |  |  |  |  |  | land |
+| 1787766378059-xvvj19 | 2026-08-26 13:46:18 | Josue Vasquez | 765636 |  | 78 victoria st, meaford |  |  | J4789703 | J3249828 | 31824 | INSTALLED |  |  |  |  |  | land |
+| 1787766934398-fp1usp | 2026-08-26 13:55:34 | Josue Vasquez | 765492 |  | 11-78 victoria st, meaford |  |  | J4789704 | J4428407 | 1217 | INSTALLED |  |  |  |  |  | land |
+| 1787767164964-s7tkd0 | 2026-08-26 13:59:24 | Josue Vasquez | 765331 |  | 9-78 victoria st, meaford |  |  | J4789705 | J3728646 | 40255 | INSTALLED |  |  |  |  |  | land |
+| 1787767940709-ewfx97 | 2026-08-26 14:12:20 | Josue Vasquez | 765593 |  | 5-78 victoria st, meaford |  |  | J4789698 | J3713368 | 24128 | INSTALLED |  |  |  |  |  | land |
+| 1787768152066-ipces2 | 2026-08-26 14:15:52 | Josue Vasquez | 765704 |  | 7-78 victoria st, meaford |  |  | J4789699 | J3713369 | 35515 | INSTALLED |  |  |  |  |  | land |
+| 1787768926046-v01okf | 2026-08-26 14:28:46 | Quincy Orta | 764668 |  | 109 Crawford St, Chatsworth, ON N0H 1G0, Canada | 44.45434 | -80.893224 | J4790369 | J2166516 | 92434 | INSTALLED |  |  |  |  |  | land |
+| 1787769303275-zrq9a9 | 2026-08-26 14:35:03 | Quincy Orta | 767926 |  | 57 Crawford St, Chatsworth | 44.454209 | -80.894138 | J4790367 | J4165031 | 7826 | INSTALLED |  |  |  |  |  | land |
+| 1787769703571-39nxq5 | 2026-08-26 14:41:43 | Quincy Orta | 767759 |  | 58 Toronto Sydenham St, Chatsworth, ON N0H 1G0, Canada | 44.454032 | -80.89464 | J4790366 | J2166620 | 88017 | INSTALLED |  |  |  |  |  | land |
+| 1787774499656-0hul95 | 2026-08-26 16:01:39 | Josue Vasquez | 768396 |  | 1-24 Parker st east |  |  | J4789700 | J2860954 | 4821 | INSTALLED |  |  |  |  |  | land |
+| 1787774885040-pddea5 | 2026-08-26 16:08:05 | Josue Vasquez | 764252 |  | 2-24 Parker st east |  |  | J4789701 | J3107504 | 68737 | INSTALLED |  |  |  |  |  | land |
+| 1787775308901-i8psd3 | 2026-08-26 16:15:08 | Josue Vasquez | 769947 |  | 24 Parker st east |  |  | J4789690 | J2751472 | 58762 | INSTALLED |  |  |  |  |  | land |
