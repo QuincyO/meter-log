@@ -1,6 +1,6 @@
 # Downtime
 
-_407 rows · exported 2026-08-31 03:52 America/Toronto_
+_420 rows · exported 2026-09-01 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -411,3 +411,16 @@ _407 rows · exported 2026-08-31 03:52 America/Toronto_
 | 1787946523692-po2qmw | 2026-08-28 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 784989 | gap 09:47–09:47 |  |
 | 1787946523692-s4u84m | 2026-08-28 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 784989 | gap 09:47–09:47 |  |
 | 1787946523692-i6sx8e | 2026-08-28 12:00:00 | Quincy Orta | DISPATCH | 15 | 784989 | gap 09:47–09:47 |  |
+| 1788185098022-vp2n3m | 2026-08-31 10:04:58 | Josue Vasquez | BAD_WEATHER | 60 | 784581 |  | land |
+| 1788199306531-wrogmm | 2026-08-31 14:01:46 | Josue Vasquez | BAD_WEATHER | 13 | 781983 |  | land |
+| 1788203745014-pbs50s | 2026-08-31 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 775964 | gap 10:01–10:01 |  |
+| 1788203745014-ufsigk | 2026-08-31 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 775964 | gap 10:01–10:01 |  |
+| 1788203745014-cnsosr | 2026-08-31 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 775964 | gap 10:01–10:01 |  |
+| 1788203745014-2bc7un | 2026-08-31 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 775964 | gap 10:01–10:01 |  |
+| 1788203745014-z2ucbh | 2026-08-31 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 780301 | gap 13:17–13:23 |  |
+| 1788205770712-8xcxvh | 2026-08-31 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 776878 | gap 10:36–10:36 |  |
+| 1788205770712-pqgeq2 | 2026-08-31 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 776878 | gap 10:36–10:36 |  |
+| 1788205770712-smr6bm | 2026-08-31 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 776878 | gap 10:36–10:36 |  |
+| 1788205770712-k6kq12 | 2026-08-31 12:00:00 | Quincy Orta | DISPATCH | 30 | 776878 | gap 10:36–10:36 |  |
+| 1788205770712-y07b6o | 2026-08-31 12:00:00 | Quincy Orta | BAD_WEATHER | 30 | 776878 | gap 10:36–10:36 |  |
+| 1788208419474-34jll2 | 2026-08-31 16:33:39 | Josue Vasquez | TRAVEL_TIME | 12 | 775423 |  | land |
