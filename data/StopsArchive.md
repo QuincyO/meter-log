@@ -1,6 +1,6 @@
 # StopsArchive
 
-_10 rows · exported 2026-09-01 03:52 America/Toronto_
+_13 rows · exported 2026-09-02 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -14,3 +14,6 @@ _10 rows · exported 2026-09-01 03:52 America/Toronto_
 | 1786449652260-0mt9bx | 2026-08-11 08:00:52 | Richard Bonvanie | 687320 |  | 111 Howland Dr, Huntsville, ON P1H 2P4, Canada | 45.344983 | -79.230316 | J9875365 | J1234557 | 12345 | INSTALLED |  |  |  |  |  | land | 2026-08-11 08:03:09 | Richard Bonvanie |  |
 | 1786449928191-anlnqi | 2026-08-11 08:05:28 | Richard Bonvanie | 5746406 |  | 111 Howland Dr, Huntsville, ON P1H 2P4, Canada | 45.344961 | -79.230314 | J5677535 | J645777 | 5856 | INSTALLED |  |  |  |  |  | land | 2026-08-11 08:06:54 | Richard Bonvanie |  |
 | 1787076042949-lrdb5q | 2026-08-18 14:00:42 | Quincy Orta | 767048 |  | 777998 ON-10, Chatsworth, ON N0H 1G0, Canada | 44.450225 | -80.890021 | J4749971 | J3940757 | 60733 | INSTALLED |  |  |  |  |  | land | 2026-08-18 14:01:20 | Quincy Orta | reset order |
+| 1788274672543-vehmeu | 2026-09-01 10:57:52 | Josue Vasquez | 782396 |  | 1036 15th B St East |  |  | J4789841 | J2547438 |  | INSTALLED |  |  | Missing segments |  |  | land | 2026-09-01 11:19:48 | Josue Vasquez | reset order |
+| 1788279469498-981e69 | 2026-09-01 12:17:49 | Phillip Monteiro | 783076 |  | 16 Lamson Cres, Owen Sound | 44.569865 | -80.921166 |  |  |  | UTI | Other: New meter already installed | New J# - J4802450 |  |  |  | land | 2026-09-01 12:19:05 | Phillip Monteiro | mistake |
+| 1788289059013-kywb25 | 2026-09-01 14:57:39 | Josue Vasquez | 783439 |  | 1151 15th B St East |  |  | J4801454 | J2097297 |  | INSTALLED |  |  | Missing segments |  |  | land | 2026-09-01 14:59:33 | Josue Vasquez | reset order |
