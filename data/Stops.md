@@ -1,6 +1,6 @@
 # Stops
 
-_1685 rows · exported 2026-09-02 03:52 America/Toronto_
+_1742 rows · exported 2026-09-03 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1689,3 +1689,60 @@ _1685 rows · exported 2026-09-02 03:52 America/Toronto_
 | 1788292513619-n4vtj2 | 2026-09-01 15:55:13 | Josue Vasquez | 780057 | 1253 | 15th B St East |  |  | J4801462 | J2097339 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1788293325718-da5hs5 | 2026-09-01 16:08:45 | Josue Vasquez | 775222 |  | 1255 15th B St East |  |  | J4801463 | J4166209 | 33398 | INSTALLED |  |  |  |  |  | land |
 | 1788293918868-l2echc | 2026-09-01 16:18:38 | Josue Vasquez | 783511 |  | 1275 15th B St East |  |  | J4801464 | J209795 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788353427790-wm7ieb | 2026-09-02 08:50:27 | Josue Vasquez | 783439 |  | 1151 15th B St East |  |  | J4801465 | J2097300 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788354131492-c0dogl | 2026-09-02 09:02:11 | Josue Vasquez | 783442 |  | 1283 15th B St East |  |  | J4790490 | J4413312 | 28783 | INSTALLED |  |  |  |  |  | land |
+| 1788354386262-iblmzg | 2026-09-02 09:06:26 | Phillip Monteiro | 777981 |  | 23 Lamson Cres, Owen Sound | 44.569113 | -80.921658 | J4789242 | J3751709 | 62748 | INSTALLED |  |  |  |  |  | land |
+| 1788354706588-oomd38 | 2026-09-02 09:11:46 | Phillip Monteiro | 781553 |  | 24 Lamson Cres, Owen Sound | 44.569095 | -80.921461 | J4789244 | J2130501 | 94686 | INSTALLED |  |  |  |  |  | land |
+| 1788355015666-1j59wl | 2026-09-02 09:16:55 | Phillip Monteiro | 783246 |  | 25 Lamson Cres, Owen Sound | 44.56904 | -80.921409 | J4789238 | J4413333 | 12293 | INSTALLED |  |  |  |  |  | land |
+| 1788355431805-6yjeer | 2026-09-02 09:23:51 | Phillip Monteiro | 782629 |  | 38 Lamson Cres, Owen Sound | 44.569484 | -80.921957 | J4789241 | J2130490 | 88659 | INSTALLED |  |  |  |  |  | land |
+| 1788355656215-jwvs21 | 2026-09-02 09:27:36 | Phillip Monteiro | 776105 |  | 39 Lamson Cres, Owen Sound | 44.569466 | -80.92199 | J4789243 | J2130489 | 52985 | INSTALLED |  |  |  |  |  | land |
+| 1788356143308-u4467z | 2026-09-02 09:35:43 | Phillip Monteiro | 783978 |  | 40 Lamson Cres, Owen Sound | 44.569331 | -80.921875 | J4794538 | J3239348 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788356411066-9pas9h | 2026-09-02 09:40:11 | Phillip Monteiro | 783854 |  | 42 Lamson Cres, Owen Sound | 44.569348 | -80.92188 | J4794541 | J4161838 | 21461 | INSTALLED |  |  |  |  |  | land |
+| 1788357041371-bz18t3 | 2026-09-02 09:50:41 | Phillip Monteiro | 784714 |  | 41 Lamson Cres, Owen Sound | 44.569361 | -80.921735 | J4794539 | J2130572 | 74595 | INSTALLED |  |  |  |  |  | land |
+| 1788357029895-i1f0m2 | 2026-09-02 09:50:29 | Josue Vasquez | 776293 |  | 593 23rd St West |  |  | J4790491 | J4138614 | 17564 | INSTALLED |  |  |  |  |  | land |
+| 1788360631970-3pkmcy | 2026-09-02 10:50:31 | Josue Vasquez | 778036 |  | 1300 15th B St East |  |  | J4790492 | J3952326 | 71346 | INSTALLED |  |  |  |  |  | land |
+| 1788362279731-1wdcpv | 2026-09-02 11:17:59 | Josue Vasquez | 779320 |  | 15-1300 15th B St East |  |  | J4790493 | J2097144 | 81230 | INSTALLED |  |  |  |  |  | land |
+| 1788362394796-8u6m2f | 2026-09-02 11:19:54 | Phillip Monteiro | 783406 |  | 43 Lamson Cres, Owen Sound | 44.569237 | -80.92179 | J4794546 | J2130570 | 83367 | INSTALLED |  |  |  |  |  | land |
+| 1788362628217-3wv34u | 2026-09-02 11:23:48 | Josue Vasquez | 781666 |  | 13-1300 15th B St East |  |  | J4790486 | J4441524 | 7033 | INSTALLED |  |  |  |  |  | land |
+| 1788362660559-n3hm6t | 2026-09-02 11:24:20 | Phillip Monteiro | 783673 |  | 44 Lamson Cres, Owen Sound | 44.569094 | -80.921829 | J4794549 | J2130573 | 79699 | INSTALLED |  |  |  |  |  | land |
+| 1788362939558-8fwvgc | 2026-09-02 11:28:59 | Phillip Monteiro | 783208 |  | 45 Lamson Cres, Owen Sound | 44.5691 | -80.921816 | J4794540 | J2130574 | 18386 | INSTALLED |  |  |  |  |  | land |
+| 1788362940035-iuboul | 2026-09-02 11:29:00 | Josue Vasquez | 776789 |  | 9-1300 15th B St East |  |  | J4790487 | J4240641 | 15401 | INSTALLED |  |  |  |  |  | land |
+| 1788363164587-k59ovt | 2026-09-02 11:32:44 | Josue Vasquez | 783508 |  | 11-1300 15th B St East |  |  | J4790488 | J3863315 | 44001 | INSTALLED |  |  |  |  |  | land |
+| 1788363482589-q4ykt0 | 2026-09-02 11:38:02 | Phillip Monteiro | 780654 |  | 46 Lamson Cres, Owen Sound | 44.569757 | -80.921785 | J4794544 | J2130183 | 49496 | INSTALLED |  |  |  |  |  | land |
+| 1788363822947-nfx1gi | 2026-09-02 11:43:42 | Phillip Monteiro | 777029 |  | 47 Lamson Cres, Owen Sound | 44.569595 | -80.921848 | J4794547 | J2130181 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788363862254-1yxk6w | 2026-09-02 11:44:22 | Josue Vasquez | 777380 |  | 5-1300 15th B St East |  |  | J4790510 | J2097191 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788364095068-jo1y2b | 2026-09-02 11:48:15 | Phillip Monteiro | 781410 |  | 48 Lamson Cres, Owen Sound | 44.569639 | -80.921762 | J4794543 | J2130182 | 94933 | INSTALLED |  |  |  |  |  | land |
+| 1788364306543-8m7hq2 | 2026-09-02 11:51:46 | Josue Vasquez | 784835 |  | 7-1300 15th B St East |  |  | J4790489 | J2097192 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788364326312-a15nn6 | 2026-09-02 11:52:06 | Phillip Monteiro | 782415 |  | 49 Lamson Cres, Owen Sound | 44.569481 | -80.92176 | J4794548 | J2130179 | 22144 | INSTALLED |  |  |  |  |  | land |
+| 1788364410775-s2bkf2 | 2026-09-02 11:53:30 | Josue Vasquez | 777958 |  | 3-1300 15th B St East |  |  | J4790511 | J2097190 | 23 | INSTALLED |  |  |  |  |  | land |
+| 1788364763413-rnbf04 | 2026-09-02 11:59:23 | Phillip Monteiro | 780052 |  | 50 Lamson Cres, Owen Sound | 44.569465 | -80.921672 | J4794536 | J4204559 | 22542 | INSTALLED |  |  |  |  |  | land |
+| 1788364707584-497sju | 2026-09-02 11:58:27 | Josue Vasquez | 783397 |  | 1-1300 15th B St East |  |  | J4790512 | J2097189 | 99227 | INSTALLED |  |  |  |  |  | land |
+| 1788365036720-u5wvca | 2026-09-02 12:03:56 | Phillip Monteiro | 777753 |  | 51 Lamson Cres, Owen Sound | 44.569391 | -80.921681 | J4794545 | J4211045 | 9146 | INSTALLED |  |  |  |  |  | land |
+| 1788366205779-qguo1x | 2026-09-02 12:23:25 | Phillip Monteiro | 784898 |  | 52 Lamson Cres, Owen Sound | 44.569352 | -80.921636 | J4794542 | J2130180 | 67393 | INSTALLED |  |  |  |  |  | land |
+| 1788369195328-c0n0um | 2026-09-02 13:13:15 | Josue Vasquez | 780531 |  | 2-1300 15th B St East |  |  | J4790513 | J2096823 | 82624 | INSTALLED |  |  |  |  |  | land |
+| 1788369326964-6t5u8l | 2026-09-02 13:15:26 | Quincy Orta | 784604 |  | 670 9th St W, Owen Sound, ON N4K 3P5, Canada | 44.564592 | -80.954836 | J4798514 | J4240702 | 5645 | INSTALLED |  |  |  |  |  | land |
+| 1788369437160-tvhgp5 | 2026-09-02 13:17:17 | Josue Vasquez | 782576 |  | 4-1300 15th B St East |  |  | J4794610 | J3614285 | 64710 | INSTALLED |  |  |  |  |  | land |
+| 1788369662118-94oy5d | 2026-09-02 13:21:02 | Josue Vasquez | 779112 |  | 6-1300 15th B St East |  |  | J4794611 | J4161363 | 32488 | INSTALLED |  |  |  |  |  | land |
+| 1788369886894-iacjjg | 2026-09-02 13:24:46 | Josue Vasquez | 783009 |  | 8-1300 15th B St East |  |  | J4794612 | J2096821 | 46536 | INSTALLED |  |  |  |  |  | land |
+| 1788369923045-1xxveb | 2026-09-02 13:25:23 | Phillip Monteiro | 781884 |  | 1885 5th Ave W, Owen Sound | 44.580189 | -80.951614 | J4794551 | J4152618 | 6610 | INSTALLED |  |  |  |  |  | land |
+| 1788370132616-tn6wgj | 2026-09-02 13:28:52 | Josue Vasquez | 775124 |  | 10-1300 15th B St East |  |  | J4794613 | J2096817 | 61305 | INSTALLED |  |  |  |  |  | land |
+| 1788370285130-7n7as7 | 2026-09-02 13:31:25 | Quincy Orta | 775928 |  | 916 6th Ave W, Owen Sound, ON N4K 5G4, Canada | 44.564977 | -80.953348 | J4798517 | J4229298 | 27847 | INSTALLED |  |  |  |  |  | land |
+| 1788370308738-3rcuy4 | 2026-09-02 13:31:48 | Phillip Monteiro | 781894 |  | 1895 5th Ave W, Owen Sound, ON N4K 5C2, Canada | 44.580287 | -80.951373 | J4794553 | J4212658 | 7241 | INSTALLED |  |  |  |  |  | land |
+| 1788370540336-4czrfv | 2026-09-02 13:35:40 | Josue Vasquez | 777833 |  | 14-1300 15th B St East |  |  | J4794606 | J2096819 | 41387 | INSTALLED |  |  |  |  |  | land |
+| 1788370595138-8o5i0t | 2026-09-02 13:36:35 | Phillip Monteiro | 781023 |  | 1890 5th Ave W, Owen Sound | 44.580256 | -80.951784 | J4794552 | J2114919 | 19270 | INSTALLED |  |  |  |  |  | land |
+| 1788370828323-yrbkeo | 2026-09-02 13:40:28 | Josue Vasquez | 781235 |  | 16-1300 15th B St East |  |  | J4794607 | J3825069 | 72940 | INSTALLED |  |  |  |  |  | land |
+| 1788371005261-nt1k5v | 2026-09-02 13:43:25 | Phillip Monteiro | 775545 |  | 1896 5th Ave W, Owen Sound | 44.580281 | -80.95187 | J4794533 | J4048866 | 21481 | INSTALLED |  |  |  |  |  | land |
+| 1788371087471-3wjhs5 | 2026-09-02 13:44:47 | Josue Vasquez | 781695 |  | 12-1300 15th B St East |  |  | J4794608 | J2096818 | 43564 | INSTALLED |  |  |  |  |  | land |
+| 1788372020256-mppzsk | 2026-09-02 14:00:20 | Quincy Orta | 783209 |  | 915 6th Ave W, Owen Sound | 44.565126 | -80.953026 | J4798515 | J2115294 | 49203 | INSTALLED |  |  |  |  |  | land |
+| 1788373050641-hd2vil | 2026-09-02 14:17:30 | Quincy Orta | 783868 |  | 570 9th St W, Owen Sound, ON N4K 3P2, Canada | 44.564819 | -80.952406 | J4798516 | J2130443 | 48196 | INSTALLED |  |  |  |  |  | land |
+| 1788373728961-bkiwyv | 2026-09-02 14:28:48 | Quincy Orta | 781185 |  | 560 9th St W, Owen Sound, ON N4K 3P2, Canada | 44.56484 | -80.952245 | J4798537 | J3436163 | 55236 | INSTALLED |  |  |  |  |  | land |
+| 1788375201386-l6s8hj | 2026-09-02 14:53:21 | Josue Vasquez | 782575 |  | 19-1300 15th B St East |  |  | J4794609 | J2096855 | 26907 | INSTALLED |  |  |  |  |  | land |
+| 1788375666260-xa61p3 | 2026-09-02 15:01:06 | Josue Vasquez | 777677 |  | 17-1300 15th B St East |  |  | J4794602 | J2096856 | 68920 | INSTALLED |  |  |  |  |  | land |
+| 1788375770026-uj5g8x | 2026-09-02 15:02:50 | Quincy Orta | 783676 |  | 542 9th St W, Owen Sound, ON N4K 3P2, Canada | 44.56484 | -80.951789 | J4798534 | J2130441 | 43054 | INSTALLED |  |  |  |  |  | land |
+| 1788376103802-z2hjq8 | 2026-09-02 15:08:23 | Quincy Orta | 782958 |  | 530 9th St W, Owen Sound, ON N4K 3P2, Canada | 44.564931 | -80.951713 | J4798535 | J2130448 | 79156 | INSTALLED |  |  |  |  |  | land |
+| 1788376441184-f4v3xe | 2026-09-02 15:14:01 | Quincy Orta | 782302 |  | 520 9th St W, Owen Sound, ON N4K 3P2, Canada | 44.564949 | -80.951584 | J4798536 | J4417057 | 777 | INSTALLED |  |  |  |  |  | land |
+| 1788376789046-6i4z7u | 2026-09-02 15:19:49 | Josue Vasquez | 781125 |  | 21-1300 15th B St East |  |  | J4794603 | J2096854 | 17643 | INSTALLED |  |  |  |  |  | land |
+| 1788377284700-4eot8s | 2026-09-02 15:28:04 | Josue Vasquez | 779790 |  | 23-1300 15th B St East |  |  | J4794604 | J2096853 | 32422 | INSTALLED |  |  |  |  |  | land |
+| 1788378736092-e1rt28 | 2026-09-02 15:52:16 | Josue Vasquez | 783162 |  | 25-1300 15th B St East |  |  | J4794605 | J3099724 | 33118 | INSTALLED |  |  |  |  |  | land |
+| 1788379292128-mbyp30 | 2026-09-02 16:01:32 | Josue Vasquez | 775267 |  | 27-1300 15th B St East |  |  | J4790514 | J2097180 | 25831 | INSTALLED |  |  |  |  |  | land |
+| 1788379985550-ya1lqm | 2026-09-02 16:13:05 | Josue Vasquez | 780728 |  | 29-1300 15th B St East |  |  | J4790515 | J3864886 | 30228 | INSTALLED |  |  |  |  |  | land |

@@ -1,6 +1,6 @@
 # Downtime
 
-_430 rows · exported 2026-09-02 03:52 America/Toronto_
+_442 rows · exported 2026-09-03 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -434,3 +434,15 @@ _430 rows · exported 2026-09-02 03:52 America/Toronto_
 | 1788295453065-56ge6d | 2026-09-01 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 778867 | gap 10:41–10:41 |  |
 | 1788295453065-8mp3dn | 2026-09-01 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 778867 | gap 10:41–10:41 |  |
 | 1788295453065-yr3khy | 2026-09-01 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 781057 | gap 13:49–13:54 |  |
+| 1788357366575-mbt91z | 2026-09-02 09:56:06 | Josue Vasquez | TRAVEL_TIME | 10 | 783442 |  | land |
+| 1788362310516-h3ob0q | 2026-09-02 11:18:30 | Josue Vasquez | TRAVEL_TIME | 11 | 777958 |  | land |
+| 1788369660630-xeirbk | 2026-09-02 13:21:00 | Josue Vasquez | BAD_WEATHER | 12 | 779112 |  | land |
+| 1788375874407-66llng | 2026-09-02 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 777981 | gap 09:06–09:06 |  |
+| 1788375874407-g5uyur | 2026-09-02 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 777981 | gap 09:06–09:06 |  |
+| 1788375874407-vs0ldy | 2026-09-02 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 777981 | gap 09:06–09:06 |  |
+| 1788375874407-uhz56y | 2026-09-02 12:00:00 | Phillip Monteiro | DISPATCH | 15 | 777981 | gap 09:06–09:06 |  |
+| 1788375874407-p9b16w | 2026-09-02 12:00:00 | Phillip Monteiro | BAD_WEATHER | 30 | 780654 | gap 11:28–11:38 |  |
+| 1788375874407-l8bu9w | 2026-09-02 12:00:00 | Phillip Monteiro | BAD_WEATHER | 30 | 782415 | gap 11:48–11:52 |  |
+| 1788375874407-rzwmbu | 2026-09-02 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 775545 | gap 13:36–13:43 |  |
+| 1788379615597-4y49ij | 2026-09-02 12:00:00 | Quincy Orta | TRUCK_ISSUES | 360 | 784604 | gap 13:15–13:15 |  |
+| 1788379615599-gdz6dc | 2026-09-02 12:00:00 | Quincy Orta | BAD_WEATHER | 60 | 784604 | gap 13:15–13:15 |  |

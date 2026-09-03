@@ -1,6 +1,6 @@
 # Tracker
 
-_105 rows · exported 2026-09-02 03:52 America/Toronto_
+_107 rows · exported 2026-09-03 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -109,3 +109,5 @@ _105 rows · exported 2026-09-02 03:52 America/Toronto_
 | 2026-09-01 00:00:00 | Quincy Orta | 24 | 0 | 75 | 30 | 0 | 0 | 15 | 15 | 0 | 15 | 0 | 0 | 0 | Mainly clear · SW 12 km/h · 26°C |  | 0 | 0 |  | 297 |  | land |
 | 2026-09-01 00:00:00 | Josue Vasquez | 31 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · S 23 km/h · 25°C |  | 0 | 0 |  | 463 |  | land |
 | 2026-09-01 00:00:00 | Phillip Monteiro | 24 | 0 | 90 | 30 | 0 | 0 | 15 | 35 | 10 | 0 | 0 | 0 | 0 | Overcast · SW 11 km/h · 26°C |  | 0 | 0 |  | 187 |  | land |
+| 2026-09-02 00:00:00 | Phillip Monteiro | 22 | 0 | 155 | 30 | 0 | 60 | 15 | 35 | 15 | 0 | 0 | 0 | 0 | Overcast · SW 13 km/h · 28°C |  | 0 | 0 |  | 257 |  | land |
+| 2026-09-02 00:00:00 | Quincy Orta | 8 | 0 | 420 | 0 | 0 | 60 | 0 | 0 | 0 | 360 | 0 | 0 | 0 | Overcast · W 14 km/h · 27°C | Went to the warehouse for 7:30 pick up Lucas's truck I then had to meet up with Lucas and trucks with him and then in the afternoon it was raining hard and lightning strikes | 0 | 0 |  | 119 |  | land |
