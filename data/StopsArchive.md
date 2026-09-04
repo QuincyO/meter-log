@@ -1,6 +1,6 @@
 # StopsArchive
 
-_15 rows · exported 2026-09-03 03:52 America/Toronto_
+_16 rows · exported 2026-09-04 03:53 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -19,3 +19,4 @@ _15 rows · exported 2026-09-03 03:52 America/Toronto_
 | 1788289059013-kywb25 | 2026-09-01 14:57:39 | Josue Vasquez | 783439 |  | 1151 15th B St East |  |  | J4801454 | J2097297 |  | INSTALLED |  |  | Missing segments |  |  | land | 2026-09-01 14:59:33 | Josue Vasquez | reset order |
 | 1788363457810-mv08dd | 2026-09-02 11:37:37 | Josue Vasquez | 777958 |  | 3-1300 15th B St East |  |  | J4790489 |  | 82110 | INSTALLED |  |  |  |  |  | land | 2026-09-02 11:49:56 | Josue Vasquez | reset order |
 | 1788378475328-47iz7u | 2026-09-02 15:47:55 | Josue Vasquez | 783588 |  | 18-1300 15th B St East |  |  | J4794605 |  | 33118 | INSTALLED |  |  |  |  |  | land | 2026-09-02 15:51:19 | Josue Vasquez | reset order |
+| 1788458219036-fspzro | 2026-09-03 13:56:59 | Josue Vasquez | 781676 |  | 1282 14th Ave East |  |  | J4809221 | J3733053 |  | INSTALLED |  |  | Missing segments |  |  | land | 2026-09-03 13:57:37 | Josue Vasquez | reset order |

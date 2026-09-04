@@ -1,6 +1,6 @@
 # Stops
 
-_1742 rows · exported 2026-09-03 03:52 America/Toronto_
+_1818 rows · exported 2026-09-04 03:53 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1746,3 +1746,79 @@ _1742 rows · exported 2026-09-03 03:52 America/Toronto_
 | 1788378736092-e1rt28 | 2026-09-02 15:52:16 | Josue Vasquez | 783162 |  | 25-1300 15th B St East |  |  | J4794605 | J3099724 | 33118 | INSTALLED |  |  |  |  |  | land |
 | 1788379292128-mbyp30 | 2026-09-02 16:01:32 | Josue Vasquez | 775267 |  | 27-1300 15th B St East |  |  | J4790514 | J2097180 | 25831 | INSTALLED |  |  |  |  |  | land |
 | 1788379985550-ya1lqm | 2026-09-02 16:13:05 | Josue Vasquez | 780728 |  | 29-1300 15th B St East |  |  | J4790515 | J3864886 | 30228 | INSTALLED |  |  |  |  |  | land |
+| 1788439735455-j89gq9 | 2026-09-03 08:48:55 | Phillip Monteiro | 802433 |  | 88 Miramichi Bay Rd, Saugeen Shores | 44.46632 | -81.390984 | J4794530 | J2375579 | 84982 | INSTALLED |  |  |  |  |  | land |
+| 1788440098920-zj936h | 2026-09-03 08:54:58 | Phillip Monteiro | 797998 |  | 86 Miramichi Bay Rd, Saugeen Shores | 44.466512 | -81.391167 | J4794550 | J2038337 | 97499 | INSTALLED |  |  |  |  |  | land |
+| 1788440532685-7tqunr | 2026-09-03 09:02:12 | Phillip Monteiro | 794096 |  | 74 Miramichi Bay Rd, Saugeen Shores | 44.466201 | -81.3918 | J4794532 | J2183272 | 58367 | INSTALLED |  |  |  |  |  | land |
+| 1788440934197-fue7wb | 2026-09-03 09:08:54 | Phillip Monteiro | 801334 |  | 70 Miramichi Bay Rd, Saugeen Shores | 44.466079 | -81.391869 | J4794535 | J2183270 | 97023 | INSTALLED |  |  |  |  |  | land |
+| 1788441455440-jbqxb7 | 2026-09-03 09:17:35 | Josue Vasquez | 775127 |  | 31-1300 15th B St East |  |  | J4790516 | J2097177 | 6157 | INSTALLED |  |  |  |  |  | land |
+| 1788442513279-m85c8v | 2026-09-03 09:35:13 | Josue Vasquez | 782608 |  | 32-1300 15th B St East |  |  | J4790517 | J2096840 | 93219 | INSTALLED |  |  |  |  |  | land |
+| 1788442735314-8be543 | 2026-09-03 09:38:55 | Josue Vasquez | 781179 |  | 30-1300 15th B St East |  |  | J4809259 | J3491194 | 2681 | INSTALLED |  |  |  |  |  | land |
+| 1788442952818-uhmplr | 2026-09-03 09:42:32 | Josue Vasquez | 776532 |  | 28-1300 15th B St East |  |  | J4809258 | J3864910 | 31066 | INSTALLED |  |  |  |  |  | land |
+| 1788443219099-e8rh9a | 2026-09-03 09:46:59 | Josue Vasquez | 778772 |  | 26-1300 15th B St East |  |  | J4809261 | J2096837 | 24910 | INSTALLED |  |  |  |  |  | land |
+| 1788443445078-v6qp6y | 2026-09-03 09:50:45 | Josue Vasquez | 776645 |  | 24-1300 15th B St East |  |  | J4809260 | J2096836 | 64236 | INSTALLED |  |  |  |  |  | land |
+| 1788443840431-155wv7 | 2026-09-03 09:57:20 | Josue Vasquez | 775583 |  | 22-1300 15th B St East |  |  | J4809180 | J2096835 | 6532 | INSTALLED |  |  |  |  |  | land |
+| 1788444112836-wyhqjb | 2026-09-03 10:01:52 | Josue Vasquez | 780908 |  | 20-1300 15th B St East |  |  | J4809181 | J2096834 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788444355879-hl4spa | 2026-09-03 10:05:55 | Josue Vasquez | 783588 |  | 18-1300 15th B St East |  |  | J4809179 | J2096833 | 5436 | INSTALLED |  |  |  |  |  | land |
+| 1788446136072-r3s5f0 | 2026-09-03 10:35:36 | Quincy Orta | 796573 |  | 125 Patterson Pkwy, Georgian Bluffs, ON N0H 2T0, Canada | 44.71101 | -81.047181 | J4803197 | J3871752 | 37797 | INSTALLED |  |  |  |  |  | land |
+| 1788441781880-cv4twx | 2026-09-03 09:23:01 | Phillip Monteiro | 801016 |  | 68 Miramichi Bay Rd, Saugeen Shores | 44.465968 | -81.392379 | J4794534 | J3887152 | 45131 | INSTALLED |  |  |  |  |  | land |
+| 1788442292739-cdd1dy | 2026-09-03 09:31:32 | Phillip Monteiro | 795386 |  | 60 Miramichi Bay Rd, Saugeen Shores | 44.465547 | -81.393081 | J4794537 | J4145999 | 15079 | INSTALLED |  |  |  |  |  | land |
+| 1788442818565-haqd7l | 2026-09-03 09:40:18 | Phillip Monteiro | 802164 |  | 58 Miramichi Bay Rd, Saugeen Shores | 44.465086 | -81.393333 | J4794531 | J3836080 | 33383 | INSTALLED |  |  |  |  |  | land |
+| 1788443319252-mb68i2 | 2026-09-03 09:48:39 | Phillip Monteiro | 804074 |  | 56 Miramichi Bay Rd, Saugeen Shores | 44.465297 | -81.394041 | J4802959 | J2219246 | 74114 | INSTALLED |  |  |  |  |  | land |
+| 1788444184339-m6dq58 | 2026-09-03 10:03:04 | Phillip Monteiro | 803380 |  | 46 Miramichi Bay Rd, Saugeen Shores | 44.465631 | -81.395085 | J4802960 | J3674391 | 44869 | INSTALLED |  |  |  |  |  | land |
+| 1788444532833-nh3s1b | 2026-09-03 10:08:52 | Phillip Monteiro | 802915 |  | 40 Miramichi Bay Rd, Saugeen Shores | 44.46521 | -81.3956 | J4802963 | J4413280 | 16856 | INSTALLED |  |  |  |  |  | land |
+| 1788444872908-yapo1i | 2026-09-03 10:14:32 | Phillip Monteiro | 805288 |  | 36 Miramichi Bay Rd, Saugeen Shores | 44.465039 | -81.396254 | J4802958 | J4413962 | 13350 | INSTALLED |  |  |  |  |  | land |
+| 1788445336172-bwxmbu | 2026-09-03 10:22:16 | Phillip Monteiro | 795277 |  | 32 Miramichi Bay Rd, Saugeen Shores | 44.464852 | -81.396805 | J4802964 | J2562805 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1788445799486-3455ip | 2026-09-03 10:29:59 | Phillip Monteiro | 803579 |  | 24 Miramichi Bay Rd, Saugeen Shores | 44.464729 | -81.397289 | J4802965 | J2374453 | 9300 | INSTALLED |  |  |  |  |  | land |
+| 1788446854618-nf1xbp | 2026-09-03 10:47:34 | Josue Vasquez | 778072 |  | 1316 15th B St East |  |  | J4809178 | J3793813 | 44034 | INSTALLED |  |  |  |  |  | land |
+| 1788446482183-hke2bs | 2026-09-03 10:41:22 | Phillip Monteiro | 804508 |  | 18 Miramichi Bay Rd, Saugeen Shores | 44.46431 | -81.397653 | J4802961 | J4110692 | 872 | INSTALLED |  |  |  |  |  | land |
+| 1788446936457-wt8ibe | 2026-09-03 10:48:56 | Quincy Orta | 793302 |  | 117 Patterson Pkwy, Georgian Bluffs, ON N0H 2T0, Canada | 44.710772 | -81.048107 | J4803195 | J2205012 | 15055 | INSTALLED |  |  |  |  |  | land |
+| 1788446938311-g5lyad | 2026-09-03 10:48:58 | Phillip Monteiro | 806619 |  | 18 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.464352 | -81.397979 | J4802962 | J4487749 | 3147 | INSTALLED |  |  |  |  |  | land |
+| 1788447249576-5agi9q | 2026-09-03 10:54:09 | Josue Vasquez | 783338 |  | 1312 15th B St East |  |  | J4809182 | J3334767 | 91933 | INSTALLED |  |  |  |  |  | land |
+| 1788447275439-qsls6d | 2026-09-03 10:54:35 | Phillip Monteiro | 806444 |  | 20 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.464576 | -81.397796 | J4802954 | J2183015 | 85079 | INSTALLED |  |  |  |  |  | land |
+| 1788447636004-yjoj9r | 2026-09-03 11:00:36 | Phillip Monteiro | 806025 |  | 16 Miramichi Bay Rd, Port Elgin, ON N0H 2C6, Canada | 44.464366 | -81.398022 | J4802955 | J4231487 | 10694 | INSTALLED |  |  |  |  |  | land |
+| 1788447774792-rddkwm | 2026-09-03 11:02:54 | Josue Vasquez | 779888 |  | 1322 15th B St East |  |  | J4809183 | J3334769 | 83810 | INSTALLED |  |  |  |  |  | land |
+| 1788448128728-ywrqsd | 2026-09-03 11:08:48 | Josue Vasquez | 781238 |  | 1318 15th B St East |  |  | J4809184 | J3334768 | 72525 | INSTALLED |  |  |  |  |  | land |
+| 1788448356124-ukeedu | 2026-09-03 11:12:36 | Quincy Orta | 803159 |  | 117 Patterson Pkwy, Georgian Bluffs, ON N0H 2T0, Canada | 44.71078 | -81.04811 | J4803196 | J4237067 | 8501 | INSTALLED |  |  |  |  |  | land |
+| 1788448570846-a9b6eb | 2026-09-03 11:16:10 | Quincy Orta | 804683 |  | 117 Patterson Pkwy, Georgian Bluffs, ON N0H 2T0, Canada | 44.710777 | -81.048062 | J4803194 | J3502591 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788448676689-2ppvir | 2026-09-03 11:17:56 | Josue Vasquez | 784134 |  | 1328 15th B St East |  |  | J4809185 | J3319021 | 86476 | INSTALLED |  |  |  |  |  | land |
+| 1788449035926-lw9qzi | 2026-09-03 11:23:55 | Josue Vasquez | 781483 |  | 1326 15th B St East |  |  | J4809254 | J3319019 | 87463 | INSTALLED |  |  |  |  |  | land |
+| 1788449151746-yj44pg | 2026-09-03 11:25:51 | Quincy Orta | 795227 |  | 138 Almur Dr, Wiarton, ON N0H 2T0, Canada | 44.711036 | -81.051017 | J4803217 | J4046153 | 50974 | INSTALLED |  |  |  |  |  | land |
+| 1788449587264-woc85m | 2026-09-03 11:33:07 | Josue Vasquez | 783243 |  | 1332 15th B St East |  |  | J4809255 | J3319018 | 83817 | INSTALLED |  |  |  |  |  | land |
+| 1788449918769-k3872n | 2026-09-03 11:38:38 | Josue Vasquez | 776926 |  | 1336 15th B St East |  |  | J4809256 | J3319020 | 7147 | INSTALLED |  |  |  |  |  | land |
+| 1788449984329-5p0x4t | 2026-09-03 11:39:44 | Phillip Monteiro | 805504 |  | 14 Miramichi Bay Rd, Saugeen Shores | 44.464141 | -81.398646 | J4802957 | J3228303 | 93726 | INSTALLED |  |  |  |  |  | land |
+| 1788450351151-xn6c3g | 2026-09-03 11:45:51 | Quincy Orta | 796733 |  | 120 Almur Dr, Georgian Bluffs, ON N0H 2T0, Canada | 44.709565 | -81.050475 | J4803215 | J3608473 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788450441116-gmfbzd | 2026-09-03 11:47:21 | Phillip Monteiro | 800819 |  | 11 Miramichi Bay Rd, Saugeen Shores | 44.464411 | -81.398744 | J4802956 | J2182957 | 46520 | INSTALLED |  |  |  |  |  | land |
+| 1788450507550-zgw9it | 2026-09-03 11:48:27 | Josue Vasquez | 778776 |  | 1338 15th B St East |  |  | J4809257 | J4157964 | 19045 | INSTALLED |  |  |  |  |  | land |
+| 1788450891871-vex7z8 | 2026-09-03 11:54:51 | Josue Vasquez | 782767 |  | 1342 15th B St East |  |  | J4809246 | J3825532 | 36019 | INSTALLED |  |  |  |  |  | land |
+| 1788450945373-1nq39s | 2026-09-03 11:55:45 | Quincy Orta | 798223 |  | 119 Almur Dr, Keppel | 44.709042 | -81.049571 | J4803214 | J3818593 | 19439 | INSTALLED |  |  |  |  |  | land |
+| 1788451537459-1mu0wv | 2026-09-03 12:05:37 | Phillip Monteiro | 799001 |  | 10 Miramichi Bay Rd, Saugeen Shores | 44.464003 | -81.398161 | J4802966 | J2375651 | 72880 | INSTALLED |  |  |  |  |  | land |
+| 1788451887804-tilfoz | 2026-09-03 12:11:27 | Phillip Monteiro | 804795 |  | 9 Miramichi Bay Rd, Saugeen Shores | 44.464089 | -81.399011 | J4802968 | J3524506 | 44351 | INSTALLED |  |  |  |  |  | land |
+| 1788451953994-szqikh | 2026-09-03 12:12:33 | Quincy Orta | 795344 |  | 100 Almur Dr, Keppel | 44.707771 | -81.051082 | J4803216 | J2205005 | 19112 | INSTALLED |  |  |  |  |  | land |
+| 1788452334427-t9kqvd | 2026-09-03 12:18:54 | Phillip Monteiro | 801457 |  | 8 Miramichi Bay Rd, Saugeen Shores | 44.463643 | -81.398299 | J4802967 | J4413961 | 6453 | INSTALLED |  |  |  |  |  | land |
+| 1788452869336-9wxcrc | 2026-09-03 12:27:49 | Phillip Monteiro | 804467 |  | 7 Miramichi Bay Rd, Saugeen Shores | 44.464095 | -81.399529 | J4802969 | J3952342 | 52237 | INSTALLED |  |  |  |  |  | land |
+| 1788453767741-t6lbp9 | 2026-09-03 12:42:47 | Quincy Orta | 797414 |  | 116 Almur Dr, Georgian Bluffs, ON N0H 2T0, Canada | 44.708475 | -81.051059 | J4798519 | J3217531 | 47373 | INSTALLED |  |  |  |  |  | land |
+| 1788454226657-a7xpiv | 2026-09-03 12:50:26 | Josue Vasquez | 778369 |  | 1337 14th Ave East |  |  | J4809247 | J2097359 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788454719722-eikeu4 | 2026-09-03 12:58:39 | Josue Vasquez | 779306 |  | 1332 14th Ave East |  |  | J4809248 | J3715225 | 96620 | INSTALLED |  |  |  |  |  | land |
+| 1788454841525-coug9o | 2026-09-03 13:00:41 | Quincy Orta | 793285 |  | 130044 Gleason Lake Rd, Georgian Bluffs, ON N0H 2T0, Canada | 44.725077 | -81.036948 | J4798521 | J3485149 | 43058 | INSTALLED |  |  |  |  |  | land |
+| 1788454977058-2srzco | 2026-09-03 13:02:57 | Phillip Monteiro | 800667 |  | 388 Mary Rose Ave, Port Elgin, ON N0H 2T0, Canada | 44.453289 | -81.386563 | J4802970 | J4110719 | 29160 | INSTALLED |  |  |  |  |  | land |
+| 1788455326433-u7jsbx | 2026-09-03 13:08:46 | Phillip Monteiro | 800522 |  | 384 Mary Rose Ave, Port Elgin, ON N0H 2T0, Canada | 44.453234 | -81.386558 | J4802971 | J3980347 | 29894 | INSTALLED |  |  |  |  |  | land |
+| 1788455619461-6mdyju | 2026-09-03 13:13:39 | Quincy Orta | 794246 |  | 119839 Sideroad 315, Georgian Bluffs, ON N0H 2T0, Canada | 44.713794 | -81.059756 |  | J2194659 | 13642 | UTI | Electrical Repair |  |  |  |  | land |
+| 1788456134034-9q8c1m | 2026-09-03 13:22:14 | Josue Vasquez | 777196 |  | 1317 14th Ave East |  |  | J4809249 | J3887041 | 69870 | INSTALLED |  |  |  |  |  | land |
+| 1788456688536-wv8cxq | 2026-09-03 13:31:28 | Josue Vasquez | 782695 |  | 1307 14th Ave East |  |  | J4809218 | J2096871 | 28325 | INSTALLED |  |  |  |  |  | land |
+| 1788457139906-aca5x7 | 2026-09-03 13:38:59 | Josue Vasquez | 781698 |  | 1287 14th Ave East |  |  | J4809219 | J3904092 | 38287 | INSTALLED |  |  |  |  |  | land |
+| 1788458589017-vid1fy | 2026-09-03 14:03:09 | Josue Vasquez | 781676 |  | 1282 14th Ave East |  |  |  | J3733053 |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1788459120770-qmogdn | 2026-09-03 14:12:00 | Josue Vasquez | 780408 |  | 1257 14th Ave East |  |  | J4809220 | J2096872 | 6484 | INSTALLED |  |  |  |  |  | land |
+| 1788459575444-91g8mk | 2026-09-03 14:19:35 | Quincy Orta | 796578 |  | 402110 Grey Rd 17, Georgian Bluffs, ON N0H 2T0, Canada | 44.71881 | -81.075466 | J4798520 | J3543409 | 60911 | INSTALLED |  |  |  |  |  | land |
+| 1788460347702-aldwnb | 2026-09-03 14:32:27 | Josue Vasquez | 778641 |  | 1227 14th Ave East |  |  | J4809221 | J4166212 | 15344 | INSTALLED |  |  |  |  |  | land |
+| 1788460474991-lxefwq | 2026-09-03 14:34:34 | Quincy Orta | 804841 |  | 135 Almur Dr, Georgian Bluffs, ON N0H 2T0, Canada | 44.711052 | -81.050191 | J4798518 | J3668695 | 69463 | INSTALLED |  |  |  |  |  | land |
+| 1788460888657-ttugle | 2026-09-03 14:41:28 | Quincy Orta | 802111 |  | 134 Almur Dr, Wiarton, ON N0H 2T0, Canada | 44.710723 | -81.050558 | J4798530 | J2205006 | 86351 | INSTALLED |  |  |  |  |  | land |
+| 1788460997391-t3go6b | 2026-09-03 14:43:17 | Josue Vasquez | 777254 |  | 1197 14th Ave East |  |  | J4809222 | J2096858 | 89514 | INSTALLED |  |  |  |  |  | land |
+| 1788462170003-6mcbcz | 2026-09-03 15:02:50 | Quincy Orta | 796835 |  | 505616 Grey Rd 1, Georgian Bluffs, ON N0H 1S0, Canada | 44.713098 | -80.904584 | J4798533 | J3543473 | 24211 | INSTALLED |  |  |  |  |  | land |
+| 1788463991701-azwr1o | 2026-09-03 15:33:11 | Josue Vasquez | 776177 |  | 1192 14th Ave East |  |  | J4809223 | J3772559 | 40733 | INSTALLED |  |  |  |  |  | land |
+| 1788464353746-viow7z | 2026-09-03 15:39:13 | Quincy Orta | 776018 |  | 502 9th St W, Owen Sound, ON N4K 5A6, Canada | 44.565027 | -80.951162 | J4798532 | J2130133 | 49110 | INSTALLED |  |  |  |  |  | land |
+| 1788464495085-s0o09q | 2026-09-03 15:41:35 | Josue Vasquez | 777242 |  | 1162 14th Ave East |  |  | J4809224 | J3602479 | 62337 | INSTALLED |  |  |  |  |  | land |
+| 1788464594706-jkes93 | 2026-09-03 15:43:14 | Quincy Orta | 783081 |  | 504 9th St W, Owen Sound | 44.56507 | -80.951195 | J4798531 | J2130136 | 28400 | INSTALLED |  |  |  |  |  | land |
+| 1788465136106-d0xive | 2026-09-03 15:52:16 | Josue Vasquez | 778009 |  | 1137 14th Ave East |  |  | J4809225 | J2096842 | 52629 | INSTALLED |  |  |  |  |  | land |
+| 1788465784714-yv6gzh | 2026-09-03 16:03:04 | Josue Vasquez | 776499 |  | 1342 14th Ave East |  |  | J4809250 | J4216042 | 2989 | INSTALLED |  |  |  |  |  | land |
+| 1788466383848-2audp6 | 2026-09-03 16:13:03 | Josue Vasquez | 778645 |  | 1402 14th Ave East |  |  | J4809251 | J2546506 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788467118807-u7txbn | 2026-09-03 16:25:18 | Josue Vasquez | 776843 | 1432 | 14th Ave East |  |  | J4809252 | J2546507 |  | INSTALLED |  |  | Missing segments |  |  | land |
