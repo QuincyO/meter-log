@@ -1,6 +1,6 @@
 # Stops
 
-_1818 rows · exported 2026-09-04 03:53 America/Toronto_
+_1851 rows · exported 2026-09-05 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1822,3 +1822,36 @@ _1818 rows · exported 2026-09-04 03:53 America/Toronto_
 | 1788465784714-yv6gzh | 2026-09-03 16:03:04 | Josue Vasquez | 776499 |  | 1342 14th Ave East |  |  | J4809250 | J4216042 | 2989 | INSTALLED |  |  |  |  |  | land |
 | 1788466383848-2audp6 | 2026-09-03 16:13:03 | Josue Vasquez | 778645 |  | 1402 14th Ave East |  |  | J4809251 | J2546506 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1788467118807-u7txbn | 2026-09-03 16:25:18 | Josue Vasquez | 776843 | 1432 | 14th Ave East |  |  | J4809252 | J2546507 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1788525927380-noquh6 | 2026-09-04 08:45:27 | Josue Vasquez | 783214 |  | 1492 14th Ave East |  |  | J4809253 | J2175962 | 35485 | INSTALLED |  |  |  |  |  | land |
+| 1788526570842-kl4jf5 | 2026-09-04 08:56:10 | Josue Vasquez | 779290 |  | 1487 14th Ave East |  |  | J4794722 | J2097294 | 5167 | INSTALLED |  |  |  |  |  | land |
+| 1788526851756-xfxiw7 | 2026-09-04 09:00:51 | Josue Vasquez | 779250 |  | 1467 14th Ave East |  |  | J4794723 | J4241854 | 8331 | INSTALLED |  |  |  |  |  | land |
+| 1788527264017-7l1myu | 2026-09-04 09:07:44 | Josue Vasquez | 776563 |  | 1482 14th Ave East |  |  | J4794725 | J4428427 | 2984 | INSTALLED |  |  |  |  |  | land |
+| 1788527638758-duukbc | 2026-09-04 09:13:58 | Josue Vasquez | 783189 |  | 1442 14th Ave East |  |  | J4794724 | J2097357 | 22900 | INSTALLED |  |  |  |  |  | land |
+| 1788528953103-x7p9g5 | 2026-09-04 09:35:53 | Josue Vasquez | 776468 |  | 1437 14th Ave East |  |  | J4794727 | J2096814 | 69818 | INSTALLED |  |  |  |  |  | land |
+| 1788529175330-wg5nhn | 2026-09-04 09:39:35 | Josue Vasquez | 782795 |  | 1407 14th Ave East |  |  | J4794726 | J4147828 | 21479 | INSTALLED |  |  |  |  |  | land |
+| 1788529743520-kr9d9y | 2026-09-04 09:49:03 | Josue Vasquez | 778232 |  | 1397 14th Ave East |  |  | J4794728 | J2096815 | 3139 | INSTALLED |  |  |  |  |  | land |
+| 1788530019894-8g2s25 | 2026-09-04 09:53:39 | Josue Vasquez | 781233 |  | 1377 14th Ave East |  |  | J4794729 | J4047723 | 32348 | INSTALLED |  |  |  |  |  | land |
+| 1788530334735-qbuytp | 2026-09-04 09:58:54 | Josue Vasquez | 775653 |  | 1347 14th Ave East |  |  | J4794731 | J2097360 | 27750 | INSTALLED |  |  |  |  |  | land |
+| 1788533866354-tw2wcb | 2026-09-04 10:57:46 | Josue Vasquez | 784640 |  | 705 16th St West |  |  | J4794732 | J3940729 | 35008 | INSTALLED |  |  |  |  |  | land |
+| 1788534598070-80puv3 | 2026-09-04 11:09:58 | Josue Vasquez | 776162 |  | 730 16th St West |  |  | J4794733 | J2115373 | 15855 | INSTALLED |  |  |  |  |  | land |
+| 1788535113143-sidc77 | 2026-09-04 11:18:33 | Josue Vasquez | 779826 |  | 740 16th St West |  |  | J4794730 | J2115318 | 93490 | INSTALLED |  |  |  |  |  | land |
+| 1788535750048-rjbvti | 2026-09-04 11:29:10 | Josue Vasquez | 784839 |  | 760 16th St West |  |  | J4790518 | J3785342 | 43236 | INSTALLED |  |  |  |  |  | land |
+| 1788536142035-chwzyw | 2026-09-04 11:35:42 | Josue Vasquez | 783701 |  | 770 16th St West |  |  | J4790519 | J2115368 | 8519 | INSTALLED |  |  |  |  |  | land |
+| 1788536794351-xs4l8g | 2026-09-04 11:46:34 | Josue Vasquez | 783283 |  | 1604 8th Ave West |  |  | J4790520 | J3836071 | 26669 | INSTALLED |  |  |  |  |  | land |
+| 1788537292973-zk3t2e | 2026-09-04 11:54:52 | Josue Vasquez | 775664 |  | 1609 8th Ave West |  |  | J4790521 | J2115366 | 82751 | INSTALLED |  |  |  |  |  | land |
+| 1788539814476-07aewk | 2026-09-04 12:36:54 | Quincy Orta | 775521 |  | 920 5th Ave W, Owen Sound | 44.565353 | -80.951341 | J4798544 | J2123273 | 47872 | INSTALLED |  |  |  |  |  | land |
+| 1788540114528-uqjn5d | 2026-09-04 12:41:54 | Quincy Orta | 778617 |  | 930 5th Ave W, Owen Sound, ON N4K 5A6, Canada | 44.565382 | -80.951328 | J4798545 | J3614863 | 2221 | INSTALLED |  |  |  |  |  | land |
+| 1788540416356-9ez9sh | 2026-09-04 12:46:56 | Josue Vasquez | 775604 |  | 1611 8th Ave West |  |  | J4798934 | J2115365 | 48955 | INSTALLED |  |  |  |  |  | land |
+| 1788541154742-8dvzzg | 2026-09-04 12:59:14 | Josue Vasquez | 778405 |  | 1621 8th Ave West |  |  | J4798936 | J2114993 | 41776 | INSTALLED |  |  |  |  |  | land |
+| 1788541710235-3j5myn | 2026-09-04 13:08:30 | Quincy Orta | 783559 |  | 935 9th St E, Owen Sound, ON N4K 1R4, Canada | 44.567569 | -80.926996 | J4798543 | J2130362 | 70592 | INSTALLED |  |  |  |  |  | land |
+| 1788542034581-zg502u | 2026-09-04 13:13:54 | Josue Vasquez | 781670 |  | 1631 8th Ave West |  |  | J4798937 | J2114995 | 96696 | INSTALLED |  |  |  |  |  | land |
+| 1788542263530-16j73h | 2026-09-04 13:17:43 | Quincy Orta | 783621 |  | 949 9th St E, Owen Sound, ON N4K 1R4, Canada | 44.567591 | -80.926212 | J4798542 | J3845989 | 56095 | INSTALLED |  |  |  |  |  | land |
+| 1788542293962-hcb1zr | 2026-09-04 13:18:13 | Josue Vasquez | 778346 |  | 1633 8th Ave West |  |  | J4798935 | J3944424 | 72685 | INSTALLED |  |  |  |  |  | land |
+| 1788542741930-emrx8s | 2026-09-04 13:25:41 | Quincy Orta | 783900 |  | 913 9th Ave 'A' E, Owen Sound | 44.567891 | -80.925727 | J4798553 | J3606480 | 32125 | INSTALLED |  |  |  |  |  | land |
+| 1788543081437-qxhvyy | 2026-09-04 13:31:21 | Quincy Orta | 784214 |  | 908 9th Ave 'A' E, Owen Sound, ON N4K 3H7, Canada | 44.567963 | -80.925907 | J4798550 | J2134488 | 85792 | INSTALLED |  |  |  |  |  | land |
+| 1788543781207-n33rj0 | 2026-09-04 13:43:01 | Quincy Orta | 783151 |  | 938 9th Ave 'A' E, Owen Sound, ON N4K 6Y5, Canada | 44.56829 | -80.925987 | J4798551 | J4126661 | 14010 | INSTALLED |  |  |  |  |  | land |
+| 1788544489855-xja20i | 2026-09-04 13:54:49 | Quincy Orta | 783333 |  | 855 15th St E, Owen Sound, ON N4K 1X9, Canada | 44.57183 | -80.928379 | J4798552 | J3747487 | 23405 | INSTALLED |  |  |  |  |  | land |
+| 1788545889802-wax2s5 | 2026-09-04 14:18:09 | Quincy Orta | 784117 |  | 982 15th St 'A' E, Owen Sound, ON, Canada | 44.571759 | -80.92589 |  | J2097351 |  | UTI | No Access | Unable to remove ring because of exterior panels |  |  |  | land |
+| 1788547801003-giwfzl | 2026-09-04 14:50:01 | Quincy Orta | 784034 |  | 923 15th St 'A' E, Owen Sound, ON N4K 3G2, Canada | 44.571796 | -80.926976 | J4798548 | J3446585 | 82074 | INSTALLED |  |  |  |  |  | land |
+| 1788549341732-6f00rv | 2026-09-04 15:15:41 | Quincy Orta | 783693 |  | 888 15th St 'A' E, Owen Sound, ON N4K 1Y1, Canada | 44.572401 | -80.927918 | J4798546 | J3990736 | 39168 | INSTALLED |  |  |  | 15887 |  | land |
+| 1788550117017-vmjd2i | 2026-09-04 15:28:37 | Quincy Orta | 778570 |  | 888 15th St 'A' E, Owen Sound, ON N4K 1Y1, Canada | 44.572167 | -80.927921 | J4798549 | J3990744 | 25029 | INSTALLED |  |  |  | 6035 |  | land |

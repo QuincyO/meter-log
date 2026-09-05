@@ -1,6 +1,6 @@
 # Downtime
 
-_453 rows · exported 2026-09-04 03:53 America/Toronto_
+_458 rows · exported 2026-09-05 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -457,3 +457,8 @@ _453 rows · exported 2026-09-04 03:53 America/Toronto_
 | 1788464943604-12cu8i | 2026-09-03 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 796573 | gap 10:35–10:35 |  |
 | 1788464943604-78g42m | 2026-09-03 12:00:00 | Quincy Orta | DISPATCH | 30 | 796573 | gap 10:35–10:35 |  |
 | 1788464943604-silvto | 2026-09-03 12:00:00 | Quincy Orta | URGENT_EER | 60 | 794246 | gap 13:00–13:13 |  |
+| 1788537684375-euc75w | 2026-09-04 12:01:24 | Josue Vasquez | TRAVEL_TIME | 22 | 775604 |  | land |
+| 1788542290204-w6hm6c | 2026-09-04 13:18:10 | Josue Vasquez | NEXT_GEN | 6 | 778346 |  | land |
+| 1788551694579-lko7p0 | 2026-09-04 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 775521 | gap 12:36–12:36 |  |
+| 1788551694579-40ohad | 2026-09-04 12:00:00 | Quincy Orta | TRUCK_ISSUES | 180 | 775521 | gap 12:36–12:36 |  |
+| 1788551694579-gvtejr | 2026-09-04 12:00:00 | Quincy Orta | ASSIST | 20 | 783693 | gap 14:50–15:15 |  |
