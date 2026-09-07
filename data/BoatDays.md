@@ -1,6 +1,6 @@
 # BoatDays
 
-_17 rows · exported 2026-09-06 03:52 America/Toronto_
+_17 rows · exported 2026-09-07 03:52 America/Toronto_
 
 | date | boatNumber | boatName | captainName | subName | memberLetters | memberNames |
 | --- | --- | --- | --- | --- | --- | --- |
