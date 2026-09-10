@@ -1,6 +1,6 @@
 # Stops
 
-_1851 rows · exported 2026-09-09 03:52 America/Toronto_
+_1896 rows · exported 2026-09-10 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1855,3 +1855,48 @@ _1851 rows · exported 2026-09-09 03:52 America/Toronto_
 | 1788547801003-giwfzl | 2026-09-04 14:50:01 | Quincy Orta | 784034 |  | 923 15th St 'A' E, Owen Sound, ON N4K 3G2, Canada | 44.571796 | -80.926976 | J4798548 | J3446585 | 82074 | INSTALLED |  |  |  |  |  | land |
 | 1788549341732-6f00rv | 2026-09-04 15:15:41 | Quincy Orta | 783693 |  | 888 15th St 'A' E, Owen Sound, ON N4K 1Y1, Canada | 44.572401 | -80.927918 | J4798546 | J3990736 | 39168 | INSTALLED |  |  |  | 15887 |  | land |
 | 1788550117017-vmjd2i | 2026-09-04 15:28:37 | Quincy Orta | 778570 |  | 888 15th St 'A' E, Owen Sound, ON N4K 1Y1, Canada | 44.572167 | -80.927921 | J4798549 | J3990744 | 25029 | INSTALLED |  |  |  | 6035 |  | land |
+| 1788956685478-z46mq2 | 2026-09-09 08:24:45 | Josue Vasquez | 770714 |  | 67 Yonge St N |  |  | J4809018 | J2271168 | 33993 | INSTALLED |  |  |  |  |  | land |
+| 1788957578033-5x4a0j | 2026-09-09 08:39:38 | Josue Vasquez | 767306 |  | 62 Matilda St |  |  | J4809019 | J4061753 | 22144 | INSTALLED |  |  |  |  |  | land |
+| 1788958199545-iacn1r | 2026-09-09 08:49:59 | Josue Vasquez | 770028 |  | 60 Elgin Ave |  |  | J4809020 | J2230967 | 13863 | INSTALLED |  |  |  |  |  | land |
+| 1788961455049-m8sj2c | 2026-09-09 09:44:15 | Phillip Monteiro | 785023 | Hm | 1406 14th St E, Owen Sound, ON N4K 2P9, Canada | 44.574769 | -80.935551 | J4802975 | J3738145 | 87203 | INSTALLED |  |  |  |  |  | land |
+| 1788963196632-ozxzl7 | 2026-09-09 10:13:16 | Phillip Monteiro | 784450 | 204 | 1406 4th St E, Owen Sound, ON N4K 2P9, Canada | 44.574767 | -80.935542 | J4802973 | J3711245 | 33415 | INSTALLED |  |  |  |  |  | land |
+| 1788963323147-wengwm | 2026-09-09 10:15:23 | Phillip Monteiro | 784255 | 205 | 1424 14th St E, Owen Sound, ON N4K 2P9, Canada | 44.574752 | -80.93555 | J4802972 | J3711246 | 14978 | INSTALLED |  |  |  |  |  | land |
+| 1788963635906-ujlqi5 | 2026-09-09 10:20:35 | Phillip Monteiro | 784203 | 103 | 1430 14th St E, Owen Sound, ON N4K 1X1, Canada | 44.574765 | -80.935526 | J4810130 | J3711244 | 17918 | INSTALLED |  |  |  |  |  | land |
+| 1788964026612-u7gy3v | 2026-09-09 10:27:06 | Phillip Monteiro | 784503 | 104 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada | 44.574757 | -80.935529 | J4810132 | J3711243 | 18171 | INSTALLED |  |  |  |  |  | land |
+| 1788965549133-hfkmlo | 2026-09-09 10:52:29 | Josue Vasquez | 769560 |  | 86 River St |  |  | J4809021 | J3883409 | 46167 | INSTALLED |  |  |  |  |  | land |
+| 1788966532347-q7wsnl | 2026-09-09 11:08:52 | Josue Vasquez | 766538 |  | 83 River St |  |  | J4809022 | J3424567 | 70470 | INSTALLED |  |  |  |  |  | land |
+| 1788966575190-m17uaq | 2026-09-09 11:09:35 | Josue Vasquez | 766972 |  | 85 River St |  |  | J4809023 | J3424569 | 67673 | INSTALLED |  |  |  |  |  | land |
+| 1788968001903-kuqnqh | 2026-09-09 11:33:21 | Josue Vasquez | 766100 |  | 95 River St |  |  | J4809024 | J2271249 | 90794 | INSTALLED |  |  |  |  |  | land |
+| 1788968482823-nyfz22 | 2026-09-09 11:41:22 | Josue Vasquez | 766151 |  | 89 River St |  |  | J4809025 | J2271248 | 24774 | INSTALLED |  |  |  |  |  | land |
+| 1788964371187-vttcj5 | 2026-09-09 10:32:51 | Phillip Monteiro | 784327 | 105 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810133 | J3736164 | 22529 | INSTALLED |  |  |  |  |  | land |
+| 1788964655830-iyuvez | 2026-09-09 10:37:35 | Phillip Monteiro | 784276 | 201 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810131 | J3736163 | 17860 | INSTALLED |  |  |  |  |  | land |
+| 1788964911053-c4dkob | 2026-09-09 10:41:51 | Phillip Monteiro | 784508J3736165 | 202 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810140 | J3736165 | 13773 | INSTALLED |  |  |  |  |  | land |
+| 1788965151034-46qtpt | 2026-09-09 10:45:51 | Phillip Monteiro | 784280 | 203 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810138 | J3736162 | 18802 | INSTALLED |  |  |  |  |  | land |
+| 1788965589273-tq8lgg | 2026-09-09 10:53:09 | Phillip Monteiro | 784424 | B01 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810139 | J3736174 | 16565 | INSTALLED |  |  |  |  |  | land |
+| 1788966034919-qovw7h | 2026-09-09 11:00:34 | Phillip Monteiro | 784303 | B02 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810141 | J3736175 | 10884 | INSTALLED |  |  |  |  |  | land |
+| 1788966233259-m4ewsh | 2026-09-09 11:03:53 | Phillip Monteiro | 785057 | B03 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810136 | J3736176 | 20044 | INSTALLED |  |  |  |  |  | land |
+| 1788966488311-byua4y | 2026-09-09 11:08:08 | Phillip Monteiro | 784339 | B04 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810135 | J3736177 | 13739 | INSTALLED |  |  |  |  |  | land |
+| 1788966717925-xyc59f | 2026-09-09 11:11:57 | Phillip Monteiro | 784384 | 101 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810134 | J3736158 | 19497 | INSTALLED |  |  |  |  |  | land |
+| 1788966976537-xrjuln | 2026-09-09 11:16:16 | Phillip Monteiro | 785080 | 102 | 1406 4th St E, Owen Sound, ON N4K 1X1, Canada |  |  | J4810137 | J3736159 | 16521 | INSTALLED |  |  |  |  |  | land |
+| 1788969515748-6oi2nl | 2026-09-09 11:58:35 | Phillip Monteiro | 775600 | Rear | 1340 4th Ave E, Owen Sound, ON N4K 2P7, Canada | 44.5736 | -80.93642 | J4810146 | J2097222 | 27264 | INSTALLED |  |  |  |  |  | land |
+| 1788969909123-9sn2fh | 2026-09-09 12:05:09 | Phillip Monteiro | 778653 | 1 | 1340 4th Ave E, Owen Sound, ON N4K 2P7, Canada | 44.573599 | -80.93642 | J4810149 | J2070679 | 91743 | INSTALLED |  |  |  |  |  | land |
+| 1788970338894-i5i1pq | 2026-09-09 12:12:18 | Phillip Monteiro | 784885 | 2 | 1340 4th Ave E, Owen Sound, ON N4K 2P7, Canada | 44.573607 | -80.936425 | J4810148 | J4020281 | 16707 | INSTALLED |  |  |  |  |  | land |
+| 1788970764773-eewkdb | 2026-09-09 12:19:24 | Phillip Monteiro | 778196 |  | 1340 4th Ave E, Owen Sound, ON N4K 2P7, Canada | 44.573602 | -80.936424 | J4810147 | J2070655 | 26240 | INSTALLED |  |  |  |  |  | land |
+| 1788971180758-rhhif8 | 2026-09-09 12:26:20 | Phillip Monteiro | 775386 | 2 | 1340 4th Ave E, Owen Sound, ON N4K 2P7, Canada | 44.57361 | -80.936419 | J4810143 | J2070678 | 22164 | INSTALLED |  |  |  |  |  | land |
+| 1788972039520-xt0ev8 | 2026-09-09 12:40:39 | Josue Vasquez | 769913 |  | 77 River St |  |  | J4808998 | J3883408 | 55716 | INSTALLED |  |  |  |  |  | land |
+| 1788972369731-abfle4 | 2026-09-09 12:46:09 | Josue Vasquez | 766194 |  | 71 River St, Tara |  |  | J4808999 | J2271196 | 34031 | INSTALLED |  |  |  |  |  | land |
+| 1788972927725-y92qje | 2026-09-09 12:55:27 | Josue Vasquez | 765960 |  | 65 River St, Tara |  |  | J4809000 | J3806414 | 54725 | INSTALLED |  |  |  |  |  | land |
+| 1788973037372-h3g8ia | 2026-09-09 12:57:17 | Phillip Monteiro | 776272 |  | 1299 4th Ave E, Owen Sound, ON N4K 1W4, Canada | 44.572734 | -80.936424 | J4802976 | J2070881 | 80596 | INSTALLED |  |  |  |  |  | land |
+| 1788973292110-eh8eop | 2026-09-09 13:01:32 | Phillip Monteiro | 780557 | 3 | 1299 4th Ave E, Owen Sound, ON N4K 2P5, Canada | 44.572489 | -80.936521 | J4802977 | J2070883 | 39258 | INSTALLED |  |  |  |  |  | land |
+| 1788973549668-fvybk5 | 2026-09-09 13:05:49 | Phillip Monteiro | 780258 | 2 | 1299 4th Ave E, Owen Sound, ON N4K 2P5, Canada | 44.572471 | -80.93653 | J4802974 | J2070884 | 54376 | INSTALLED |  |  |  |  |  | land |
+| 1788973753019-cax64n | 2026-09-09 13:09:13 | Josue Vasquez | 771424 |  | 55 River St |  |  | J4809001 | J3874955 | 54288 | INSTALLED |  |  |  |  |  | land |
+| 1788974142008-zs0ge7 | 2026-09-09 13:15:42 | Phillip Monteiro | 778719 |  | 440 13th St E, Owen Sound, ON N4K 1W6, Canada | 44.572616 | -80.936135 | J4810145 | J4203910 | 9729 | INSTALLED |  |  |  |  |  | land |
+| 1788975244809-znzncx | 2026-09-09 13:34:04 | Josue Vasquez | 765826 |  | 47 River St |  |  | J4808934 | J2271210 | 90206 | INSTALLED |  |  |  |  |  | land |
+| 1788975578144-4yns3t | 2026-09-09 13:39:38 | Josue Vasquez | 765950 |  | 53 River St |  |  | J4808935 | J4229271 | 38974 | INSTALLED |  |  |  |  |  | land |
+| 1788976049476-lul1et | 2026-09-09 13:47:29 | Josue Vasquez | 771483 |  | 43 River St |  |  | J4808936 | J4236366 | 8941 | INSTALLED |  |  |  |  |  | land |
+| 1788976415329-tj8k7d | 2026-09-09 13:53:35 | Josue Vasquez | 768563 |  | 33 Market St |  |  | J4808937 | J2270824 | 87702 | INSTALLED |  |  |  |  |  | land |
+| 1788978867116-tjjd76 | 2026-09-09 14:34:27 | Josue Vasquez | 766788 |  | 23 River St, Tara |  |  | J4808930 | J2271179 | 97476 | INSTALLED |  |  |  |  |  | land |
+| 1788979459806-6xp0dm | 2026-09-09 14:44:19 | Josue Vasquez | 768922 |  | 7 River St, Tara |  |  | J4808931 | J2271153 | 13707 | INSTALLED |  |  |  |  |  | land |
+| 1788980437277-i7j3m8 | 2026-09-09 15:00:37 | Josue Vasquez | 767348 |  | 24 Market St |  |  | J4808932 | J4235277 | 5856 | INSTALLED |  |  |  |  |  | land |
+| 1788984612399-3hjygn | 2026-09-09 16:10:12 | Josue Vasquez | 767498 |  | 37 Market St |  |  | J4808933 | J2271211 | 48307 | INSTALLED |  |  |  |  |  | land |
+| 1788985776219-2h2hwg | 2026-09-09 16:29:36 | Josue Vasquez | 766358 |  | 38 Market St |  |  | J4803134 | J2270821 | 93102 | INSTALLED |  |  |  |  |  | land |

@@ -1,6 +1,6 @@
 # Teams
 
-_1 row · exported 2026-09-09 03:52 America/Toronto_
+_1 row · exported 2026-09-10 03:52 America/Toronto_
 
 | id | identifier | boatName | boatNumber | captainH | memberHs | memberHs | memberLetters | captainName | subName | type | startAddress | startLat | startLng |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
