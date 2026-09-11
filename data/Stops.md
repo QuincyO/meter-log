@@ -1,6 +1,6 @@
 # Stops
 
-_1896 rows · exported 2026-09-10 03:52 America/Toronto_
+_1941 rows · exported 2026-09-11 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1900,3 +1900,48 @@ _1896 rows · exported 2026-09-10 03:52 America/Toronto_
 | 1788980437277-i7j3m8 | 2026-09-09 15:00:37 | Josue Vasquez | 767348 |  | 24 Market St |  |  | J4808932 | J4235277 | 5856 | INSTALLED |  |  |  |  |  | land |
 | 1788984612399-3hjygn | 2026-09-09 16:10:12 | Josue Vasquez | 767498 |  | 37 Market St |  |  | J4808933 | J2271211 | 48307 | INSTALLED |  |  |  |  |  | land |
 | 1788985776219-2h2hwg | 2026-09-09 16:29:36 | Josue Vasquez | 766358 |  | 38 Market St |  |  | J4803134 | J2270821 | 93102 | INSTALLED |  |  |  |  |  | land |
+| 1789045654387-wjlefn | 2026-09-10 09:07:34 | Josue Vasquez | 764734 |  | 39 Market St, Tara |  |  | J4803135 | J2271214 | 93541 | INSTALLED |  |  |  |  |  | land |
+| 1789046066480-rqrzra | 2026-09-10 09:14:26 | Josue Vasquez | 769443 |  | 77 Main St, Tara |  |  | J4803136 | J2271092 | 40866 | INSTALLED |  |  |  |  |  | land |
+| 1789046790237-zmb4ij | 2026-09-10 09:26:30 | Josue Vasquez | 771500 |  | 84 Main St, Tara |  |  | J4803137 | J3721878 | 50240 | INSTALLED |  |  |  |  |  | land |
+| 1789047508478-81qq97 | 2026-09-10 09:38:28 | Josue Vasquez | 767361 |  | 76 Main St, Tara |  |  | J4823654 | J4235278 | 14694 | INSTALLED |  |  |  |  |  | land |
+| 1789048159862-aj72wc | 2026-09-10 09:49:19 | Josue Vasquez | 767254 |  | 91 Main St, Tara |  |  | J4823655 | J2271216 | 34370 | INSTALLED |  |  |  |  |  | land |
+| 1789050906253-l8e7cl | 2026-09-10 10:35:06 | Josue Vasquez | 771672 |  | 62 Main St, Tara |  |  | J4823656 | J2271170 | 69994 | INSTALLED |  |  |  |  |  | land |
+| 1789051314109-erggrb | 2026-09-10 10:41:54 | Josue Vasquez | 766520 |  | 70 Main St, Tara |  |  | J4823657 | J2271091 | 12143 | INSTALLED |  |  |  |  |  | land |
+| 1789051695320-07n84c | 2026-09-10 10:48:15 | Josue Vasquez | 771947 |  | 71 Main St, Tara |  |  | J4823650 | J2271089 | 61430 | INSTALLED |  |  |  |  |  | land |
+| 1789052903999-15ggei | 2026-09-10 11:08:23 | Josue Vasquez | 766447 |  | 57 Main St, Tara |  |  | J4823651 | J2271090 | 40910 | INSTALLED |  |  |  |  |  | land |
+| 1789053520652-qn16ag | 2026-09-10 11:18:40 | Phillip Monteiro | 778256 |  | 1657 3rd Ave E, Owen Sound, ON N4K 2M2, Canada | 44.57642 | -80.93577 | J4820125 | J4156032 | 9077 | INSTALLED |  |  |  |  |  | land |
+| 1789053550753-acur21 | 2026-09-10 11:19:10 | Josue Vasquez | 771561 |  | 56 Main St, Tara |  |  | J4823652 | J3464355 | 76253 | INSTALLED |  |  |  |  |  | land |
+| 1789053772765-cgad9c | 2026-09-10 11:22:52 | Phillip Monteiro | 778786 |  | 1673 3rd Ave E, Owen Sound, ON N4K 2M2, Canada | 44.576467 | -80.935751 | J4820122 | J2070667 | 97165 | INSTALLED |  |  |  |  |  | land |
+| 1789054036918-tyxk13 | 2026-09-10 11:27:16 | Phillip Monteiro | 775103 | 1 | 1675 3rd Ave E, Owen Sound, ON N4K 2M2, Canada | 44.57651 | -80.935701 | J4810142 | J4046277 | 9962 | INSTALLED |  |  |  |  |  | land |
+| 1789054037682-a5xgp0 | 2026-09-10 11:27:17 | Josue Vasquez | 770154 |  | 52 Main St, Tara |  |  | J4823653 | J4161303 | 10639 | INSTALLED |  |  |  |  |  | land |
+| 1789054403803-5es3ld | 2026-09-10 11:33:23 | Josue Vasquez | 767333 |  | 46 Main St, Tara |  |  | J4823646 | J2271169 | 30837 | INSTALLED |  |  |  |  |  | land |
+| 1789054555419-nlw237 | 2026-09-10 11:35:55 | Phillip Monteiro | 785158 |  | 1675 3rd Ave E, Owen Sound, ON N4K 2M2, Canada | 44.576525 | -80.93574 | J4810144 | J2070666 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789054969154-y3vb4e | 2026-09-10 11:42:49 | Phillip Monteiro | 783762 |  | 1693 3rd Ave E, Owen Sound, ON N4K 2M2, Canada | 44.576627 | -80.935553 | J4820124 | J2070729 | 25120 | INSTALLED |  |  |  |  |  | land |
+| 1789055049629-n7dxdp | 2026-09-10 11:44:09 | Josue Vasquez | 770063 |  | 45 Main St, Tara |  |  | J4823648 | J2271141 | 22308 | INSTALLED |  |  |  |  |  | land |
+| 1789055613725-x213fg | 2026-09-10 11:53:33 | Josue Vasquez | 769202 |  | 40 Main St, Tara |  |  | J4823649 | J2271157 | 40265 | INSTALLED |  |  |  |  |  | land |
+| 1789055615257-bftbq1 | 2026-09-10 11:53:35 | Phillip Monteiro | 784423 |  | 395 15th St E, Owen Sound | 44.575124 | -80.935561 | J4820123 | J3607658 | 57357 | INSTALLED |  |  |  |  |  | land |
+| 1789056063569-1yv2jm | 2026-09-10 12:01:03 | Phillip Monteiro | 776797 |  | 397 15th St E, Owen Sound, ON N4K 2P9, Canada | 44.575089 | -80.935394 | J4820120 | J4211046 | 10318 | INSTALLED |  |  |  |  |  | land |
+| 1789056139161-vga7el | 2026-09-10 12:02:19 | Josue Vasquez | 765204 |  | 39 Main St, Tara |  |  | J4823647 | J3784763 | 4971 | INSTALLED |  |  |  |  |  | land |
+| 1789056703561-kc7t37 | 2026-09-10 12:11:43 | Josue Vasquez | 765020 |  | 33 Main St, Tara |  |  | J4823642 | J2271144 | 15600 | INSTALLED |  |  |  |  |  | land |
+| 1789057348856-sr9tp7 | 2026-09-10 12:22:28 | Phillip Monteiro | 782747 | 2 | 355 14th St E, Owen Sound | 44.574532 | -80.936112 | J4820119 | J2070977 | 46562 | INSTALLED |  |  |  |  |  | land |
+| 1789057372472-zwwnbf | 2026-09-10 12:22:52 | Josue Vasquez | 768728 |  | 34 Main St, Tara |  |  | J4823643 | J2271143 | 10708 | INSTALLED |  |  |  |  |  | land |
+| 1789057600549-fc2htw | 2026-09-10 12:26:40 | Phillip Monteiro | 777257 |  | 355 14th St E, Owen Sound, ON N4K 1W8, Canada | 44.574565 | -80.936094 | J4820121 | J2070978 | 72583 | INSTALLED |  |  |  |  |  | land |
+| 1789057923286-tdbvlc | 2026-09-10 12:32:03 | Phillip Monteiro | 783440 |  | 374 14th St E, Owen Sound, ON N4K 1W9, Canada | 44.574682 | -80.935876 | J4820118 | J3100603 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789058149364-ibfec0 | 2026-09-10 12:35:49 | Phillip Monteiro | 779066 |  | 362 14th St E, Owen Sound | 44.574694 | -80.935905 | J4820117 | J3673406 | 56813 | INSTALLED |  |  |  |  |  | land |
+| 1789058516428-di84hl | 2026-09-10 12:41:56 | Phillip Monteiro | 779163 |  | 352 14th St E, Owen Sound, ON N4K 1W9, Canada | 44.574783 | -80.936026 | J4820114 | J2070793 | 96439 | INSTALLED |  |  |  |  |  | land |
+| 1789059064730-s7eql5 | 2026-09-10 12:51:04 | Phillip Monteiro | 782083 |  | 351 14th St E, Owen Sound, ON N4K 1W8, Canada | 44.574481 | -80.936145 |  | J3979440 |  | UTI | Electrical Repair | Meter box not secured to wall |  |  |  | land |
+| 1789059459690-m537im | 2026-09-10 12:57:39 | Phillip Monteiro | 782410 |  | 339 14th St E, Owen Sound, ON N4K 1W8, Canada | 44.574667 | -80.936197 | J4820115 | J3717498 | 14905 | INSTALLED |  |  |  |  |  | land |
+| 1789060109699-pz2xh8 | 2026-09-10 13:08:29 | Phillip Monteiro | 781786 |  | 330 14th St E, Owen Sound, ON N4K 1W9, Canada | 44.574949 | -80.936561 | J4820116 | J4020271 | 26915 | INSTALLED |  |  |  |  |  | land |
+| 1789061028172-5tiyej | 2026-09-10 13:23:48 | Phillip Monteiro | 785106 |  | 344 14th St E, Owen Sound, ON N4K 1W9, Canada | 44.574877 | -80.936303 | J4820130 | J2070812 | 93539 | INSTALLED |  |  |  |  |  | land |
+| 1789061448914-no8u8r | 2026-09-10 13:30:48 | Phillip Monteiro | 775159 | 1 | 337 14th St E, Owen Sound | 44.574569 | -80.936827 | J4820131 | J3988169 | 12508 | INSTALLED |  |  |  |  |  | land |
+| 1789061642823-7dsh9q | 2026-09-10 13:34:02 | Phillip Monteiro | 778607 |  | 337 14th St E, Owen Sound, ON N4K 1W8, Canada | 44.574616 | -80.936474 | J4820133 | J2070970 | 84288 | INSTALLED |  |  |  |  |  | land |
+| 1789061712271-2mben1 | 2026-09-10 13:35:12 | Josue Vasquez | 766674 |  | 9 Main St, Tara |  |  | J4823645 | J2784717 | 65377 | INSTALLED |  |  |  |  |  | land |
+| 1789063553694-emivwq | 2026-09-10 14:05:53 | Phillip Monteiro | 781199 |  | 1389 3rd Ave E, Owen Sound, ON N4K 2L8, Canada | 44.574533 | -80.936898 | J4820132 | J4241896 | 3319 | INSTALLED |  |  |  |  |  | land |
+| 1789063787577-q5dtnr | 2026-09-10 14:09:47 | Phillip Monteiro | 780812 | 2 | 1389 3rd Ave E, Owen Sound, ON N4K 2L8, Canada | 44.574511 | -80.936871 | J4820129 | J2070637 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789063989058-xrwekw | 2026-09-10 14:13:09 | Phillip Monteiro | 777661 |  | 1389 3rd Ave E, Owen Sound, ON N4K 2L8, Canada | 44.574532 | -80.936933 | J4820128 | J4126611 | 10620 | INSTALLED |  |  |  |  |  | land |
+| 1789065803684-5cdxdz | 2026-09-10 14:43:23 | Josue Vasquez | 764567 |  | 3-119 Main St, Tara |  |  | J4823644 | J3668661 | 42025 | INSTALLED |  |  |  |  |  | land |
+| 1789066036965-augw7k | 2026-09-10 14:47:16 | Josue Vasquez | 766276 |  | 4-119 Main St, Tara |  |  | J4803126 | J2271226 | 35833 | INSTALLED |  |  |  |  |  | land |
+| 1789066688237-icgo9m | 2026-09-10 14:58:08 | Josue Vasquez | 769689 |  | 153 Main St, Tara |  |  | J4803127 | J2137501 | 17814 | INSTALLED |  |  |  |  |  | land |
+| 1789067258322-ynppbb | 2026-09-10 15:07:38 | Josue Vasquez | 767680 |  | 40 Ann St |  |  | J4803128 | J3881360 | 17574 | INSTALLED |  |  |  |  |  | land |
+| 1789067900094-pi9u71 | 2026-09-10 15:18:20 | Josue Vasquez | 769239 |  | 45 Ann St |  |  | J4803129 | J2547190 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789068739838-dqpm23 | 2026-09-10 15:32:19 | Josue Vasquez | 769707 |  | 59 Park Rd |  |  | J4798938 | J4160020 | 85485 | INSTALLED |  |  |  |  |  | land |
