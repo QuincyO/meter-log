@@ -1,6 +1,6 @@
 # Downtime
 
-_480 rows · exported 2026-09-11 03:52 America/Toronto_
+_484 rows · exported 2026-09-12 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -484,3 +484,7 @@ _480 rows · exported 2026-09-11 03:52 America/Toronto_
 | 1789065665090-28ir7f | 2026-09-10 12:00:00 | Phillip Monteiro | NEXT_GEN | 20 | 781199 | gap 13:34–14:05 |  |
 | 1789065665090-hn4a8a | 2026-09-10 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 777661 | gap 14:09–14:13 |  |
 | 1789065665090-w6b6bb | 2026-09-10 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 15 | 777661 | gap 14:09–14:13 |  |
+| 1789134107387-kl3uh2 | 2026-09-11 09:41:47 | Josue Vasquez | TRAVEL_TIME | 15 | 766257 |  | land |
+| 1789142744633-qyov0u | 2026-09-11 12:05:44 | Josue Vasquez | TRAVEL_TIME | 50 | 769902 |  | land |
+| 1789149663821-plfot3 | 2026-09-11 14:01:03 | Josue Vasquez | TRAVEL_TIME | 25 | 768245 |  | land |
+| 1789151759292-hvr7yc | 2026-09-11 14:35:59 | Josue Vasquez | CELL_SIGNAL | 7 | 769908 |  | land |

@@ -1,6 +1,6 @@
 # Stops
 
-_1941 rows · exported 2026-09-11 03:52 America/Toronto_
+_1959 rows · exported 2026-09-12 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1945,3 +1945,21 @@ _1941 rows · exported 2026-09-11 03:52 America/Toronto_
 | 1789067258322-ynppbb | 2026-09-10 15:07:38 | Josue Vasquez | 767680 |  | 40 Ann St |  |  | J4803128 | J3881360 | 17574 | INSTALLED |  |  |  |  |  | land |
 | 1789067900094-pi9u71 | 2026-09-10 15:18:20 | Josue Vasquez | 769239 |  | 45 Ann St |  |  | J4803129 | J2547190 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1789068739838-dqpm23 | 2026-09-10 15:32:19 | Josue Vasquez | 769707 |  | 59 Park Rd |  |  | J4798938 | J4160020 | 85485 | INSTALLED |  |  |  |  |  | land |
+| 1789132450222-madimn | 2026-09-11 09:14:10 | Josue Vasquez | 767374 |  | 22 Bruce St |  |  | J4798941 | J2271151 | 52302 | INSTALLED |  |  |  |  |  | land |
+| 1789133045442-bi4scb | 2026-09-11 09:24:05 | Josue Vasquez | 770805 |  | 25 Bruce St |  |  | J4798939 | J3880053 | 24533 | INSTALLED |  |  |  |  |  | land |
+| 1789134109083-7r1swm | 2026-09-11 09:41:49 | Josue Vasquez | 766257 |  | 79 Park Rd, Tara |  |  | J4798940 | J2271118 | 51963 | INSTALLED |  |  |  |  |  | land |
+| 1789134800413-r5nw1h | 2026-09-11 09:53:20 | Josue Vasquez | 769234 |  | 87 Park Rd, Tara |  |  | J4818214 | J4049246 | 22487 | INSTALLED |  |  |  |  |  | land |
+| 1789135748360-h6kice | 2026-09-11 10:09:08 | Josue Vasquez | 769772 |  | 83 Park Rd, Tara |  |  | J4818215 | J4206551 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789136405563-1be9vg | 2026-09-11 10:20:05 | Josue Vasquez | 771881 |  | 256 Yonge St S, Tara |  |  | J4818216 | J2270750 | 66370 | INSTALLED |  |  |  |  |  | land |
+| 1789138217002-r4uvg3 | 2026-09-11 10:50:16 | Josue Vasquez | 769524 |  | 3701 Bruce Rd 10, Arran-Elderslie |  |  | J4818217 | J4195217 | 24393 | INSTALLED |  |  |  |  |  | land |
+| 1789142747560-bgg8jd | 2026-09-11 12:05:47 | Josue Vasquez | 769902 |  | 97 Pollard Dr |  |  | J4818206 | J3979430 | 34715 | INSTALLED |  |  |  |  |  | land |
+| 1789149668176-wh1f2v | 2026-09-11 14:01:08 | Josue Vasquez | 768245 |  | 137416 Concession 7, Township of Georgian Bluffs |  |  | J4818207 | J3609872 | 397 | INSTALLED |  |  |  |  |  | land |
+| 1789150259869-uuw6aq | 2026-09-11 14:10:59 | Josue Vasquez | 767614 |  | Georgian Bluffs, ON, Canada |  |  | J4818208 | J3217890 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789151745813-95y9im | 2026-09-11 14:35:45 | Josue Vasquez | 769908 |  | Concession 7, Georgian Bluffs |  |  |  |  |  | UTI | No Access |  |  |  |  | land |
+| 1789152539533-ss1iuf | 2026-09-11 14:48:59 | Josue Vasquez | 764033 |  | 062092 Sideroad 3, Township of Georgian Bluffs |  |  | J4818209 | J3966457 | 32531 | INSTALLED |  |  |  |  |  | land |
+| 1789154937917-cl3jsu | 2026-09-11 15:28:57 | Josue Vasquez | 770395 |  | 802004 Grey Rd 40, Chatsworth |  |  | J4818190 | J3456656 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1789155518850-ckkp9t | 2026-09-11 15:38:38 | Josue Vasquez | 768058 |  | 802017 Grey Rd 40, Chatsworth |  |  | J4818191 | J3630388 | 68516 | INSTALLED |  |  |  |  |  | land |
+| 1789156117481-jlph50 | 2026-09-11 15:48:37 | Josue Vasquez | 771997 |  | 802032 Grey Rd 40, Chatsworth |  |  | J4818192 | J3715244 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1789156775442-0gu8a9 | 2026-09-11 15:59:35 | Josue Vasquez | 764268 |  | 802062 Grey Rd 40, Chatsworth |  |  | J4818193 | J4428454 | 6608 | INSTALLED |  |  |  |  |  | land |
+| 1789157559347-k9qiom | 2026-09-11 16:12:39 | Josue Vasquez | 764375 |  | 802065 Grey Rd 40, Chatsworth |  |  | J4800910 | J2345855 | 22949 | INSTALLED |  |  |  |  |  | land |
+| 1789158221976-rt0s4k | 2026-09-11 16:23:41 | Josue Vasquez | 766412 |  | 802080 Grey Rd 40, Chatsworth |  |  | J4800911 | J2546637 |  | INSTALLED |  |  | Missing segments |  |  | land |

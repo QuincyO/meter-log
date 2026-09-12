@@ -1,6 +1,6 @@
 # Timing
 
-_1994 rows · exported 2026-09-11 03:52 America/Toronto_
+_2013 rows · exported 2026-09-12 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1998,3 +1998,22 @@ _1994 rows · exported 2026-09-11 03:52 America/Toronto_
 | 2026-09-10 00:00:00 | Josue Vasquez | 1899-12-30 15:07:00 | 1899-12-30 15:18:00 | 11 |  | Travel | travel | 769239 | INSTALLED | INSTALLED |
 | 2026-09-10 00:00:00 | Josue Vasquez | 1899-12-30 15:18:00 | 1899-12-30 15:32:00 | 14 |  | Travel | travel | 769707 | INSTALLED | INSTALLED |
 | 2026-09-10 00:00:00 | Josue Vasquez | 1899-12-30 15:32:00 | 1899-12-30 16:00:00 | 28 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 07:30:00 | 1899-12-30 09:14:00 | 104 |  | Launch | travel | 767374 |  | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 09:14:00 | 1899-12-30 09:24:00 | 10 |  | Travel | travel | 770805 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 09:24:00 | 1899-12-30 09:41:00 | 18 |  | Travel | travel | 766257 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 09:41:00 | 1899-12-30 09:53:00 | 12 |  | Travel | travel | 769234 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 09:53:00 | 1899-12-30 10:09:00 | 16 |  | Travel | travel | 769772 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 10:09:00 | 1899-12-30 10:20:00 | 11 |  | Travel | travel | 771881 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 10:20:00 | 1899-12-30 10:50:00 | 30 |  | Flagged | travel | 769524 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 10:50:00 | 1899-12-30 12:05:00 | 76 |  | Flagged | travel | 769902 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 12:05:00 | 1899-12-30 14:01:00 | 115 |  | Flagged | travel | 768245 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 14:01:00 | 1899-12-30 14:10:00 | 10 |  | Travel | travel | 767614 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 14:10:00 | 1899-12-30 14:35:00 | 25 |  | Flagged | travel | 769908 | INSTALLED | UTI |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 14:35:00 | 1899-12-30 14:48:00 | 13 |  | Travel | travel | 764033 | UTI | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 14:48:00 | 1899-12-30 15:28:00 | 40 |  | Flagged | travel | 770395 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 15:28:00 | 1899-12-30 15:38:00 | 10 |  | Travel | travel | 768058 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 15:38:00 | 1899-12-30 15:48:00 | 10 |  | Travel | travel | 771997 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 15:48:00 | 1899-12-30 15:59:00 | 11 |  | Travel | travel | 764268 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 15:59:00 | 1899-12-30 16:12:00 | 13 |  | Travel | travel | 764375 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 16:12:00 | 1899-12-30 16:23:00 | 11 |  | Travel | travel | 766412 | INSTALLED | INSTALLED |
+| 2026-09-11 00:00:00 | Josue Vasquez | 1899-12-30 16:23:00 | 1899-12-30 17:00:00 | 36 |  | Return | travel |  | INSTALLED |  |
