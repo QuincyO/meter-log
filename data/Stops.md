@@ -1,6 +1,6 @@
 # Stops
 
-_1959 rows · exported 2026-09-14 03:52 America/Toronto_
+_2037 rows · exported 2026-09-15 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1963,3 +1963,81 @@ _1959 rows · exported 2026-09-14 03:52 America/Toronto_
 | 1789156775442-0gu8a9 | 2026-09-11 15:59:35 | Josue Vasquez | 764268 |  | 802062 Grey Rd 40, Chatsworth |  |  | J4818193 | J4428454 | 6608 | INSTALLED |  |  |  |  |  | land |
 | 1789157559347-k9qiom | 2026-09-11 16:12:39 | Josue Vasquez | 764375 |  | 802065 Grey Rd 40, Chatsworth |  |  | J4800910 | J2345855 | 22949 | INSTALLED |  |  |  |  |  | land |
 | 1789158221976-rt0s4k | 2026-09-11 16:23:41 | Josue Vasquez | 766412 |  | 802080 Grey Rd 40, Chatsworth |  |  | J4800911 | J2546637 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789391041704-ptunrz | 2026-09-14 09:04:01 | Josue Vasquez | 842751 |  | 1004 Bruce rd 4 |  |  | J4800912 | J2199662 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789391113784-q7vx72 | 2026-09-14 09:05:13 | Phillip Monteiro | 801983 |  | 10 Golden Pond Dr, South Bruce Peninsula, ON N0H 2T0, Canada | 44.603502 | -81.183382 | J4820126 | J3650040 | 86895 | INSTALLED |  |  |  |  |  | land |
+| 1789392167606-wbfr87 | 2026-09-14 09:22:47 | Phillip Monteiro | 804881 |  | 67 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.603901 | -81.18985 | J4820127 | J2052879 | 2829 | INSTALLED |  |  |  |  |  | land |
+| 1789392465284-5fc5o0 | 2026-09-14 09:27:45 | Quincy Orta | 804271 |  | 1032 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.611334 | -81.272737 | J4798547 | J3260349 | 23788 | INSTALLED |  |  |  |  |  | land |
+| 1789392539757-9ufj3e | 2026-09-14 09:28:59 | Phillip Monteiro | 801379 |  | 75 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.60364 | -81.190564 | J4820135 | J3234456 | 49348 | INSTALLED |  |  |  |  |  | land |
+| 1789392973449-g4lpqt | 2026-09-14 09:36:13 | Phillip Monteiro | 802060 |  | 79 Golden Pond Dr, Amabel | 44.603452 | -81.190879 | J4820134 | J3791896 | 11659 | INSTALLED |  |  |  |  |  | land |
+| 1789393348446-nydj7e | 2026-09-14 09:42:28 | Quincy Orta | 802373 |  | 1043 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.61038 | -81.273014 | J4798555 | J2238078 | 36429 | INSTALLED |  |  |  |  |  | land |
+| 1789393491608-8ivgjd | 2026-09-14 09:44:51 | Phillip Monteiro | 799718 |  | 80 Golden Pond Dr, Amabel | 44.603046 | -81.189533 | J4820137 | J2237775 | 18385 | INSTALLED |  |  |  |  |  | land |
+| 1789393933732-7gqt7u | 2026-09-14 09:52:13 | Quincy Orta | 805094 |  | 1044 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.610337 | -81.273855 | J4798557 | J2238077 | 33648 | INSTALLED |  |  |  |  |  | land |
+| 1789394111896-r3z1pc | 2026-09-14 09:55:11 | Phillip Monteiro | 793486 |  | 83 Golden Pond Dr, Amabel | 44.603378 | -81.190899 | J4820136 | J2052877 | 4110 | INSTALLED |  |  |  |  |  | land |
+| 1789394504988-ckkcs7 | 2026-09-14 10:01:44 | Josue Vasquez | 844834 |  | 37 Dove Rd |  |  | J4800913 | J3808328 | 66091 | INSTALLED |  |  |  |  |  | land |
+| 1789394745460-m3sqv5 | 2026-09-14 10:05:45 | Phillip Monteiro | 803094 |  | 84 Golden Pond Dr, Amabel | 44.602778 | -81.190242 | J4751772 | J424305 | 2573 | INSTALLED |  |  |  |  |  | land |
+| 1789394817420-9t8vr3 | 2026-09-14 10:06:57 | Quincy Orta | 803600 |  | 1045 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.610211 | -81.272986 | J4798554 | J2238080 | 53466 | INSTALLED |  |  |  |  |  | land |
+| 1789395022781-j8edeh | 2026-09-14 10:10:22 | Josue Vasquez | 845669 |  | 39 Dove Rd |  |  | J4821442 | J2199664 | 85523 | INSTALLED |  |  |  |  |  | land |
+| 1789395382453-dd4yi4 | 2026-09-14 10:16:22 | Phillip Monteiro | 801197 |  | 87 Golden Pond Dr, South Bruce Peninsula, ON N0H 2T0, Canada | 44.603005 | -81.191052 | J4751775 | J2837263 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789395414048-jyxf6x | 2026-09-14 10:16:54 | Josue Vasquez | 839910 |  | 41 Dove Rd |  |  | J4821443 | J3821918 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789395770740-plmjuw | 2026-09-14 10:22:50 | Quincy Orta | 796880 |  | 1047 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.610052 | -81.273087 | J4798556 | J2712671 | 41988 | INSTALLED |  |  |  |  |  | land |
+| 1789395839821-edyqes | 2026-09-14 10:23:59 | Josue Vasquez | 844506 |  | 18 Swallow Rd |  |  | J4821444 | J3436765 | 74756 | INSTALLED |  |  |  |  |  | land |
+| 1789396307454-dy31z3 | 2026-09-14 10:31:47 | Phillip Monteiro | 800024 |  | 90 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.602569 | -81.190099 | J4751773 | J2837358 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789396343248-8cjr5a | 2026-09-14 10:32:23 | Josue Vasquez | 842986 |  | 2 Robin Cres |  |  | J4821445 | J3825991 | 47849 | INSTALLED |  |  |  |  |  | land |
+| 1789397030339-reessg | 2026-09-14 10:43:50 | Josue Vasquez | 840211 |  | 208-1004 Bruce Rd 4 |  |  | J4821434 | J4217109 | 9426 | INSTALLED |  |  |  |  |  | land |
+| 1789396804283-cz2rii | 2026-09-14 10:40:04 | Phillip Monteiro | 800564 |  | 94 Golden Pond Dr, Amabel | 44.602411 | -81.190236 | J4751768 | J4065774 | 31588 | INSTALLED |  |  |  | 18720 |  | land |
+| 1789397305683-d8bo40 | 2026-09-14 10:48:25 | Phillip Monteiro | 802466 |  | 91 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.603041 | -81.191709 | J4751771 | J2052816 | 70840 | INSTALLED |  |  |  |  |  | land |
+| 1789397443731-oluw0q | 2026-09-14 10:50:43 | Josue Vasquez | 843631 |  | 36 Dove Rd |  |  | J4821435 | J4217110 | 5270 | INSTALLED |  |  |  |  |  | land |
+| 1789397790425-vpkbbh | 2026-09-14 10:56:30 | Phillip Monteiro | 803560 |  | 95 Golden Pond Dr, Amabel | 44.602685 | -81.192146 |  | J2052815 | 92564 | UTI | Electrical Repair | Loose meter base |  |  |  | land |
+| 1789397956645-7wjotm | 2026-09-14 10:59:16 | Quincy Orta | 803634 |  | 1048 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.610055 | -81.27409 | J4827754 | J3883385 | 4789 | INSTALLED |  |  |  |  |  | land |
+| 1789398203761-sb95tu | 2026-09-14 11:03:23 | Josue Vasquez | 844910 |  | 31 Dove Rd |  |  | J4821436 | J3827193 | 44151 | INSTALLED |  |  |  |  |  | land |
+| 1789398473909-znew3v | 2026-09-14 11:07:53 | Quincy Orta | 797357 |  | 1049 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.609832 | -81.273153 | J4827757 | J2712612 | 22453 | INSTALLED |  |  |  |  |  | land |
+| 1789398652767-ptqne0 | 2026-09-14 11:10:52 | Josue Vasquez | 842612 |  | 29 Dove Rd |  |  | J4821437 | J4050264 | 20733 | INSTALLED |  |  |  |  |  | land |
+| 1789398762856-215zbl | 2026-09-14 11:12:42 | Phillip Monteiro | 795553 |  | 100 Golden Pond Dr, Amabel | 44.60192 | -81.190688 | J4751774 | J3952317 | 39852 | INSTALLED |  |  |  |  |  | land |
+| 1789399098235-a0cu5q | 2026-09-14 11:18:18 | Phillip Monteiro | 803932 |  | 104 Golden Pond Dr, Amabel | 44.601589 | -81.191035 | J4751765 | J2237831 | 85718 | INSTALLED |  |  |  |  |  | land |
+| 1789399245975-nmd5a3 | 2026-09-14 11:20:45 | Josue Vasquez | 844952 |  | 30 Dove Rd |  |  | J4821438 | J3849729 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789399672537-oxpm65 | 2026-09-14 11:27:52 | Josue Vasquez | 839422 |  | 27 Dove Rd |  |  | J4821439 | J3237916 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789399822019-8ehmq6 | 2026-09-14 11:30:22 | Quincy Orta | 803799 |  | 1051 2nd Ave S, Sauble  Beach | 44.609661 | -81.273088 | J4827756 | J2237489 | 39363 | INSTALLED |  |  |  |  |  | land |
+| 1789399745817-w8ilkp | 2026-09-14 11:29:05 | Phillip Monteiro | 798962 |  | 101 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.602248 | -81.192543 | J4751769 | J4030448 | 56573 | INSTALLED |  |  |  |  |  | land |
+| 1789400158769-kkfv55 | 2026-09-14 11:35:58 | Phillip Monteiro | 795454 |  | 105 Golden Pond Dr, Amabel | 44.602091 | -81.192639 | J4751764 | J2052814 | 65472 | INSTALLED |  |  |  |  |  | land |
+| 1789400274969-bbba8s | 2026-09-14 11:37:54 | Josue Vasquez | 844845 |  | 28 Dove Rd |  |  | J4821441 | J3849654 | 52145 | INSTALLED |  |  |  |  |  | land |
+| 1789400424883-nkzlfs | 2026-09-14 11:40:24 | Quincy Orta | 796819 |  | 1054 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.609503 | -81.27387 | J4827755 | J3793826 | 56968 | INSTALLED |  |  |  |  |  | land |
+| 1789400632767-i62mfg | 2026-09-14 11:43:52 | Josue Vasquez | 845694 |  | 25 Dove Rd |  |  | J4821440 | J4485013 | 4268 | INSTALLED |  |  |  |  |  | land |
+| 1789400799300-r85ddq | 2026-09-14 11:46:39 | Phillip Monteiro | 802464 |  | 108 Golden Pond Dr, Amabel | 44.601397 | -81.191115 | J4751767 | J4024413 | 30501 | INSTALLED |  |  |  |  |  | land |
+| 1789401139336-3h61j6 | 2026-09-14 11:52:19 | Phillip Monteiro | 795559 |  | 112 Golden Pond Dr, Amabel | 44.601079 | -81.191324 | J4751770 | J3793792 | 38665 | INSTALLED |  |  |  |  |  | land |
+| 1789401408066-vt0b7f | 2026-09-14 11:56:48 | Josue Vasquez | 844636 |  | 16 Dove Rd |  |  | J4821451 | J3743830 | 22944 | INSTALLED |  |  |  |  |  | land |
+| 1789401505560-xrh675 | 2026-09-14 11:58:25 | Phillip Monteiro | 798068 |  | 109 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.601637 | -81.192392 | J4751766 | J3806371 | 47694 | INSTALLED |  |  |  |  |  | land |
+| 1789401613951-ieve4n | 2026-09-14 12:00:13 | Quincy Orta | 805008 |  | 1055 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.609262 | -81.273351 | J4827746 | J2237580 | 12259 | INSTALLED |  |  |  |  |  | land |
+| 1789401666374-ftlevc | 2026-09-14 12:01:06 | Josue Vasquez | 843008 |  | PUMP-1004 Bruce Rd 4 |  |  | J4821450 | J2199715 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789402576589-left7g | 2026-09-14 12:16:16 | Quincy Orta | 795063 |  | 3 17th St S, Sauble Beach, ON N0H 2G0, Canada | 44.609478 | -81.274568 | J4827749 | J4152694 | 2213 | INSTALLED |  |  |  |  |  | land |
+| 1789403275439-dq512k | 2026-09-14 12:27:55 | Quincy Orta | 803615 |  | 2 17th St S, Sauble Beach, ON N0H 2G0, Canada | 44.609124 | -81.274693 | J4827747 | J2237579 | 71625 | INSTALLED |  |  |  |  |  | land |
+| 1789404113358-v3tyqo | 2026-09-14 12:41:53 | Quincy Orta | 805824 |  | 5 17th St S, Sauble Beach, ON N0H 2G0, Canada | 44.609653 | -81.274365 | J4827748 | J4160048 | 2434 | INSTALLED |  |  |  |  |  | land |
+| 1789404514880-9f6kyg | 2026-09-14 12:48:34 | Phillip Monteiro | 805822 |  | 113 Golden Pond Dr, Amabel | 44.601483 | -81.192246 | J4810150 | J2237829 | 53731 | INSTALLED |  |  |  |  |  | land |
+| 1789404896393-t6inhw | 2026-09-14 12:54:56 | Phillip Monteiro | 799084 |  | 116 Golden Pond Dr, Amabel | 44.601073 | -81.191689 | J4810151 | J3744375 | 56900 | INSTALLED |  |  |  |  |  | land |
+| 1789405594320-cmr9au | 2026-09-14 13:06:34 | Phillip Monteiro | 801582 |  | 117 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.600968 | -81.192678 | J4810153 | J2219240 | 82088 | INSTALLED |  |  |  |  |  | land |
+| 1789405791991-d8agzz | 2026-09-14 13:09:51 | Quincy Orta | 795385 |  | 7 17th St S, Sauble Beach, ON N0H 2G0, Canada | 44.609429 | -81.273999 | J4827752 | J2237578 | 65845 | INSTALLED |  |  |  |  |  | land |
+| 1789406167277-5vtt1c | 2026-09-14 13:16:07 | Phillip Monteiro | 803339 |  | 120 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.600486 | -81.191807 | J4751787 | J2237827 | 53243 | INSTALLED |  |  |  |  |  | land |
+| 1789406454299-r41qo5 | 2026-09-14 13:20:54 | Quincy Orta | 803786 |  | 1072 2nd Ave S, Sauble Beach, ON N0H 2G0, Canada | 44.608163 | -81.274472 | J4827751 | J4157925 | 6574 | INSTALLED |  |  |  |  |  | land |
+| 1789406696253-0ckw7j | 2026-09-14 13:24:56 | Josue Vasquez | 843443 |  | 1004 OFFICE- Bruce Rd 4 |  |  | J4821452 | J4414294 | 25145 | INSTALLED |  |  |  |  |  | land |
+| 1789406766449-38vl0c | 2026-09-14 13:26:06 | Phillip Monteiro | 803628 |  | 124 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.600264 | -81.192173 | J4751784 | J2219239 | 8010 | INSTALLED |  |  |  |  |  | land |
+| 1789406930918-6g8j88 | 2026-09-14 13:28:50 | Josue Vasquez | 842669 |  | 10 APT- Cardinal St |  |  | J4821453 | J3821929 | 69989 | INSTALLED |  |  |  |  |  | land |
+| 1789407151047-x54b1q | 2026-09-14 13:32:31 | Phillip Monteiro | 806688 |  | 128 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.60002 | -81.192549 | J4810152 | J4023291 | 13140 | INSTALLED |  |  |  |  |  | land |
+| 1789407160423-fo6pb8 | 2026-09-14 13:32:40 | Quincy Orta | 802368 |  | 19 18th St S, Sauble Beach, ON N0H 2L0, Canada | 44.607598 | -81.275493 | J4827753 | J2237923 | 20740 | INSTALLED |  |  |  |  |  | land |
+| 1789407524859-wlad2r | 2026-09-14 13:38:44 | Phillip Monteiro | 800440 |  | 127 Golden Pond Dr, Amabel | 44.601571 | -81.193425 | J4751785 | J4050002 | 55979 | INSTALLED |  |  |  |  |  | land |
+| 1789407609672-wz4eyt | 2026-09-14 13:40:09 | Quincy Orta | 801242 |  | 15 18th St S, Sauble Beach | 44.607385 | -81.274955 | J4827750 | J2237924 | 67890 | INSTALLED |  |  |  |  |  | land |
+| 1789408869684-3rgyof | 2026-09-14 14:01:09 | Quincy Orta | 793388 |  | 6 19th St S, Sauble Beach, ON N0H 2L0, Canada | 44.606285 | -81.27609 | J4827767 | J4205259 | 24320 | INSTALLED |  |  |  |  |  | land |
+| 1789409137010-tz12uz | 2026-09-14 14:05:37 | Quincy Orta | 799696 |  | 8 19th St S, Sauble Beach, ON N0H 2L0, Canada | 44.605893 | -81.276143 | J4827769 | J3826384 | 83912 | INSTALLED |  |  |  |  |  | land |
+| 1789409162981-phel35 | 2026-09-14 14:06:02 | Josue Vasquez | 845672 |  | 1 Dove Rd |  |  | J4821418 | J3764686 | 750 | INSTALLED |  |  |  |  |  | land |
+| 1789409570511-2k5pkb | 2026-09-14 14:12:50 | Josue Vasquez | 841128 |  | 3 Dove rd |  |  |  | J3896958 |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789410159195-et8ray | 2026-09-14 14:22:39 | Josue Vasquez | 845081 |  | 2 Dove Rd |  |  | J4821419 | J2199071 | 22043 | INSTALLED |  |  |  |  |  | land |
+| 1789410763238-iek7p7 | 2026-09-14 14:32:43 | Quincy Orta | 797266 |  | 1094 2nd Ave S, Sauble Beach, ON N0H 2L0, Canada | 44.605995 | -81.275559 | J4827768 | J3869056 | 10364 | INSTALLED |  |  |  |  |  | land |
+| 1789410937722-wcwi1j | 2026-09-14 14:35:37 | Josue Vasquez | 842967 |  | 4 Dove Rd |  |  | J4821420 | J4010935 | 5688 | INSTALLED |  |  |  |  |  | land |
+| 1789411160363-m8yrew | 2026-09-14 14:39:20 | Quincy Orta | 801188 |  | 1093 2nd Ave S, Sauble  Beach | 44.606067 | -81.274618 | J4827766 | J4212668 | 1598 | INSTALLED |  |  |  |  |  | land |
+| 1789411300783-flpri4 | 2026-09-14 14:41:40 | Josue Vasquez | 844580 |  | 5 Dove Rd |  |  |  | J2199068 |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789413503302-65tjtu | 2026-09-14 15:18:23 | Josue Vasquez | 841369 |  | 7 Dove Rd |  |  | J4821421 | J2199067 | 76339 | INSTALLED |  |  |  |  |  | land |
+| 1789413908989-mii47o | 2026-09-14 15:25:08 | Josue Vasquez | 841192 |  | 9 Dove Rd |  |  | J4821446 | J2199066 | 92434 | INSTALLED |  |  |  |  |  | land |
+| 1789414481501-9pjhoq | 2026-09-14 15:34:41 | Josue Vasquez | 844161 |  | 11 Dove Rd |  |  | J4821447 | J4196833 | 13725 | INSTALLED |  |  |  |  |  | land |
+| 1789415528429-cxdhdn | 2026-09-14 15:52:08 | Josue Vasquez | 839919 |  | 14 Dove Rd |  |  |  |  |  | UTI | Inside Meter - Need Appointment |  |  |  |  | land |
+| 1789415742330-7jlvvf | 2026-09-14 15:55:42 | Josue Vasquez | 844112 |  | 15 Dove Rd |  |  | J4821448 | J4226491 | 8985 | INSTALLED |  |  |  |  |  | land |
+| 1789416277649-qovzec | 2026-09-14 16:04:37 | Josue Vasquez | 842623 |  | 21 Dove Rd |  |  | J4821449 | J4219790 | 17204 | INSTALLED |  |  |  |  |  | land |
+| 1789416921229-nqcd4h | 2026-09-14 16:15:21 | Josue Vasquez | 840861 |  | 17 Dove Rd |  |  | J4818186 | J2199720 | 36001 | INSTALLED |  |  |  |  |  | land |
+| 1789417325188-zjprh7 | 2026-09-14 16:22:05 | Josue Vasquez | 843842 |  | 19 Dove Rd |  |  | J4818187 | J4447882 | 2317 | INSTALLED |  |  |  |  |  | land |
