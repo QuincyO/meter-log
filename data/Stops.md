@@ -1,6 +1,6 @@
 # Stops
 
-_2037 rows · exported 2026-09-15 03:52 America/Toronto_
+_2097 rows · exported 2026-09-16 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2041,3 +2041,63 @@ _2037 rows · exported 2026-09-15 03:52 America/Toronto_
 | 1789416277649-qovzec | 2026-09-14 16:04:37 | Josue Vasquez | 842623 |  | 21 Dove Rd |  |  | J4821449 | J4219790 | 17204 | INSTALLED |  |  |  |  |  | land |
 | 1789416921229-nqcd4h | 2026-09-14 16:15:21 | Josue Vasquez | 840861 |  | 17 Dove Rd |  |  | J4818186 | J2199720 | 36001 | INSTALLED |  |  |  |  |  | land |
 | 1789417325188-zjprh7 | 2026-09-14 16:22:05 | Josue Vasquez | 843842 |  | 19 Dove Rd |  |  | J4818187 | J4447882 | 2317 | INSTALLED |  |  |  |  |  | land |
+| 1789478913231-otqvvv | 2026-09-15 09:28:33 | Josue Vasquez | 843044 |  | 4 Robin Cres |  |  | J4818188 | J3801734 | 26679 | INSTALLED |  |  |  |  |  | land |
+| 1789479578745-pzp0s5 | 2026-09-15 09:39:38 | Josue Vasquez | 843045 |  | 1 Robin Cres |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789479905262-94tcvt | 2026-09-15 09:45:05 | Josue Vasquez | 844574 |  | 5 Robin Cres |  |  | J4818189 | J2199710 | 66121 | INSTALLED |  |  |  |  |  | land |
+| 1789480395411-s3tfgy | 2026-09-15 09:53:15 | Josue Vasquez | 841250 |  | 8 Robin Cres |  |  | J4827958 | J3808375 | 36531 | INSTALLED |  |  |  |  |  | land |
+| 1789480725595-qm79lj | 2026-09-15 09:58:45 | Josue Vasquez | 840546 |  | 10 Robin Cres |  |  | J4827959 | J3630337 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789481114608-45s3sh | 2026-09-15 10:05:14 | Josue Vasquez | 843855 |  | 7 Robin Cres |  |  | J4827960 | J2199709 | 582 | INSTALLED |  |  |  |  |  | land |
+| 1789482131960-gtfhox | 2026-09-15 10:22:11 | Josue Vasquez | 843823 |  | 203 Robin Crescent, Brockton, ON, Canada |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789483635574-qghf72 | 2026-09-15 10:47:15 | Phillip Monteiro | 805584 |  | 129 Golden Pond Dr, South Bruce Peninsula, ON N0H 1P0, Canada | 44.600927 | -81.194114 | J4751786 | J3650168 | 79686 | INSTALLED |  |  |  |  |  | land |
+| 1789484439300-no0418 | 2026-09-15 11:00:39 | Phillip Monteiro | 803037 |  | 130A Golden Pond Dr, South Bruce Peninsula, ON N0H 2T0, Canada | 44.600393 | -81.193223 | J4824801 | J4161285 | 41732 | INSTALLED |  |  |  |  |  | land |
+| 1789484444841-9ktibq | 2026-09-15 11:00:44 | Quincy Orta | 805747 |  | 359491 Bayshore Road, Meaford, ON N0H 1B0, Canada | 44.631871 | -80.867774 | J4824782 | J3880117 | 28476 | INSTALLED |  |  |  |  |  | land |
+| 1789484561645-mgzs72 | 2026-09-15 11:02:41 | Josue Vasquez | 842966 |  | 10 Swallow St |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789485015834-h3s9yh | 2026-09-15 11:10:15 | Josue Vasquez | 844980 |  | 12 Swallow St |  |  | J4827961 | J3775882 | 25758 | INSTALLED |  |  |  |  |  | land |
+| 1789485056136-1h0h7i | 2026-09-15 11:10:56 | Phillip Monteiro | 799815 |  | 56 Gould Lake Rd, Amabel | 44.599637 | -81.191795 | J4824798 | J3400978 | 43586 | INSTALLED |  |  |  |  |  | land |
+| 1789485497879-ij4ai3 | 2026-09-15 11:18:17 | Josue Vasquez | 843027 |  | 14 Swallow St |  |  | J4827954 | J3834825 | 33452 | INSTALLED |  |  |  |  |  | land |
+| 1789485534660-bdnnix | 2026-09-15 11:18:54 | Phillip Monteiro | 802663 |  | 62 Gould Lake Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.599475 | -81.191964 | J4824804 | J3614875 | 20730 | INSTALLED |  |  |  |  |  | land |
+| 1789485809310-ruv2sq | 2026-09-15 11:23:29 | Josue Vasquez | 843010 |  | 16 Swallow St |  |  | J4827955 | J2199735 | 26707 | INSTALLED |  |  |  |  |  | land |
+| 1789485865085-5190zi | 2026-09-15 11:24:25 | Quincy Orta | 800838 |  | 107 Market Ln, Meaford, ON N0H 1B0, Canada | 44.625096 | -80.873184 | J4824783 | J3835943 | 58111 | INSTALLED |  |  |  |  |  | land |
+| 1789485955175-uxqk18 | 2026-09-15 11:25:55 | Phillip Monteiro | 803974 |  | 74 Gould Lake Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.598131 | -81.194007 | J4824802 | J4165038 | 32548 | INSTALLED |  |  |  |  |  | land |
+| 1789486506621-0fit4r | 2026-09-15 11:35:06 | Josue Vasquez | 841261 |  | 7 Swallow St |  |  | J4827956 | J2199669 | 22860 | INSTALLED |  |  |  |  |  | land |
+| 1789486661507-ocp1g7 | 2026-09-15 11:37:41 | Quincy Orta | 801119 |  | 418747 CONC A, Meaford, ON N4K 5N3, Canada | 44.610521 | -80.884787 | J4824785 | J3359188 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789486664727-3v4c18 | 2026-09-15 11:37:44 | Phillip Monteiro | 804729 |  | 663 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.595384 | -81.183655 | J4824805 | J3688139 | 90492 | INSTALLED |  |  |  |  |  | land |
+| 1789487031971-zi0k1s | 2026-09-15 11:43:51 | Phillip Monteiro | 801924 |  | 714 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.600216 | -81.182008 | J4824800 | J2183149 | 68189 | INSTALLED |  |  |  |  |  | land |
+| 1789487172177-rtjg7a | 2026-09-15 11:46:12 | Quincy Orta | 801151 |  | 418592 CONC A, Meaford, ON N4K 5N3, Canada | 44.596903 | -80.88274 | J4824784 | J3836044 | 54487 | INSTALLED |  |  |  |  |  | land |
+| 1789487251207-7kazx1 | 2026-09-15 11:47:31 | Josue Vasquez | 843597 |  | 6 Swallow St |  |  | J4827957 | J2199666 | 71320 | INSTALLED |  |  |  |  |  | land |
+| 1789487672639-hmjnem | 2026-09-15 11:54:32 | Phillip Monteiro | 796653 |  | 743 Allenford Rd, Amabel | 44.600742 | -81.18502 | J4824809 | J2237821 | 19405 | INSTALLED |  |  |  |  |  | land |
+| 1789487781842-f9lp15 | 2026-09-15 11:56:21 | Josue Vasquez | 844198 |  | 4 Swallow St |  |  | J4827951 | J3751916 | 74331 | INSTALLED |  |  |  |  |  | land |
+| 1789487946310-tv6wpb | 2026-09-15 11:59:06 | Quincy Orta | 800287 |  | 418653 CONC A, Meaford, ON N4K 5N3, Canada | 44.602392 | -80.882041 | J4824789 | J3942688 | 70614 | INSTALLED |  |  |  |  |  | land |
+| 1789488259365-pc7d4h | 2026-09-15 12:04:19 | Josue Vasquez | 843666 |  | 2 Swallow St |  |  | J4827950 | J3204321 | 61591 | INSTALLED |  |  |  |  |  | land |
+| 1789488443301-sdryre | 2026-09-15 12:07:23 | Phillip Monteiro | 798282 |  | 756 Allenford Rd, South Bruce Peninsula, ON N0H 2T0, Canada | 44.603907 | -81.182661 |  |  |  | UTI | No Access | Locked gate, no answer from Cx |  |  |  | land |
+| 1789488465528-830519 | 2026-09-15 12:07:45 | Quincy Orta | 801009 |  | 243097 26th St E, Owen Sound | 44.594887 | -80.887201 | J4824786 | J3909103 | 99465 | INSTALLED |  |  |  |  |  | land |
+| 1789488700475-evaft9 | 2026-09-15 12:11:40 | Phillip Monteiro | 801950 |  | 764 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.604796 | -81.181902 | J4824799 | J2219172 | 6740 | INSTALLED |  |  |  |  |  | land |
+| 1789489190675-mnwl4x | 2026-09-15 12:19:50 | Phillip Monteiro | 799827 |  | 804 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.608417 | -81.182479 | J4824807 | J4157939 | 42083 | INSTALLED |  |  |  |  |  | land |
+| 1789489711738-z9lv75 | 2026-09-15 12:28:31 | Quincy Orta | 806084 |  | 3563 Bayshore Rd E, Owen Sound | 44.606027 | -80.915247 | J4824788 | J2100463 | 55899 | INSTALLED |  |  |  |  |  | land |
+| 1789489815255-wuljy3 | 2026-09-15 12:30:15 | Phillip Monteiro | 793942 |  | 859 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.612905 | -81.184185 | J4824808 | J2237776 | 24699 | INSTALLED |  |  |  |  |  | land |
+| 1789490451765-t4xxwm | 2026-09-15 12:40:51 | Phillip Monteiro | 800245 |  | 921 Allenford Rd, South Bruce Peninsula, ON N0H 1P0, Canada | 44.618457 | -81.184952 | J4824803 | J3216862 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789490854669-h3cka2 | 2026-09-15 12:47:34 | Phillip Monteiro | 803387 |  | 913 Allenford Rd, Amabel | 44.618038 | -81.184581 | J4824806 | J2563730 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789491440138-c66q51 | 2026-09-15 12:57:20 | Quincy Orta | 783503 |  | 813 23rd St E, Owen Sound, ON N4K 0A3, Canada | 44.586276 | -80.922826 | J4824787 | J2288621 | 45638 | INSTALLED |  |  |  |  |  | land |
+| 1789492521207-a07toz | 2026-09-15 13:15:21 | Quincy Orta | 778961 |  | 838 23rd St E, Owen Sound, ON N4K 6Z5, Canada | 44.586541 | -80.922645 | J4824773 | J4046160 | 54888 | INSTALLED |  |  |  |  |  | land |
+| 1789492921619-crbw7e | 2026-09-15 13:22:01 | Quincy Orta | 776808 |  | 843 23rd St E, Owen Sound, ON N4K 0A3, Canada | 44.586156 | -80.922431 | J4824770 | J4125206 | 32047 | INSTALLED |  |  |  |  |  | land |
+| 1789493704882-jg05gd | 2026-09-15 13:35:04 | Josue Vasquez | 839671 |  | 20 Finch St |  |  | J4827952 | J2199690 | 74527 | INSTALLED |  |  |  |  |  | land |
+| 1789493550375-ueq1n0 | 2026-09-15 13:32:30 | Quincy Orta | 784005 |  | 863 23rd St E, Owen Sound, ON N4K 0A3, Canada | 44.586141 | -80.922064 | J4824772 | J3940767 | 39165 | INSTALLED |  |  |  |  |  | land |
+| 1789493864793-677akk | 2026-09-15 13:37:44 | Quincy Orta | 777682 |  | 878 23rd St E, Owen Sound | 44.586479 | -80.92196 | J4824771 | J3246633 | 87882 | INSTALLED |  |  |  |  |  | land |
+| 1789494196888-ffuug4 | 2026-09-15 13:43:16 | Josue Vasquez | 841290 |  | 1004 Bruce Rd 4, Brockton |  |  | J4827953 | J4414271 | 2271 | INSTALLED |  |  |  |  |  | land |
+| 1789494791323-ko0ckj | 2026-09-15 13:53:11 | Quincy Orta | 801237 | 3 | 2400 3rd Ave E, Owen Sound, ON N4K 2M6, Canada | 44.589475 | -80.928971 | J4824791 | J2100510 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1789495278998-2tnyx7 | 2026-09-15 14:01:18 | Quincy Orta | 800704 |  | 2401 3rd Ave E, Owen Sound, ON N4K 2M5, Canada | 44.588933 | -80.927636 | J4824793 | J4128447 | 18285 | INSTALLED |  |  |  |  |  | land |
+| 1789495625689-u14jp7 | 2026-09-15 14:07:05 | Josue Vasquez | 841247 |  | 12 Scarlet St |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789495769766-rbuqht | 2026-09-15 14:09:29 | Quincy Orta | 804529 |  | 2397 3rd Ave E, Owen Sound | 44.588803 | -80.927683 | J4824790 | J2100512 | 89977 | INSTALLED |  |  |  |  |  | land |
+| 1789495826032-yx38ji | 2026-09-15 14:10:26 | Josue Vasquez | 841376 |  | 9 Scarlet St |  |  | J4743888 | J4452699 | 7366 | INSTALLED |  |  |  |  |  | land |
+| 1789496484595-zz7tya | 2026-09-15 14:21:24 | Quincy Orta | 800768 |  | 2245 3rd Ave E, Owen Sound | 44.587325 | -80.928867 | J4824792 | J4427259 | 6340 | INSTALLED |  |  |  |  |  | land |
+| 1789496502561-72tvlp | 2026-09-15 14:21:42 | Josue Vasquez | 839579 |  | 10 Scarlet St |  |  | J4743891 | J4452665 | 5542 | INSTALLED |  |  |  |  |  | land |
+| 1789496883042-7xds0x | 2026-09-15 14:28:03 | Josue Vasquez | 843526 |  | 8 Scarlet St |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1789497327301-eo8uzx | 2026-09-15 14:35:27 | Quincy Orta | 800764 |  | 2229 3rd Ave E, Owen Sound | 44.587111 | -80.929057 | J4806870 | J2100431 | 33515 | INSTALLED |  |  |  |  |  | land |
+| 1789499527368-wx3l6j | 2026-09-15 15:12:07 | Josue Vasquez | 841040 |  | 5 Scarlet St |  |  | J4743889 | J2270845 | 71216 | INSTALLED |  |  |  |  |  | land |
+| 1789500010230-25bird | 2026-09-15 15:20:10 | Josue Vasquez | 841664 |  | 3 Scarlet St |  |  | J4743890 | J4138915 | 9504 | INSTALLED |  |  |  |  |  | land |
+| 1789500544089-sxz0fd | 2026-09-15 15:29:04 | Josue Vasquez | 843642 |  | 4 Scarlet St |  |  | J4827922 | J3274344 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789500856115-o6o2hy | 2026-09-15 15:34:16 | Josue Vasquez | 844152 |  | 2 Scarlet St |  |  | J4827923 | J3902122 | 40784 | INSTALLED |  |  |  |  |  | land |
+| 1789501420363-3taru8 | 2026-09-15 15:43:40 | Josue Vasquez | 844754 |  | 6 Scarlet St |  |  | J4827924 | J2199705 | 37487 | INSTALLED |  |  |  |  |  | land |
+| 1789502037752-40x8im | 2026-09-15 15:53:57 | Josue Vasquez | 845633 |  | 18 Finch St |  |  | J4827925 | J2199060 | 86839 | INSTALLED |  |  |  |  |  | land |
+| 1789502735926-ij9kfg | 2026-09-15 16:05:35 | Josue Vasquez | 843909 |  | 16 Finch St |  |  | J4743876 | J2199064 | 58164 | INSTALLED |  |  |  |  |  | land |
+| 1789503156359-60zy2k | 2026-09-15 16:12:36 | Josue Vasquez | 841357 |  | 14 Finch St |  |  | J4743877 | J2199063 | 26274 | INSTALLED |  |  |  |  |  | land |
