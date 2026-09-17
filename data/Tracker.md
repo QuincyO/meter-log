@@ -1,6 +1,6 @@
 # Tracker
 
-_121 rows · exported 2026-09-16 03:52 America/Toronto_
+_123 rows · exported 2026-09-17 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -125,3 +125,5 @@ _121 rows · exported 2026-09-16 03:52 America/Toronto_
 | 2026-09-15 00:00:00 | Phillip Monteiro | 13 | 1 | 275 | 30 | 0 | 165 | 15 | 30 | 35 | 0 | 0 | 0 | 0 | Overcast · S 26 km/h · 20°C |  | 0 | 0 |  | 91 |  | land |
 | 2026-09-15 00:00:00 | Quincy Orta | 17 | 0 | 165 | 30 | 30 | 60 | 15 | 15 | 15 | 0 | 0 | 0 | 0 | Partly cloudy · S 29 km/h · 21°C |  | 0 | 0 |  | 215 |  | land |
 | 2026-09-15 00:00:00 | Josue Vasquez | 24 | 5 | 101 | 0 | 0 | 101 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Clear · S 22 km/h · 25°C |  | 0 | 0 |  | 403 |  | land |
+| 2026-09-16 00:00:00 | Phillip Monteiro | 23 | 1 | 110 | 30 | 0 | 0 | 15 | 35 | 30 | 0 | 0 | 0 | 0 | Overcast · NW 9 km/h · 19°C |  | 0 | 0 |  | 201 |  | land |
+| 2026-09-16 00:00:00 | Josue Vasquez | 28 | 2 | 21 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 21 | 0 | 0 | Mainly clear · S 27 km/h · 25°C |  | 0 | 0 |  | 422 |  | land |

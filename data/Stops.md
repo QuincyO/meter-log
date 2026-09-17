@@ -1,6 +1,6 @@
 # Stops
 
-_2097 rows · exported 2026-09-16 03:52 America/Toronto_
+_2170 rows · exported 2026-09-17 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2101,3 +2101,76 @@ _2097 rows · exported 2026-09-16 03:52 America/Toronto_
 | 1789502037752-40x8im | 2026-09-15 15:53:57 | Josue Vasquez | 845633 |  | 18 Finch St |  |  | J4827925 | J2199060 | 86839 | INSTALLED |  |  |  |  |  | land |
 | 1789502735926-ij9kfg | 2026-09-15 16:05:35 | Josue Vasquez | 843909 |  | 16 Finch St |  |  | J4743876 | J2199064 | 58164 | INSTALLED |  |  |  |  |  | land |
 | 1789503156359-60zy2k | 2026-09-15 16:12:36 | Josue Vasquez | 841357 |  | 14 Finch St |  |  | J4743877 | J2199063 | 26274 | INSTALLED |  |  |  |  |  | land |
+| 1789565563530-nwl7tq | 2026-09-16 09:32:43 | Josue Vasquez | 841716 |  | 2 Finch St, Brockton, ON N0G 2V0, Canada |  |  | J4743878 | J4153752 | 28668 | INSTALLED |  |  |  |  |  | land |
+| 1789565727270-zonufv | 2026-09-16 09:35:27 | Phillip Monteiro | 786480 |  | 3 Whitefish Blvd, Amabel | 44.729117 | -81.270971 | J4832657 | J2244353 | 2856 | INSTALLED |  |  |  |  |  | land |
+| 1789566004692-rarawz | 2026-09-16 09:40:04 | Josue Vasquez | 843793 |  | 45 Finch St |  |  | J4743879 | J3896957 | 11287 | INSTALLED |  |  |  |  |  | land |
+| 1789566038422-5awg5y | 2026-09-16 09:40:38 | Phillip Monteiro | 785297 |  | 6 Whitefish Blvd, Amabel | 44.728914 | -81.271398 | J4832654 | J3614297 | 57292 | INSTALLED |  |  |  |  |  | land |
+| 1789566321046-ulqkhl | 2026-09-16 09:45:21 | Phillip Monteiro | 792399 |  | 7 Whitefish Blvd, Amabel | 44.728692 | -81.270955 | J4824814 | J4237060 | 15480 | INSTALLED |  |  |  |  |  | land |
+| 1789566501650-qh3jd0 | 2026-09-16 09:48:21 | Josue Vasquez | 842110 |  | 6 Finch St, Brockton, ON N0G 2V0, Canada |  |  | J4829811 | J4137225 | 20171 | INSTALLED |  |  |  |  |  | land |
+| 1789566692799-jksmb0 | 2026-09-16 09:51:32 | Phillip Monteiro | 789888 |  | 14 Whitefish Blvd, Amabel | 44.728335 | -81.271473 | J4832655 | J2244350 | 56624 | INSTALLED |  |  |  |  |  | land |
+| 1789566882256-xp65hj | 2026-09-16 09:54:42 | Josue Vasquez | 844633 |  | 8 Finch St, Brockton, ON N0G 2V0, Canada |  |  | J4829810 | J3827121 | 19416 | INSTALLED |  |  |  |  |  | land |
+| 1789567009674-hll1yx | 2026-09-16 09:56:49 | Phillip Monteiro | 793199 |  | 15 Whitefish Blvd, Amabel | 44.728426 | -81.27093 | J4824816 | J2053184 | 8056 | INSTALLED |  |  |  |  |  | land |
+| 1789567533046-i4bhig | 2026-09-16 10:05:33 | Phillip Monteiro | 799229 |  | 18 Whitefish Blvd, Amabel | 44.728007 | -81.271639 | J4824815 | J2244351 | 50351 | INSTALLED |  |  |  |  |  | land |
+| 1789568025356-sb2n03 | 2026-09-16 10:13:45 | Phillip Monteiro | 792590 |  | 19 Whitefish Blvd, Amabel | 44.72794 | -81.270762 | J4832656 | J4237133 | 27197 | INSTALLED |  |  |  |  |  | land |
+| 1789568493355-a2o4ft | 2026-09-16 10:21:33 | Phillip Monteiro | 791242 |  | 25 Whitefish Blvd, Amabel | 44.72764 | -81.270923 | J4832662 | J3272933 | 27430 | INSTALLED |  |  |  |  |  | land |
+| 1789568858035-genu9p | 2026-09-16 10:27:38 | Phillip Monteiro | 792934 |  | 26 Whitefish Blvd, Amabel | 44.727523 | -81.271336 | J4832665 | J3880252 | 80064 | INSTALLED |  |  |  |  |  | land |
+| 1789569166089-mgtak2 | 2026-09-16 10:32:46 | Phillip Monteiro | 791936 |  | 32 Whitefish Blvd, Amabel | 44.727089 | -81.271379 | J4832663 | J2204972 | 87283 | INSTALLED |  |  |  |  |  | land |
+| 1789569454267-ic8x6o | 2026-09-16 10:37:34 | Phillip Monteiro | 789785 |  | 33 Whitefish Blvd, Amabel | 44.727111 | -81.270877 | J4824817 | J2244349 | 21438 | INSTALLED |  |  |  |  |  | land |
+| 1789569623692-t9sye0 | 2026-09-16 10:40:23 | Josue Vasquez | 845685 |  | 12 Finch St, Brockton, ON N0G 2V0, Canada |  |  | J4829812 | J2199062 | 34819 | INSTALLED |  |  |  |  |  | land |
+| 1789569715548-ehq6b9 | 2026-09-16 10:41:55 | Phillip Monteiro | 799250 |  | 39 Whitefish Blvd, Amabel | 44.726672 | -81.270809 | J4832664 | J2244372 | 11314 | INSTALLED |  |  |  |  |  | land |
+| 1789570359540-26maf0 | 2026-09-16 10:52:39 | Josue Vasquez | 844170 |  | 25 Killdeer Cres |  |  | J4830675 | J2199692 | 25031 | INSTALLED |  |  |  |  |  | land |
+| 1789570622958-bb773e | 2026-09-16 10:57:02 | Josue Vasquez | 841310 |  | 23 Killdeer Cres |  |  | J4829813 | J3448643 | 94665 | INSTALLED |  |  |  |  |  | land |
+| 1789570792948-67jste | 2026-09-16 10:59:52 | Phillip Monteiro | 786403 |  | 40 Whitefish Blvd, Amabel | 44.726472 | -81.2716 | J4824811 | J3216051 | 58095 | INSTALLED |  |  |  |  |  | land |
+| 1789571105577-rnoyre | 2026-09-16 11:05:05 | Josue Vasquez | 842797 |  | 24 Killdeer Cres |  |  | J4830677 | J3652180 | 73678 | INSTALLED |  |  |  |  |  | land |
+| 1789571210845-l4tkjg | 2026-09-16 11:06:50 | Phillip Monteiro | 792311 |  | 44 Whitefish Blvd, Amabel | 44.72629 | -81.271328 | J4824812 | J2204944 | 12818 | INSTALLED |  |  |  |  |  | land |
+| 1789571489085-me0lwx | 2026-09-16 11:11:29 | Phillip Monteiro | 789175 |  | 45 Whitefish Blvd, Amabel | 44.726266 | -81.270769 | J4824797 | J2204943 | 94417 | INSTALLED |  |  |  |  |  | land |
+| 1789571501617-jyzhkx | 2026-09-16 11:11:41 | Josue Vasquez | 841528 |  | 26 Killdeer Cres |  |  | J4830676 | J3983171 | 3704 | INSTALLED |  |  |  |  |  | land |
+| 1789571849036-v58x49 | 2026-09-16 11:17:29 | Quincy Orta | 787765 |  | 790 Pike Bay Rd, Wiarton, ON N0H 2T0, Canada | 44.870271 | -81.319284 | J4832592 | J3802921 | 25096 | INSTALLED |  |  |  |  |  | land |
+| 1789571895911-fh94ih | 2026-09-16 11:18:15 | Josue Vasquez | 843158 |  | 20 Killdeer Cres |  |  | J4830674 | J2199689 | 11115 | INSTALLED |  |  |  |  |  | land |
+| 1789571915323-5h8on6 | 2026-09-16 11:18:35 | Phillip Monteiro | 791530 |  | 48 Whitefish Blvd, Amabel | 44.725954 | -81.271266 | J4824794 | J2053182 | 55131 | INSTALLED |  |  |  |  |  | land |
+| 1789572385242-7p5u7v | 2026-09-16 11:26:25 | Phillip Monteiro | 791710 |  | 51 Whitefish Blvd, Amabel | 44.725746 | -81.270478 | J4824813 | J3989399 | 10782 | INSTALLED |  |  |  |  |  | land |
+| 1789572612449-qbilvy | 2026-09-16 11:30:12 | Josue Vasquez | 844030 |  | 18 Killdeer Cres |  |  | J4830718 | J4452666 | 10752 | INSTALLED |  |  |  |  |  | land |
+| 1789572781693-8vmpmm | 2026-09-16 11:33:01 | Quincy Orta | 795769 |  | 15 Bell Dr, Mar, ON N0H 1X0, Canada | 44.869457 | -81.317741 | J4832587 | J3358257 | 88407 | INSTALLED |  |  |  |  |  | land |
+| 1789572976569-ua7bt0 | 2026-09-16 11:36:16 | Phillip Monteiro | 799683 |  | 31 Montrose St, Amabel | 44.725804 | -81.273585 | J4824796 | J3698633 | 15433 | INSTALLED |  |  |  |  |  | land |
+| 1789573788080-0cetbp | 2026-09-16 11:49:48 | Josue Vasquez | 843643 |  | 14 Killdeer Cres |  |  | J4830719 | J2199671 | 82420 | INSTALLED |  |  |  |  |  | land |
+| 1789573993059-37n5l8 | 2026-09-16 11:53:13 | Quincy Orta | 792680 |  | 37 Bell Dr, Wiarton, ON N0H 2T0, Canada | 44.867664 | -81.317028 | J4832588 | J2375872 | 95921 | INSTALLED |  |  |  |  |  | land |
+| 1789574493741-wx4f65 | 2026-09-16 12:01:33 | Josue Vasquez | 845649 |  | 12 Killdeer Cres |  |  | J4830720 |  | 56030 | INSTALLED |  |  |  |  |  | land |
+| 1789574566383-nw8pid | 2026-09-16 12:02:46 | Quincy Orta | 794973 |  | 38 Bell Dr, Wiarton, ON N0H 2T0, Canada | 44.867254 | -81.317545 | J4832589 | J3399117 | 40518 | INSTALLED |  |  |  |  |  | land |
+| 1789574989478-c2ppxi | 2026-09-16 12:09:49 | Quincy Orta | 795954 |  | 29 Bell Dr, Wiarton | 44.868037 | -81.317502 | J4832586 | J2376598 | 20349 | INSTALLED |  |  |  |  |  | land |
+| 1789575075578-2dwtzm | 2026-09-16 12:11:15 | Phillip Monteiro | 786287 |  | 18 Whitefish Blvd, Wiarton, ON N0H 2T0, Canada | 44.727759 | -81.27352 |  |  |  | UTI | No Access | Bell comms tower, key required |  |  |  | land |
+| 1789575585221-4gx21q | 2026-09-16 12:19:45 | Phillip Monteiro | 791609 |  | 111 Bay St, Wiarton, ON N0H 2T0, Canada | 44.724948 | -81.276223 | J4824810 | J2590027 | 12602 | INSTALLED |  |  |  |  |  | land |
+| 1789575680531-koot30 | 2026-09-16 12:21:20 | Quincy Orta | 788512 |  | 27 Bell Dr, Wiarton, ON N0H 2T0, Canada | 44.868517 | -81.317725 | J4806873 | J2376599 | 73438 | INSTALLED |  |  |  |  |  | land |
+| 1789575921092-ut8l2s | 2026-09-16 12:25:21 | Josue Vasquez | 844954 |  | 15 Killdeer Cres |  |  | J4830721 | J4196841 | 12279 | INSTALLED |  |  |  |  |  | land |
+| 1789576142838-z8avvy | 2026-09-16 12:29:02 | Josue Vasquez | 844530 |  | 20 Cardinal St |  |  | J4829822 | J2199074 | 76962 | INSTALLED |  |  |  |  |  | land |
+| 1789576494151-f6ruej | 2026-09-16 12:34:54 | Quincy Orta | 789377 |  | 16 Bell Dr, Wiarton, ON N0H 2T0, Canada | 44.869057 | -81.31855 | J4806871 | J2376612 | 2070 | INSTALLED |  |  |  |  |  | land |
+| 1789576865970-oeeot6 | 2026-09-16 12:41:05 | Phillip Monteiro | 787849 |  | 11 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.71585 | -81.283356 | J4751777 | J2204450 | 72675 | INSTALLED |  |  |  |  |  | land |
+| 1789577229472-3camga | 2026-09-16 12:47:09 | Quincy Orta | 787616 |  | 6 Sand Dune Rd, Wiarton, ON N0H 2T0, Canada | 44.870876 | -81.319032 | J4806872 | J4206574 | 255 | INSTALLED |  |  |  |  |  | land |
+| 1789577406359-97vpdb | 2026-09-16 12:50:06 | Phillip Monteiro | 787351 |  | 15 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715688 | -81.283331 | J4751778 | J3462761 | 8874 | INSTALLED |  |  |  | 51931 |  | land |
+| 1789577753473-i5ona9 | 2026-09-16 12:55:53 | Phillip Monteiro | 790285 |  | 17 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715395 | -81.283846 | J4824795 | J3236302 | 77947 | INSTALLED |  |  |  |  |  | land |
+| 1789578043521-zx37uw | 2026-09-16 13:00:43 | Phillip Monteiro | 791655 |  | 23 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715223 | -81.284014 | J4751779 | J2589313 | 23652 | INSTALLED |  |  |  |  |  | land |
+| 1789578313954-kfgq0e | 2026-09-16 13:05:13 | Quincy Orta | 787663 |  | 11 Sand Dune Rd, Wiarton | 44.871427 | -81.319584 | J4806869 | J2375150 | 43449 | INSTALLED |  |  |  |  |  | land |
+| 1789578704807-im28dr | 2026-09-16 13:11:44 | Quincy Orta | 794763 |  | 12 Sand Dune Rd, Wiarton, ON N0H 2T0, Canada | 44.871345 | -81.319256 | J4806866 | J2375149 | 23347 | INSTALLED |  |  |  |  |  | land |
+| 1789579837040-51zhp1 | 2026-09-16 13:30:37 | Quincy Orta | 786436 |  | 14 Sand Dune Rd, Wiarton, ON N0H 2T0, Canada | 44.871718 | -81.319417 | J4806867 | J3902307 | 4220 | INSTALLED |  |  |  |  |  | land |
+| 1789580239983-qj4sqa | 2026-09-16 13:37:19 | Quincy Orta | 798408 |  | 1 Floods Dr, Mar, ON N0H 1X0, Canada | 44.871662 | -81.319879 | J4827760 | J2375153 | 31052 | INSTALLED |  |  |  |  |  | land |
+| 1789580800902-zpcrgj | 2026-09-16 13:46:40 | Josue Vasquez | 839670 |  | 8 Killdeer Cres |  |  | J4829825 | J3555274 | 84204 | INSTALLED |  |  |  |  |  | land |
+| 1789581661135-lcvmya | 2026-09-16 14:01:01 | Quincy Orta | 799617 |  | 775 Pike Bay Rd, Mar, ON N0H 1X0, Canada | 44.870658 | -81.317348 | J4832591 | J2375138 | 6649 | INSTALLED |  |  |  |  |  | land |
+| 1789581748703-4jz986 | 2026-09-16 14:02:28 | Josue Vasquez | 843821 |  | 10 Killdeer Cres |  |  | J4829824 | J2206429 | 69146 | INSTALLED |  |  |  |  |  | land |
+| 1789582023551-6ky4lp | 2026-09-16 14:07:03 | Josue Vasquez | 844794 |  | 11 Killdeer Cres |  |  | J4829823 | J4437207 | 1937 | INSTALLED |  |  |  |  |  | land |
+| 1789582059980-xzt3f9 | 2026-09-16 14:07:39 | Quincy Orta | 787099 |  | 778 Pike Bay Rd, Wiarton, ON N0H 2T0, Canada | 44.871118 | -81.318207 | J4806868 | J4236198 | 9020 | INSTALLED |  |  |  |  |  | land |
+| 1789582453630-gfv1dc | 2026-09-16 14:14:13 | Josue Vasquez | 839621 |  | 6 Killdeer Cres |  |  | J4743867 | J2206432 | 76892 | INSTALLED |  |  |  |  |  | land |
+| 1789582514578-5779ir | 2026-09-16 14:15:14 | Quincy Orta | 796223 |  | 180 Sutter Rd, Wiarton, ON N0H 2T0, Canada | 44.87143 | -81.316958 | J4832590 | J3456635 | 32388 | INSTALLED |  |  |  |  | Y | land |
+| 1789582918550-04o0e5 | 2026-09-16 14:21:58 | Josue Vasquez | 844546 |  | 7 Killdeer Cres |  |  | J4743868 | J3555302 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789582969966-y2kpzg | 2026-09-16 14:22:49 | Quincy Orta | 790844 |  | 179 Sutter Rd, Wiarton | 44.870985 | -81.31657 | J4832593 | J4412341 | 13214 | INSTALLED |  |  |  |  |  | land |
+| 1789583769443-7kqjz0 | 2026-09-16 14:36:09 | Quincy Orta | 785541 |  | 176 Sutter Rd, Wiarton, ON N0H 2T0, Canada | 44.871614 | -81.316029 | J4827759 | J2590633 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789584088149-juj7dn | 2026-09-16 14:41:28 | Quincy Orta | 786415 |  | 175 Sutter Rd, Mar, ON N0H 1X0, Canada | 44.871183 | -81.31545 | J4827761 | J3180021 | 28634 | INSTALLED |  |  |  |  |  | land |
+| 1789584165325-gzosex | 2026-09-16 14:42:45 | Josue Vasquez | 839561 |  | 41 Killdeer Cres |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789584568841-xe60em | 2026-09-16 14:49:28 | Quincy Orta | 796515 |  | 174 Sutter Rd, Wiarton | 44.871774 | -81.315792 | J4827758 | J2590841 | 5151 | INSTALLED |  |  |  |  |  | land |
+| 1789584979411-gwwhem | 2026-09-16 14:56:19 | Josue Vasquez | 842129 |  | 1 Bluejay Crt |  |  | J4743869 | J3793712 | 37977 | INSTALLED |  |  |  |  |  | land |
+| 1789585247485-lq17ek | 2026-09-16 15:00:47 | Josue Vasquez | 843784 |  | 3 Bluejay Crt |  |  | J4743871 | J2199451 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789587584323-stdhlg | 2026-09-16 15:39:44 | Josue Vasquez | 844547 |  | 1004 TRLR - Bruce Rd 4 |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789588130665-8kfa6p | 2026-09-16 15:48:50 | Josue Vasquez | 839682 |  | 5 Bluejay Crt |  |  | J4829833 | J2199452 | 51438 | INSTALLED |  |  |  |  |  | land |
+| 1789588502676-q2bdzd | 2026-09-16 15:55:02 | Josue Vasquez | 839691 |  | 7 Bluejay Crt |  |  | J4829830 | J3659884 | 58563 | INSTALLED |  |  |  |  |  | land |
+| 1789589386961-p7i26w | 2026-09-16 16:09:46 | Josue Vasquez | 841494 |  | 9 Bluejay Crt |  |  | J4829831 | J4005817 | 22649 | INSTALLED |  |  |  |  |  | land |
+| 1789589769061-kj19vw | 2026-09-16 16:16:09 | Josue Vasquez | 844004 |  | 11 Bluejay Crt |  |  | J4829832 | J3973363 | 18210 | INSTALLED |  |  |  |  |  | land |
+| 1789590449826-9n4jup | 2026-09-16 16:27:29 | Josue Vasquez | 841488 |  | 15 Bluejay Crt |  |  | J4829826 | J2199604 | 146 | INSTALLED |  |  |  |  |  | land |
+| 1789590826244-e0kb1m | 2026-09-16 16:33:46 | Josue Vasquez | 842983 |  | 13 Bluejay Crt |  |  | J4829827 | J2199597 | 99991 | INSTALLED |  |  |  |  |  | land |
