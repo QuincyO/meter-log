@@ -1,6 +1,6 @@
 # Stops
 
-_2170 rows · exported 2026-09-17 03:52 America/Toronto_
+_2237 rows · exported 2026-09-18 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2174,3 +2174,70 @@ _2170 rows · exported 2026-09-17 03:52 America/Toronto_
 | 1789589769061-kj19vw | 2026-09-16 16:16:09 | Josue Vasquez | 844004 |  | 11 Bluejay Crt |  |  | J4829832 | J3973363 | 18210 | INSTALLED |  |  |  |  |  | land |
 | 1789590449826-9n4jup | 2026-09-16 16:27:29 | Josue Vasquez | 841488 |  | 15 Bluejay Crt |  |  | J4829826 | J2199604 | 146 | INSTALLED |  |  |  |  |  | land |
 | 1789590826244-e0kb1m | 2026-09-16 16:33:46 | Josue Vasquez | 842983 |  | 13 Bluejay Crt |  |  | J4829827 | J2199597 | 99991 | INSTALLED |  |  |  |  |  | land |
+| 1789651398083-1ckddm | 2026-09-17 09:23:18 | Josue Vasquez | 843863 |  | 16 Bluejay Crt |  |  | J4829828 | J3715734 | 87612 | INSTALLED |  |  |  |  |  | land |
+| 1789651771102-0dh3gf | 2026-09-17 09:29:31 | Josue Vasquez | 841218 |  | 25 Cardinal St |  |  | J4829829 | J2199021 | 30041 | INSTALLED |  |  |  |  |  | land |
+| 1789652306255-1xtpcz | 2026-09-17 09:38:26 | Josue Vasquez | 839394 |  | 18 Bluejay Crt |  |  | J4835502 | J3237956 | 82194 | INSTALLED |  |  |  |  |  | land |
+| 1789652771046-gtqe3h | 2026-09-17 09:46:11 | Josue Vasquez | 844979 |  | 17 Cardinal St |  |  | J4835503 | J3872611 | 25498 | INSTALLED |  |  |  |  |  | land |
+| 1789653205681-4cygkh | 2026-09-17 09:53:25 | Josue Vasquez | 840583 |  | 19 Cardinal St |  |  | J4835504 | J2199023 | 72882 | INSTALLED |  |  |  |  |  | land |
+| 1789654543610-5vvqcm | 2026-09-17 10:15:43 | Josue Vasquez | 841091 |  | 1004 County rd 4 |  |  |  | J2199025 |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789654855826-dmfsnr | 2026-09-17 10:20:55 | Josue Vasquez | 843998 |  | 21 Bluejay Crt |  |  | J4835505 | J2199600 | 54893 | INSTALLED |  |  |  |  |  | land |
+| 1789655144249-73lmk9 | 2026-09-17 10:25:44 | Quincy Orta | 794724 |  | 996 Sunset Dr, South Bruce Peninsula | 44.855879 | -81.329456 | J4836075 | J2588886 | 45842 | INSTALLED |  |  |  |  |  | land |
+| 1789655676060-iz5jra | 2026-09-17 10:34:36 | Josue Vasquez | 840530 |  | 19 Bluejay Crt |  |  | J4835506 | J2199599 | 93537 | INSTALLED |  |  |  |  |  | land |
+| 1789655850452-9se4a3 | 2026-09-17 10:37:30 | Quincy Orta | 796024 |  | 982 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.856927 | -81.32895 | J4836076 | J3753614 | 32888 | INSTALLED |  |  |  |  |  | land |
+| 1789656310940-a84sze | 2026-09-17 10:45:10 | Josue Vasquez | 842707 |  | 17 Bluejay Crt |  |  | J4835507 | J4227480 | 13250 | INSTALLED |  |  |  |  |  | land |
+| 1789656353142-joiwkr | 2026-09-17 10:45:53 | Quincy Orta | 786757 |  | 976 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.857513 | -81.329734 | J4836074 | J2589026 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789656620788-pefn4i | 2026-09-17 10:50:20 | Phillip Monteiro | 791266 |  | 3 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.716183 | -81.282691 | J4751776 | J2204451 | 22714 | INSTALLED |  |  |  |  |  | land |
+| 1789656666326-exunk0 | 2026-09-17 10:51:06 | Quincy Orta | 787567 |  | 974 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.857719 | -81.329212 | J4836077 | J2589025 | 68621 | INSTALLED |  |  |  |  |  | land |
+| 1789656983906-1xsyvt | 2026-09-17 10:56:23 | Phillip Monteiro | 793821 |  | 9 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715976 | -81.282943 | J4836130 | J2204363 | 15850 | INSTALLED |  |  |  |  |  | land |
+| 1789657469780-ifyqkj | 2026-09-17 11:04:29 | Quincy Orta | 786957 |  | 970 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.858117 | -81.329428 | J4836084 | J2589024 | 49783 | INSTALLED |  |  |  |  |  | land |
+| 1789657529047-ct3lxx | 2026-09-17 11:05:29 | Phillip Monteiro | 798441 |  | 24 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715824 | -81.284411 | J4836133 | J2589311 | 20773 | INSTALLED |  |  |  |  |  | land |
+| 1789657834520-x0qkm9 | 2026-09-17 11:10:34 | Phillip Monteiro | 793773 |  | 25 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715151 | -81.284359 | J4836139 | J2589314 | 40507 | INSTALLED |  |  |  |  |  | land |
+| 1789658207291-zoauto | 2026-09-17 11:16:47 | Phillip Monteiro | 792367 |  | 29 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715352 | -81.284818 | J4836140 | J2589315 | 16072 | INSTALLED |  |  |  |  |  | land |
+| 1789658613843-270mvb | 2026-09-17 11:23:33 | Phillip Monteiro | 789211 |  | 30 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715897 | -81.284815 | J4836132 | J3101930 | 67013 | INSTALLED |  |  |  |  |  | land |
+| 1789659067096-g6g1rl | 2026-09-17 11:31:07 | Phillip Monteiro | 787894 |  | 31 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715406 | -81.285173 | J4836141 | J2204449 | 91057 | INSTALLED |  |  |  |  |  | land |
+| 1789659267038-pn9sfg | 2026-09-17 11:34:27 | Phillip Monteiro | 785599 |  | 35 Lonely Island Dr, Amabel | 44.715504 | -81.285178 | J4836131 | J2589620 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789659317475-a7s2ur | 2026-09-17 11:35:17 | Quincy Orta | 786911 |  | 968 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.858191 | -81.329904 | J4836082 | J2589023 | 34992 | INSTALLED |  |  |  |  |  | land |
+| 1789660088465-aq6pdj | 2026-09-17 11:48:08 | Josue Vasquez | 843046 |  | 23 Bluejay Crt |  |  | J4835508 | J3902193 | 43911 | INSTALLED |  |  |  |  |  | land |
+| 1789660631223-en4lo3 | 2026-09-17 11:57:11 | Josue Vasquez | 843996 |  | 27 Bluejay Crt |  |  | J4835509 | J3614110 | 56938 | INSTALLED |  |  |  |  |  | land |
+| 1789660741508-owe2h3 | 2026-09-17 11:59:01 | Quincy Orta | 787642 |  | 966 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.858836 | -81.329774 | J4836085 | J3126332 | 28398 | INSTALLED |  |  |  |  |  | land |
+| 1789661211486-n13neg | 2026-09-17 12:06:51 | Quincy Orta | 790392 |  | 956 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.859758 | -81.329403 | J4836083 | J3362934 | 81084 | INSTALLED |  |  |  |  |  | land |
+| 1789661902562-8kjazx | 2026-09-17 12:18:22 | Phillip Monteiro | 793854 |  | 37 Lonely Island Dr, Amabel | 44.715852 | -81.286129 |  |  |  | UTI | No Access | Meter blocked by tree |  |  |  | land |
+| 1789661565518-d6d9ry | 2026-09-17 12:12:45 | Josue Vasquez | 840498 |  | 22 Bluejay Crt |  |  | J4835282 | J2199020 | 72088 | INSTALLED |  |  |  |  |  | land |
+| 1789662079444-umfypd | 2026-09-17 12:21:19 | Josue Vasquez | 844692 |  | 21 Cardinal St |  |  | J4835283 | J3620721 | 35688 | INSTALLED |  |  |  |  |  | land |
+| 1789662315817-z57z5c | 2026-09-17 12:25:15 | Quincy Orta | 798401 |  | 944 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.86022 | -81.328987 | J4836079 | J3362937 | 56363 | INSTALLED |  |  |  |  |  | land |
+| 1789662371462-0b2ucw | 2026-09-17 12:26:11 | Phillip Monteiro | 791344 |  | 42 Lonely Island Dr, Amabel | 44.715676 | -81.285481 | J4836145 | J2053168 | 4160 | INSTALLED |  |  |  |  |  | land |
+| 1789662500689-dwr8kg | 2026-09-17 12:28:20 | Josue Vasquez | 843398 |  | 29 Bluejay Crt |  |  | J4835284 | J2199031 | 33095 | INSTALLED |  |  |  |  |  | land |
+| 1789662938049-vsty6a | 2026-09-17 12:35:38 | Josue Vasquez | 842776 |  | 23 Cardinal St |  |  | J4835285 | J4159174 |  | INSTALLED |  |  |  |  |  | land |
+| 1789662969751-pmhh70 | 2026-09-17 12:36:09 | Phillip Monteiro | 787872 |  | 43 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.715935 | -81.286328 | J4836142 | J2589621 | 48116 | INSTALLED |  |  |  |  |  | land |
+| 1789663306769-wg2i4u | 2026-09-17 12:41:46 | Phillip Monteiro | 789087 |  | 47 Lonely Island Dr, Amabel | 44.716013 | -81.286259 | J4836138 | J4023287 | 93879 | INSTALLED |  |  |  |  |  | land |
+| 1789663530382-vr5f8g | 2026-09-17 12:45:30 | Josue Vasquez | 844917 |  | 31 Bluejay Crt |  |  | J4835302 | J3764620 | 46945 | INSTALLED |  |  |  |  |  | land |
+| 1789663736299-1poypp | 2026-09-17 12:48:56 | Phillip Monteiro | 791839 |  | 53 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.71654 | -81.286632 | J4836143 | J2589623 | 42618 | INSTALLED |  |  |  |  |  | land |
+| 1789664064138-zc78ra | 2026-09-17 12:54:24 | Quincy Orta | 791717 |  | 942 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.860476 | -81.32893 | J4836078 | J3979775 | 12710 | INSTALLED |  |  |  |  |  | land |
+| 1789664767551-kkm73s | 2026-09-17 13:06:07 | Phillip Monteiro | 797848 |  | 58 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.716807 | -81.285244 | J4836144 | J2224108 | 9298 | INSTALLED |  |  |  |  |  | land |
+| 1789664771992-bd5dmv | 2026-09-17 13:06:11 | Quincy Orta | 789641 |  | 938 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.860991 | -81.328841 | J4836081 | J3362936 | 31542 | INSTALLED |  |  |  |  |  | land |
+| 1789665267272-k4i6jy | 2026-09-17 13:14:27 | Quincy Orta | 791357 |  | 939 Sunset Dr, South Bruce Peninsula, ON N0H 2T0, Canada | 44.860709 | -81.327599 | J4836080 | J3668523 | 49160 | INSTALLED |  |  |  |  |  | land |
+| 1789665461171-8kjpgn | 2026-09-17 13:17:41 | Phillip Monteiro | 791517 |  | 62 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.716759 | -81.284875 | J4836137 | J2052851 | 26313 | INSTALLED |  |  |  |  |  | land |
+| 1789666078159-qs90na | 2026-09-17 13:27:58 | Phillip Monteiro | 792594 |  | 59 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.71684 | -81.286585 | J4836134 | J4203874 | 9325 | INSTALLED |  |  |  |  |  | land |
+| 1789666404495-r9l937 | 2026-09-17 13:33:24 | Phillip Monteiro | 786784 |  | 70 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.716902 | -81.284787 | J4832659 | J2589626 | 2057 | INSTALLED |  |  |  |  |  | land |
+| 1789666537533-4w9apr | 2026-09-17 13:35:37 | Quincy Orta | 795809 |  | 926 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.861864 | -81.328458 | J4836096 | J2588987 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789666892270-79enyg | 2026-09-17 13:41:32 | Quincy Orta | 790662 |  | 934 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.861635 | -81.328584 | J4836095 | J4231013 | 2397 | INSTALLED |  |  |  |  |  | land |
+| 1789667005991-58bbzt | 2026-09-17 13:43:25 | Phillip Monteiro | 799613 |  | 71 Lonely Island Dr, Amabel | 44.717389 | -81.285048 | J4832658 | J2589625 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789667334206-qrwi57 | 2026-09-17 13:48:54 | Phillip Monteiro | 792116 |  | 75 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.717269 | -81.284778 | J4832661 | J3187108 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1789667422024-h297ch | 2026-09-17 13:50:22 | Josue Vasquez | 843413 |  | 27 Cardinal St |  |  | J4835303 | J2199061 | 88017 | INSTALLED |  |  |  |  |  | land |
+| 1789667670941-g0699n | 2026-09-17 13:54:30 | Phillip Monteiro | 796183 |  | 79 Lonely Island Dr, Amabel | 44.717409 | -81.284306 | J4836135 | J2589628 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789668136602-strrl7 | 2026-09-17 14:02:16 | Phillip Monteiro | 785474 |  | 82 Lonely Island Dr, Wiarton, ON N5R 3J2, Canada | 44.716224 | -81.283841 | J4836136 | J2589310 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789668508130-zo0sio | 2026-09-17 14:08:28 | Quincy Orta | 788642 |  | 920 Sunset Dr, South Bruce Peninsula | 44.862471 | -81.327161 | J4836094 | J2603572 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789668748049-5bgp9u | 2026-09-17 14:12:28 | Quincy Orta | 789470 |  | 918 Sunset Dr, South Bruce Peninsula | 44.862654 | -81.327254 | J4836097 | J2603574 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789668799504-8f4mw4 | 2026-09-17 14:13:19 | Josue Vasquez | 842237 |  | 1004 Bruce Rd 4, Walkerton |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789669612260-da9xdq | 2026-09-17 14:26:52 | Josue Vasquez | 844550 |  | Lotpt64 concession 1 |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789669716655-1l8zzj | 2026-09-17 14:28:36 | Quincy Orta | 791689 |  | 916 Sunset Dr, South Bruce Peninsula | 44.862872 | -81.32733 | J4824781 | J2073138 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789670080344-v3moym | 2026-09-17 14:34:40 | Quincy Orta | 786408 |  | 912 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.863083 | -81.327038 | J4824779 | J2588985 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789670166408-lunny4 | 2026-09-17 14:36:06 | Josue Vasquez | 839908 |  | 9 Cardinal St |  |  | J4835304 | J2198969 | 1259 | INSTALLED |  |  |  |  |  | land |
+| 1789670660840-b629re | 2026-09-17 14:44:20 | Quincy Orta | 795914 |  | 144 Sutter Rd, Wiarton, ON N0H 2T0, Canada | 44.872632 | -81.312234 | J4824780 | J2590842 | 50248 | INSTALLED |  |  |  |  |  | land |
+| 1789671126822-zcy7ah | 2026-09-17 14:52:06 | Quincy Orta | 795773 |  | 140 Sutter Rd, Wiarton, ON N0H 2T0, Canada | 44.872717 | -81.311957 | J4824778 | J2590843 | 40437 | INSTALLED |  |  |  |  |  | land |
+| 1789671502435-d47ftg | 2026-09-17 14:58:22 | Josue Vasquez | 844035 |  | 1004 Hwy 4 |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1789673352265-k448um | 2026-09-17 15:29:12 | Josue Vasquez | 844586 |  | 995 Bruce Rd 4, Brockton |  |  | J4835305 | J2199014 | 4718 | INSTALLED |  |  |  |  |  | land |
+| 1789674310769-4h9qe2 | 2026-09-17 15:45:10 | Josue Vasquez | 844798 |  | 1003 Bruce Rd 4, Brockton |  |  | J4835498 | J2199006 | 93698 | INSTALLED |  |  |  |  |  | land |
+| 1789674876970-ds8ow7 | 2026-09-17 15:54:36 | Josue Vasquez | 841414 |  | 1005 Bruce Rd 4, Brockton |  |  | J4835499 | J2199007 | 2711 | INSTALLED |  |  |  |  |  | land |
+| 1789675599533-sl9xsh | 2026-09-17 16:06:39 | Josue Vasquez | 843518 |  | 1015 Bruce Rd 4, Brockton |  |  | J4835500 | J3717196 | 93287 | INSTALLED |  |  |  |  |  | land |
+| 1789678611967-j6umba | 2026-09-17 16:56:51 | Josue Vasquez | 841412 |  | 1017 Bruce Rd 4, Brockton |  |  |  |  |  | UTI | Unsafe Conditions |  |  |  |  | land |

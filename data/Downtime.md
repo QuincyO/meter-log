@@ -1,6 +1,6 @@
 # Downtime
 
-_525 rows · exported 2026-09-17 03:52 America/Toronto_
+_539 rows · exported 2026-09-18 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -529,3 +529,17 @@ _525 rows · exported 2026-09-17 03:52 America/Toronto_
 | 1789588303684-jz8lbg | 2026-09-16 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 787765 | gap 11:17–11:17 |  |
 | 1789588303684-dayy5b | 2026-09-16 12:00:00 | Quincy Orta | DISPATCH | 60 | 787765 | gap 11:17–11:17 |  |
 | 1789588303684-mbpghx | 2026-09-16 12:00:00 | Quincy Orta | CELL_SIGNAL | 30 | 787765 | gap 11:17–11:17 |  |
+| 1789651560585-lg11zd | 2026-09-17 09:26:00 | Josue Vasquez | NEXT_GEN | 22 | 843863 |  | land |
+| 1789660084751-snw141 | 2026-09-17 11:48:04 | Josue Vasquez | NEXT_GEN | 15 | 843046 |  | land |
+| 1789673343073-gi2fem | 2026-09-17 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 791266 | gap 10:50–10:50 |  |
+| 1789673343073-n28d1g | 2026-09-17 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 791266 | gap 10:50–10:50 |  |
+| 1789673343073-r8j0ss | 2026-09-17 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 791266 | gap 10:50–10:50 |  |
+| 1789673343073-bycj10 | 2026-09-17 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 791266 | gap 10:50–10:50 |  |
+| 1789673343073-6k7ciw | 2026-09-17 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 15 | 793854 | gap 11:34–12:18 |  |
+| 1789673343073-hd6d3e | 2026-09-17 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 785474 | gap 13:54–14:02 |  |
+| 1789673346763-7zb6zk | 2026-09-17 15:29:06 | Josue Vasquez | BAD_WEATHER | 19 | 844586 |  | land |
+| 1789674457975-ap8nf1 | 2026-09-17 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 794724 | gap 10:25–10:25 |  |
+| 1789674457977-h5jch6 | 2026-09-17 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 794724 | gap 10:25–10:25 |  |
+| 1789674457977-ob7s6f | 2026-09-17 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 794724 | gap 10:25–10:25 |  |
+| 1789674457977-5ovb8z | 2026-09-17 12:00:00 | Quincy Orta | DISPATCH | 60 | 794724 | gap 10:25–10:25 |  |
+| 1789675595939-1qhroq | 2026-09-17 16:06:35 | Josue Vasquez | BAD_WEATHER | 9 | 843518 |  | land |

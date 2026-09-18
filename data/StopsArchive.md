@@ -1,6 +1,6 @@
 # StopsArchive
 
-_20 rows · exported 2026-09-17 03:52 America/Toronto_
+_22 rows · exported 2026-09-18 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -24,3 +24,5 @@ _20 rows · exported 2026-09-17 03:52 America/Toronto_
 | 1789396640513-xhp2m2 | 2026-09-14 10:37:20 | Phillip Monteiro | 802466 |  | 91 Golden Pond Dr, Amabel | 44.602335 | -81.190333 | J4751768 | J4065774 | 31588 | INSTALLED |  |  |  | 18720 |  | land | 2026-09-14 10:40:17 | Phillip Monteiro | reset order |
 | 1789575036955-c021i3 | 2026-09-16 12:10:36 | Josue Vasquez | 843821 |  | 10 Killdeer Cres |  |  | J4829822 | J2199074 | 76962 | INSTALLED |  |  |  |  |  | land | 2026-09-16 12:28:18 | Josue Vasquez | reset order |
 | 1789581577728-951y11 | 2026-09-16 13:59:37 | Quincy Orta | 787099 |  | 778 Pike Bay Rd, Wiarton | 44.870671 | -81.31734 | J4832591 | J2375138 | 6649 | INSTALLED |  |  |  |  |  | land | 2026-09-16 14:00:30 | Quincy Orta | reset order |
+| 1789668421044-g2bsfv | 2026-09-17 14:07:01 | Quincy Orta | 789470 |  | 918 Sunset Dr, Mar, ON N0H 1X0, Canada | 44.862461 | -81.327174 | J4836094 | J2603572 |  | INSTALLED |  |  | Missing segments |  |  | land | 2026-09-17 14:08:03 | Quincy Orta | reset order |
+| 1789669518517-x9xbjs | 2026-09-17 14:25:18 | Josue Vasquez | 839908 |  | 9 Cardinal St |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land | 2026-09-17 14:26:14 | Josue Vasquez | reset order |
