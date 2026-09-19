@@ -1,6 +1,6 @@
 # Stops
 
-_2237 rows · exported 2026-09-18 03:52 America/Toronto_
+_2267 rows · exported 2026-09-19 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2241,3 +2241,33 @@ _2237 rows · exported 2026-09-18 03:52 America/Toronto_
 | 1789674876970-ds8ow7 | 2026-09-17 15:54:36 | Josue Vasquez | 841414 |  | 1005 Bruce Rd 4, Brockton |  |  | J4835499 | J2199007 | 2711 | INSTALLED |  |  |  |  |  | land |
 | 1789675599533-sl9xsh | 2026-09-17 16:06:39 | Josue Vasquez | 843518 |  | 1015 Bruce Rd 4, Brockton |  |  | J4835500 | J3717196 | 93287 | INSTALLED |  |  |  |  |  | land |
 | 1789678611967-j6umba | 2026-09-17 16:56:51 | Josue Vasquez | 841412 |  | 1017 Bruce Rd 4, Brockton |  |  |  |  |  | UTI | Unsafe Conditions |  |  |  |  | land |
+| 1789735928660-131qto | 2026-09-18 08:52:08 | Phillip Monteiro | 791082 |  | 73 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.734499 | -81.274636 | J4836129 | J2244376 | 62336 | INSTALLED |  |  |  |  |  | land |
+| 1789736299547-m8cukw | 2026-09-18 08:58:19 | Phillip Monteiro | 791332 |  | 80 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.734909 | -81.276205 | J4836127 | J3925744 | 70938 | INSTALLED |  |  |  |  |  | land |
+| 1789736780719-6icd0q | 2026-09-18 09:06:20 | Quincy Orta | 793186 |  | 70 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.734199 | -81.276199 | J4830906 | J2204920 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789736863129-aufnnu | 2026-09-18 09:07:43 | Phillip Monteiro | 797888 |  | 83 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.735451 | -81.274619 | J4832660 | J2204481 | 79918 | INSTALLED |  |  |  |  |  | land |
+| 1789737172823-mi46qd | 2026-09-18 09:12:52 | Josue Vasquez | 841539 |  | 1019 Bruce Rd 4, Brockton |  |  | J4835501 | J3125013 | 41437 | INSTALLED |  |  |  |  |  | land |
+| 1789737622620-2ketg6 | 2026-09-18 09:20:22 | Phillip Monteiro | 796174 |  | 84 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.735419 | -81.27551 | J4836126 | J2204935 | 30842 | INSTALLED |  |  |  |  |  | land |
+| 1789737686827-yeihmd | 2026-09-18 09:21:26 | Josue Vasquez | 840884 |  | 1021 Bruce Rd 4, Brockton |  |  | J4826662 | J2199005 | 77179 | INSTALLED |  |  |  |  |  | land |
+| 1789737994084-yvj13f | 2026-09-18 09:26:34 | Phillip Monteiro | 791864 |  | 91 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.73603 | -81.274611 | J4836128 | J2244387 | 91224 | INSTALLED |  |  |  |  |  | land |
+| 1789738397180-mbhc8t | 2026-09-18 09:33:17 | Quincy Orta | 791369 |  | 66 Boulton St, Wiarton | 44.733906 | -81.276239 | J4830908 | J4830908 | 31993 | INSTALLED |  |  |  |  |  | land |
+| 1789738498366-b9v05k | 2026-09-18 09:34:58 | Phillip Monteiro | 799556 |  | 92 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.735954 | -81.275397 | J4832423 | J2204488 | 31617 | INSTALLED |  |  |  |  |  | land |
+| 1789738528044-ip7foz | 2026-09-18 09:35:28 | Josue Vasquez | 844179 |  | 1023 Bruce Rd 4, Brockton |  |  | J4826663 | J4235261 | 2208 | INSTALLED |  |  |  |  |  | land |
+| 1789738827088-gw7swl | 2026-09-18 09:40:27 | Phillip Monteiro | 791102 |  | 99 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.736269 | -81.274445 | J4832419 | J2204487 | 23401 | INSTALLED |  |  |  |  |  | land |
+| 1789738842915-b3p4yt | 2026-09-18 09:40:42 | Quincy Orta | 796162 |  | 53 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.73322 | -81.274615 | J4830909 | J2204955 | 84928 | INSTALLED |  |  |  |  |  | land |
+| 1789739114428-abr22r | 2026-09-18 09:45:14 | Josue Vasquez | 844526 |  | 1029 Bruce Rd 4, Brockton |  |  | J4826664 | J2199001 | 96510 | INSTALLED |  |  |  |  |  | land |
+| 1789739356947-obyepe | 2026-09-18 09:49:16 | Phillip Monteiro | 798440 |  | 100 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.73638 | -81.275475 | J4832418 | J2053165 | 13355 | INSTALLED |  |  |  |  |  | land |
+| 1789739409359-jtw2kz | 2026-09-18 09:50:09 | Quincy Orta | 791127 |  | 44 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.732752 | -81.27613 | J4830907 | J2204922 | 52751 | INSTALLED |  |  |  |  |  | land |
+| 1789739797544-0eho33 | 2026-09-18 09:56:37 | Josue Vasquez | 844145 |  | 1031 Bruce Rd 4, Brockton |  |  | J4826665 | J2199002 | 20399 | INSTALLED |  |  |  |  |  | land |
+| 1789739831192-rc2goz | 2026-09-18 09:57:11 | Quincy Orta | 792465 |  | 44 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.732447 | -81.275482 | J4837221 | J2204956 | 69546 | INSTALLED |  |  |  |  |  | land |
+| 1789740018101-vjnech | 2026-09-18 10:00:18 | Phillip Monteiro | 795715 |  | 118 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.73783 | -81.275344 | J4832421 | J4158925 | 15023 | INSTALLED |  |  |  |  |  | land |
+| 1789740196238-jrzhh4 | 2026-09-18 10:03:16 | Quincy Orta | 791615 |  | 36 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.731823 | -81.275298 | J4837218 | J3738179 | 29422 | INSTALLED |  |  |  |  |  | land |
+| 1789740437770-pwvpcu | 2026-09-18 10:07:17 | Phillip Monteiro | 793035 |  | 169 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.741976 | -81.274548 | J4832420 | J4238163 | 18041 | INSTALLED |  |  |  |  |  | land |
+| 1789740650660-hsbx04 | 2026-09-18 10:10:50 | Quincy Orta | 787926 |  | 28 Boulton St, Wiarton | 44.731328 | -81.275863 | J4837219 | J4147907 | 33782 | INSTALLED |  |  |  |  |  | land |
+| 1789741330940-6itpol | 2026-09-18 10:22:10 | Quincy Orta | 792186 | 8 | 25 Boulton St, Wiarton | 44.731284 | -81.27392 |  | J2244375 |  | UTI | No Access | Customer needs to make meter accessible |  |  |  | land |
+| 1789743453204-54hccc | 2026-09-18 10:57:33 | Josue Vasquez | 839652 |  | 1030 Bruce Rd 4, Brockton |  |  | J4826626 | J3303133 | 38742 | INSTALLED |  |  |  |  |  | land |
+| 1789743972515-rchpse | 2026-09-18 11:06:12 | Quincy Orta | 797841 |  | 8 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.730063 | -81.275018 | J4830890 | J2204490 | 41397 | INSTALLED |  |  |  |  |  | land |
+| 1789743981226-iysaxs | 2026-09-18 11:06:21 | Josue Vasquez | 839525 |  | 1 Pleasure Valley rd |  |  | J4826627 | J2199003 | 44673 | INSTALLED |  |  |  |  |  | land |
+| 1789744501475-ef2nuf | 2026-09-18 11:15:01 | Josue Vasquez | 843566 |  | 5 Pleasure Valley rd |  |  | J4826628 | J3674903 | 62472 | INSTALLED |  |  |  |  |  | land |
+| 1789744551143-fjs8kh | 2026-09-18 11:15:51 | Quincy Orta | 796149 |  | 2 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.729665 | -81.274788 | J4837220 | J4487706 | 3376 | INSTALLED |  |  |  |  |  | land |
+| 1789745156140-4n71iy | 2026-09-18 11:25:56 | Josue Vasquez | 839873 |  | 7 Pleasure Valley rd |  |  | J4826629 | J2198954 | 38856 | INSTALLED |  |  |  |  |  | land |
+| 1789745670617-9rilgl | 2026-09-18 11:34:30 | Josue Vasquez | 844516 |  | 11 Pleasure Valley rd |  |  | J4826623 | J3896960 | 40153 | INSTALLED |  |  |  |  |  | land |

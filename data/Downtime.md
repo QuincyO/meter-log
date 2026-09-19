@@ -1,6 +1,6 @@
 # Downtime
 
-_539 rows · exported 2026-09-18 03:52 America/Toronto_
+_549 rows · exported 2026-09-19 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -543,3 +543,13 @@ _539 rows · exported 2026-09-18 03:52 America/Toronto_
 | 1789674457977-ob7s6f | 2026-09-17 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 794724 | gap 10:25–10:25 |  |
 | 1789674457977-5ovb8z | 2026-09-17 12:00:00 | Quincy Orta | DISPATCH | 60 | 794724 | gap 10:25–10:25 |  |
 | 1789675595939-1qhroq | 2026-09-17 16:06:35 | Josue Vasquez | BAD_WEATHER | 9 | 843518 |  | land |
+| 1789737169273-hvupde | 2026-09-18 09:12:49 | Josue Vasquez | TRAVEL_TIME | 11 | 841539 |  | land |
+| 1789746940979-v67iuh | 2026-09-18 12:00:00 | Phillip Monteiro | NEXT_GEN | 20 | 791082 | gap 08:52–08:52 |  |
+| 1789746940979-p5lyf9 | 2026-09-18 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 791082 | gap 08:52–08:52 |  |
+| 1789746940979-j7yzr7 | 2026-09-18 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 791082 | gap 08:52–08:52 |  |
+| 1789746940979-flway1 | 2026-09-18 12:00:00 | Phillip Monteiro | DISPATCH | 45 | 791082 | gap 08:52–08:52 |  |
+| 1789746940979-dc8gif | 2026-09-18 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 10 | 793035 | gap 10:00–10:07 |  |
+| 1789747430832-0rus96 | 2026-09-18 12:00:00 | Quincy Orta | NEXT_GEN | 10 | 793186 | gap 09:06–09:06 |  |
+| 1789747430832-3mmcne | 2026-09-18 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 793186 | gap 09:06–09:06 |  |
+| 1789747430832-s163be | 2026-09-18 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 793186 | gap 09:06–09:06 |  |
+| 1789747430832-2w5ds0 | 2026-09-18 12:00:00 | Quincy Orta | DISPATCH | 45 | 793186 | gap 09:06–09:06 |  |

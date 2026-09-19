@@ -1,6 +1,6 @@
 # Tracker
 
-_126 rows · exported 2026-09-18 03:52 America/Toronto_
+_128 rows · exported 2026-09-19 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -130,3 +130,5 @@ _126 rows · exported 2026-09-18 03:52 America/Toronto_
 | 2026-09-17 00:00:00 | Phillip Monteiro | 20 | 1 | 140 | 30 | 15 | 0 | 15 | 35 | 45 | 0 | 0 | 0 | 0 | Clear · W 10 km/h · 19°C |  | 0 | 0 |  | 169 |  | land |
 | 2026-09-17 00:00:00 | Quincy Orta | 20 | 0 | 120 | 30 | 0 | 0 | 15 | 15 | 60 | 0 | 0 | 0 | 0 | Clear · W 9 km/h · 19°C |  | 0 | 0 |  | 266 |  | land |
 | 2026-09-17 00:00:00 | Josue Vasquez | 21 | 5 | 65 | 37 | 0 | 28 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Overcast · S 23 km/h · 24°C |  | 0 | 0 |  | 454 |  | land |
+| 2026-09-18 00:00:00 | Phillip Monteiro | 10 | 0 | 105 | 20 | 0 | 0 | 15 | 25 | 45 | 0 | 0 | 0 | 0 | Partly cloudy · NE 15 km/h · 16°C | Stopped installs at 12 to be at work bbq for 1pm. | 0 | 0 |  | 67 |  | land |
+| 2026-09-18 00:00:00 | Josue Vasquez | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Overcast · SW 27 km/h · 24°C |  | 0 | 0 |  | 143 |  | land |
