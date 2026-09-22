@@ -1,6 +1,6 @@
 # Stops
 
-_2267 rows · exported 2026-09-21 03:52 America/Toronto_
+_2331 rows · exported 2026-09-22 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2271,3 +2271,67 @@ _2267 rows · exported 2026-09-21 03:52 America/Toronto_
 | 1789744551143-fjs8kh | 2026-09-18 11:15:51 | Quincy Orta | 796149 |  | 2 Boulton St, Wiarton, ON N0H 2T0, Canada | 44.729665 | -81.274788 | J4837220 | J4487706 | 3376 | INSTALLED |  |  |  |  |  | land |
 | 1789745156140-4n71iy | 2026-09-18 11:25:56 | Josue Vasquez | 839873 |  | 7 Pleasure Valley rd |  |  | J4826629 | J2198954 | 38856 | INSTALLED |  |  |  |  |  | land |
 | 1789745670617-9rilgl | 2026-09-18 11:34:30 | Josue Vasquez | 844516 |  | 11 Pleasure Valley rd |  |  | J4826623 | J3896960 | 40153 | INSTALLED |  |  |  |  |  | land |
+| 1789996890465-xtm2g7 | 2026-09-21 09:21:30 | Josue Vasquez | 844458 |  | 31 Pleasure Valley rd |  |  | J4826622 | J3214091 | 80465 | INSTALLED |  |  |  |  |  | land |
+| 1789998105382-18ci7t | 2026-09-21 09:41:45 | Josue Vasquez | 844040 |  | 1072 Bruce Rd 4, Brockton |  |  | J4826624 | J2206428 | 8798 | INSTALLED |  |  |  |  |  | land |
+| 1789998649907-05uz3s | 2026-09-21 09:50:49 | Josue Vasquez | 839575 |  | 1100 Bruce Rd 4, Brockton |  |  | J4826625 | J2774457 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1789998925283-a1ewrc | 2026-09-21 09:55:25 | Quincy Orta | 859178 |  | 14 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.304401 | -81.092671 | J4830910 | J3950328 | 34405 | INSTALLED |  |  |  |  |  | land |
+| 1789999292096-6nnt80 | 2026-09-21 10:01:32 | Quincy Orta | 859458 |  | 10 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.304063 | -81.092419 | J4830911 | J3466217 | 33947 | INSTALLED |  |  |  |  |  | land |
+| 1789999454974-03up6h | 2026-09-21 10:04:14 | Josue Vasquez | 839636 |  | 1108 Bruce Rd 4, Brockton |  |  | J4826618 | J2824145 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790000006654-1w5os4 | 2026-09-21 10:13:26 | Quincy Orta | 859293 |  | 6 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.303851 | -81.092482 | J4830913 | J2180156 | 97846 | INSTALLED |  |  |  |  |  | land |
+| 1790000178922-appolk | 2026-09-21 10:16:18 | Josue Vasquez | 843795 |  | 1151 Bruce Rd 4, Brockton |  |  | J4826619 | J2199749 | 11032 | INSTALLED |  |  |  |  |  | land |
+| 1790000395741-h03lfm | 2026-09-21 10:19:55 | Quincy Orta | 859584 |  | 2 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.303605 | -81.092411 | J4830912 | J2180154 | 44742 | INSTALLED |  |  |  |  |  | land |
+| 1790001118703-firmeh | 2026-09-21 10:31:58 | Quincy Orta | 857450 |  | 1 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.303636 | -81.092049 | J4836841 | J2180229 | 57214 | INSTALLED |  |  |  |  |  | land |
+| 1789998812356-1yhkp1 | 2026-09-21 09:53:32 | Phillip Monteiro | 857711 |  | 561689 Grey Rd 25 | 44.2984 | -80.986647 | J4832425 | J3968952 | 25540 | INSTALLED |  |  |  |  |  | land |
+| 1789999670693-kscraa | 2026-09-21 10:07:50 | Phillip Monteiro | 858279 |  | 561652 Grey Rd 25 | 44.29741 | -80.990997 | J4832424 | J3701291 | 43365 | INSTALLED |  |  |  |  |  | land |
+| 1790000280659-b9ssd3 | 2026-09-21 10:18:00 | Phillip Monteiro | 857390 |  | 561703 Grey Rd 25 | 44.299214 | -80.984217 | J4836826 | J3124586 | 67501 | INSTALLED |  |  |  |  |  | land |
+| 1790000751877-mtnzvb | 2026-09-21 10:25:51 | Phillip Monteiro | 858929 |  | 561727 Grey Rd 25 | 44.299404 | -80.982418 | J4836829 | J3942978 | 18408 | INSTALLED |  |  |  |  |  | land |
+| 1790001407287-ao0ke1 | 2026-09-21 10:36:47 | Phillip Monteiro | 861175 |  | 561772 Grey Rd 25 | 44.299 | -80.97652 | J4832422 | J3776847 | 95473 | INSTALLED |  |  |  |  |  | land |
+| 1790001474582-9xop2r | 2026-09-21 10:37:54 | Quincy Orta | 858672 |  | 5 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.303884 | -81.092104 | J4836840 | J4227455 | 7723 | INSTALLED |  |  |  |  |  | land |
+| 1790001763436-o9e4ud | 2026-09-21 10:42:43 | Phillip Monteiro | 859481 |  | 561772 Grey Rd 25, West Grey, ON N0G 1L0, Canada | 44.298668 | -80.976572 | J4836828 | J4005811 | 13128 | INSTALLED |  |  |  |  |  | land |
+| 1790001794776-j0v5a7 | 2026-09-21 10:43:14 | Quincy Orta | 858085 |  | 9 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.30426 | -81.092189 | J4836839 | J3950319 | 64640 | INSTALLED |  |  |  |  |  | land |
+| 1790002028693-fpouaj | 2026-09-21 10:47:08 | Quincy Orta | 856773 |  | 13 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.3044 | -81.092199 | J4836838 | J4414316 | 18702 | INSTALLED |  |  |  |  |  | land |
+| 1790002361895-20cexd | 2026-09-21 10:52:41 | Josue Vasquez | 841265 |  | 201 Maple Hill Rd |  |  | J4826620 | J4161357 | 15808 | INSTALLED |  |  |  |  |  | land |
+| 1790002751876-fyaj1o | 2026-09-21 10:59:11 | Phillip Monteiro | 856137 |  | 562035 Grey Rd 25, Chatsworth, ON N0H 1K0, Canada | 44.301102 | -80.965309 | J4837891 | J4010943 | 47989 | INSTALLED |  |  |  |  |  | land |
+| 1790002992729-iwg06g | 2026-09-21 11:03:12 | Josue Vasquez | 843038 |  | 197 Maple Hill Rd |  |  | J4826621 | J3466229 | 48455 | INSTALLED |  |  |  |  |  | land |
+| 1790003247591-ozmvmy | 2026-09-21 11:07:27 | Quincy Orta | 859440 |  | 17 Martha Ave, Chesley | 44.304672 | -81.09227 | J4830898 | J2180226 | 43960 | INSTALLED |  |  |  |  |  | land |
+| 1790003438868-wkqvym | 2026-09-21 11:10:38 | Josue Vasquez | 844707 |  | 189 Maple Hill Rd |  |  | J4835510 | J2199109 | 97212 | INSTALLED |  |  |  |  |  | land |
+| 1790003524624-nyk690 | 2026-09-21 11:12:04 | Quincy Orta | 856958 |  | 21 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.304942 | -81.092335 | J4830899 | J3950327 | 35598 | INSTALLED |  |  |  |  |  | land |
+| 1790003832690-1ce1x9 | 2026-09-21 11:17:12 | Quincy Orta | 859879 |  | 25 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.305193 | -81.092437 | J4830900 | J2180228 | 5300 | INSTALLED |  |  |  |  |  | land |
+| 1790004231638-9l5h5t | 2026-09-21 11:23:51 | Josue Vasquez | 845085 |  | 181 Maple Hill Rd |  |  | J4835511 | J2199112 | 63758 | INSTALLED |  |  |  |  |  | land |
+| 1790004252026-88xrii | 2026-09-21 11:24:12 | Quincy Orta | 861104 |  | 29 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.305396 | -81.092493 | J4830901 | J3899095 | 94632 | INSTALLED |  |  |  |  |  | land |
+| 1790004420024-vsjygq | 2026-09-21 11:27:00 | Phillip Monteiro | 858476 |  | 581443 Grey Rd 25, West Grey | 44.308652 | -81.018552 | J4837890 | J3352208 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790004620442-9t7cjg | 2026-09-21 11:30:20 | Quincy Orta | 860523 |  | 30 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.305378 | -81.092937 | J4824774 | J3614949 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790004977386-pstuwt | 2026-09-21 11:36:17 | Quincy Orta | 856496 |  | 26 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.305134 | -81.093012 | J4824777 | J3125129 | 36814 | INSTALLED |  |  |  |  |  | land |
+| 1790004897191-nifqin | 2026-09-21 11:34:57 | Josue Vasquez | 841907 |  | 166 Maple Hill Rd |  |  | J4835512 | J2198972 | 71256 | INSTALLED |  |  |  |  |  | land |
+| 1790005341229-7fz31u | 2026-09-21 11:42:21 | Quincy Orta | 860029 |  | 22 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.304791 | -81.092909 | J4824775 | J2180112 | 3131 | INSTALLED |  |  |  |  |  | land |
+| 1790005452879-rpefb7 | 2026-09-21 11:44:12 | Phillip Monteiro | 857604 |  | 581443 Grey Rd 25, West Grey | 44.311389 | -81.012633 | J4836827 | J3229696 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790005587566-d0s3w6 | 2026-09-21 11:46:27 | Josue Vasquez | 841270 |  | 155 Maple Hill Rd |  |  | J4835513 | J3999654 | 35349 | INSTALLED |  |  |  |  |  | land |
+| 1790005617228-y9dnpr | 2026-09-21 11:46:57 | Quincy Orta | 860614 |  | 18 Martha Ave, Chesley | 44.304561 | -81.092648 | J4824776 | J4159180 | 40003 | INSTALLED |  |  |  |  |  | land |
+| 1790006214965-fgdf9s | 2026-09-21 11:56:54 | Josue Vasquez | 844573 |  | 153 Maple Hill Rd |  |  | J4743872 | J2199377 | 82163 | INSTALLED |  |  |  |  |  | land |
+| 1790008749192-bajc4v | 2026-09-21 12:39:09 | Quincy Orta | 856877 |  | 34 Martha Ave, Chesley, ON N0G 1L0, Canada | 44.305753 | -81.093069 | J4830892 | J2179808 | 9745 | INSTALLED |  |  |  |  |  | land |
+| 1790009102817-m0t3ey | 2026-09-21 12:45:02 | Quincy Orta | 857980 |  | 20 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306268 | -81.093203 | J4830891 | J3882995 | 54212 | INSTALLED |  |  |  |  |  | land |
+| 1790009401036-4vco0m | 2026-09-21 12:50:01 | Quincy Orta | 859862 |  | 24 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306441 | -81.093291 | J4830893 | J2180246 | 54949 | INSTALLED |  |  |  |  |  | land |
+| 1790009749865-s92qou | 2026-09-21 12:55:49 | Quincy Orta | 858711 |  | 28 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306753 | -81.093387 | J4830895 | J3614950 | 50116 | INSTALLED |  |  |  |  |  | land |
+| 1790010165327-5i98qy | 2026-09-21 13:02:45 | Quincy Orta | 856013 |  | 29 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306671 | -81.092966 | J4830897 | J4018609 | 45807 | INSTALLED |  |  |  |  |  | land |
+| 1790010474023-dglc86 | 2026-09-21 13:07:54 | Quincy Orta | 856839 |  | 25 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306477 | -81.092865 | J4830894 | J4227443 | 16003 | INSTALLED |  |  |  |  |  | land |
+| 1790010832271-g1lce5 | 2026-09-21 13:13:52 | Quincy Orta | 861147 |  | 21 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306313 | -81.09288 | J4830896 | J2179871 | 28528 | INSTALLED |  |  |  |  |  | land |
+| 1790010909598-dfxntf | 2026-09-21 13:15:09 | Josue Vasquez | 843679 |  | 151 Maple Hill Rd |  |  | J4743873 | J3983405 | 40260 | INSTALLED |  |  |  |  |  | land |
+| 1790011122294-o19zje | 2026-09-21 13:18:42 | Josue Vasquez | 843804 |  | 151 HSE - Maple Hill Rd |  |  | J4743874 | J4204597 | 13025 | INSTALLED |  |  |  |  |  | land |
+| 1790012568891-jkdo9a | 2026-09-21 13:42:48 | Josue Vasquez | 839642 |  | 137 Maple Hill Rd |  |  | J4743875 | J4426594 | 4625 | INSTALLED |  |  |  |  |  | land |
+| 1790006256040-2ouud4 | 2026-09-21 11:57:36 | Phillip Monteiro | 856879 |  | 581443 Grey Rd 25, West Grey | 44.310588 | -81.019204 | J4837892 | J3118981 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790006930015-cym800 | 2026-09-21 12:08:50 | Phillip Monteiro | 860945 |  | 581415 Grey Rd 25, West Grey | 44.31115 | -81.022407 | J4837893 | J3820994 | 98089 | INSTALLED |  |  |  | 30706 |  | land |
+| 1790008066192-cqedub | 2026-09-21 12:27:46 | Phillip Monteiro | 859923 |  | 581330 Grey Rd 25, West Grey | 44.308549 | -81.032388 | J4751780 | J4452676 | 17510 | INSTALLED |  |  |  |  |  | land |
+| 1790008680098-mns47z | 2026-09-21 12:38:00 | Phillip Monteiro | 856523 |  | 581237 Grey Rd 25 | 44.308415 | -81.044214 | J4751783 | J3303189 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790009295623-ckvho9 | 2026-09-21 12:48:15 | Phillip Monteiro | 855958 |  | 581190 Grey Rd 25, West Grey | 44.30697 | -81.050114 | J4836818 | J3118959 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790010406441-m0uw48 | 2026-09-21 13:06:46 | Phillip Monteiro | 860464 |  | 581163 Grey Rd 25, West Grey | 44.307842 | -81.053836 | J4836819 | J3272868 | 56753 | INSTALLED |  |  |  |  |  | land |
+| 1790011738137-qe8s96 | 2026-09-21 13:28:58 | Phillip Monteiro | 855912 |  | 581152 Grey Rd 25, West Grey | 44.306273 | -81.054008 | J4836820 | J3118958 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790013376555-aen5rj | 2026-09-21 13:56:16 | Josue Vasquez | 845023 |  | 164 Maple Hill Rd |  |  | J4835518 | J3832506 | 92290 | INSTALLED |  |  |  |  |  | land |
+| 1790012584824-rarpgc | 2026-09-21 13:43:04 | Phillip Monteiro | 856187 |  | 581536 Grey Rd 25, West Grey | 44.312299 | -81.007711 | J4751781 | J4018610 | 46454 | INSTALLED |  |  |  |  |  | land |
+| 1790013983211-zd6pww | 2026-09-21 14:06:23 | Josue Vasquez | 844218 |  | 132 Maple Hill Rd |  |  | J4835519 | J2198983 | 42755 | INSTALLED |  |  |  |  |  | land |
+| 1790013970041-vfmv7n | 2026-09-21 14:06:10 | Phillip Monteiro | 856423 |  | 115144 Grey Road 3, Chatsworth, ON N0G 1L0, Canada | 44.308796 | -81.006119 | J4751782 | J3821899 | 97685 | INSTALLED |  |  |  |  |  | land |
+| 1790014344990-9qd5z8 | 2026-09-21 14:12:24 | Phillip Monteiro | 859443 |  | 115166 Grey Rd 3 | 44.308825 | -81.005897 |  |  |  | UTI | No Access | Locked gate |  |  |  | land |
+| 1790014909491-21tgrd | 2026-09-21 14:21:49 | Phillip Monteiro | 857514 |  | 115143 Grey Road 3, Chatsworth, ON N0G 1L0, Canada | 44.308647 | -81.002781 | J4836821 | J3255686 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790016006712-6vhw0z | 2026-09-21 14:40:06 | Josue Vasquez | 840154 |  | 13 Maple Hill Rd |  |  | J4835520 | J2198896 | 61799 | INSTALLED |  |  |  |  |  | land |
+| 1790018089808-8jmja7 | 2026-09-21 15:14:49 | Josue Vasquez | 841450 |  | 390 Concession 2 |  |  | J4835521 | J4138912 | 23079 | INSTALLED |  |  |  |  |  | land |
+| 1790018511589-z37a0n | 2026-09-21 15:21:51 | Josue Vasquez | 842467 |  | 390 Concession 2 |  |  | J4803122 | J3500492 | 76323 | INSTALLED |  |  |  |  |  | land |
+| 1790019074751-ggcszv | 2026-09-21 15:31:14 | Josue Vasquez | 841165 |  | 391 Concession 2 |  |  | J4803123 | J2198920 | 85973 | INSTALLED |  |  |  |  |  | land |

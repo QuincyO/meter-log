@@ -1,6 +1,6 @@
 # Downtime
 
-_549 rows · exported 2026-09-21 03:52 America/Toronto_
+_563 rows · exported 2026-09-22 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -553,3 +553,17 @@ _549 rows · exported 2026-09-21 03:52 America/Toronto_
 | 1789747430832-3mmcne | 2026-09-18 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 793186 | gap 09:06–09:06 |  |
 | 1789747430832-s163be | 2026-09-18 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 793186 | gap 09:06–09:06 |  |
 | 1789747430832-2w5ds0 | 2026-09-18 12:00:00 | Quincy Orta | DISPATCH | 45 | 793186 | gap 09:06–09:06 |  |
+| 1789996886547-9ipl00 | 2026-09-21 09:21:26 | Josue Vasquez | OTHER | 20 | 844458 | Fatigue | land |
+| 1790018273639-kbu2jb | 2026-09-21 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 857711 | gap 09:53–09:53 |  |
+| 1790018273639-0jpqvb | 2026-09-21 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 857711 | gap 09:53–09:53 |  |
+| 1790018273639-hnyuty | 2026-09-21 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 857711 | gap 09:53–09:53 |  |
+| 1790018273639-8eabfj | 2026-09-21 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 857711 | gap 09:53–09:53 |  |
+| 1790018273639-kzhr4l | 2026-09-21 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 858279 | gap 09:53–10:07 |  |
+| 1790018273639-77of61 | 2026-09-21 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 858476 | gap 10:59–11:27 |  |
+| 1790018273639-lyndi4 | 2026-09-21 12:00:00 | Phillip Monteiro | DISPATCH | 10 | 855912 | gap 13:06–13:28 |  |
+| 1790018273639-gsfqbl | 2026-09-21 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 856423 | gap 13:43–14:06 |  |
+| 1790018273639-rucr5e | 2026-09-21 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 857514 | gap 14:12–14:21 |  |
+| 1790019756950-2d75fg | 2026-09-21 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 859178 | gap 09:55–09:55 |  |
+| 1790019756950-mk4wb4 | 2026-09-21 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 859178 | gap 09:55–09:55 |  |
+| 1790019756950-cevn8w | 2026-09-21 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 859178 | gap 09:55–09:55 |  |
+| 1790019756950-j7a1lb | 2026-09-21 12:00:00 | Quincy Orta | DISPATCH | 30 | 859178 | gap 09:55–09:55 |  |
