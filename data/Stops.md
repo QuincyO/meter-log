@@ -1,6 +1,6 @@
 # Stops
 
-_2331 rows · exported 2026-09-22 03:52 America/Toronto_
+_2400 rows · exported 2026-09-23 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2335,3 +2335,72 @@ _2331 rows · exported 2026-09-22 03:52 America/Toronto_
 | 1790018089808-8jmja7 | 2026-09-21 15:14:49 | Josue Vasquez | 841450 |  | 390 Concession 2 |  |  | J4835521 | J4138912 | 23079 | INSTALLED |  |  |  |  |  | land |
 | 1790018511589-z37a0n | 2026-09-21 15:21:51 | Josue Vasquez | 842467 |  | 390 Concession 2 |  |  | J4803122 | J3500492 | 76323 | INSTALLED |  |  |  |  |  | land |
 | 1790019074751-ggcszv | 2026-09-21 15:31:14 | Josue Vasquez | 841165 |  | 391 Concession 2 |  |  | J4803123 | J2198920 | 85973 | INSTALLED |  |  |  |  |  | land |
+| 1790082066056-4kqjp1 | 2026-09-22 09:01:06 | Josue Vasquez | 840839 |  | 1166 Bruce Rd 4, Walkerton |  |  | J4803125 | J2206427 | 81690 | INSTALLED |  |  |  |  |  | land |
+| 1790082574878-fipitq | 2026-09-22 09:09:34 | Josue Vasquez | 843924 |  | 1173 Bruce Rd 4, Walkerton |  |  | J4803124 | J4025883 | 55936 | INSTALLED |  |  |  |  |  | land |
+| 1790082879132-46uxwg | 2026-09-22 09:14:39 | Phillip Monteiro | 856051 |  | 107 Paisley Dr, Chatsworth, ON N0G 1L0, Canada | 44.324672 | -81.008163 | J4836823 | J3126310 | 76850 | INSTALLED |  |  |  |  |  | land |
+| 1790083157257-pn076n | 2026-09-22 09:19:17 | Josue Vasquez | 844637 |  | 1175 Bruce Rd 4, Walkerton |  |  | J4838330 | J3825988 | 28327 | INSTALLED |  |  |  |  |  | land |
+| 1790083394044-mos8ue | 2026-09-22 09:23:14 | Phillip Monteiro | 857696 |  | 110 Paisley Dr, Chatsworth, ON N0G 1L0, Canada | 44.323833 | -81.007395 | J4836824 | J3674953 | 95717 | INSTALLED |  |  |  |  |  | land |
+| 1790083831057-4qx0bn | 2026-09-22 09:30:31 | Josue Vasquez | 839679 |  | 1179 Bruce Rd 4, Walkerton |  |  | J4838331 | J3717176 | 88387 | INSTALLED |  |  |  |  |  | land |
+| 1790084555954-fh12zj | 2026-09-22 09:42:35 | Josue Vasquez | 842988 |  | 1198 Bruce Rd 4, Walkerton |  |  | J4838332 | J4196823 | 21813 | INSTALLED |  |  |  |  |  | land |
+| 1790085669884-m83jc8 | 2026-09-22 10:01:09 | Josue Vasquez | 840607 |  | 1209 Bruce Rd 4, Walkerton |  |  | J4838333 | J3967791 | 17668 | INSTALLED |  |  |  |  |  | land |
+| 1790086969418-tpbnlt | 2026-09-22 10:22:49 | Quincy Orta | 858632 |  | 17 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306029 | -81.092541 | J4837936 | J3652218 | 67131 | INSTALLED |  |  |  |  |  | land |
+| 1790087593608-w5iolt | 2026-09-22 10:33:13 | Josue Vasquez | 844665 |  | 79 Siderd 25 |  |  | J4838338 | J2206436 | 18160 | INSTALLED |  |  |  |  |  | land |
+| 1790088314116-523sl3 | 2026-09-22 10:45:14 | Josue Vasquez | 844833 |  | 80 Siderd 25 |  |  | J4838339 | J3701249 | 34992 | INSTALLED |  |  |  |  |  | land |
+| 1790088318131-9okk6r | 2026-09-22 10:45:18 | Quincy Orta | 859919 |  | 33 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.306891 | -81.093038 | J4837934 | J2180241 | 88559 | INSTALLED |  |  |  |  |  | land |
+| 1790083970463-c16is6 | 2026-09-22 09:32:50 | Phillip Monteiro | 856564 |  | 113 Paisley Dr, Sullivan | 44.324076 | -81.007219 | J4836825 | J3896988 | 78045 | INSTALLED |  |  |  |  |  | land |
+| 1790088591142-an5plo | 2026-09-22 10:49:51 | Quincy Orta | 859301 |  | 37 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.307091 | -81.093115 | J4837937 | J3896975 | 83822 | INSTALLED |  |  |  |  |  | land |
+| 1790084232449-wzf1t4 | 2026-09-22 09:37:12 | Phillip Monteiro | 855967 |  | 117 Anderson Ln, Sullivan | 44.323985 | -81.006772 | J4836822 | J4010941 | 54729 | INSTALLED |  |  |  |  |  | land |
+| 1790084705762-k52493 | 2026-09-22 09:45:05 | Phillip Monteiro | 857428 |  | 109 Paisley Dr, Sullivan | 44.324642 | -81.006387 | J4836357 | J3126309 | 36930 | INSTALLED |  |  |  |  |  | land |
+| 1790085042987-0w8d64 | 2026-09-22 09:50:42 | Phillip Monteiro | 855816 |  | 123 Paisley Dr, Sullivan | 44.324432 | -81.005952 | J4836354 | J3125190 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790085428354-iw00av | 2026-09-22 09:57:08 | Phillip Monteiro | 856590 |  | 127 Paisley Dr, Sullivan | 44.324269 | -81.00533 | J4836355 | J3125192 | 40580 | INSTALLED |  |  |  |  |  | land |
+| 1790085808269-9pfaw5 | 2026-09-22 10:03:28 | Phillip Monteiro | 856746 |  | 134 Paisley Dr, Sullivan | 44.323631 | -81.004558 | J4836350 | J3118347 | 69802 | INSTALLED |  |  |  |  |  | land |
+| 1790086662817-3j1per | 2026-09-22 10:17:42 | Phillip Monteiro | 856588 |  | 135 Paisley Dr, Sullivan | 44.324292 | -81.005191 | J4836351 | J3090760 | 30345 | INSTALLED |  |  |  |  |  | land |
+| 1790087269969-gugfwd | 2026-09-22 10:27:49 | Phillip Monteiro | 861213 |  | 149 Paisley Dr, Sullivan | 44.324362 | -81.002901 | J4836356 | J3124565 | 60006 | INSTALLED |  |  |  |  |  | land |
+| 1790088389169-v3gl6v | 2026-09-22 10:46:29 | Phillip Monteiro | 859660 |  | 138 Paisley Dr, Sullivan | 44.324362 | -81.003734 | J4836352 | J3751921 | 19709 | INSTALLED |  |  |  |  |  | land |
+| 1790089012745-e14jqk | 2026-09-22 10:56:52 | Josue Vasquez | 839630 |  | 111 Siderd 25 |  |  | J4838341 | J2206483 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790089090133-mtqoh2 | 2026-09-22 10:58:10 | Quincy Orta | 859259 |  | 36 Fairview Dr, Chesley, ON N0G 1L0, Canada | 44.307113 | -81.093506 | J4837935 | J2180243 | 90378 | INSTALLED |  |  |  |  |  | land |
+| 1790089216666-iszc67 | 2026-09-22 11:00:16 | Phillip Monteiro | 856524 |  | 115309 Grey Rd 3, Sullivan | 44.323467 | -81.008127 | J4836358 | J3118966 | 58521 | INSTALLED |  |  |  |  |  | land |
+| 1790089627455-ipw1ae | 2026-09-22 11:07:07 | Quincy Orta | 857938 |  | 11 Bradley St, Chesley, ON N0G 1L0, Canada | 44.307487 | -81.093251 | J4837933 | J3899096 | 58795 | INSTALLED |  |  |  |  |  | land |
+| 1790089962187-wpx0ca | 2026-09-22 11:12:42 | Quincy Orta | 860482 |  | 17 Bradley St, Chesley, ON N0G 1L0, Canada | 44.307449 | -81.093375 | J4837931 | J2180238 | 97604 | INSTALLED |  |  |  |  |  | land |
+| 1790090449623-3cziu1 | 2026-09-22 11:20:49 | Quincy Orta | 860462 |  | 3 Bradley St, Chesley, ON N0G 1L0, Canada | 44.3074 | -81.093747 | J4837930 | J2180239 | 19255 | INSTALLED |  |  |  |  |  | land |
+| 1790089796634-ft0fh3 | 2026-09-22 11:09:56 | Phillip Monteiro | 855926 |  | 115305 Grey Road 3, Chatsworth, ON N0G 1L0, Canada | 44.322911 | -81.00811 | J4836359 | J3118953 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790090219950-zv7dxh | 2026-09-22 11:16:59 | Phillip Monteiro | 857953 |  | 115338 Grey Rd 3, Sullivan | 44.325451 | -81.009745 | J4836353 | J3118346 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790091268538-vyxqqt | 2026-09-22 11:34:28 | Phillip Monteiro | 856466 |  | 115349 Grey Road 3, Chatsworth, ON N0G 1L0, Canada | 44.326997 | -81.008766 | J4836360 | J3820245 | 37950 | INSTALLED |  |  |  |  |  | land |
+| 1790092747997-x4asiq | 2026-09-22 11:59:07 | Quincy Orta | 859976 |  | 69 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307238 | -81.094341 | J4837932 | J3827168 | 49741 | INSTALLED |  |  |  |  |  | land |
+| 1790093755072-8e6lcn | 2026-09-22 12:15:55 | Quincy Orta | 856870 |  | 73 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307476 | -81.094496 | J4837925 | J2180233 | 28683 | INSTALLED |  |  |  |  |  | land |
+| 1790094177522-rorcwx | 2026-09-22 12:22:57 | Quincy Orta | 856849 |  | 75 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307799 | -81.094499 | J4837924 | J3942926 | 52696 | INSTALLED |  |  |  |  |  | land |
+| 1790094559260-zoox7d | 2026-09-22 12:29:19 | Josue Vasquez | 843615 |  | 1217 Bruce Rd 4, Walkerton |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1790095443986-q6fjzy | 2026-09-22 12:44:03 | Quincy Orta | 859222 |  | 28 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308244 | -81.093897 | J4837923 | J2179817 | 22597 | INSTALLED |  |  |  |  |  | land |
+| 1790095772709-tv79kh | 2026-09-22 12:49:32 | Quincy Orta | 861034 |  | 7 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.307964 | -81.094103 | J4837922 | J3445063 | 61754 | INSTALLED |  |  |  |  |  | land |
+| 1790096075242-fx1dt4 | 2026-09-22 12:54:35 | Quincy Orta | 859296 |  | 11 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.307983 | -81.093931 | J4837926 | J3921780 | 40751 | INSTALLED |  |  |  |  |  | land |
+| 1790096392188-5rfw81 | 2026-09-22 12:59:52 | Quincy Orta | 860474 |  | 15 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308003 | -81.093498 | J4837929 | J2179818 | 15164 | INSTALLED |  |  |  |  |  | land |
+| 1790096728843-4635ph | 2026-09-22 13:05:28 | Quincy Orta | 859151 |  | 19 Northview Cres, Chesley | 44.307993 | -81.093501 | J4837927 | J4107848 | 50382 | INSTALLED |  |  |  |  |  | land |
+| 1790096992013-yg14f0 | 2026-09-22 13:09:52 | Quincy Orta | 857816 |  | 23 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308135 | -81.09328 | J4837928 | J2179820 | 14984 | INSTALLED |  |  |  |  |  | land |
+| 1790097552357-tzazif | 2026-09-22 13:19:12 | Josue Vasquez | 839659 |  | 1229 Bruce Rd 4, Walkerton |  |  | J4838340 | J3983394 | 14223 | INSTALLED |  |  |  |  |  | land |
+| 1790097995979-6ysy0a | 2026-09-22 13:26:35 | Quincy Orta | 856761 |  | 27 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308308 | -81.093319 | J4837941 | J4447905 | 5388 | INSTALLED |  |  |  |  |  | land |
+| 1790098358395-jictg6 | 2026-09-22 13:32:38 | Josue Vasquez | 845112 |  | 1225 Bruce Rd 4, Walkerton |  |  | J4838336 | J3972363 | 49487 | INSTALLED |  |  |  |  |  | land |
+| 1790098388933-lhamt4 | 2026-09-22 13:33:08 | Quincy Orta | 861028 |  | 31 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308563 | -81.093378 | J4837938 | J2179838 | 38220 | INSTALLED |  |  |  |  |  | land |
+| 1790098693400-elwz63 | 2026-09-22 13:38:13 | Quincy Orta | 859193 |  | 35 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308685 | -81.093483 | J4837939 | J3983130 | 36789 | INSTALLED |  |  |  |  |  | land |
+| 1790098867447-9fnl1b | 2026-09-22 13:41:07 | Josue Vasquez | 844544 |  | 1232 Bruce Rd 4, Walkerton |  |  | J4838337 | J3941855 | 53974 | INSTALLED |  |  |  |  |  | land |
+| 1790099115438-5aan2n | 2026-09-22 13:45:15 | Quincy Orta | 859925 |  | 39 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308872 | -81.093519 | J4837940 | J3935690 | 39913 | INSTALLED |  |  |  |  |  | land |
+| 1790099530344-udojz3 | 2026-09-22 13:52:10 | Quincy Orta | 859874 |  | 44 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.309083 | -81.093895 | J4837943 | J3317154 | 21994 | INSTALLED |  |  |  |  |  | land |
+| 1790092073947-njykj9 | 2026-09-22 11:47:53 | Phillip Monteiro | 856259 |  | 115352 Grey Rd 3, Sullivan | 44.32687 | -81.009593 | J4836361 | J3952941 | 90776 | INSTALLED |  |  |  |  |  | land |
+| 1790093472237-2s9guo | 2026-09-22 12:11:12 | Phillip Monteiro | 859000 |  | 115357 Grey Rd 3, Sullivan | 44.327668 | -81.00884 | J4836345 | J3225362 | 91369 | INSTALLED |  |  |  |  |  | land |
+| 1790094176199-tj4l03 | 2026-09-22 12:22:56 | Phillip Monteiro | 856449 |  | 115256 Grey Rd 3, Sullivan | 44.318541 | -81.00797 | J4836342 | J3118991 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790096423637-rvhpu5 | 2026-09-22 13:00:23 | Phillip Monteiro | 855753 |  | 115276 Grey Rd 3, Sullivan | 44.320379 | -81.008893 | J4836346 | J4219866 | 13519 | INSTALLED |  |  |  |  |  | land |
+| 1790096973414-yfmiix | 2026-09-22 13:09:33 | Phillip Monteiro | 857169 |  | 115219 Grey Rd 3, Sullivan | 44.315612 | -81.006118 | J4836343 | J2679987 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790098943879-rlsnbr | 2026-09-22 13:42:23 | Phillip Monteiro | 858016 |  | 115089 Grey Rd 3, Sullivan | 44.304181 | -81.003651 | J4836348 | J3983418 | 17964 | INSTALLED |  |  |  |  |  | land |
+| 1790099554536-2gnp1t | 2026-09-22 13:52:34 | Phillip Monteiro | 855749 |  | 135023 Concession Rd 8, Chatsworth, ON N0H 1K0, Canada | 44.302251 | -80.968577 | J4836349 | J3124587 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790099833906-99v7f1 | 2026-09-22 13:57:13 | Quincy Orta | 856812 |  | 40 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308964 | -81.093995 | J4837945 | J2179865 | 36932 | INSTALLED |  |  |  |  |  | land |
+| 1790100210910-yrz037 | 2026-09-22 14:03:30 | Quincy Orta | 857182 |  | 36 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308735 | -81.0939 | J4837944 | J2179866 | 79818 | INSTALLED |  |  |  |  |  | land |
+| 1790100450903-nid77t | 2026-09-22 14:07:30 | Quincy Orta | 857032 |  | 32 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.308558 | -81.093835 | J4837942 | J3355171 | 96912 | INSTALLED |  |  |  |  |  | land |
+| 1790100930501-7fz97o | 2026-09-22 14:15:30 | Josue Vasquez | 841981 |  | 419 BARN - Concession 2 Siderd |  |  | J4838334 | J4019090 | 935 | INSTALLED |  |  |  |  |  | land |
+| 1790101739293-zjnfct | 2026-09-22 14:28:59 | Josue Vasquez | 840003 |  | 419 Concession 2 Siderd |  |  | J4838335 | J4226423 | 21912 | INSTALLED |  |  |  |  |  | land |
+| 1790102319163-aba8ds | 2026-09-22 14:38:39 | Josue Vasquez | 841564 |  | 432 Concession 2 Siderd |  |  | J4838342 | J2198914 | 47761 | INSTALLED |  |  |  |  |  | land |
+| 1790103059627-l37hwv | 2026-09-22 14:50:59 | Josue Vasquez | 842094 |  | 1401 Sideroad 25 S |  |  | J4838343 | J4414269 | 17264 | INSTALLED |  |  |  |  |  | land |
+| 1790103842982-n2pf8v | 2026-09-22 15:04:02 | Josue Vasquez | 841489 |  | 491 HSE - Concession 2 Siderd |  |  | J4838345 | J2199745 | 71458 | INSTALLED |  |  |  |  |  | land |
+| 1790104285411-qj4rkc | 2026-09-22 15:11:25 | Josue Vasquez | 841648 |  | 491 BARN - Concession 2 Siderd |  |  | J4838344 | J2199748 | 52113 | INSTALLED |  |  |  |  |  | land |
+| 1790104996188-p3heey | 2026-09-22 15:23:16 | Josue Vasquez | 841324 |  | 460 Concession 2 Siderd |  |  | J4838346 | J2199747 | 27767 | INSTALLED |  |  |  |  |  | land |
+| 1790107369243-oiw4m7 | 2026-09-22 16:02:49 | Josue Vasquez | 842493 |  | 341 Concession 2 Siderd |  |  | J4838347 | J3283967 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790107959480-jkv5uf | 2026-09-22 16:12:39 | Josue Vasquez | 845200 |  | 308 Concession 2 Siderd |  |  | J4838348 | J3952850 | 33074 | INSTALLED |  |  |  |  |  | land |
+| 1790109032199-n0z4x6 | 2026-09-22 16:30:32 | Josue Vasquez | 841500 |  | 305 Concession 2 Siderd |  |  | J4838349 | J2198895 | 85106 | INSTALLED |  |  |  |  |  | land |
