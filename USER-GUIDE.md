@@ -61,6 +61,15 @@ The pill in the top-left corner tells you where your logs are:
 - **All synced** — everything is saved to the sheet.
 - **N sending…** — the app is pushing N saved items right now.
 - **Offline** / **N waiting — offline** — no signal; N items are stored safely on the phone and will send by themselves when signal returns. You don't have to do anything.
+- **N stuck — tap to review** — the server kept refusing N items, so they were set aside to let everything else send. They are still on the phone.
+
+**Tap the pill** to see the sync activity:
+
+- **Waiting to send** — every item that hasn't reached the sheet yet, in the order it will go, named by what it is (for example "Stop · WO# 40123 · J# J1234567 · INSTALLED").
+- **Running now** — anything the app is busy with, like downloading the worklist or making the PDF.
+- **Recent activity** — what was sent and what happened over the last two days, newest first.
+
+Tap any row to see every field that was sent. If something is stuck, a **Review stuck uploads** button takes you to where you can retry or discard it.
 
 ---
 

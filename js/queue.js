@@ -14,19 +14,24 @@ const queueAll = async () => (await idb.all('queue')) || [];
 
 // A page registers UI side-effects here (e.g. the duplicate/conflict notice).
 // Keeps the queue page-agnostic — no import back into a specific page.
-let _hooks = { onResult: null };
+let _hooks = { onResult: null, onLog: null };
 export function setQueueHooks(h){ Object.assign(_hooks, h); }
+// The status pill's activity log (js/activity-log.js, loaded lazily by the capture
+// page) listens via onLog: one event per queued write and per send outcome, keyed
+// by `seq`. Fire-and-forget and fenced — a logging failure must never touch the queue.
+function log(ev){ try { if(_hooks.onLog) _hooks.onLog(ev); } catch {} }
 
 // Client-generated id so a write is idempotent: the same queued item keeps its
 // id across retries, and the spine skips it if that id was already appended.
 const newId = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 export async function enqueue(payload){
   if((payload.action==='addStop' || payload.action==='addDowntime') && !payload.id) payload.id = newId();
-  await idb.put('queue', payload);   // auto-assigns _seq; preserves order
+  const seq = await idb.put('queue', payload);   // auto-assigns _seq; preserves order
   // Update the day copy BEFORE flush can reach the server: an awaited enqueue()
   // is then guaranteed to see the optimistic state (e.g. the archiveStop
   // tombstone) when it re-renders, and reconcileCache never races the write.
   await applyOptimisticCache(payload);
+  log({ type:'queued', seq, payload });
   paint(); flush();
 }
 
@@ -79,7 +84,11 @@ async function drain(c){
       try{
         resp = await fetch(c.url, { method:'POST', headers:{'Content-Type':'text/plain'},
                                     body: JSON.stringify(body) });   // text/plain dodges CORS preflight
-      } catch { lastFlushFailed = true; break; }   // genuine network failure — keep the whole queue for next trigger
+      } catch {                         // genuine network failure — keep the whole queue for next trigger
+        lastFlushFailed = true;
+        log({ type:'waiting', seq:_seq, payload:body, reason:'network' });
+        break;
+      }
       let respBody = null;
       try { respBody = await resp.json(); } catch {}
       // classifyFlush distinguishes delivered / poison / transient. The client id
@@ -90,6 +99,7 @@ async function drain(c){
         lastFlushFailed = false;        // a real send got through — we're reaching the server
         await idb.del('queue', _seq);   // remove only on a genuine accept
         reconcileCache(respBody, body);          // swap temp ids, mirror dispatch side-effect
+        log({ type:'sent', seq:_seq, payload:body, res:respBody });
         if(_hooks.onResult) _hooks.onResult(respBody, body);
         continue;
       }
@@ -100,17 +110,20 @@ async function drain(c){
         lastFlushFailed = false;        // we reached the server — this isn't an offline state
         const why = respBody && respBody.error;
         await idb.put('queue', { ...item, _tries: (_tries || 0) + 1, _parked: true, _error: why });
+        log({ type:'stuck', seq:_seq, payload:body, tries:(_tries || 0) + 1, error:why });
         if(_hooks.onResult) _hooks.onResult({ parked: true, error: why }, body);
         continue;                       // keep draining the rest of the queue
       }
       if(verdict === 'retry-count'){
         lastFlushFailed = false;        // the spine answered — just not success yet
         await idb.put('queue', { ...item, _tries: (_tries || 0) + 1 });
+        log({ type:'rejected', seq:_seq, payload:body, tries:(_tries || 0) + 1, error:respBody && respBody.error });
         break;                          // a few more tries on later triggers before parking
       }
       // 'retry' — transient. JSON body ⇒ we reached the spine (lock 'busy'), keep the
       // pill calm; a non-JSON/HTTP-error page ⇒ transport problem, drive the pill.
       lastFlushFailed = !(resp.ok && respBody);
+      log({ type:'waiting', seq:_seq, payload:body, reason: lastFlushFailed ? 'server' : 'busy' });
       break;
     }
   }
@@ -130,14 +143,20 @@ export async function parkedItems(){
 // (and clears the last error) so each gets a full run.
 export async function retryParked(){
   const items = await queueAll();
-  for(const it of items) if(it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
+  for(const it of items) if(it._parked){
+    await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
+    log({ type:'retried', seq:it._seq, payload:it });
+  }
   return flush();
 }
 
 // Un-park and retry ONE item by its _seq (a row's Retry button).
 export async function retryParkedOne(seq){
   const it = (await queueAll()).find(i => i._seq === seq);
-  if(it && it._parked) await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
+  if(it && it._parked){
+    await idb.put('queue', { ...it, _parked: false, _tries: 0, _error: undefined });
+    log({ type:'retried', seq, payload:it });
+  }
   return flush();
 }
 
@@ -146,6 +165,7 @@ export async function retryParkedOne(seq){
 export async function discardParkedOne(seq){
   const it = (await queueAll()).find(i => i._seq === seq);
   if(it && it._parked) await idb.del('queue', seq);
+  if(it && it._parked) log({ type:'discarded', seq, payload:it });
   return paint();
 }
 

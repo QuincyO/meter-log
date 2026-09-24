@@ -645,6 +645,17 @@
     </div>
   </div>
 
+  <!-- Activity sheet: tap the status pill — what's waiting to send, what's running,
+       and what recently happened (js/activity-log.js renders #activityBody) -->
+  <div class="sheet hide" id="activitySheet">
+    <div class="card">
+      <h2>Sync activity</h2>
+      <p>Everything this phone sends to the sheet, plus the jobs the status pill shows. Tap a row to see exactly what was sent.</p>
+      <div id="activityBody"></div>
+      <button class="ghost" id="activityClose" style="width:100%;margin-top:12px">Close</button>
+    </div>
+  </div>
+
   <!-- Recent days sheet -->
   <div class="sheet hide" id="recentSheet">
     <div class="card">

@@ -413,3 +413,37 @@ input.readonly-field { background: rgba(127,127,127,.10); color: inherit; opacit
 .stuck-actions { display: flex; gap: 6px; flex: none; }
 .stuck-actions .ghost { width: auto; margin: 0; padding: 6px 12px; font-size: 13px; }
 .stuck-discard { color: var(--amber); }
+
+/* Sync activity sheet (tap the status pill) — js/activity-log.js renders it.
+   Rows are <details>: tap one to see every field that was sent. */
+.act-h { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft);
+  margin: 16px 2px 4px; }
+.act-row { border-bottom: 1px solid var(--line); }
+.act-row:last-of-type { border-bottom: 0; }
+.act-head { display: flex; align-items: flex-start; gap: 8px; padding: 9px 2px; list-style: none; cursor: pointer; }
+.act-head::-webkit-details-marker { display: none; }
+div.act-row .act-head { cursor: default; }
+.act-time { flex: none; width: 4.6em; font-size: 12px; color: var(--ink-soft); padding-top: 2px;
+  font-variant-numeric: tabular-nums; }
+.act-ico { flex: none; width: 1.2em; text-align: center; font-weight: 700; }
+.act-main { flex: 1; min-width: 0; }
+.act-sum { display: block; font-weight: 700; font-size: 15px; word-break: break-word; }
+.act-sub { display: block; font-size: 12px; color: var(--ink-soft); margin-top: 2px; word-break: break-word; }
+.st-ok .act-ico { color: var(--install); }
+.st-wait .act-ico { color: var(--amber-press); }
+.st-warn .act-ico, .st-warn .act-sub { color: var(--amber-press); }
+.st-bad .act-ico, .st-bad .act-sub { color: var(--uti); }
+.st-muted .act-ico { color: var(--unaccounted); }
+.act-running .act-ico { color: var(--accent); }
+details.act-row[open] > .act-head { padding-bottom: 4px; }
+.act-detail { padding: 0 2px 10px calc(4.6em + 1.2em + 16px); }
+.act-part-h { font-size: 13px; font-weight: 700; margin: 6px 0 2px; }
+.act-fields { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 0;
+  font-size: 12px; }
+.act-fields dt { color: var(--ink-soft); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.act-fields dd { margin: 0; word-break: break-word; }
+.act-stuck { display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  background: #FDF2EF; border: 1px solid #EAC4BC; color: var(--uti); border-radius: 12px;
+  padding: 10px 12px; margin: 8px 0; font-size: 14px; font-weight: 700; }
+.act-stuck .ghost { width: auto; flex: none; margin: 0; padding: 6px 12px; font-size: 13px; }
+.act-empty { margin: 4px 2px 8px; }

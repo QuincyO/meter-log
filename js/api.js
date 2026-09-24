@@ -29,12 +29,25 @@ export async function apiGet(action, params = {}){
   return (await fetchRetry(u)).json();
 }
 
+// Optional observer for direct writes — the capture page's activity log
+// (js/activity-log.js) registers it; no other page does. It receives the
+// CALLER's body (the token is merged in below and never passed on) and must not
+// be able to change what apiPost returns or throws, hence the fence.
+let _postHook = null;
+export function setApiHook(fn){ _postHook = fn; }
+
 // POST {token, ...body}. text/plain dodges the CORS preflight.
 export async function apiPost(body){
   const c = cfg();
-  const resp = await fetchRetry(c.url, {
-    method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify(Object.assign({ token:c.token }, body))
-  });
-  return resp.json();
+  const t0 = Date.now();
+  let res, error;
+  try {
+    const resp = await fetchRetry(c.url, {
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(Object.assign({ token:c.token }, body))
+    });
+    res = await resp.json();
+    return res;
+  } catch(e){ error = e; throw e; }
+  finally { if(_postHook) try { _postHook({ body, res, error, ms: Date.now() - t0 }); } catch {} }
 }

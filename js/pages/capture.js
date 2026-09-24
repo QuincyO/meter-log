@@ -37,7 +37,7 @@ import { DAY_START_DEFAULT, DAY_END_DEFAULT } from '../config.js';
 setQueueHooks({ onResult: (body, item) => {
   if (body.parked) {
     showNotice('flag',
-      `An upload couldn't be accepted and was set aside so the rest could sync${body.error ? ` (${body.error})` : ''}. Tap the sync pill to review.`,
+      `An upload couldn't be accepted and was set aside so the rest could sync${body.error ? ` (${body.error})` : ''}. Tap the sync pill to see it.`,
       []);
     return;
   }
@@ -76,13 +76,31 @@ function showNotice(type, msg, history) {
   noticeTimer = type === 'dup' ? undefined : setTimeout(() => el.classList.remove('show'), 15000);
 }
 $('noticeDismiss').onclick = () => { clearTimeout(noticeTimer); $('notice').classList.remove('show'); };
-// Tapping the sync pill opens the "Stuck uploads" review when something is parked,
-// else just nudges a flush (a manual "sync now").
+
+// ── the status pill's activity log (js/activity-log.js) ─────────────────────
+// Loaded with a dynamic import() on purpose — NEVER make this a static import.
+// It is not in sw.js SHELL (editing sw.js re-downloads the whole shell on every
+// phone), so on a phone whose cache hasn't caught up it may fail to load; a static
+// import would then take this whole module down with it — Log stop, End of day
+// and ⟳ Force update included. This way a failure costs the log and nothing else.
+const activityLog = import('../activity-log.js')
+  .then(m => { m.initActivityLog({ setQueueHooks }); return m; })
+  .catch(e => { console.error('Activity log unavailable', e); return null; });
+
+// Tapping the sync pill nudges a flush (a manual "sync now") and opens the activity
+// log: what's waiting to send, what's running, what recently happened — and a way
+// into "Stuck uploads" when something is parked. With no log (it didn't load, or
+// the cached index.html predates #activitySheet) it does what it always did.
 const _statusPill = $('status');
 if (_statusPill) _statusPill.onclick = async () => {
+  flush();
+  const log = await activityLog;
+  if (log && await log.openActivitySheet({ openSheet, closeSheets, openStuckSheet })) return;
   const stuck = await parkedItems();
-  if (stuck.length) openStuckSheet(); else flush();
+  if (stuck.length) openStuckSheet();
 };
+const activityClose = $('activityClose');
+if (activityClose) activityClose.onclick = () => closeSheets();
 
 // ── stuck uploads: review / retry / discard the parked (poison) queue items ──
 function stuckLabel(it){

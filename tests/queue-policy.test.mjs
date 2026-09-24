@@ -72,7 +72,9 @@ test('the capture page has a stuck-uploads sheet wired to the pill', () => {
   assert.match(indexHtml, /id="stuckSheet"/);
   assert.match(indexHtml, /id="stuckList"/);
   assert.match(indexHtml, /id="stuckRetryAll"/);
-  // Tapping the pill opens the review when something is parked.
+  // Tapping the pill opens the activity log (which leads into the stuck review);
+  // with no log it still opens the review directly when something is parked.
+  assert.match(capture, /if \(log && await log\.openActivitySheet\(\{ openSheet, closeSheets, openStuckSheet \}\)\) return;/);
   assert.match(capture, /const stuck = await parkedItems\(\);\s*\n\s*if \(stuck\.length\) openStuckSheet\(\)/);
   assert.match(capture, /function openStuckSheet\(\)\{ renderStuck\(\); openSheet\('stuckSheet'\); \}/);
 });

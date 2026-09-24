@@ -24,6 +24,12 @@ the repo, and are not listed.
 > In Obsidian: `Ctrl+O` and type a date to jump straight to a day, or open a row below.
 > The vault root is the repo root, so every page here is a real note.
 
+## 2026-09
+
+| Day                                   | What shipped                                                       |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| [2026-09-23](changelog/2026-09-23.md) | **Tap the status pill to see exactly what is being sent.** "7 sending…" now opens a Sync activity sheet in three parts. **Waiting to send** lists the queue in send order, each write named by WO#/J#. **Running now** shows the pill's live jobs. **Recent activity** holds about two days of history: every Sheet write with its outcome, plus the worklist sync, PDF and download jobs. Any row expands to every field sent, never the token, and a Stuck banner leads into Stuck uploads. It is kept off the critical path on purpose: it loads lazily and is **not in `sw.js` SHELL**, since any `sw.js` edit re-downloads the whole shell on every phone. The new hooks use no new named imports, so mismatched cached files cost one feed, not the page. It also has **its own IndexedDB database**, because a `DB_VERSION` bump with no `onblocked` could hang `enqueue`. There is one row per queued write, updated in place, so an hour offline adds nothing. A POST made inside a job is folded into that job's row |
+
 ## 2026-08
 
 | Day                                   | What shipped                                                       |

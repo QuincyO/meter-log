@@ -89,6 +89,21 @@ test('the newest capture-page element is bound defensively', () => {
   assert.match(CAPTURE, /if\(tallyBtn\) tallyBtn\.onclick/);
 });
 
+test('the activity-log sheet is bound defensively, and the pill survives its absence', () => {
+  // #activitySheet / #activityClose shipped 2026-09-23. The pill handler sits at
+  // capture.js TOP LEVEL, above initWorklist and #refreshApp.
+  assert.ok(HTML.includes('id="activitySheet"'), 'index.html is missing #activitySheet');
+  assert.ok(HTML.includes('id="activityClose"'), 'index.html is missing #activityClose');
+  assert.doesNotMatch(CAPTURE, /\$\('activity(Sheet|Body|Close)'\)\./,
+    'capture.js binds an activity-sheet id unguarded — a phone on older markup loses Finish day and Force update');
+  assert.match(CAPTURE, /const activityClose = \$\('activityClose'\);/);
+  assert.match(CAPTURE, /if \(activityClose\) activityClose\.onclick/);
+  // Old markup (no #activitySheet) or a log that failed to load: openActivitySheet
+  // returns false / the import resolves null, and the pill falls through to the
+  // pre-log behaviour.
+  assert.match(CAPTURE, /const log = await activityLog;\s*\n\s*if \(log && await log\.openActivitySheet\(/);
+});
+
 test('#refreshApp stays reachable — it is the only way code reaches a phone', () => {
   // The escape hatch must not sit behind an unguarded binding of a NEW element.
   // Every top-level `$('x').onclick =` above #refreshApp is a chance to unbind it,

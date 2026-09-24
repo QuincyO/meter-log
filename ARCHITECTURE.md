@@ -290,6 +290,20 @@ so the IndexedDB `queue` owns retry — don't add the endpoint to the SW cache.
 precached too, so the viewer shell opens offline; only the OSM tiles need a
 connection.)
 
+**The status pill's activity log.** Tapping the pill opens the Sync activity
+sheet (`js/activity-log.js`): the `queue` store's items in send order, the pill
+jobs running now (the `dom.js` activity registry), and ~2 days of history —
+every Sheet write with its outcome plus each pill job — with every sent field one
+tap away (never the token). It is the one module deliberately **outside `SHELL`**
+(loaded by a dynamic `import()` in `capture.js`, runtime-cached on first use),
+and it keeps its rows in a **separate IndexedDB database, `meterlog-activity`**,
+so adding it needed no `DB_VERSION` bump on the system-of-record `meterlog`
+database. Both choices exist so the log can never cost the capture page anything;
+AGENTS.md §"The status pill's activity log" has the reasoning. Feeds: the queue's
+`setQueueHooks({onLog})` (one row per queued write, updated in place),
+`dom.onActivityEvent` (one row per pill job), and `api.setApiHook` (direct
+`apiPost` writes, folded into the job they ran inside).
+
 **Force update from GitHub.** Stale-while-revalidate always leaves a phone one
 load behind a push, and the worker's background re-fetch is itself answerable
 from the browser's HTTP cache — GitHub Pages serves a `max-age`, so a phone can
@@ -336,6 +350,8 @@ point in `js/pages/`. Shared modules in `js/`:
 - **`store.js`** (`store` + `cfg()`), **`idb.js`** (IndexedDB wrapper +
   `DB_VERSION`), **`api.js`** (`apiGet`/`apiPost` — inject token + URL).
 - **`queue.js`** (offline queue; UI side-effects via `setQueueHooks`),
+  **`activity-log.js`** (the status pill's Sync activity sheet — lazily loaded,
+  outside `SHELL`, own IndexedDB database; see "The status pill's activity log"),
   **`daycache.js`** (optimistic/reconcile/merge + retention + recent days),
   **`geocode.js`** (addrCache + `resolveAddress` + `backfillAddresses`).
 - **`jdup.js`** — the pure duplicate-J# rule (`normalizeJ`, `jConflicts`), shared
