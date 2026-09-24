@@ -1,6 +1,6 @@
 # Stops
 
-_2400 rows · exported 2026-09-23 03:52 America/Toronto_
+_2468 rows · exported 2026-09-24 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2404,3 +2404,71 @@ _2400 rows · exported 2026-09-23 03:52 America/Toronto_
 | 1790107369243-oiw4m7 | 2026-09-22 16:02:49 | Josue Vasquez | 842493 |  | 341 Concession 2 Siderd |  |  | J4838347 | J3283967 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1790107959480-jkv5uf | 2026-09-22 16:12:39 | Josue Vasquez | 845200 |  | 308 Concession 2 Siderd |  |  | J4838348 | J3952850 | 33074 | INSTALLED |  |  |  |  |  | land |
 | 1790109032199-n0z4x6 | 2026-09-22 16:30:32 | Josue Vasquez | 841500 |  | 305 Concession 2 Siderd |  |  | J4838349 | J2198895 | 85106 | INSTALLED |  |  |  |  |  | land |
+| 1790168420847-03xkkm | 2026-09-23 09:00:20 | Josue Vasquez | 844899 |  | 663 Saddler St E |  |  | J4850601 | J3832537 | 60656 | INSTALLED |  |  |  |  |  | land |
+| 1790168836144-s4in0r | 2026-09-23 09:07:16 | Josue Vasquez | 843167 |  | 655 Saddler St E |  |  | J4850602 | J2662997 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790169011147-r1ctqc | 2026-09-23 09:10:11 | Phillip Monteiro | 858776 |  | 115422 Grey Road 3, Chesley, ON N0G 1L0, Canada | 44.332783 | -81.011589 | J4836344 | J3451678 | 346 | INSTALLED |  |  |  | 53998 |  | land |
+| 1790169326749-nkqnqb | 2026-09-23 09:15:26 | Josue Vasquez | 840591 |  | 642 Saddler St E |  |  | J4850603 | J2198811 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790169935781-wan5zh | 2026-09-23 09:25:35 | Josue Vasquez | 841931 |  | 631 Saddler St E |  |  | J4850604 | J4226539 | 7291 | INSTALLED |  |  |  |  |  | land |
+| 1790170486606-g1bfyv | 2026-09-23 09:34:46 | Josue Vasquez | 839581 |  | 636 Saddler St E |  |  | J4850605 | J3736857 | 93682 | INSTALLED |  |  |  |  |  | land |
+| 1790171300762-pqu8fc | 2026-09-23 09:48:20 | Josue Vasquez | 839529 |  | 628 Saddler St E |  |  | J4850606 | J2198809 | 77529 | INSTALLED |  |  |  |  |  | land |
+| 1790171954354-pdx3y4 | 2026-09-23 09:59:14 | Josue Vasquez | 840520 |  | 617 Saddler St E |  |  | J4850607 | J3973326 | 5178 | INSTALLED |  |  |  |  |  | land |
+| 1790172637774-r0ecib | 2026-09-23 10:10:37 | Josue Vasquez | 840541 |  | 617 Saddler St E |  |  | J4850608 | J2198812 | 63486 | INSTALLED |  |  |  |  |  | land |
+| 1790175633180-2n3934 | 2026-09-23 11:00:33 | Josue Vasquez | 843401 |  | 594 Saddler St E |  |  | J4850609 | J2198857 | 13019 | INSTALLED |  |  |  |  |  | land |
+| 1790176148177-5uilgt | 2026-09-23 11:09:08 | Josue Vasquez | 844583 |  | 578 Saddler St E |  |  | J4850610 | J3303227 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790177319291-50s84y | 2026-09-23 11:28:39 | Josue Vasquez | 844471 |  | 564 Saddler St E |  |  | J4850611 | J2199250 | 46889 | INSTALLED |  |  |  |  |  | land |
+| 1790177981804-0kn7i0 | 2026-09-23 11:39:41 | Josue Vasquez | 844306 |  | 550 Saddler St E |  |  | J4850612 | J4226531 | 16088 | INSTALLED |  |  |  |  |  | land |
+| 1790178439298-gyt1ow | 2026-09-23 11:47:19 | Josue Vasquez | 841291 |  | 542 Saddler St E |  |  | J4850613 | J4152561 | 17684 | INSTALLED |  |  |  |  |  | land |
+| 1790180057672-ks4cdz | 2026-09-23 12:14:17 | Josue Vasquez | 843619 |  | 514 Saddler St E |  |  | J4850614 | J2199398 | 73083 | INSTALLED |  |  |  |  |  | land |
+| 1790169542011-eiob20 | 2026-09-23 09:19:02 | Phillip Monteiro | 859342 |  | 115437 Grey Rd 3, Sullivan | 44.334756 | -81.010475 | J4836338 | J4137224 | 33937 | INSTALLED |  |  |  |  |  | land |
+| 1790170109838-eeygwe | 2026-09-23 09:28:29 | Phillip Monteiro | 857943 |  | 115516 Grey Rd 3, Sullivan | 44.341278 | -81.012966 | J4836339 | J3821710 | 62721 | INSTALLED |  |  |  |  |  | land |
+| 1790171170208-7ei8es | 2026-09-23 09:46:10 | Phillip Monteiro | 860308 |  | 601140 Side Rd 8 | 44.322573 | -81.059258 | J4836347 | J3780415 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790171627560-ok609u | 2026-09-23 09:53:47 | Phillip Monteiro | 858099 |  | 601177 Side Rd 8 | 44.324572 | -81.05493 | J4836340 | J4107840 | 49957 | INSTALLED |  |  |  |  |  | land |
+| 1790172299892-q1yml5 | 2026-09-23 10:04:59 | Phillip Monteiro | 858158 |  | 601281 Side Rd 8 | 44.32561 | -81.043003 | J4836341 | J4235331 | 15664 | INSTALLED |  |  |  |  |  | land |
+| 1790173342286-2h2x8l | 2026-09-23 10:22:22 | Phillip Monteiro | 856415 |  | 601397 Side Rd 8 | 44.3272 | -81.028431 | J4861378 | J3118964 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790173809449-0vujwf | 2026-09-23 10:30:09 | Phillip Monteiro | 856904 |  | 601397 Side Rd 8 | 44.327216 | -81.02755 | J4861386 | J3832119 | 7437 | INSTALLED |  |  |  |  |  | land |
+| 1790174099061-35wbqj | 2026-09-23 10:34:59 | Phillip Monteiro | 858733 |  | 601397 Side Rd 8 | 44.327236 | -81.027546 | J4861379 | J3451662 | 210 | INSTALLED |  |  |  | 93712 |  | land |
+| 1790174851107-sni3ng | 2026-09-23 10:47:31 | Phillip Monteiro | 856706 |  | 601459 Side Rd 8 | 44.328277 | -81.020822 | J4861387 | J3431365 | 28008 | INSTALLED |  |  |  |  |  | land |
+| 1790175454009-ylg1xk | 2026-09-23 10:57:34 | Phillip Monteiro | 856541 |  | 601466 Side Rd 8 | 44.327467 | -81.019537 | J4861388 | J3808302 | 67114 | INSTALLED |  |  |  |  |  | land |
+| 1790175827950-jjbnsy | 2026-09-23 11:03:47 | Phillip Monteiro | 857739 |  | 601466 Side Rd 8 | 44.32748 | -81.019594 | J4861377 | J3838602 | 0 | INSTALLED |  |  |  | 67715 |  | land |
+| 1790176608411-gylrw4 | 2026-09-23 11:16:48 | Phillip Monteiro | 857590 |  | 601505 Side Rd 8 | 44.328795 | -81.014892 | J4861380 | J3118819 | 79641 | INSTALLED |  |  |  |  |  | land |
+| 1790177176168-dgbvmt | 2026-09-23 11:26:16 | Phillip Monteiro | 856991 |  | 601553 Side Rd 8 | 44.329894 | -81.00829 | J4861381 | J3403674 | 91523 | INSTALLED |  |  |  |  |  | land |
+| 1790178243913-mr97st | 2026-09-23 11:44:03 | Phillip Monteiro | 856405 |  | 601575 Side Rd 8 | 44.330306 | -81.007108 | J4861382 | J3251964 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790183385717-wt30iv | 2026-09-23 13:09:45 | Quincy Orta | 857140 |  | 48 Northview Cres, Chesley | 44.309223 | -81.094034 | J4798694 | J3243146 | 22122 | INSTALLED |  |  |  |  |  | land |
+| 1790183657132-lqjwwh | 2026-09-23 13:14:17 | Quincy Orta | 858659 |  | 47 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.309339 | -81.093652 | J4798697 | J2663051 | 12754 | INSTALLED |  |  |  |  |  | land |
+| 1790179504387-4s3e1h | 2026-09-23 12:05:04 | Phillip Monteiro | 857499 |  | 601748 Side Rd 8 | 44.330323 | -80.98562 | J4861385 | J4226422 | 14078 | INSTALLED |  |  |  |  |  | land |
+| 1790183128880-ewhn6i | 2026-09-23 13:05:28 | Phillip Monteiro | 857190 |  | 601777 SIDERD 8, Chatsworth, ON N0H 1K0, Canada | 44.332273 | -80.981967 |  |  |  | UTI | No Access | Locked gate, no answer from Cx |  |  |  | land |
+| 1790183861071-rw2q0o | 2026-09-23 13:17:41 | Phillip Monteiro | 855668 |  | 601802 SIDERD 8, Chatsworth, ON N0H 1K0, Canada | 44.33239 | -80.978286 | J4861384 | J3118365 | 32337 | INSTALLED |  |  |  |  |  | land |
+| 1790183976967-k89ipy | 2026-09-23 13:19:36 | Josue Vasquez | 842705 |  | 508 Saddler St E |  |  | J4850615 | J2199397 | 93961 | INSTALLED |  |  |  |  |  | land |
+| 1790183989453-7lztbd | 2026-09-23 13:19:49 | Quincy Orta | 860296 |  | 51 Northview Crescent, Chesley, ON N0G 1L0, Canada | 44.30949 | -81.093616 | J4798696 | J3683815 | 43361 | INSTALLED |  |  |  |  |  | land |
+| 1790184625018-wx57qm | 2026-09-23 13:30:25 | Josue Vasquez | 843537 |  | 490 Saddler St E |  |  | J4850616 | J2199254 | 55940 | INSTALLED |  |  |  |  |  | land |
+| 1790184708014-911cmh | 2026-09-23 13:31:48 | Phillip Monteiro | 857657 |  | 601810 Side Rd 8 | 44.332441 | -80.977631 | J4861383 | J4196825 | 19437 | INSTALLED |  |  |  |  |  | land |
+| 1790184952837-xqetz0 | 2026-09-23 13:35:52 | Quincy Orta | 857470 |  | 89 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.308858 | -81.094861 | J4798695 | J3902124 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790185403512-jsilj9 | 2026-09-23 13:43:23 | Quincy Orta | 856352 |  | 106 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.309688 | -81.095508 | J4805088 | J3196385 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790185215592-lwndux | 2026-09-23 13:40:15 | Phillip Monteiro | 860578 |  | 601814 Side Rd 8 | 44.332467 | -80.97734 | J4837888 | J3849715 | 40287 | INSTALLED |  |  |  |  |  | land |
+| 1790185648497-dxa3c2 | 2026-09-23 13:47:28 | Josue Vasquez | 841325 |  | 464 Saddler St E |  |  | J4850617 | J4196891 | 13857 | INSTALLED |  |  |  |  |  | land |
+| 1790185719750-bqteon | 2026-09-23 13:48:39 | Quincy Orta | 856351 |  | 102 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.309438 | -81.095359 | J4805087 | J3332329 | 18803 | INSTALLED |  |  |  |  |  | land |
+| 1790186219670-x9qgm5 | 2026-09-23 13:56:59 | Quincy Orta | 860448 |  | 98 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.309267 | -81.095418 | J4805089 | J3827195 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790186267601-hmly78 | 2026-09-23 13:57:47 | Josue Vasquez | 844342 |  | 448 Saddler St E |  |  | J4850618 | J4437198 | 12203 | INSTALLED |  |  |  |  |  | land |
+| 1790186563078-d20h90 | 2026-09-23 14:02:43 | Quincy Orta | 859212 |  | 94 Tower Rd, Chesley | 44.309133 | -81.095325 | J4805086 | J3431318 | 47539 | INSTALLED |  |  |  |  |  | land |
+| 1790186950908-m0wolh | 2026-09-23 14:09:10 | Phillip Monteiro | 856428 |  | 601821 Side Rd 8 | 44.333158 | -80.976259 | J4837887 | J3837014 | 428 | INSTALLED |  |  |  |  |  | land |
+| 1790187368357-yzbbjz | 2026-09-23 14:16:08 | Phillip Monteiro | 860498 |  | 135370 Concession Rd 8, Chatsworth, ON N0H 1K0, Canada | 44.332691 | -80.976234 | J4837886 | J3090724 | 71470 | INSTALLED |  |  |  |  |  | land |
+| 1790187436610-7r9zmb | 2026-09-23 14:17:16 | Josue Vasquez | 843834 |  | 588 Cedar Cres |  |  | J4838350 | J4010854 | 25866 | INSTALLED |  |  |  |  |  | land |
+| 1790187731519-e7bjtl | 2026-09-23 14:22:11 | Phillip Monteiro | 856233 |  | 135370 Concession Rd 8, Chatsworth, ON N0H 1K0, Canada | 44.332919 | -80.976316 | J4837889 | J3821709 | 80443 | INSTALLED |  |  |  |  |  | land |
+| 1790187768885-vcg8cp | 2026-09-23 14:22:48 | Quincy Orta | 859243 |  | 84 Tower Rd, Chesley | 44.308669 | -81.094962 |  |  |  | UTI | Appointment Needed | Municipal Water tower. Has a locked gate |  |  |  | land |
+| 1790188028040-m7k9of | 2026-09-23 14:27:08 | Quincy Orta | 861089 |  | 80 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.308336 | -81.095142 | J4790250 | J2179884 | 83481 | INSTALLED |  |  |  |  |  | land |
+| 1790188071224-1vtgl0 | 2026-09-23 14:27:51 | Josue Vasquez | 844728 |  | 584 Cedar Cres |  |  | J4838351 | J2199252 | 41753 | INSTALLED |  |  |  |  |  | land |
+| 1790188327843-n3scg3 | 2026-09-23 14:32:07 | Quincy Orta | 857042 |  | 76 Tower Rd, Chesley | 44.308144 | -81.095016 | J4805085 | J4452664 | 21138 | INSTALLED |  |  |  |  |  | land |
+| 1790188562401-isctbu | 2026-09-23 14:36:02 | Josue Vasquez | 841688 |  | 580 Cedar Cres |  |  | J4850620 | J2198860 | 63306 | INSTALLED |  |  |  |  |  | land |
+| 1790188653021-jgpfps | 2026-09-23 14:37:33 | Quincy Orta | 859883 |  | 72 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307994 | -81.094997 | J4695753 | J2179881 | 83256 | INSTALLED |  |  |  |  |  | land |
+| 1790188973080-7z4zsy | 2026-09-23 14:42:53 | Quincy Orta | 855758 |  | 68 Tower Rd, Chesley | 44.307797 | -81.094944 | J4790568 | J4414311 | 19371 | INSTALLED |  |  |  |  |  | land |
+| 1790189098841-713u3g | 2026-09-23 14:44:58 | Josue Vasquez | 843755 |  | 531 Cedar Cres |  |  | J4850619 | J4447948 | 10997 | INSTALLED |  |  |  |  |  | land |
+| 1790189341684-son8qq | 2026-09-23 14:49:01 | Quincy Orta | 856905 |  | 64 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.30751 | -81.094809 | J4805081 | J2179841 | 10601 | INSTALLED |  |  |  |  |  | land |
+| 1790189718338-m58xoo | 2026-09-23 14:55:18 | Quincy Orta | 860507 |  | 77 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.308174 | -81.094742 | J4805080 | J4159177 | 35434 | INSTALLED |  |  |  |  |  | land |
+| 1790189945776-2i13bm | 2026-09-23 14:59:05 | Josue Vasquez | 840753 |  | 543 Cedar Cres |  |  | J4838352 | J2199229 | 49482 | INSTALLED |  |  |  |  |  | land |
+| 1790190021338-cyqkau | 2026-09-23 15:00:21 | Quincy Orta | 859811 |  | 81 Tower Rd, Chesley | 44.308383 | -81.094546 | J4805079 | J3091037 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790190382426-v8flfs | 2026-09-23 15:06:22 | Quincy Orta | 855670 |  | 85 Tower Rd, Chesley | 44.308597 | -81.094816 | J4805078 | J4452661 | 13351 | INSTALLED |  |  |  |  |  | land |
+| 1790190485810-86swvd | 2026-09-23 15:08:05 | Josue Vasquez | 843760 |  | 565 Cedar Cres |  |  | J4838353 | J2199230 | 73128 | INSTALLED |  |  |  |  |  | land |
+| 1790191207266-0b5r92 | 2026-09-23 15:20:07 | Josue Vasquez | 842643 |  | 579 Cedar Cres |  |  | J4850597 | J2199232 | 52188 | INSTALLED |  |  |  |  |  | land |
+| 1790193919975-2a75zn | 2026-09-23 16:05:19 | Josue Vasquez | 845550 |  | 421 Lambton St E |  |  | J4850598 | J4426598 | 1403 | INSTALLED |  |  |  |  |  | land |
+| 1790194484717-opsa7u | 2026-09-23 16:14:44 | Josue Vasquez | 841296 |  | 420 Lambton St E |  |  | J4850599 | J2774495 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790194968604-t6rna9 | 2026-09-23 16:22:48 | Josue Vasquez | 843945 |  | 414 Lambton St E |  |  | J4850600 | J3610118 |  | INSTALLED |  |  | Missing segments |  |  | land |

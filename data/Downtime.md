@@ -1,6 +1,6 @@
 # Downtime
 
-_574 rows · exported 2026-09-23 03:52 America/Toronto_
+_590 rows · exported 2026-09-24 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -578,3 +578,19 @@ _574 rows · exported 2026-09-23 03:52 America/Toronto_
 | 1790107635971-9tksea | 2026-09-22 12:00:00 | Phillip Monteiro | DISPATCH | 35 | 856051 | gap 09:14–09:14 |  |
 | 1790107635971-6lx70l | 2026-09-22 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 855749 | gap 13:42–13:52 |  |
 | 1790109856708-7mc2un | 2026-09-22 16:44:16 | Josue Vasquez | URGENT_EER | 30 | 843615 |  | land |
+| 1790190973746-rjc8if | 2026-09-23 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 857140 | gap 13:09–13:09 |  |
+| 1790190973746-pvzedf | 2026-09-23 12:00:00 | Quincy Orta | TRUCK_ISSUES | 270 | 857140 | gap 13:09–13:09 |  |
+| 1790191231304-yxaq2n | 2026-09-23 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 858776 | gap 09:10–09:10 |  |
+| 1790191231304-05ga68 | 2026-09-23 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 858776 | gap 09:10–09:10 |  |
+| 1790191231304-tedg9o | 2026-09-23 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 858776 | gap 09:10–09:10 |  |
+| 1790191231304-tjtx3w | 2026-09-23 12:00:00 | Phillip Monteiro | DISPATCH | 40 | 858776 | gap 09:10–09:10 |  |
+| 1790191231304-24wwwt | 2026-09-23 12:00:00 | Phillip Monteiro | DISPATCH | 20 | 860308 | gap 09:28–09:46 |  |
+| 1790191231304-urbtcm | 2026-09-23 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 856415 | gap 10:04–10:22 |  |
+| 1790191231304-nc8qoz | 2026-09-23 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 856706 | gap 10:34–10:47 |  |
+| 1790191231304-8dxa2f | 2026-09-23 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 857499 | gap 11:44–12:05 |  |
+| 1790191231304-n9oi8g | 2026-09-23 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 856233 | gap 14:16–14:22 |  |
+| 1790191231304-ynp3vn | 2026-09-23 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 15 | 856233 | gap 14:16–14:22 |  |
+| 1790195361032-l268vl | 2026-09-23 16:29:21 | Josue Vasquez | TRAVEL_TIME | 32 | 844899 |  | land |
+| 1790195391558-tbf76x | 2026-09-23 16:29:51 | Josue Vasquez | TRAVEL_TIME | 32 | 844899 |  | land |
+| 1790195433269-fd53ej | 2026-09-23 16:30:33 | Josue Vasquez | TRAVEL_TIME | 32 | 844899 |  | land |
+| 1790195454013-xicy3p | 2026-09-23 16:30:54 | Josue Vasquez | TRAVEL_TIME | 32 | 843945 |  | land |

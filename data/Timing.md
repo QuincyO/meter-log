@@ -1,6 +1,6 @@
 # Timing
 
-_2397 rows · exported 2026-09-23 03:52 America/Toronto_
+_2444 rows · exported 2026-09-24 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2401,3 +2401,50 @@ _2397 rows · exported 2026-09-23 03:52 America/Toronto_
 | 2026-09-22 00:00:00 | Josue Vasquez | 1899-12-30 16:02:00 | 1899-12-30 16:12:00 | 10 |  | Travel | travel | 845200 | INSTALLED | INSTALLED |
 | 2026-09-22 00:00:00 | Josue Vasquez | 1899-12-30 16:12:00 | 1899-12-30 16:30:00 | 18 |  | Travel | travel | 841500 | INSTALLED | INSTALLED |
 | 2026-09-22 00:00:00 | Josue Vasquez | 1899-12-30 16:30:00 | 1899-12-30 17:00:00 | 29 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 13:09:00 | 340 |  | Launch | travel | 857140 |  | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:09:00 | 1899-12-30 13:14:00 | 5 | 33 | Travel | travel | 858659 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:14:00 | 1899-12-30 13:19:00 | 6 | 17 | Travel | travel | 860296 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:19:00 | 1899-12-30 13:35:00 | 16 | 121 | Travel | travel | 857470 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:35:00 | 1899-12-30 13:43:00 | 8 | 106 | Travel | travel | 856352 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:43:00 | 1899-12-30 13:48:00 | 5 | 30 | Travel | travel | 856351 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:48:00 | 1899-12-30 13:56:00 | 8 | 20 | Travel | travel | 860448 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 13:56:00 | 1899-12-30 14:02:00 | 6 | 17 | Travel | travel | 859212 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:02:00 | 1899-12-30 14:22:00 | 20 | 59 | Flagged | travel | 859243 | INSTALLED | UTI |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:22:00 | 1899-12-30 14:27:00 | 4 | 40 | Travel | travel | 861089 | UTI | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:27:00 | 1899-12-30 14:32:00 | 5 | 24 | Travel | travel | 857042 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:32:00 | 1899-12-30 14:37:00 | 5 | 17 | Travel | travel | 859883 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:37:00 | 1899-12-30 14:42:00 | 5 | 22 | Travel | travel | 855758 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:42:00 | 1899-12-30 14:49:00 | 6 | 34 | Travel | travel | 856905 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:49:00 | 1899-12-30 14:55:00 | 6 | 74 | Travel | travel | 860507 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 14:55:00 | 1899-12-30 15:00:00 | 5 | 28 | Travel | travel | 859811 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 15:00:00 | 1899-12-30 15:06:00 | 6 | 32 | Travel | travel | 855670 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Quincy Orta | 1899-12-30 15:06:00 | 1899-12-30 16:00:00 | 54 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 07:30:00 | 1899-12-30 09:00:00 | 90 |  | Launch | travel | 844899 |  | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:00:00 | 1899-12-30 09:07:00 | 7 |  | Travel | travel | 843167 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:07:00 | 1899-12-30 09:15:00 | 8 |  | Travel | travel | 840591 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:15:00 | 1899-12-30 09:25:00 | 10 |  | Travel | travel | 841931 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:25:00 | 1899-12-30 09:34:00 | 9 |  | Travel | travel | 839581 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:34:00 | 1899-12-30 09:48:00 | 14 |  | Travel | travel | 839529 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:48:00 | 1899-12-30 09:59:00 | 11 |  | Travel | travel | 840520 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 09:59:00 | 1899-12-30 10:10:00 | 11 |  | Travel | travel | 840541 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 10:10:00 | 1899-12-30 11:00:00 | 50 |  | Flagged | travel | 843401 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 11:00:00 | 1899-12-30 11:09:00 | 9 |  | Travel | travel | 844583 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 11:09:00 | 1899-12-30 11:28:00 | 20 |  | Travel | travel | 844471 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 11:28:00 | 1899-12-30 11:39:00 | 11 |  | Travel | travel | 844306 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 11:39:00 | 1899-12-30 11:47:00 | 8 |  | Travel | travel | 841291 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 11:47:00 | 1899-12-30 12:14:00 | 27 |  | Flagged | travel | 843619 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 12:14:00 | 1899-12-30 13:19:00 | 65 |  | Flagged | travel | 842705 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 13:19:00 | 1899-12-30 13:30:00 | 11 |  | Travel | travel | 843537 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 13:30:00 | 1899-12-30 13:47:00 | 17 |  | Travel | travel | 841325 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 13:47:00 | 1899-12-30 13:57:00 | 10 |  | Travel | travel | 844342 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 13:57:00 | 1899-12-30 14:17:00 | 19 |  | Travel | travel | 843834 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 14:17:00 | 1899-12-30 14:27:00 | 11 |  | Travel | travel | 844728 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 14:27:00 | 1899-12-30 14:36:00 | 8 |  | Travel | travel | 841688 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 14:36:00 | 1899-12-30 14:44:00 | 9 |  | Travel | travel | 843755 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 14:44:00 | 1899-12-30 14:59:00 | 14 |  | Travel | travel | 840753 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 14:59:00 | 1899-12-30 15:08:00 | 9 |  | Travel | travel | 843760 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 15:08:00 | 1899-12-30 15:20:00 | 12 |  | Travel | travel | 842643 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 15:20:00 | 1899-12-30 16:05:00 | 45 |  | Flagged | travel | 845550 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 16:05:00 | 1899-12-30 16:14:00 | 9 |  | Travel | travel | 841296 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 16:14:00 | 1899-12-30 16:22:00 | 8 |  | Travel | travel | 843945 | INSTALLED | INSTALLED |
+| 2026-09-23 00:00:00 | Josue Vasquez | 1899-12-30 16:22:00 | 1899-12-30 17:00:00 | 37 |  | Return | travel |  | INSTALLED |  |
