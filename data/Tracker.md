@@ -1,6 +1,6 @@
 # Tracker
 
-_136 rows · exported 2026-09-24 03:52 America/Toronto_
+_139 rows · exported 2026-09-25 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -140,3 +140,6 @@ _136 rows · exported 2026-09-24 03:52 America/Toronto_
 | 2026-09-22 00:00:00 | Josue Vasquez | 22 | 1 | 30 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 30 | 0 | Partly cloudy · S 24 km/h · 25°C |  | 0 | 0 |  | 448 |  | land |
 | 2026-09-23 00:00:00 | Quincy Orta | 16 | 1 | 300 | 30 | 0 | 0 | 0 | 0 | 0 | 270 | 0 | 0 | 0 | Clear · E 19 km/h · 20°C |  | 0 | 0 |  | 116 |  | land |
 | 2026-09-23 00:00:00 | Josue Vasquez | 28 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Mainly clear · SE 18 km/h · 25°C |  | 0 | 0 |  | 442 |  | land |
+| 2026-09-24 00:00:00 | Phillip Monteiro | 17 | 2 | 220 | 30 | 30 | 0 | 15 | 35 | 90 | 20 | 0 | 0 | 0 | Clear · E 13 km/h · 20°C |  | 0 | 0 |  | 178 |  | land |
+| 2026-09-24 00:00:00 | Quincy Orta | 12 | 0 | 90 | 30 | 0 | 0 | 15 | 15 | 30 | 0 | 0 | 0 | 0 | Clear · E 12 km/h · 19°C |  | 0 | 0 |  | 120 |  | land |
+| 2026-09-24 00:00:00 | Josue Vasquez | 15 | 0 | 300 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 300 | Partly cloudy · S 17 km/h · 25°C |  | 0 | 0 |  | 149 |  | land |

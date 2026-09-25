@@ -1,6 +1,6 @@
 # Stops
 
-_2468 rows · exported 2026-09-24 03:52 America/Toronto_
+_2514 rows · exported 2026-09-25 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2472,3 +2472,49 @@ _2468 rows · exported 2026-09-24 03:52 America/Toronto_
 | 1790193919975-2a75zn | 2026-09-23 16:05:19 | Josue Vasquez | 845550 |  | 421 Lambton St E |  |  | J4850598 | J4426598 | 1403 | INSTALLED |  |  |  |  |  | land |
 | 1790194484717-opsa7u | 2026-09-23 16:14:44 | Josue Vasquez | 841296 |  | 420 Lambton St E |  |  | J4850599 | J2774495 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1790194968604-t6rna9 | 2026-09-23 16:22:48 | Josue Vasquez | 843945 |  | 414 Lambton St E |  |  | J4850600 | J3610118 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790256905548-z4ztdn | 2026-09-24 09:35:05 | Quincy Orta | 858006 |  | 60 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307232 | -81.094729 | J4850263 | J2179842 | 40463 | INSTALLED |  |  |  |  |  | land |
+| 1790257259560-a39ev0 | 2026-09-24 09:40:59 | Quincy Orta | 860503 |  | 56 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.307012 | -81.09457 | J4850264 | J2646076 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790257609494-cyq4zn | 2026-09-24 09:46:49 | Quincy Orta | 861049 |  | 36 Centennial St, Chesley, ON N0G 1L0, Canada | 44.306633 | -81.094843 | J4850261 | J2179843 | 98029 | INSTALLED |  |  |  |  |  | land |
+| 1790257968350-k1mtvi | 2026-09-24 09:52:48 | Phillip Monteiro | 858762 |  | 055324 Concession Rd 12, Chesley, ON N0G 1L0, Canada | 44.320523 | -81.044558 | J4852228 | J3374523 | 244 | INSTALLED |  |  |  | 73357 |  | land |
+| 1790258093037-4m8zda | 2026-09-24 09:54:53 | Quincy Orta | 858766 |  | 37 Centennial St, Chesley, ON N0G 1L0, Canada | 44.306474 | -81.094726 | J4850262 | J2180119 | 96904 | INSTALLED |  |  |  |  |  | land |
+| 1790258638932-i8q5ce | 2026-09-24 10:03:58 | Quincy Orta | 855757 |  | 44 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.305948 | -81.094668 | J4811735 | J4010920 | 76738 | INSTALLED |  |  |  |  |  | land |
+| 1790258814334-kxla8o | 2026-09-24 10:06:54 | Phillip Monteiro | 859873 |  | 55324 Concession Rd 12 | 44.320106 | -81.046706 | J4852225 | J3118962 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790258991094-k1lg94 | 2026-09-24 10:09:51 | Quincy Orta | 860723 |  | 47 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.306145 | -81.094163 | J4811736 | J4025856 | 32855 | INSTALLED |  |  |  |  |  | land |
+| 1790259432405-oh319k | 2026-09-24 10:17:12 | Quincy Orta | 857991 |  | 51 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.306655 | -81.094212 | J4811737 | J2180082 | 24586 | INSTALLED |  |  |  |  |  | land |
+| 1790259836613-qpy9p6 | 2026-09-24 10:23:56 | Quincy Orta | 859214 |  | 55 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.306912 | -81.094199 | J4811734 | J4202957 | 36952 | INSTALLED |  |  |  |  |  | land |
+| 1790259378466-b83z2y | 2026-09-24 10:16:18 | Phillip Monteiro | 859002 |  | 55284 Concession Rd 12 | 44.317304 | -81.042028 | J4852221 | J3118985 | 72501 | INSTALLED |  |  |  |  |  | land |
+| 1790260099214-wt9c4x | 2026-09-24 10:28:19 | Phillip Monteiro | 856603 |  | 55163 Concession Rd 12 | 44.306614 | -81.037489 | J4852226 | J3269346 | 34579 | INSTALLED |  |  |  |  |  | land |
+| 1790260560416-zbr10w | 2026-09-24 10:36:00 | Phillip Monteiro | 856220 |  | 55113 Concession Rd 12 | 44.302422 | -81.03372 | J4852224 | J3118986 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790260936124-t292bd | 2026-09-24 10:42:16 | Phillip Monteiro | 860313 |  | 55104 Concession Rd 12 | 44.299552 | -81.038192 | J4852227 | J3832566 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790261794084-g544q4 | 2026-09-24 10:56:34 | Phillip Monteiro | 857245 |  | 055081 12TH CONC, Chatsworth, ON N0G 1L0, Canada | 44.299977 | -81.031522 | J4852223 | J3124566 | 15908 | INSTALLED |  |  |  |  |  | land |
+| 1790262777314-7qt4y2 | 2026-09-24 11:12:57 | Quincy Orta | 855836 |  | 37 Tower Rd, Chesley | 44.305301 | -81.094522 | J4811733 | J4426618 | 1788 | INSTALLED |  |  |  |  |  | land |
+| 1790263366125-walioh | 2026-09-24 11:22:46 | Quincy Orta | 856770 |  | 43 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.305794 | -81.094239 | J4811730 | J4204681 | 16137 | INSTALLED |  |  |  |  |  | land |
+| 1790263642363-d03uor | 2026-09-24 11:27:22 | Quincy Orta | 858066 |  | 1 Fairview Dr, Arran-Elderslie, ON N0G 1L0, Canada | 44.30575 | -81.093889 | J4811732 | J4226475 | 15618 | INSTALLED |  |  |  |  |  | land |
+| 1790263527694-3lt5rr | 2026-09-24 11:25:27 | Phillip Monteiro | 856829 |  | 55304 Concession Rd 12 | 44.31887 | -81.042077 |  |  |  | UTI | No Access | Locked gate, no answer from Cx |  |  |  | land |
+| 1790263991133-7ihlra | 2026-09-24 11:33:11 | Phillip Monteiro | 856029 |  | 055307 Concession Rd 12 | 44.319165 | -81.038533 | J4861398 | J3118982 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790264054271-d0ksgf | 2026-09-24 11:34:14 | Quincy Orta | 858090 |  | 38 Tower Rd, Chesley, ON N0G 1L0, Canada | 44.305634 | -81.094792 | J4811731 | J2180133 | 28296 | INSTALLED |  |  |  |  |  | land |
+| 1790264223390-ymwj1n | 2026-09-24 11:37:03 | Phillip Monteiro | 858788 |  | 055307 Concession Rd 12 | 44.319153 | -81.038517 | J4861397 | J3285498 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790264674538-1t2swr | 2026-09-24 11:44:34 | Phillip Monteiro | 857700 |  | 055308 Concession Rd 12 | 44.319232 | -81.042487 | J4852222 | J2192265 | 63061 | INSTALLED |  |  |  |  |  | land |
+| 1790265171768-rr06f9 | 2026-09-24 11:52:51 | Phillip Monteiro | 856147 |  | 055400 Concession Rd 12 | 44.327124 | -81.04421 | J4861400 | J3234001 | 25272 | INSTALLED |  |  |  |  |  | land |
+| 1790266277263-adgky0 | 2026-09-24 12:11:17 | Phillip Monteiro | 860535 |  | 055277 Concession Rd 12 | 44.31652 | -81.041177 | J4861399 | J3118988 | 29627 | INSTALLED |  |  |  |  |  | land |
+| 1790267292537-tfrb2d | 2026-09-24 12:28:12 | Phillip Monteiro | 860167 |  | 055239 Concession Rd 12 | 44.313116 | -81.039543 | J4852836 | J4137202 | 24582 | INSTALLED |  |  |  |  |  | land |
+| 1790268256084-8400s9 | 2026-09-24 12:44:16 | Phillip Monteiro | 858577 |  | 561150 Bentinck Sullivan Townline | 44.289713 | -81.051239 | J4852835 | J3751925 | 62962 | INSTALLED |  |  |  |  |  | land |
+| 1790270895746-2m5joh | 2026-09-24 13:28:15 | Phillip Monteiro | 858847 |  | 561240 Bentinck Sullivan Townline | 44.291294 | -81.039916 | J4852833 | J3676222 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1790271473101-2tyv0k | 2026-09-24 13:37:53 | Phillip Monteiro | 857717 |  | 561240 Bentinck Sullivan Townline | 44.291014 | -81.040142 |  | J3073435 |  | UTI | Unsafe Conditions | Farm box |  |  |  | land |
+| 1790272352099-ewuyb4 | 2026-09-24 13:52:32 | Phillip Monteiro | 855786 |  | 561307 Bentinck Sullivan Townline | 44.293149 | -81.032109 | J4852229 | J3118815 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790272354763-vivgny | 2026-09-24 13:52:34 | Josue Vasquez | 842553 |  | 9-127 Rock St N |  |  | J4852323 | J2199240 | 66450 | INSTALLED |  |  |  |  |  | land |
+| 1790272584066-l40qk4 | 2026-09-24 13:56:24 | Josue Vasquez | 845464 |  | 8-127 Rock St S |  |  | J4852321 | J3614157 | 27435 | INSTALLED |  |  |  |  |  | land |
+| 1790272811889-ogrqoi | 2026-09-24 14:00:11 | Josue Vasquez | 843662 |  | 7-127 Rock St N |  |  | J4852322 | J2198875 | 92939 | INSTALLED |  |  |  |  |  | land |
+| 1790273024496-e81vkg | 2026-09-24 14:03:44 | Josue Vasquez | 840177 |  | 6-127 Rock St N |  |  | J4852324 | J4152605 | 6652 | INSTALLED |  |  |  |  |  | land |
+| 1790273075054-lekj04 | 2026-09-24 14:04:35 | Phillip Monteiro | 857732 |  | 561394 Bentinck Sullivan Townline | 44.293434 | -81.021814 | J4852834 | J3288984 | 267 | INSTALLED |  |  |  | 38178 |  | land |
+| 1790273842666-e520en | 2026-09-24 14:17:22 | Josue Vasquez | 840879 |  | 493 Lambton St E |  |  | J4852317 | J2198831 | 53588 | INSTALLED |  |  |  |  |  | land |
+| 1790274320002-6yf9zx | 2026-09-24 14:25:19 | Josue Vasquez | 844699 |  | 489 Lambton St E |  |  | J4852318 | J2199238 | 81959 | INSTALLED |  |  |  |  |  | land |
+| 1790276526056-7vrrfb | 2026-09-24 15:02:06 | Josue Vasquez | 841983 |  | 592 HSE-Lambton St E |  |  | J4852319 | J3899124 | 91253 | INSTALLED |  |  |  |  |  | land |
+| 1790276867829-d1ldg7 | 2026-09-24 15:07:47 | Josue Vasquez | 845236 |  | GAR- 592 Lambton St E |  |  | J4852320 | J3952901 | 543 | INSTALLED |  |  |  |  |  | land |
+| 1790277749295-zy6tk2 | 2026-09-24 15:22:29 | Josue Vasquez | 845447 |  | 485 Lambton St E |  |  | J4852293 | J4005797 | 16732 | INSTALLED |  |  |  |  |  | land |
+| 1790278411728-m9zcrk | 2026-09-24 15:33:31 | Josue Vasquez | 842593 |  | 479 Lambton St E |  |  | J4852294 | J3163224 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790278961896-rygayh | 2026-09-24 15:42:41 | Josue Vasquez | 840046 |  | 429 Lambton St E |  |  | J4852295 | J4196892 | 19869 | INSTALLED |  |  |  |  |  | land |
+| 1790279555236-9hfxmx | 2026-09-24 15:52:35 | Josue Vasquez | 843392 |  | 424 Lambton St E |  |  | J4852296 | J2198815 | 30163 | INSTALLED |  |  |  |  |  | land |
+| 1790280313994-qlicdu | 2026-09-24 16:05:13 | Josue Vasquez | 841402 |  | 268 E-George St E |  |  | J4852289 | J4227489 | 7875 | INSTALLED |  |  |  |  |  | land |
+| 1790280530317-wlvfi1 | 2026-09-24 16:08:50 | Josue Vasquez | 844620 |  | 268 George St E |  |  | J4852290 | J2199375 | 90564 | INSTALLED |  |  |  |  |  | land |
+| 1790281152614-eaniph | 2026-09-24 16:19:12 | Josue Vasquez | 840993 | 415 | Lambton St E |  |  | J4852291 | J3717169 | 89953 | INSTALLED |  |  |  |  |  | land |
