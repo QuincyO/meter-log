@@ -1,6 +1,6 @@
 # Timing
 
-_2493 rows · exported 2026-09-25 03:52 America/Toronto_
+_2517 rows · exported 2026-09-26 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2497,3 +2497,27 @@ _2493 rows · exported 2026-09-25 03:52 America/Toronto_
 | 2026-09-24 00:00:00 | Josue Vasquez | 1899-12-30 16:05:00 | 1899-12-30 16:08:00 | 4 |  | Travel | travel | 844620 | INSTALLED | INSTALLED |
 | 2026-09-24 00:00:00 | Josue Vasquez | 1899-12-30 16:08:00 | 1899-12-30 16:19:00 | 10 |  | Travel | travel | 840993 | INSTALLED | INSTALLED |
 | 2026-09-24 00:00:00 | Josue Vasquez | 1899-12-30 16:19:00 | 1899-12-30 17:00:00 | 41 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 07:30:00 | 1899-12-30 09:00:00 | 90 |  | Launch | travel | 841485 |  | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 09:00:00 | 1899-12-30 09:08:00 | 9 |  | Travel | travel | 842027 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 09:08:00 | 1899-12-30 09:47:00 | 39 |  | Flagged | travel | 844466 | INSTALLED | UTI |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 09:47:00 | 1899-12-30 09:53:00 | 6 |  | Travel | travel | 840897 | UTI | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 09:53:00 | 1899-12-30 10:00:00 | 7 |  | Travel | travel | 844639 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 10:00:00 | 1899-12-30 10:10:00 | 10 |  | Travel | travel | 841996 | INSTALLED | UTI |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 10:10:00 | 1899-12-30 10:16:00 | 6 |  | Travel | travel | 839696 | UTI | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 10:16:00 | 1899-12-30 11:11:00 | 55 |  | Flagged | travel | 839780 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 11:11:00 | 1899-12-30 12:50:00 | 99 |  | Flagged | travel | 840120 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 12:50:00 | 1899-12-30 13:06:00 | 16 |  | Travel | travel | 844567 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 13:06:00 | 1899-12-30 13:20:00 | 14 |  | Travel | travel | 841958 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 13:20:00 | 1899-12-30 13:38:00 | 18 |  | Travel | travel | 845501 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 13:38:00 | 1899-12-30 13:49:00 | 11 |  | Travel | travel | 840374 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 13:49:00 | 1899-12-30 14:00:00 | 11 |  | Travel | travel | 840347 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 14:00:00 | 1899-12-30 14:40:00 | 40 |  | Flagged | travel | 843379 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 14:40:00 | 1899-12-30 14:58:00 | 17 |  | Travel | travel | 844414 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 14:58:00 | 1899-12-30 15:15:00 | 17 |  | Travel | travel | 845345 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 15:15:00 | 1899-12-30 15:26:00 | 11 |  | Travel | travel | 842485 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 15:26:00 | 1899-12-30 15:42:00 | 15 |  | Travel | travel | 844383 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 15:42:00 | 1899-12-30 15:51:00 | 9 |  | Travel | travel | 841852 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 15:51:00 | 1899-12-30 15:55:00 | 4 |  | Travel | travel | 843359 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 15:55:00 | 1899-12-30 16:18:00 | 23 |  | Flagged | travel | 842343 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 16:18:00 | 1899-12-30 16:22:00 | 4 |  | Travel | travel | 841563 | INSTALLED | INSTALLED |
+| 2026-09-25 00:00:00 | Josue Vasquez | 1899-12-30 16:22:00 | 1899-12-30 17:00:00 | 38 |  | Return | travel |  | INSTALLED |  |

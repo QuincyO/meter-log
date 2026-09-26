@@ -1,6 +1,6 @@
 # Downtime
 
-_602 rows · exported 2026-09-25 03:52 America/Toronto_
+_617 rows · exported 2026-09-26 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -606,3 +606,18 @@ _602 rows · exported 2026-09-25 03:52 America/Toronto_
 | 1790279633112-6prnk1 | 2026-09-24 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 860313 | gap 10:36–10:42 |  |
 | 1790279633112-jsovls | 2026-09-24 12:00:00 | Phillip Monteiro | CELL_SIGNAL | 10 | 857245 | gap 10:42–10:56 |  |
 | 1790280309508-8m8epe | 2026-09-24 16:05:09 | Josue Vasquez | OTHER | 300 | 841402 | UPDATED HH<br>TIRE CHANGE | land |
+| 1790341195252-jy5ass | 2026-09-25 08:59:55 | Josue Vasquez | TRAVEL_TIME | 12 | 841485 |  | land |
+| 1790349447265-q1ptio | 2026-09-25 11:17:27 | Josue Vasquez | TRAVEL_TIME | 31 | 839780 |  | land |
+| 1790350580049-19k995 | 2026-09-25 11:36:20 | Josue Vasquez | TRAVEL_TIME | 31 | 839780 |  | land |
+| 1790350660094-i768bg | 2026-09-25 11:37:40 | Josue Vasquez | TRAVEL_TIME | 31 | 842660 |  | land |
+| 1790350707452-batu75 | 2026-09-25 11:38:27 | Josue Vasquez | TRAVEL_TIME | 32 | 839780 |  | land |
+| 1790350847614-bbo352 | 2026-09-25 11:40:47 | Josue Vasquez | TRAVEL_TIME | 31 | 839780 |  | land |
+| 1790355009064-k62sbx | 2026-09-25 12:50:09 | Josue Vasquez | TRAVEL_TIME | 24 | 840120 |  | land |
+| 1790365076866-zx94hs | 2026-09-25 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 746237 | gap 10:02–10:02 |  |
+| 1790365076866-uv26nf | 2026-09-25 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 746237 | gap 10:02–10:02 |  |
+| 1790365076866-eh49qt | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 90 | 746237 | gap 10:02–10:02 |  |
+| 1790365076866-e70azj | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 747023 | gap 10:02–10:37 |  |
+| 1790365076866-ozygh0 | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 767539 | gap 10:37–11:25 |  |
+| 1790365076866-irbxez | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 859443 | gap 11:25–13:25 |  |
+| 1790365076866-ykvwi1 | 2026-09-25 12:00:00 | Quincy Orta | ASSIST | 30 | 859443 | gap 11:25–13:25 |  |
+| 1790365076866-8j4uf3 | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 770352 | gap 13:25–15:18 |  |

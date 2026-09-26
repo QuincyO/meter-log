@@ -1,6 +1,6 @@
 # Stops
 
-_2514 rows · exported 2026-09-25 03:52 America/Toronto_
+_2542 rows · exported 2026-09-26 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2518,3 +2518,31 @@ _2514 rows · exported 2026-09-25 03:52 America/Toronto_
 | 1790280313994-qlicdu | 2026-09-24 16:05:13 | Josue Vasquez | 841402 |  | 268 E-George St E |  |  | J4852289 | J4227489 | 7875 | INSTALLED |  |  |  |  |  | land |
 | 1790280530317-wlvfi1 | 2026-09-24 16:08:50 | Josue Vasquez | 844620 |  | 268 George St E |  |  | J4852290 | J2199375 | 90564 | INSTALLED |  |  |  |  |  | land |
 | 1790281152614-eaniph | 2026-09-24 16:19:12 | Josue Vasquez | 840993 | 415 | Lambton St E |  |  | J4852291 | J3717169 | 89953 | INSTALLED |  |  |  |  |  | land |
+| 1790341208120-orvo9d | 2026-09-25 09:00:08 | Josue Vasquez | 841485 |  | 291 Concession 2 Siderd |  |  | J4852292 | J2198894 | 30549 | INSTALLED |  |  |  |  |  | land |
+| 1790341724904-3pdq29 | 2026-09-25 09:08:44 | Josue Vasquez | 842027 |  | 282 Concession 2 Siderd |  |  | J4854977 | J2198893 | 76581 | INSTALLED |  |  |  |  |  | land |
+| 1790344059129-vhm4wu | 2026-09-25 09:47:39 | Josue Vasquez | 844466 |  | Lot64-65 concession 1 SDR |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1790344413225-x87di9 | 2026-09-25 09:53:33 | Josue Vasquez | 840897 |  | 40 Poechman Lane, Brockton |  |  | J4854979 | J3125016 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790344824713-a2pg5s | 2026-09-25 10:00:24 | Josue Vasquez | 844639 |  | 44 Poechman Lane, Brockton |  |  | J4854978 | J3125019 | 3423 | INSTALLED |  |  |  |  |  | land |
+| 1790344962584-cibxny | 2026-09-25 10:02:42 | Quincy Orta | 746237 |  | 229 Cameron St, Thornbury, ON N0H 2P0, Canada | 44.57214 | -80.461907 | J4855678 | J2331322 | 41716 | INSTALLED |  |  |  |  |  | land |
+| 1790345420697-0zop92 | 2026-09-25 10:10:20 | Josue Vasquez | 841996 |  | Lotpt64 concession 1 |  |  |  |  |  | UTI | Incorrect/Missing Info |  |  |  |  | land |
+| 1790345793287-ruk9xs | 2026-09-25 10:16:33 | Josue Vasquez | 839696 |  | 52 Poechman Lane, Brockton |  |  | J4854980 | J4010933 | 2802 | INSTALLED |  |  |  |  |  | land |
+| 1790347047225-wgl2bi | 2026-09-25 10:37:27 | Quincy Orta | 747023 |  | 235318 Grey County Rd 13, Grey Highlands, ON N0C 1G0, Canada | 44.385055 | -80.536593 | J4855679 | J2354613 | 12503 | INSTALLED |  |  |  |  |  | land |
+| 1790349063833-smcbj2 | 2026-09-25 11:11:03 | Josue Vasquez | 839780 |  | 127 Garafraxa St S |  |  | J4854982 | J4010857 | 23710 | INSTALLED |  | 31 min travel |  |  |  | land |
+| 1790349934507-pku34g | 2026-09-25 11:25:34 | Quincy Orta | 767539 |  | 86145 SIDERD 7, Meaford, ON N4L 1W7, Canada | 44.554526 | -80.587449 | J4855677 | J4147832 | 434483 | INSTALLED |  |  |  |  |  | land |
+| 1790355014537-00w1lo | 2026-09-25 12:50:14 | Josue Vasquez | 840120 |  | 12182 Grey Rd 10 |  |  | J4854983 | J3064791 | 61084 | INSTALLED |  |  |  |  |  | land |
+| 1790355979246-kt6nse | 2026-09-25 13:06:19 | Josue Vasquez | 844567 |  | 12080 Grey Rd 10 |  |  | J4854981 | J2198752 | 77912 | INSTALLED |  |  |  |  |  | land |
+| 1790356837025-ibgqg0 | 2026-09-25 13:20:37 | Josue Vasquez | 841958 |  | 12056 Grey Rd 10 |  |  | J4854984 | J3754070 | 65049 | INSTALLED |  |  |  |  |  | land |
+| 1790357130282-a77qhz | 2026-09-25 13:25:30 | Quincy Orta | 859443 |  | 115166 Grey Road 3, Chatsworth, ON N0G 1L0, Canada | 44.310526 | -81.006553 | J4855680 | J3515244 | 85303 | INSTALLED |  |  |  |  |  | land |
+| 1790357925247-r9s3ge | 2026-09-25 13:38:45 | Josue Vasquez | 845501 |  | 207 Concession 6 |  |  | J4854985 | J3751970 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790358558447-0ynv6n | 2026-09-25 13:49:18 | Josue Vasquez | 840374 |  | 216 Concession 6 |  |  | J4854986 | J3064838 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790359241857-kb0mzn | 2026-09-25 14:00:41 | Josue Vasquez | 840347 |  | 219 Concession 6 |  |  | J4854988 | J3064837 | 63221 | INSTALLED |  |  |  |  |  | land |
+| 1790361652906-baokdc | 2026-09-25 14:40:52 | Josue Vasquez | 843379 |  | 182 Sideroad 20 |  |  | J4854987 | J4137238 | 6864 | INSTALLED |  |  |  |  |  | land |
+| 1790362695492-zgs17z | 2026-09-25 14:58:15 | Josue Vasquez | 844414 |  | 137 Sideroad 20 |  |  | J4854989 | J3064765 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790363734301-80iohc | 2026-09-25 15:15:34 | Josue Vasquez | 845345 |  | 142 Sideroad 30 |  |  | J4854990 | J3125707 | 8780 | INSTALLED |  |  |  |  |  | land |
+| 1790363925318-oej276 | 2026-09-25 15:18:45 | Quincy Orta | 770352 |  | 3702 Bruce Rd 10, Tara, ON N0H 2N0, Canada | 44.468984 | -81.142537 | J4855682 | J2224190 | 59464 | INSTALLED |  |  |  |  |  | land |
+| 1790364415368-pubgl2 | 2026-09-25 15:26:55 | Josue Vasquez | 842485 |  | 118 Sideroad 30 |  |  | J4854991 | J3289908 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790365328364-is9mee | 2026-09-25 15:42:08 | Josue Vasquez | 844383 |  | 1 Glen Crt |  |  | J4854992 | J3125682 | 23650 | INSTALLED |  |  |  |  |  | land |
+| 1790365881776-yhci0a | 2026-09-25 15:51:21 | Josue Vasquez | 841852 |  | 1001 Hwy 9 |  |  | J4850621 | J3125683 | 88961 | INSTALLED |  |  |  |  |  | land |
+| 1790366109973-rpdyvn | 2026-09-25 15:55:09 | Josue Vasquez | 843359 |  | 1-1001 Hwy 9 |  |  | J4850622 | J4485000 | 3463 | INSTALLED |  |  |  |  |  | land |
+| 1790367495788-evn2fd | 2026-09-25 16:18:15 | Josue Vasquez | 842343 |  | 1012 Hwy 9 |  |  | J4850624 | J4172378 | 197 | INSTALLED |  |  |  | 14842 |  | land |
+| 1790367748757-nv70lq | 2026-09-25 16:22:28 | Josue Vasquez | 841563 |  | 1017 Hwy 9 |  |  | J4850623 | J3125678 | 91962 | INSTALLED |  |  |  |  |  | land |
