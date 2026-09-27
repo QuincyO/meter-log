@@ -1,6 +1,6 @@
 # Downtime
 
-_617 rows · exported 2026-09-26 03:52 America/Toronto_
+_625 rows · exported 2026-09-27 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -621,3 +621,11 @@ _617 rows · exported 2026-09-26 03:52 America/Toronto_
 | 1790365076866-irbxez | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 859443 | gap 11:25–13:25 |  |
 | 1790365076866-ykvwi1 | 2026-09-25 12:00:00 | Quincy Orta | ASSIST | 30 | 859443 | gap 11:25–13:25 |  |
 | 1790365076866-8j4uf3 | 2026-09-25 12:00:00 | Quincy Orta | DISPATCH | 30 | 770352 | gap 13:25–15:18 |  |
+| 1790474419573-0w5gpo | 2026-09-26 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 746237 | gap 10:02–10:02 |  |
+| 1790474419573-jxijew | 2026-09-26 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 746237 | gap 10:02–10:02 |  |
+| 1790474419573-zg1lhp | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 90 | 746237 | gap 10:02–10:02 |  |
+| 1790474419573-geedjl | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 747023 | gap 10:02–10:37 |  |
+| 1790474419573-1dcvzm | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 767539 | gap 10:37–11:25 |  |
+| 1790474419573-bge6ti | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 859443 | gap 11:25–13:25 |  |
+| 1790474419573-yic7jn | 2026-09-26 12:00:00 | Quincy Orta | ASSIST | 30 | 859443 | gap 11:25–13:25 |  |
+| 1790474419573-fmdp9v | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 770352 | gap 13:25–15:18 |  |

@@ -1,6 +1,6 @@
 # Tracker
 
-_140 rows · exported 2026-09-26 03:52 America/Toronto_
+_141 rows · exported 2026-09-27 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -144,3 +144,4 @@ _140 rows · exported 2026-09-26 03:52 America/Toronto_
 | 2026-09-24 00:00:00 | Quincy Orta | 12 | 0 | 90 | 30 | 0 | 0 | 15 | 15 | 30 | 0 | 0 | 0 | 0 | Clear · E 12 km/h · 19°C |  | 0 | 0 |  | 120 |  | land |
 | 2026-09-24 00:00:00 | Josue Vasquez | 15 | 0 | 300 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 300 | Partly cloudy · S 17 km/h · 25°C |  | 0 | 0 |  | 149 |  | land |
 | 2026-09-25 00:00:00 | Josue Vasquez | 21 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Partly cloudy · S 19 km/h · 25°C |  | 0 | 0 |  | 441 |  | land |
+| 2026-09-26 00:00:00 | Quincy Orta | 0 | 0 | 270 | 0 | 0 | 0 | 15 | 15 | 210 | 0 | 30 | 0 | 0 | Partly cloudy · N 12 km/h · 16°C | All my orders were appointments and from start location to the last meter was over 200 km of driving each order was pretty far from the last | 0 | 0 |  | 0 |  | land |
