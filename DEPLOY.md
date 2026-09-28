@@ -338,6 +338,14 @@ node tools/roadpack-server.mjs --data D:\osrm
 `--data` is the folder holding your `ontario-latest.osm.pbf` — the same one already
 mounted into the OSRM and Nominatim containers. The `.pbf` is auto-detected.
 
+Run the helper from your normal Windows account. An agent sandbox can reach the
+helper's web port but deny its access to Docker, even while Docker Desktop is open
+and healthy. If the panel reports a permission error, stop that helper and rerun
+the command above in your own PowerShell window (agents must use their approved
+unsandboxed launch). Check `http://127.0.0.1:8790/status`: `docker` should be `true`
+and `pbfBbox` should contain coordinates. The latter confirms osmium can actually
+read the extract through Docker. Refresh the planner after restarting the helper.
+
 Leave it running and open `planner.html`. The panel appears only while the service
 is up, and **Build** stays disabled — with the reason both on hover and spelled out
 under the district list — unless Docker Desktop is running (Docker is what runs

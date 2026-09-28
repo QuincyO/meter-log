@@ -86,7 +86,17 @@ function run(cmd, argv, onLine){
 async function dockerUp(){
   const r = await run('docker', ['version', '--format', '{{.Server.Version}}']);
   if(r.code === 0) return { ok:true };
-  return { ok:false, reason: r.code === -1 ? 'Docker is not installed or not on PATH' : 'Docker Desktop is not running' };
+  const detail = String(r.err || '').trim();
+  // A sandboxed helper can reach this HTTP port while being denied Docker's
+  // named pipe/config. That says nothing about whether Desktop is running.
+  let reason;
+  if(/permission denied|access (?:is )?denied|EACCES|EPERM/i.test(detail))
+    reason = 'The district helper does not have permission to access Docker — restart the helper under your normal Windows account, outside the agent sandbox';
+  else if(r.code === -1 && /ENOENT/i.test(detail))
+    reason = 'Docker is not installed or not on PATH';
+  else
+    reason = 'The district helper cannot connect to the Docker engine — check Docker Desktop and the helper’s Docker context';
+  return { ok:false, reason: detail ? `${reason}. ${detail}` : reason };
 }
 
 async function gitUp(){

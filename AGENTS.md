@@ -701,6 +701,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   first thing to check when a district won't build — `curl localhost:8790/status`
   prints the resolved `data` and `pbf`. On this machine the extract lives in
   `D:\osrm`, the same folder mounted into the OSRM and Nominatim containers.
+  **Launch this helper as the desktop user, outside the agent sandbox.** A helper
+  launched as `CodexSandboxOffline` can serve `/status` and see the extract while
+  being denied Docker's config and named pipe. This was reproduced on 2026-09-28:
+  Docker worked as Quincy while that helper reported it was stopped. Restart the
+  helper with the approved unsandboxed execution path; do not change Docker's
+  permissions or restart healthy containers. `/status` must report `docker:true`
+  and a populated `pbfBbox` (which exercises an actual osmium container), not merely
+  HTTP 200. Keep Docker stderr in the reported reason so access/context failures
+  cannot be mistaken for Desktop being closed.
   The panel also **extends** and **removes** districts, and three things there are
   easy to undo by accident: (1) **extend rebuilds the same id over
   `unionBbox(old, drawn)`** — a district is one rectangle, so the id input locks
