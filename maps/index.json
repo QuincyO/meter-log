@@ -5,16 +5,16 @@
       "name": "Owen Sound Meg",
       "file": "maps/owen-sound-meg.pack",
       "bbox": {
-        "minLat": 43.18915769654922,
-        "minLng": -81.82983443140985,
+        "minLat": 42.455887641971685,
+        "minLng": -82.21069335937501,
         "maxLat": 45.27488643704894,
-        "maxLng": -79.28100630640984
+        "maxLng": -78.69506835937501
       },
-      "bytes": 49787712,
-      "nodes": 555341,
-      "segments": 715122,
-      "addresses": 1082764,
-      "builtAt": "2026-08-17"
+      "bytes": 71434024,
+      "nodes": 821361,
+      "segments": 1047859,
+      "addresses": 1526321,
+      "builtAt": "2026-09-28"
     }
   ]
 }
