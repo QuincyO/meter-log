@@ -1,6 +1,6 @@
 # Stops
 
-_2542 rows · exported 2026-09-28 03:52 America/Toronto_
+_2599 rows · exported 2026-09-29 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2546,3 +2546,60 @@ _2542 rows · exported 2026-09-28 03:52 America/Toronto_
 | 1790366109973-rpdyvn | 2026-09-25 15:55:09 | Josue Vasquez | 843359 |  | 1-1001 Hwy 9 |  |  | J4850622 | J4485000 | 3463 | INSTALLED |  |  |  |  |  | land |
 | 1790367495788-evn2fd | 2026-09-25 16:18:15 | Josue Vasquez | 842343 |  | 1012 Hwy 9 |  |  | J4850624 | J4172378 | 197 | INSTALLED |  |  |  | 14842 |  | land |
 | 1790367748757-nv70lq | 2026-09-25 16:22:28 | Josue Vasquez | 841563 |  | 1017 Hwy 9 |  |  | J4850623 | J3125678 | 91962 | INSTALLED |  |  |  |  |  | land |
+| 1790600736971-ydm6mq | 2026-09-28 09:05:36 | Josue Vasquez | 839792 |  | 9576 Odwyers Rd |  |  | J4855150 | J3072458 | 34081 | INSTALLED |  |  |  |  |  | land |
+| 1790602286620-zmmlc0 | 2026-09-28 09:31:26 | Phillip Monteiro | 904203 |  | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841969 | -80.484241 | J4853142 | J2662178 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790602634896-2t7rx8 | 2026-09-28 09:37:14 | Phillip Monteiro | 904411 | 4 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842002 | -80.484249 | J4853143 | J2662176 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790603086682-ws6sk0 | 2026-09-28 09:44:46 | Phillip Monteiro | 904271 | 3 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841954 | -80.48418 | J4853144 | J2662179 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790603318877-aete15 | 2026-09-28 09:48:38 | Phillip Monteiro | 905447 | 2 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841981 | -80.48427 |  | J2661410 |  | UTI | Electrical Repair | Gap between jaws | Missing segments |  |  | land |
+| 1790603968474-lm9uvi | 2026-09-28 09:59:28 | Quincy Orta | 906219 |  | 857 Windham Road 11, Delhi, ON N4B 2W5, Canada | 42.877571 | -80.417986 | J4855665 | J4126924 | 18723 | INSTALLED |  |  |  |  |  | land |
+| 1790604336778-nmww7p | 2026-09-28 10:05:36 | Phillip Monteiro | 901537 | 4 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841967 | -80.48425 | J4852232 | J2661409 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1790604780713-vphb3a | 2026-09-28 10:13:00 | Quincy Orta | 902540 |  | 287 Windham Road 11, Delhi, ON N4B 2W5, Canada | 42.869617 | -80.470334 | J4855668 | J4231913 | 18082 | INSTALLED |  |  |  |  |  | land |
+| 1790605155942-ucmzte | 2026-09-28 10:19:15 | Phillip Monteiro | 902550 | 8 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842005 | -80.484239 | J4853132 | J4231928 | 4155 | INSTALLED |  |  |  |  |  | land |
+| 1790605336987-ap75q9 | 2026-09-28 10:22:16 | Phillip Monteiro | 906857 | 7 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841988 | -80.484309 | J4852231 | J4025135 | 14651 | INSTALLED |  |  |  |  |  | land |
+| 1790605502660-vdkhvm | 2026-09-28 10:25:02 | Quincy Orta | 907530 |  | 262 Brantford Rd, Delhi, ON N4B 2W5, Canada | 42.873907 | -80.467066 | J4855666 | J2261427 | 21450 | INSTALLED |  |  |  |  |  | land |
+| 1790605580524-bkqf62 | 2026-09-28 10:26:20 | Phillip Monteiro | 904237 | 6 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842005 | -80.48429 | J4853141 | J2662155 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1790605956833-d325o1 | 2026-09-28 10:32:36 | Phillip Monteiro | 907539 | 5 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.841989 | -80.484283 | J4852230 | J4016342 | 29150 | INSTALLED |  |  |  |  |  | land |
+| 1790606009385-g14cem | 2026-09-28 10:33:29 | Josue Vasquez | 859630 |  | 381581 Concession 4 |  |  | J4855149 | J3212527 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790606703245-nw9irk | 2026-09-28 10:45:03 | Quincy Orta | 905730 |  | 268 Brantford Rd, Scotland | 42.873984 | -80.466222 | J4855667 | J3285259 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790607160163-y9cind | 2026-09-28 10:52:40 | Josue Vasquez | 859621 |  | 381579 Concession 4 |  |  | J4855151 | J4005814 | 33022 | INSTALLED |  |  |  |  |  | land |
+| 1790607436434-004nyg | 2026-09-28 10:57:16 | Quincy Orta | 905220 |  | 304 Brantford Rd, Delhi, ON N4B 2W5, Canada | 42.876472 | -80.464682 | J4837298 | J3711820 | 79268 | INSTALLED |  |  |  |  |  | land |
+| 1790607800701-2fmuz7 | 2026-09-28 11:03:20 | Josue Vasquez | 840201 |  | 381529 Concession 4 |  |  | J4855152 | J3509885 | 72181 | INSTALLED |  |  |  |  |  | land |
+| 1790608464777-sxge9e | 2026-09-28 11:14:24 | Phillip Monteiro | 904123 | 12 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842158 | -80.483178 | J4853128 | J3672446 | 69381 | INSTALLED |  |  |  |  |  | land |
+| 1790608716470-of7hxr | 2026-09-28 11:18:36 | Quincy Orta | 903826 |  | 402 Brantford Rd, Scotland | 42.881351 | -80.460393 | J4837299 | J3703858 | 52014 | INSTALLED |  |  |  |  |  | land |
+| 1790608719538-82mptn | 2026-09-28 11:18:39 | Phillip Monteiro | 907004 | 11 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842087 | -80.483192 | J4853130 | J3672445 | 46201 | INSTALLED |  |  |  |  |  | land |
+| 1790608950404-8jhjig | 2026-09-28 11:22:30 | Phillip Monteiro | 902632 | 10 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842148 | -80.483173 | J4853129 | J3672444 | 44674 | INSTALLED |  |  |  |  |  | land |
+| 1790609568364-v1wvjn | 2026-09-28 11:32:48 | Phillip Monteiro | 905448 | 9 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842133 | -80.483155 | J4853131 | J3672443 | 63435 | INSTALLED |  |  |  |  |  | land |
+| 1790610074854-12byfd | 2026-09-28 11:41:14 | Phillip Monteiro | 905398 | 15 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842155 | -80.483157 | J4853127 | J2662156 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790610298011-quiovo | 2026-09-28 11:44:58 | Phillip Monteiro | 908121 | 14 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.84217 | -80.483129 | J4853126 | J4399934 | 6860 | INSTALLED |  |  |  |  |  | land |
+| 1790610468202-mz8kvr | 2026-09-28 11:47:48 | Josue Vasquez | 844242 |  | 381479 Concession 4 |  |  | J4855169 | J3897024 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1790610558078-czylrk | 2026-09-28 11:49:18 | Phillip Monteiro | 900574 | 13 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842164 | -80.483151 | J4853124 | J2662157 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790610810204-8ohr0v | 2026-09-28 11:53:30 | Phillip Monteiro | 907180 | 16 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842167 | -80.483161 | J4853125 | J4036830 | 15647 | INSTALLED |  |  |  |  |  | land |
+| 1790610871862-uu8dvn | 2026-09-28 11:54:31 | Josue Vasquez | 841380 |  | 381425 Concession 4 |  |  | J4855170 | J3863630 | 32723 | INSTALLED |  |  |  |  |  | land |
+| 1790611040242-54wr9j | 2026-09-28 11:57:20 | Quincy Orta | 903595 |  | 406 Brantford Rd, Scotland | 42.881956 | -80.460355 | J4837300 | J3833055 | 67012 | INSTALLED |  |  |  |  |  | land |
+| 1790611318691-yw38sf | 2026-09-28 12:01:58 | Quincy Orta | 903580 |  | 406 Brantford Rd, Scotland | 42.881748 | -80.460209 | J4837301 | J3928813 | 3429 | INSTALLED |  |  |  |  |  | land |
+| 1790613493636-8tusmj | 2026-09-28 12:38:13 | Quincy Orta | 904511 |  | 462 Regional Rd 4, Norfolk, ON N0E 1H0, Canada | 42.886679 | -80.46135 |  |  |  | UTI | Customer Delay/Change | Customer requested appt for Oct 2nd at 9:00 |  |  |  | land |
+| 1790613816201-vhq7l4 | 2026-09-28 12:43:36 | Quincy Orta | 900671 |  | 576 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.893296 | -80.465425 | J4855672 | J2661904 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790613920482-45aive | 2026-09-28 12:45:20 | Josue Vasquez | 842499 |  | 73735 Sideroad 10 |  |  | J4855171 | J3374531 | 400 | INSTALLED |  |  |  | 7606 |  | land |
+| 1790614384804-v0k7t1 | 2026-09-28 12:53:04 | Quincy Orta | 904250 |  | 477 Windham Rd 9 | 42.896773 | -80.464761 | J4855671 | J2674557 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790615254712-jqog20 | 2026-09-28 13:07:34 | Quincy Orta | 901362 |  | 648 Brantford Rd, Scotland | 42.898295 | -80.464759 | J4855669 | J2661901 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790615284413-caj152 | 2026-09-28 13:08:04 | Josue Vasquez | 841394 |  | 381103 Concession 4 |  |  | J4855172 | J3755783 | 48599 | INSTALLED |  |  |  |  |  | land |
+| 1790615557325-xpkfxl | 2026-09-28 13:12:37 | Phillip Monteiro | 904543 | 20 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842199 | -80.482467 | J4853123 | J2661407 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790615568221-t496ne | 2026-09-28 13:12:48 | Quincy Orta | 907823 |  | 648 Brantford Rd, Scotland | 42.898022 | -80.464756 | J4855670 | J3613672 | 31840 | INSTALLED |  |  |  |  |  | land |
+| 1790615813156-fs7fm6 | 2026-09-28 13:16:53 | Phillip Monteiro | 902800 | 19 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.84223 | -80.482526 | J4861390 | J4447573 | 2303 | INSTALLED |  |  |  |  |  | land |
+| 1790616100660-7ef8ip | 2026-09-28 13:21:40 | Phillip Monteiro | 906695 | 18 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.842221 | -80.482517 | J4853121 | J4399444 | 11879 | INSTALLED |  |  |  |  |  | land |
+| 1790616316663-x006aq | 2026-09-28 13:25:16 | Phillip Monteiro | 905554 | 17 | 74 Wilson Ave, Norfolk, ON N4B 3E7, Canada | 42.84222 | -80.482442 | J4853122 | J3909741 | 25589 | INSTALLED |  |  |  |  |  | land |
+| 1790616671087-h5rgi6 | 2026-09-28 13:31:11 | Quincy Orta | 905206 |  | 722 Brantford Rd, Scotland | 42.902959 | -80.462981 | J4855688 | J3452225 | 338 | INSTALLED |  |  |  | 81441 |  | land |
+| 1790616903543-bvvl1d | 2026-09-28 13:35:03 | Quincy Orta | 902597 |  | 722 Brantford Rd, Scotland | 42.902942 | -80.462969 | J4855687 | J2661823 | 25284 | INSTALLED |  |  |  |  |  | land |
+| 1790617567161-q9ct1p | 2026-09-28 13:46:07 | Quincy Orta | 900973 |  | 728 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.903429 | -80.462917 | J4855685 | J2662285 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790618435348-mg9aj9 | 2026-09-28 14:00:35 | Josue Vasquez | 842514 |  | 241 Mill St E |  |  | J4855165 | J4138904 | 9248 | INSTALLED |  |  |  |  |  | land |
+| 1790618525073-at8bp5 | 2026-09-28 14:02:05 | Quincy Orta | 902696 |  | 796 Brantford Rd, Scotland | 42.906146 | -80.459279 | J4855686 | J3613665 | 77059 | INSTALLED |  |  |  |  |  | land |
+| 1790619316320-3w0586 | 2026-09-28 14:15:16 | Quincy Orta | 907869 |  | 950 Brantford Rd, Scotland | 42.915259 | -80.453841 | J4855676 | J4024981 | 36677 | INSTALLED |  |  |  |  |  | land |
+| 1790620054278-388vm7 | 2026-09-28 14:27:34 | Quincy Orta | 904185 |  | 928 Regional Rd 4, Norfolk, ON N0E 1H0, Canada | 42.915558 | -80.455781 | J4855675 | J4231905 | 737 | INSTALLED |  |  |  |  |  | land |
+| 1790621585794-m5v4vw | 2026-09-28 14:53:05 | Quincy Orta | 907962 |  | 3632 Windham West Quarter Line Rd, Norfolk, ON N0E 1S0, Canada | 42.938113 | -80.479231 | J4855673 | J2675641 | 75915 | INSTALLED |  |  |  |  |  | land |
+| 1790621857512-m85pb1 | 2026-09-28 14:57:37 | Josue Vasquez | 841398 |  | 381488 Concession 4 |  |  | J4855166 | J4138603 | 52486 | INSTALLED |  | 839792 travel time: 32 min<br>859630 travel time: 30 min<br>842514 travel time: 21 min <br>841398 travel time: 17 min |  |  |  | land |
+| 1790622354815-suluu2 | 2026-09-28 15:05:54 | Quincy Orta | 906128 |  | 3460 Windham West Quarter Line Rd, Norfolk, ON N0E 1V0, Canada | 42.926587 | -80.474781 | J4855674 | J4000171 | 49766 | INSTALLED |  |  |  |  |  | land |
+| 1790622545838-nlqbnd | 2026-09-28 15:09:05 | Josue Vasquez | 842810 |  | 381132 Concession 4 |  |  | J4855167 | J3968958 | 77766 | INSTALLED |  |  |  |  |  | land |
+| 1790623397587-x62ir3 | 2026-09-28 15:23:17 | Josue Vasquez | 842952 |  | 381042 Concession 4 |  |  | J4855168 | J4026113 | 32359 | INSTALLED |  |  |  |  |  | land |
+| 1790625343823-7zl47o | 2026-09-28 15:55:43 | Josue Vasquez | 857616 |  | 421165 Concession 6 |  |  | J4855161 | J4234441 | 46617 | INSTALLED |  |  |  |  |  | land |
+| 1790626053609-6ehrjb | 2026-09-28 16:07:33 | Josue Vasquez | 856146 |  | 421173 Concession 6 |  |  | J4855162 | J2192289 | 94851 | INSTALLED |  |  |  |  |  | land |
+| 1790626721702-9zfxt3 | 2026-09-28 16:18:41 | Josue Vasquez | 856763 |  | 34037 Sideroad 5 |  |  | J4855164 | J3073366 | 72219 | INSTALLED |  |  |  |  |  | land |

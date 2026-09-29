@@ -1,6 +1,6 @@
 # Downtime
 
-_625 rows · exported 2026-09-28 03:52 America/Toronto_
+_640 rows · exported 2026-09-29 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -629,3 +629,18 @@ _625 rows · exported 2026-09-28 03:52 America/Toronto_
 | 1790474419573-bge6ti | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 859443 | gap 11:25–13:25 |  |
 | 1790474419573-yic7jn | 2026-09-26 12:00:00 | Quincy Orta | ASSIST | 30 | 859443 | gap 11:25–13:25 |  |
 | 1790474419573-fmdp9v | 2026-09-26 12:00:00 | Quincy Orta | DISPATCH | 30 | 770352 | gap 13:25–15:18 |  |
+| 1790600732154-usb3ni | 2026-09-28 09:05:32 | Josue Vasquez | TRAVEL_TIME | 36 | 839792 |  | land |
+| 1790605953249-yadk93 | 2026-09-28 10:32:33 | Josue Vasquez | TRAVEL_TIME | 31 | 859630 |  | land |
+| 1790607152017-t0146v | 2026-09-28 10:52:32 | Josue Vasquez | TRAVEL_TIME | 10 | 859621 |  | land |
+| 1790620403817-d7s8id | 2026-09-28 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 904203 | gap 09:31–09:31 |  |
+| 1790620403817-ziglpn | 2026-09-28 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 904203 | gap 09:31–09:31 |  |
+| 1790620403817-c1xhbp | 2026-09-28 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 904203 | gap 09:31–09:31 |  |
+| 1790620403817-llx7vz | 2026-09-28 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 904203 | gap 09:31–09:31 |  |
+| 1790620403817-br14iy | 2026-09-28 12:00:00 | Phillip Monteiro | URGENT_EER | 20 | 905447 | gap 09:44–09:48 |  |
+| 1790620403817-lzihmn | 2026-09-28 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 905554 | gap 13:21–13:25 |  |
+| 1790620403817-6ptjks | 2026-09-28 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 20 | 905554 | gap 13:21–13:25 |  |
+| 1790624594161-f92lhy | 2026-09-28 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 906219 | gap 09:59–09:59 |  |
+| 1790624594161-kf20i4 | 2026-09-28 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 906219 | gap 09:59–09:59 |  |
+| 1790624594161-qaf4k4 | 2026-09-28 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 906219 | gap 09:59–09:59 |  |
+| 1790624594161-ewecjc | 2026-09-28 12:00:00 | Quincy Orta | DISPATCH | 30 | 906219 | gap 09:59–09:59 |  |
+| 1790624594161-xnvlas | 2026-09-28 12:00:00 | Quincy Orta | TRUCK_ISSUES | 15 | 906219 | gap 09:59–09:59 |  |

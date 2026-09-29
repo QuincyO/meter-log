@@ -1,6 +1,6 @@
 # Tracker
 
-_141 rows · exported 2026-09-28 03:52 America/Toronto_
+_143 rows · exported 2026-09-29 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -145,3 +145,5 @@ _141 rows · exported 2026-09-28 03:52 America/Toronto_
 | 2026-09-24 00:00:00 | Josue Vasquez | 15 | 0 | 300 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 300 | Partly cloudy · S 17 km/h · 25°C |  | 0 | 0 |  | 149 |  | land |
 | 2026-09-25 00:00:00 | Josue Vasquez | 21 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Partly cloudy · S 19 km/h · 25°C |  | 0 | 0 |  | 441 |  | land |
 | 2026-09-26 00:00:00 | Quincy Orta | 0 | 0 | 270 | 0 | 0 | 0 | 15 | 15 | 210 | 0 | 30 | 0 | 0 | Partly cloudy · N 12 km/h · 16°C | All my orders were appointments and from start location to the last meter was over 200 km of driving each order was pretty far from the last | 0 | 0 |  | 0 |  | land |
+| 2026-09-28 00:00:00 | Phillip Monteiro | 20 | 1 | 145 | 30 | 0 | 0 | 15 | 35 | 25 | 20 | 0 | 20 | 0 | Clear · N 12 km/h · 21°C |  | 0 | 0 |  | 226 |  | land |
+| 2026-09-28 00:00:00 | Josue Vasquez | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Partly cloudy · SW 23 km/h · 26°C |  | 0 | 0 |  | 433 |  | land |
