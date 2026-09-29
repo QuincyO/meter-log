@@ -251,9 +251,10 @@
       <label for="wlWo">Work order #</label><input id="wlWo" class="mono" inputmode="numeric">
       <label for="wlNum">Address</label>
       <div class="addrrow">
-        <input id="wlNum" class="mono" placeholder="No." aria-label="House number" inputmode="numeric">
+        <input id="wlNum" class="mono" placeholder="No. / unit" aria-label="House number and optional unit" inputmode="text" autocapitalize="off" spellcheck="false">
         <input id="wlStreet" placeholder="Street / landmark" aria-label="Street">
       </div>
+      <p class="muted">14-a = house 14, unit a. Directions use the house number only.</p>
       <div class="wl-chips hide" id="wlChips"></div>
       <div class="muted hide" id="wlAmbigHint" style="margin-top:6px">This address matches more than one place — tap the right one:</div>
       <div class="wl-chips hide" id="wlAmbig"></div>
@@ -324,9 +325,10 @@
     <p class="muted" id="wlAddrReason"></p>
     <label for="wlAddrNum">Address</label>
     <div class="addrrow">
-      <input id="wlAddrNum" class="mono" placeholder="No." aria-label="House number" inputmode="numeric">
+      <input id="wlAddrNum" class="mono" placeholder="No. / unit" aria-label="House number and optional unit" inputmode="text" autocapitalize="off" spellcheck="false">
       <input id="wlAddrStreet" placeholder="Street / landmark" aria-label="Street">
     </div>
+    <p class="muted">14-a = house 14, unit a. Directions use the house number only.</p>
     <div class="wl-chips hide" id="wlAddrChips"></div>
     <div class="muted hide" id="wlAddrTownHint" style="margin-top:6px">This address matches more than one place — tap the right one:</div>
     <div class="wl-chips hide" id="wlAddrTowns"></div>

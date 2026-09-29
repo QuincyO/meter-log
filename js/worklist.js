@@ -35,6 +35,8 @@ import {
   addressQueue, hasNoAddress, initWorklistAddressFill, joinAddr, recentStreets,
   sinkAddressless, splitAddr,
 } from './worklist-address-fill.js';
+// Optional exports: an older cached address module must not stop capture boot.
+import * as addressText from './worklist-address-fill.js';
 import { bulkAddPlan, dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
@@ -395,6 +397,7 @@ function destOf(item){
 }
 // The address line exactly as the card shows it — what lands on the clipboard.
 function addressLabel(item){
+  if(addressText.formatOrderAddress) return addressText.formatOrderAddress(item);
   return [item && item.unit, item && item.address].filter(Boolean).join(' ').trim();
 }
 // Launch the maps app in its own context — never navigate the PWA itself away
@@ -1356,10 +1359,11 @@ async function runDuplicateScan(){
 // Persist one address from the walkthrough. Mirrors wlSave's edit branch: a
 // changed address invalidates the cached pin and the parked flags, so the next
 // Optimize looks the new text up instead of trusting the old coords.
-async function saveWorklistAddress(id, address){
+async function saveWorklistAddress(id, address, unit){
   const existing = await idb.get('worklist', id);
   if(!existing) return;
   const patch = { address, updatedAt: stamp() };
+  if(unit !== undefined) patch.unit = unit;  // old walkthroughs omit it
   if(existing.address !== address)
     Object.assign(patch, { lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined });
   await idb.put('worklist', Object.assign({}, existing, patch));
@@ -1743,7 +1747,7 @@ function makeWlCard(item){
     + (item.lockedDate ? ' locked' : '');
   card.dataset.id = item.id;
   const title = item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)';
-  const addr  = [item.unit && esc(item.unit), item.address && esc(item.address)].filter(Boolean).join(' ');
+  const addr = esc(addressLabel(item));
   // The routing-state pill lives in the TITLE row, never at the tail of the
   // address line — the address wraps to full length, and a pill at the end of
   // a long line was invisible in practice. States: 📍 fix address (geocode
@@ -1964,9 +1968,10 @@ function paintTimedFields(){
 }
 function wlOpenForm(item){
   _wlEditId = item ? item.id : null;
-  const a = splitAddr(item ? item.address : '');
+  const a = addressText.addressFields ? addressText.addressFields(item) : splitAddr(item ? item.address : '');
   $('wlWo').value     = item ? (item.workOrderId||'') : '';
   $('wlNum').value    = a.num;
+  $('wlNum').inputMode = 'text';
   $('wlStreet').value = a.street;
   $('wlOldJ').value   = item ? (item.oldJNumber||'') : '';
   $('wlTimed').checked = Boolean(item && item.appointmentDate && item.appointmentTime);
@@ -1986,10 +1991,20 @@ function wlOpenForm(item){
 // pick path behind BOTH chip rows (the card's and the Edit form's), so the two
 // can't drift. Typing a better address instead also works (wlSave clears the
 // flag with the coords).
-async function pickTown(item, c){
+async function pickTown(item, c, unit, typedNumber = ''){
   const stored = (await idb.get('worklist', item.id)) || item;
+  let address = c.label;
+  // An old address module does not split units. Preserve its newly typed
+  // shorthand just as its normal Save does; never drop it on a town pick.
+  if(unit === undefined){
+    const a = splitAddr(address);
+    const num = String(typedNumber).trim().replace(/\s*-\s*/, '-');
+    if(/^\d\w*-\S/.test(num)) address = a.num && num.startsWith(a.num + '-')
+      ? joinAddr(num, a.street) : `${address} (${num})`;
+  }
   await idb.put('worklist', Object.assign({}, stored, {
-    address: c.label, lat: c.lat, lng: c.lng,
+    address, lat: c.lat, lng: c.lng,
+    ...(unit !== undefined ? { unit } : {}),
     geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
   toast('Pinned ✓ — ' + c.label);
   await renderWorklist();
@@ -2005,9 +2020,12 @@ function renderAmbig(item){
   hint.classList.remove('hide'); box.classList.remove('hide');
   box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
   [...box.children].forEach((b, i) => b.onclick = async () => {
+    const unit = addressText.parseAddressInput
+      ? addressText.parseAddressInput($('wlNum').value, $('wlStreet').value, item.unit).unit
+      : undefined;
     _wlEditId = null;
     $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
-    await pickTown(item, cands[i]);
+    await pickTown(item, cands[i], unit, $('wlNum').value);
   });
 }
 
@@ -2027,7 +2045,10 @@ async function renderChips(){
 
 async function wlSave(){
   const wo = $('wlWo').value.trim();
-  const address = joinAddr($('wlNum').value, $('wlStreet').value);
+  const existing = _wlEditId ? (await idb.get('worklist', _wlEditId)) || {} : {};
+  const { address, unit } = addressText.parseAddressInput
+    ? addressText.parseAddressInput($('wlNum').value, $('wlStreet').value, existing.unit)
+    : { address: joinAddr($('wlNum').value, $('wlStreet').value), unit: existing.unit };
   if(!wo && !address){ toast('Enter a work order # or address'); return; }
   const timed = $('wlTimed').checked;
   const appointmentDate = timed ? $('wlAppointmentDate').value : '';
@@ -2038,9 +2059,8 @@ async function wlSave(){
   const now = stamp();
   let item;
   if(_wlEditId){
-    const existing = (await idb.get('worklist', _wlEditId)) || {};
     item = Object.assign({}, existing, {
-      id:_wlEditId, workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(),
+      id:_wlEditId, workOrderId:wo, address, unit, oldJNumber:$('wlOldJ').value.trim(),
       appointmentDate, appointmentTime, updatedAt:now
     });
     if(existing.appointmentDate !== appointmentDate || existing.appointmentTime !== appointmentTime){
@@ -2063,7 +2083,7 @@ async function wlSave(){
     const last = items.filter(x => x.order != null).pop();
     item = {
       id: now + '-' + Math.random().toString(36).slice(2,6),
-      workOrderId:wo, address, oldJNumber:$('wlOldJ').value.trim(),
+      workOrderId:wo, address, unit, oldJNumber:$('wlOldJ').value.trim(),
       appointmentDate, appointmentTime,
       wlStatus:'pending', order:(last ? Number(last.order) : -10) + 10,
       createdAt:now, updatedAt:now
@@ -2968,7 +2988,8 @@ export function initWorklist(opts){
   addrFill = initWorklistAddressFill({
     getItems: allSorted,
     saveAddress: saveWorklistAddress,
-    pickTown,
+    supportsUnits: true,
+    pickTown: (item, c, unit) => pickTown(item, c, unit, $('wlAddrNum').value),
     onDone: afterAddressFill,
     onClose: () => location.hash === '#worklist-address' ? history.back() : openWorklist(),
   });

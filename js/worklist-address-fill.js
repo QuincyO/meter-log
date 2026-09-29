@@ -32,6 +32,31 @@ export function joinAddr(num, street){
   return [String(num||'').trim(), String(street||'').trim()].filter(Boolean).join(' ');
 }
 
+// Shorthand belongs to the NUMBER BOX only, never to arbitrary stored address
+// text: old hyphenated civic addresses must not be silently reinterpreted.
+// Keeping the detail in unit also keeps it out of geocoding and navigation.
+export function parseAddressInput(num, street, existingUnit = ''){
+  const number = String(num || '').trim();
+  const m = number.match(/^(\d\w*)\s*-\s*(\S.*)$/);
+  return {
+    address: joinAddr(m ? m[1] : number, street),
+    unit: m ? m[2].trim() : (number ? '' : String(existingUnit || '').trim()),
+  };
+}
+export function addressFields(item){
+  const a = splitAddr(item && item.address);
+  // A legacy civic number may itself contain a hyphen. Keep that whole address
+  // in Street so an untouched Save cannot reinterpret it as newly typed units.
+  if(a.num.includes('-')) return { num:'', street:String(item.address || '').trim() };
+  const unit = String((item && item.unit) || '').trim();
+  return { num: a.num && unit ? `${a.num}-${unit}` : a.num, street: a.street };
+}
+export function formatOrderAddress(item){
+  const address = String((item && item.address) || '').trim();
+  const unit = String((item && item.unit) || '').trim();
+  return [address, unit ? `Unit ${unit}` : ''].filter(Boolean).join(' · ');
+}
+
 /** The distinct streets already on the list, most recently added first. Feeds
  *  the one-tap chips on both the Edit form and this screen. */
 export function recentStreets(items, limit = 6){
@@ -89,14 +114,17 @@ export function sinkAddressless(items){
 // Callback-shaped like initWorklistRouteView so the two sub-screens stay
 // decoupled from worklist.js: it owns IndexedDB and rendering, we own this DOM.
 //   getItems()            → the sorted worklist items
-//   saveAddress(id, addr) → persist one address
-//   pickTown(item, cand)  → the existing one-tap town pin
+//   saveAddress(id, addr, unit) → persist one address + optional unit
+//   supportsUnits        → caller can persist that third argument (cache skew)
+//   pickTown(item, cand, unit) → town pin + optional edited unit
 //   onDone()              → sink + re-render, run once per visit
 //   onClose()             → leave the screen (history-aware)
 export function initWorklistAddressFill(opts){
   let queue = [];        // ids, snapshotted on open
   let idx = 0;
   let open_ = false;
+  const numInput = $('wlAddrNum');
+  if(numInput) numInput.inputMode = 'text';  // also works against older HTML
 
   function isOpen(){ return open_; }
 
@@ -145,7 +173,7 @@ export function initWorklistAddressFill(opts){
     $('wlAddrWo').disabled = !item.workOrderId;
     $('wlAddrOldJ').textContent = item.oldJNumber ? `old J# ${item.oldJNumber}` : '';
     $('wlAddrReason').textContent = fixReason(item);
-    const a = splitAddr(item.address);
+    const a = opts.supportsUnits ? addressFields(item) : splitAddr(item.address);
     $('wlAddrNum').value = a.num;
     $('wlAddrStreet').value = a.street;
     $('wlAddrPrev').disabled = idx === 0;
@@ -177,7 +205,20 @@ export function initWorklistAddressFill(opts){
     box.classList.remove('hide'); hint.classList.remove('hide');
     box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
     [...box.children].forEach((b, i) => b.onclick = async () => {
-      await opts.pickTown(item, cands[i]);
+      const unit = opts.supportsUnits
+        ? parseAddressInput($('wlAddrNum').value, $('wlAddrStreet').value, item.unit).unit
+        : undefined;
+      let candidate = cands[i];
+      if(!opts.supportsUnits){
+        // Old callers cannot store unit separately. Like the Save fallback,
+        // keep typed shorthand in their address while retaining the chosen town.
+        const a = splitAddr(candidate.label);
+        const num = $('wlAddrNum').value.trim().replace(/\s*-\s*/, '-');
+        if(/^\d\w*-\S/.test(num)) candidate = { ...candidate,
+          label:a.num && num.startsWith(a.num + '-')
+            ? joinAddr(num, a.street) : `${candidate.label} (${num})` };
+      }
+      await opts.pickTown(item, candidate, unit);
       await step(1);
     });
   }
@@ -198,9 +239,13 @@ export function initWorklistAddressFill(opts){
   async function save(){
     const item = await current();
     if(!item) { await step(1); return; }
-    const address = joinAddr($('wlAddrNum').value, $('wlAddrStreet').value);
+    // An older cached worklist ignores a third argument. Keep its raw shorthand
+    // intact instead of splitting a unit that caller would silently discard.
+    const { address, unit } = opts.supportsUnits
+      ? parseAddressInput($('wlAddrNum').value, $('wlAddrStreet').value, item.unit)
+      : { address: joinAddr($('wlAddrNum').value, $('wlAddrStreet').value) };
     if(!address){ toast('Enter an address, or tap Skip'); return; }
-    await opts.saveAddress(item.id, address);
+    await opts.saveAddress(item.id, address, unit);
     await step(1);
   }
 

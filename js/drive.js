@@ -15,6 +15,7 @@
 // the data.
 import { $, esc } from './dom.js';
 import { store } from './store.js';
+import * as addressText from './worklist-address-fill.js';
 import { localDate, hhmmMin, clockOf, stamp } from './time.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
@@ -31,8 +32,9 @@ const loadDest = () => {
   try { const raw = store.get(DEST_KEY); return raw ? JSON.parse(raw) : null; }
   catch { return null; }
 };
-// Address string shown on both cards + copied by the Maps hand-off — unit + street.
-const addrOf = item => [item.unit, item.address].filter(Boolean).join(' ').trim();
+// Optional helper so an older cached address module still allows the app to open.
+const addrOf = item => addressText.formatOrderAddress
+  ? addressText.formatOrderAddress(item) : [item.unit, item.address].filter(Boolean).join(' ').trim();
 // Match a saved dest to a pending order: WO# when present, else the address.
 const destKey = item => item.workOrderId || addrOf(item);
 

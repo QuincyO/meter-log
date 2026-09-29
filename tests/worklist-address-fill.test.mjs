@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import * as addressText from '../js/worklist-address-fill.js';
 
 import {
   addressQueue, fixReason, hasNoAddress, joinAddr, needsAddressFix,
@@ -10,6 +12,46 @@ import {
 const order = (id, extra = {}) => Object.assign({
   id, workOrderId: 'WO' + id, address: `${id} Main St`, wlStatus: 'pending', order: 0,
 }, extra);
+
+test('house-number shorthand separates units from the navigable address', () => {
+  assert.equal(typeof addressText.parseAddressInput, 'function');
+  for(const [num, street, want] of [
+    ['14-a', 'Whatever Lane', { address:'14 Whatever Lane', unit:'a' }],
+    ['13-2', 'Whatever Lane', { address:'13 Whatever Lane', unit:'2' }],
+    [' 14 - rear door ', ' Whatever Lane ', { address:'14 Whatever Lane', unit:'rear door' }],
+    ['14-C20-5', 'Whatever Lane', { address:'14 Whatever Lane', unit:'C20-5' }],
+    ['14A', 'Whatever Lane', { address:'14A Whatever Lane', unit:'' }],
+    ['14', 'Whatever Lane', { address:'14 Whatever Lane', unit:'' }],
+    ['', '6740 Svorn River Shore', { address:'6740 Svorn River Shore', unit:'' }],
+    ['', 'Bala Island', { address:'Bala Island', unit:'' }],
+  ]) assert.deepEqual(addressText.parseAddressInput(num, street), want);
+});
+
+test('editing restores shorthand, clearing its suffix removes the unit, landmarks retain legacy units', () => {
+  assert.equal(typeof addressText.addressFields, 'function');
+  const item = { address:'14 Whatever Lane', unit:'rear door' };
+  assert.deepEqual(addressText.addressFields(item), { num:'14-rear door', street:'Whatever Lane' });
+  assert.deepEqual(addressText.parseAddressInput('14', 'Whatever Lane', item.unit),
+    { address:'14 Whatever Lane', unit:'' });
+  assert.deepEqual(addressText.parseAddressInput('', 'Bala Island', 'C20-5'),
+    { address:'Bala Island', unit:'C20-5' });
+  // Legacy hyphenated civic numbers stay literal. Saving untouched fields must
+  // not silently change where Maps goes, even when the row already has a unit.
+  const legacy = { address:'14-a Whatever Lane', unit:'rear door' };
+  const fields = addressText.addressFields(legacy);
+  assert.deepEqual(fields, { num:'', street:'14-a Whatever Lane' });
+  assert.deepEqual(addressText.parseAddressInput(fields.num, fields.street, legacy.unit), legacy);
+});
+
+test('order labels distinguish meters without changing their base address', () => {
+  assert.equal(typeof addressText.formatOrderAddress, 'function');
+  assert.equal(addressText.formatOrderAddress({ address:'14 Whatever Lane', unit:'a' }),
+    '14 Whatever Lane · Unit a');
+  assert.equal(addressText.formatOrderAddress({ address:'13 Whatever Lane', unit:'2' }),
+    '13 Whatever Lane · Unit 2');
+  assert.equal(addressText.formatOrderAddress({ address:'14 Whatever Lane' }), '14 Whatever Lane');
+  assert.equal(addressText.formatOrderAddress({ unit:'C20-5' }), 'Unit C20-5');
+});
 
 test('splitAddr / joinAddr survive a pasted whole address', () => {
   assert.deepEqual(splitAddr('6740 Svorn River Shore'), { num: '6740', street: 'Svorn River Shore' });
@@ -95,6 +137,55 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../css/capture.css', import.meta.url), 'utf8');
 const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+
+test('saving only a unit preserves the pin, changing the base address invalidates it, old callers preserve units', async () => {
+  // Exercise the real persistence function with just IndexedDB replaced by an
+  // in-memory row. Importing the whole worklist requires a browser.
+  const source = js.match(/async function saveWorklistAddress\([^]*?\n\}/)?.[0];
+  assert.ok(source);
+  let row = { id:'a', address:'14 Whatever Lane', unit:'a', lat:45, lng:-79, geoFail:false };
+  const save = runInNewContext(`(${source})`, {
+    idb:{ get:async () => row, put:async (_store, value) => { row = value; } },
+    stamp:() => '2026-09-29 12:00:00',
+  });
+  await save('a', '14 Whatever Lane', '2');
+  assert.equal(row.unit, '2');
+  assert.equal(row.lat, 45);
+  assert.equal(row.lng, -79);
+  await save('a', '14 Whatever Lane');
+  assert.equal(row.unit, '2', 'an older walkthrough must not erase a unit');
+  await save('a', '15 Whatever Lane', '');
+  assert.equal(row.unit, '');
+  assert.equal(row.lat, undefined);
+  assert.equal(row.lng, undefined);
+  assert.equal(row.geoFail, undefined);
+});
+
+test('picking a town saves the edited unit and old callers retain the saved detail', async () => {
+  const source = js.match(/async function pickTown\([^]*?\n\}/)?.[0];
+  let row = { id:'a', address:'13 Whatever Lane', unit:'rear door', geoAmbig:[{}] };
+  const pick = runInNewContext(`(${source})`, {
+    idb:{ get:async () => row, put:async (_store, value) => { row = value; } },
+    stamp:() => '2026-09-29 12:00:00', toast:() => {},
+    splitAddr, joinAddr,
+    renderWorklist:async () => {}, planAdvance:async () => {},
+  });
+  const town = { label:'13 Whatever Lane, Huntsville, ON', lat:45.33, lng:-79.22 };
+  await pick(row, town, 'upstairs');
+  assert.equal(row.unit, 'upstairs');
+  assert.equal(row.address, town.label);
+  assert.equal(row.lat, 45.33);
+  assert.equal(row.geoAmbig, undefined);
+  await pick(row, town);
+  assert.equal(row.unit, 'upstairs');
+  await pick(row, town, undefined, '13-basement');
+  assert.equal(row.address, '13-basement Whatever Lane, Huntsville, ON',
+    'an older cached address helper must retain raw newly typed detail');
+  assert.equal(row.unit, 'upstairs', 'an older caller must also retain the existing unit');
+  await pick(row, { ...town, label:'13, Whatever Lane, Huntsville, Ontario, Canada' }, undefined, '13-basement');
+  assert.equal(row.address, '13, Whatever Lane, Huntsville, Ontario, Canada (13-basement)',
+    'unrecognized geocoder label formats still retain all typed detail');
+});
 
 test('the walkthrough has a screen, an entry button, and its own history entry', () => {
   assert.match(html, /id="wlAddrScreen"/);

@@ -678,6 +678,23 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   and the list heads that group with a "Needs address" divider. An order that has
   an address the geocoder disliked keeps its place — it is routable text, just
   unpinned. Entirely local: no network on any path.
+  **House-number unit shorthand:** Fill addresses and Add/Edit accept `14-a`
+  in the number box and store `address:'14 Whatever Lane'`, `unit:'a'`.
+  `worklist-address-fill.js` owns `parseAddressInput`, `addressFields`, and
+  `formatOrderAddress`: edits restore the shorthand, while worklist/Drive/route/
+  planner labels and the navigation clipboard show `14 Whatever Lane · Unit a`.
+  Geocoding and Maps destinations still read only `address` (or the trusted pin).
+  A unit-only edit leaves that pin intact; removing the suffix clears the unit.
+  Picking a town from either address form saves its currently typed unit with
+  the selected pin; a card's town chip preserves the already saved unit.
+  Labels can contain text or further hyphens. Landmark-only edits preserve legacy
+  units. Legacy hyphenated civic addresses reopen wholly in Street so even an
+  untouched Save cannot reinterpret them. Existing addresses are never bulk-reinterpreted. The existing `unit`
+  column carries the detail through sync and capture, with no schema migration.
+  New helpers are optional namespace exports for cached-module skew; the walkthrough
+  splits only when its caller advertises `supportsUnits`, otherwise preserving the
+  raw shorthand (including when choosing a town). An omitted third save argument
+  preserves the stored unit.
   Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
   within-day slot. Appointment cards use a bell badge; locking snapshots the
   current date+slot, removes that card's drag handle, and survives Upload/Download.
@@ -2068,7 +2085,7 @@ installer's saved rows.
 | `installer`   | string | display-name label only, filled from the roster at upload time (falls back to the posted name) — never a match key |
 | `hNumber`     | string | employee number — **the per-installer match key**            |
 | `workOrderId` | string | WO#                                                          |
-| `unit`        | string | legacy popup-era field, round-tripped so it's never dropped  |
+| `unit`        | string | unit/meter detail entered as a house-number suffix (`14-a` → `a`); separate from the navigable address and preserved through sync/capture |
 | `address`     | string | free-text `"num street"` / landmark                          |
 | `oldJNumber`  | string | optional old J#                                              |
 | `wlStatus`    | string | `'pending'` \| `'done'`                                      |

@@ -2,9 +2,13 @@
 // this view a sorted snapshot plus one persistence callback; this module owns
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
 import { $, esc } from './dom.js';
+import * as addressText from './worklist-address-fill.js';
 import { coordsOf, decodePolyline, isParked, offlineRoutePaths } from './route.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
+
+const addressLabel = item => addressText.formatOrderAddress
+  ? addressText.formatOrderAddress(item) : [item.unit, item.address].filter(Boolean).join(' ');
 
 function routeKey(item){
   const day = Number(item && item.day);
@@ -306,7 +310,7 @@ export function initWorklistRouteView(opts){
     const eta = (showTimes() && item.scheduledEta) ? ` · ${etaText(item)}${planStale() ? ' (stale)' : ''}` : '';
     const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
     const late = lateText(item) ? ` · ${lateText(item)}` : '';
-    return `${prefix}${wo}${esc(item.address || 'No address')}${eta}${appt}${late}`;
+    return `${prefix}${wo}${esc(addressLabel(item) || 'No address')}${eta}${appt}${late}`;
   }
 
   async function renderMap(group){
@@ -389,7 +393,7 @@ export function initWorklistRouteView(opts){
       <span class="wl-route-pos">${index + 1}</span>
       <div class="wl-route-main">
         <strong>${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>${state}
-        <div>${esc(item.address || 'No address')}</div>
+        <div>${esc(addressLabel(item) || 'No address')}</div>
         <div class="wl-route-meta${planStale() ? ' stale' : ''}">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)} · ` : ''}${(showTimes() && item.scheduledEta) ? etaText(item) : ''}${(showTimes() && onSiteText(item)) ? ` · ${onSiteText(item)}` : ''}${(showTimes() && Number(item.scheduledWaitMin)>0) ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}${lateText(item) ? ` · <span class="wl-route-late">${lateText(item)}</span>` : ''}${item.lockedDate ? ` · locked slot ${Number(item.lockedSlot)}` : ''}</div>
       </div>`;
     const handle = card.querySelector('.wl-route-handle');

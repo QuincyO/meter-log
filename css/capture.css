@@ -284,8 +284,9 @@ h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-
 /* location + address rows */
 .loc{font-size:13px;color:var(--ink-soft);margin:8px 2px 0;min-height:18px}
 .addrrow{display:flex;gap:10px;align-items:stretch}
-.addrrow #unit,.addrrow #wlNum{flex:none;width:var(--tap);text-align:center;padding:0 8px}
-.addrrow #addr,.addrrow #wlStreet{flex:1}
+.addrrow #unit{flex:none;width:var(--tap);text-align:center;padding:0 8px}
+.addrrow #wlNum,.addrrow #wlAddrNum{flex:0 0 110px;width:110px;min-width:0;padding:0 8px}
+.addrrow #addr,.addrrow #wlStreet,.addrrow #wlAddrStreet{flex:1;min-width:0}
 .locrow{display:flex;align-items:center;gap:10px;margin-top:6px}
 .locrow .loc{flex:1;margin:0}
 .locbtn{height:40px;padding:0 14px;border:2px solid var(--line);border-radius:10px;

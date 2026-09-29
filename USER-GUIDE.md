@@ -172,6 +172,14 @@ and go through them one at a time instead of scrolling up and down:
   it straight into the work app's search to look the address up.
 - Type the address (**No.** + **Street** — the recent-street chips are here too;
   pasting a whole address into the Street box works fine) and tap **Save & next**.
+- **Units or meter details:** in the **No. / unit** box, type `14-a` for house 14,
+  unit a, or `13-2` for house 13, unit 2. With `Whatever Lane` in Street, the card
+  shows **14 Whatever Lane · Unit a**. Text such as `14-rear door` works too.
+  The detail stays with that work order through syncing and **Use →**, so meters
+  at the same address remain distinguishable. Directions and route address
+  lookups use only the base address; the copied address includes the unit.
+  This also works in **Add order / Edit**. Reopening restores `14-a`; remove
+  `-a` to clear the unit. Put this shorthand in the number box, not Street.
 - **‹ Back** and **Skip ›** move without saving. Back still reaches orders you
   already filled in, so a typo is one tap away. The last order says **Finish ✓**.
 - Orders that wouldn't map (**📍 fix address**) or matched several towns

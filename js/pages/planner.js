@@ -14,6 +14,7 @@
 // an installer clears it). Nothing here touches the offline queue: like the
 // phone's Upload/Download, planner sync is explicit and fails loudly.
 import { $, esc, attr, toast } from '../dom.js';
+import * as addressText from '../worklist-address-fill.js';
 import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
@@ -34,6 +35,9 @@ import {
   createLastRunRecord, createLatestProbeRunner, formatLastRunSummary, parsePlannerLastRunRecord,
   probeNominatim, probeOsrm, probeBuilder,
 } from '../planner-services.js';
+
+const addressLabel = item => addressText.formatOrderAddress
+  ? addressText.formatOrderAddress(item) : [item.unit, item.address].filter(Boolean).join(' ');
 
 let roster = { employees: [] };
 let items = [];              // the selected installer's orders, display order
@@ -1349,7 +1353,7 @@ function render(){
       <div class="plmain">
         <strong>${item.workOrderId ? 'WO ' + esc(item.workOrderId) : '(no WO#)'}</strong>${
           setAside ? ' <span class="pltag pltag-mute" title="Left out of the route — still saved">set aside</span>' : ''}
-        <div class="pladdr">${esc(item.address || '')}${setAside ? '' : tag}</div>
+        <div class="pladdr">${esc(addressLabel(item))}${setAside ? '' : tag}</div>
         <div class="plmeta">${item.appointmentTime ? `🔔 ${esc(item.appointmentDate)} · ${esc(item.appointmentTime)}` : ''}${(showTimes && item.scheduledEta) ? `<span>ETA ${esc(item.scheduledEta)}${Number(item.scheduledWaitMin)>0 ? ` · wait ${Number(item.scheduledWaitMin)}m` : ''}</span>` : ''}${Number(item.scheduledLateMin)>0 ? `<span class="pllate" title="No slot in the day reaches this appointment on time">⚠ ${Math.round(Number(item.scheduledLateMin))}m late</span>` : ''}${item.lockedDate ? `<span>🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
         ${isPending(item) ? `<div class="plappt">
           <label>🔔 Date<input data-appt="date" type="date" value="${esc(item.appointmentDate||'')}"></label>
@@ -1490,7 +1494,7 @@ function renderMap(){
       className: 'plpin' + (parked ? ' plpin-parked' : ''),
       html:`<span>${parked ? '!' : i + 1}</span>`,
       iconSize:[26,26], iconAnchor:[13,13] }) })
-      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${item.address || ''}${(showTimes && item.scheduledEta) ? ' · ETA ' + item.scheduledEta : ''}${item.appointmentTime ? ' · appointment ' + item.appointmentTime : ''}`)
+      .bindTooltip(`${parked ? '⚠ parked — ' : (day ? 'Day ' + day + ' · ' : '') + (i + 1) + '. '}${item.workOrderId ? 'WO ' + item.workOrderId + ' — ' : ''}${esc(addressLabel(item))}${(showTimes && item.scheduledEta) ? ' · ETA ' + item.scheduledEta : ''}${item.appointmentTime ? ' · appointment ' + item.appointmentTime : ''}`)
       .addTo(mapLayer);
     // Tint the routed pin by day (parked keeps the muted grey from CSS).
     if(!parked && day){ const el = marker.getElement(); if(el) el.style.background = color; }
