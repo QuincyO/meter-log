@@ -1,6 +1,6 @@
 # Downtime
 
-_640 rows · exported 2026-09-29 03:52 America/Toronto_
+_653 rows · exported 2026-09-30 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -644,3 +644,16 @@ _640 rows · exported 2026-09-29 03:52 America/Toronto_
 | 1790624594161-qaf4k4 | 2026-09-28 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 906219 | gap 09:59–09:59 |  |
 | 1790624594161-ewecjc | 2026-09-28 12:00:00 | Quincy Orta | DISPATCH | 30 | 906219 | gap 09:59–09:59 |  |
 | 1790624594161-xnvlas | 2026-09-28 12:00:00 | Quincy Orta | TRUCK_ISSUES | 15 | 906219 | gap 09:59–09:59 |  |
+| 1790686679993-tnui8d | 2026-09-29 08:57:59 | Josue Vasquez | TRAVEL_TIME | 20 | 859179 |  | land |
+| 1790694134943-7r436u | 2026-09-29 11:02:14 | Josue Vasquez | TRAVEL_TIME | 24 | 857150 |  | land |
+| 1790701163710-1lvwmg | 2026-09-29 12:59:23 | Josue Vasquez | TRAVEL_TIME | 17 | 842681 |  | land |
+| 1790708341024-gruu4w | 2026-09-29 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 905080 | gap 09:11–09:11 |  |
+| 1790708341024-qk7ek3 | 2026-09-29 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 905080 | gap 09:11–09:11 |  |
+| 1790708341024-i2x8bk | 2026-09-29 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 905080 | gap 09:11–09:11 |  |
+| 1790708341024-jgm2pq | 2026-09-29 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 905080 | gap 09:11–09:11 |  |
+| 1790708341024-s3c607 | 2026-09-29 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 20 | 906781 | gap 12:33–12:56 |  |
+| 1790708341024-bdilyk | 2026-09-29 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 906781 | gap 12:33–12:56 |  |
+| 1790710775556-fo3d7f | 2026-09-29 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 906177 | gap 09:46–09:46 |  |
+| 1790710775556-yu1llh | 2026-09-29 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 906177 | gap 09:46–09:46 |  |
+| 1790710775556-blgg9x | 2026-09-29 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 906177 | gap 09:46–09:46 |  |
+| 1790710775556-ytyzyt | 2026-09-29 12:00:00 | Quincy Orta | DISPATCH | 30 | 906177 | gap 09:46–09:46 |  |

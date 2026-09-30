@@ -1,6 +1,6 @@
 # Timing
 
-_2555 rows · exported 2026-09-29 03:52 America/Toronto_
+_2620 rows · exported 2026-09-30 03:52 America/Toronto_
 
 | date | installer | fromTime | toTime | minutes | distanceM | type | bucket | workOrderId | fromStatus | toStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2559,3 +2559,68 @@ _2555 rows · exported 2026-09-29 03:52 America/Toronto_
 | 2026-09-28 00:00:00 | Josue Vasquez | 1899-12-30 15:55:00 | 1899-12-30 16:07:00 | 12 |  | Travel | travel | 856146 | INSTALLED | INSTALLED |
 | 2026-09-28 00:00:00 | Josue Vasquez | 1899-12-30 16:07:00 | 1899-12-30 16:18:00 | 11 |  | Travel | travel | 856763 | INSTALLED | INSTALLED |
 | 2026-09-28 00:00:00 | Josue Vasquez | 1899-12-30 16:18:00 | 1899-12-30 17:00:00 | 41 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 09:11:00 | 102 |  | Launch | travel | 905080 |  | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:11:00 | 1899-12-30 09:15:00 | 4 | 10 | Travel | travel | 905212 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:15:00 | 1899-12-30 09:23:00 | 8 | 22 | Travel | travel | 903333 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:23:00 | 1899-12-30 09:28:00 | 5 | 22 | Travel | travel | 905181 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:28:00 | 1899-12-30 09:37:00 | 9 | 21 | Travel | travel | 905284 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:37:00 | 1899-12-30 09:41:00 | 4 | 1 | Travel | travel | 905341 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:41:00 | 1899-12-30 09:45:00 | 4 | 10 | Travel | travel | 905098 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:45:00 | 1899-12-30 09:50:00 | 5 | 31 | Travel | travel | 905323 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:50:00 | 1899-12-30 09:55:00 | 4 | 31 | Travel | travel | 906825 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 09:55:00 | 1899-12-30 10:50:00 | 55 | 7 | Flagged | travel | 905065 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 10:50:00 | 1899-12-30 10:55:00 | 5 | 11 | Travel | travel | 905269 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 10:55:00 | 1899-12-30 10:59:00 | 4 | 11 | Travel | travel | 908013 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 10:59:00 | 1899-12-30 11:13:00 | 14 | 20 | Travel | travel | 907947 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 11:13:00 | 1899-12-30 11:19:00 | 6 | 24 | Travel | travel | 905106 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 11:19:00 | 1899-12-30 11:23:00 | 4 | 17 | Travel | travel | 905114 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 11:23:00 | 1899-12-30 11:31:00 | 8 | 49 | Travel | travel | 905049 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 11:31:00 | 1899-12-30 11:57:00 | 26 | 15 | Flagged | travel | 907940 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 11:57:00 | 1899-12-30 12:04:00 | 7 | 17 | Travel | travel | 906317 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:04:00 | 1899-12-30 12:09:00 | 5 | 24 | Travel | travel | 906274 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:09:00 | 1899-12-30 12:24:00 | 15 | 10 | Travel | travel | 905253 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:24:00 | 1899-12-30 12:29:00 | 5 | 21 | Travel | travel | 906618 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:29:00 | 1899-12-30 12:33:00 | 5 | 13 | Travel | travel | 907929 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:33:00 | 1899-12-30 12:56:00 | 23 | 16 | Flagged | delay | 906781 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Phillip Monteiro | 1899-12-30 12:56:00 | 1899-12-30 16:00:00 | 183 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 09:46:00 | 136 |  | Launch | travel | 906177 |  | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 09:46:00 | 1899-12-30 10:38:00 | 52 | 1096 | Flagged | travel | 903982 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 10:38:00 | 1899-12-30 10:54:00 | 17 | 174 | Travel | travel | 904361 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 10:54:00 | 1899-12-30 11:00:00 | 6 | 308 | Travel | travel | 903507 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 11:00:00 | 1899-12-30 11:09:00 | 9 | 1422 | Travel | travel | 904224 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 11:09:00 | 1899-12-30 11:17:00 | 8 | 99 | Travel | travel | 904130 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 11:17:00 | 1899-12-30 11:26:00 | 9 | 84 | Travel | travel | 907969 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 11:26:00 | 1899-12-30 12:11:00 | 45 | 310 | Flagged | travel | 907867 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 12:11:00 | 1899-12-30 13:00:00 | 50 | 851 | Flagged | travel | 901268 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 13:00:00 | 1899-12-30 13:12:00 | 11 | 488 | Travel | travel | 901002 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 13:12:00 | 1899-12-30 13:24:00 | 13 | 170 | Travel | travel | 906736 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 13:24:00 | 1899-12-30 13:37:00 | 13 | 1589 | Travel | travel | 905811 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 13:37:00 | 1899-12-30 13:44:00 | 6 | 15 | Travel | travel | 900909 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 13:44:00 | 1899-12-30 14:10:00 | 26 | 1255 | Flagged | travel | 902616 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:10:00 | 1899-12-30 14:25:00 | 15 | 1773 | Travel | travel | 906146 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:25:00 | 1899-12-30 14:39:00 | 14 | 1042 | Travel | travel | 903101 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:39:00 | 1899-12-30 14:43:00 | 4 | 24 | Travel | travel | 901462 | INSTALLED | UTI |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:43:00 | 1899-12-30 14:51:00 | 8 | 542 | Travel | travel | 905329 | UTI | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:51:00 | 1899-12-30 14:59:00 | 8 | 94 | Travel | travel | 905325 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 14:59:00 | 1899-12-30 15:11:00 | 11 | 400 | Travel | travel | 904106 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Quincy Orta | 1899-12-30 15:11:00 | 1899-12-30 16:00:00 | 49 |  | Return | travel |  | INSTALLED |  |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 07:30:00 | 1899-12-30 08:58:00 | 88 |  | Launch | travel | 859179 |  | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 08:58:00 | 1899-12-30 09:40:00 | 43 |  | Flagged | travel | 843420 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 09:40:00 | 1899-12-30 11:08:00 | 88 |  | Flagged | travel | 857150 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 11:08:00 | 1899-12-30 11:24:00 | 16 |  | Travel | travel | 860527 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 11:24:00 | 1899-12-30 11:41:00 | 17 |  | Travel | travel | 858917 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 11:41:00 | 1899-12-30 12:59:00 | 78 |  | Flagged | travel | 842681 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 12:59:00 | 1899-12-30 13:32:00 | 33 |  | Flagged | travel | 859376 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 13:32:00 | 1899-12-30 13:45:00 | 13 |  | Travel | travel | 860219 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 13:45:00 | 1899-12-30 13:55:00 | 10 |  | Travel | travel | 859695 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 13:55:00 | 1899-12-30 14:07:00 | 12 |  | Travel | travel | 856481 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 14:07:00 | 1899-12-30 14:15:00 | 8 |  | Travel | travel | 857629 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 14:15:00 | 1899-12-30 14:33:00 | 19 |  | Travel | travel | 857441 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 14:33:00 | 1899-12-30 14:42:00 | 9 |  | Travel | travel | 856936 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 14:42:00 | 1899-12-30 15:25:00 | 43 |  | Flagged | travel | 860229 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 15:25:00 | 1899-12-30 15:39:00 | 14 |  | Travel | travel | 860502 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 15:39:00 | 1899-12-30 15:55:00 | 16 |  | Travel | travel | 859891 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 15:55:00 | 1899-12-30 16:10:00 | 15 |  | Travel | travel | 858001 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 16:10:00 | 1899-12-30 16:22:00 | 12 |  | Travel | travel | 858319 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 16:22:00 | 1899-12-30 16:35:00 | 13 |  | Travel | travel | 858935 | INSTALLED | INSTALLED |
+| 2026-09-29 00:00:00 | Josue Vasquez | 1899-12-30 16:35:00 | 1899-12-30 17:00:00 | 25 |  | Return | travel |  | INSTALLED |  |
