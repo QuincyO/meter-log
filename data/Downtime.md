@@ -1,6 +1,6 @@
 # Downtime
 
-_653 rows · exported 2026-10-01 03:52 America/Toronto_
+_669 rows · exported 2026-10-02 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -657,3 +657,19 @@ _653 rows · exported 2026-10-01 03:52 America/Toronto_
 | 1790710775556-yu1llh | 2026-09-29 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 906177 | gap 09:46–09:46 |  |
 | 1790710775556-blgg9x | 2026-09-29 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 906177 | gap 09:46–09:46 |  |
 | 1790710775556-ytyzyt | 2026-09-29 12:00:00 | Quincy Orta | DISPATCH | 30 | 906177 | gap 09:46–09:46 |  |
+| 1790860072640-a74i59 | 2026-10-01 09:07:52 | Josue Vasquez | TRAVEL_TIME | 14 | 857500 |  | land |
+| 1790862079614-na6tyk | 2026-10-01 09:41:19 | Josue Vasquez | TRAVEL_TIME | 8 | 861218 |  | land |
+| 1790862358412-165ef3 | 2026-10-01 09:45:58 | Josue Vasquez | TRAVEL_TIME | 8 | 861218 |  | land |
+| 1790864924626-ox7plc | 2026-10-01 10:28:44 | Josue Vasquez | BAD_WEATHER | 15 | 855784 |  | land |
+| 1790883393358-zvk6ni | 2026-10-01 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 906502 | gap 10:24–10:24 |  |
+| 1790883393358-rwgk1p | 2026-10-01 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 906502 | gap 10:24–10:24 |  |
+| 1790883393358-2dmr7x | 2026-10-01 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 906502 | gap 10:24–10:24 |  |
+| 1790883393358-aac8xz | 2026-10-01 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 906502 | gap 10:24–10:24 |  |
+| 1790883393358-yudnm4 | 2026-10-01 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 907003 | gap 13:54–14:00 |  |
+| 1790883393358-pfn0ji | 2026-10-01 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 20 | 907003 | gap 13:54–14:00 |  |
+| 1790883406059-erxy4d | 2026-10-01 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 904935 | gap 10:33–10:33 |  |
+| 1790883406059-i8jkj4 | 2026-10-01 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 904935 | gap 10:33–10:33 |  |
+| 1790883406059-9n7xfx | 2026-10-01 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 904935 | gap 10:33–10:33 |  |
+| 1790883406059-z131wg | 2026-10-01 12:00:00 | Quincy Orta | DISPATCH | 30 | 904935 | gap 10:33–10:33 |  |
+| 1790883406059-79gerz | 2026-10-01 12:00:00 | Quincy Orta | BAD_WEATHER | 45 | 904935 | gap 10:33–10:33 |  |
+| 1790883406059-eq6lt0 | 2026-10-01 12:00:00 | Quincy Orta | ASSIST | 60 | 900665 | gap 12:39–12:57 |  |

@@ -1,6 +1,6 @@
 # Stops
 
-_2661 rows · exported 2026-10-01 03:52 America/Toronto_
+_2730 rows · exported 2026-10-02 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2665,3 +2665,72 @@ _2661 rows · exported 2026-10-01 03:52 America/Toronto_
 | 1790712616383-4h11fp | 2026-09-29 16:10:16 | Josue Vasquez | 858001 |  | 135104 Concession 8 |  |  | J4857900 | J3118978 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1790713360180-x3zstt | 2026-09-29 16:22:40 | Josue Vasquez | 858319 |  | 135078 Concession 8 |  |  | J4857925 | J3118980 | 32276 | INSTALLED |  |  |  |  |  | land |
 | 1790714121893-f012x3 | 2026-09-29 16:35:21 | Josue Vasquez | 858935 |  | 135038 Concession 8 |  |  | J4857926 | J3272708 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790860077030-5u1co3 | 2026-10-01 09:07:57 | Josue Vasquez | 857500 |  | 105 Kingston Dr |  |  | J4857927 | J3125211 | 8086 | INSTALLED |  | Travel time: 14 min |  |  |  | land |
+| 1790862363420-m127kg | 2026-10-01 09:46:03 | Josue Vasquez | 861218 |  | 441024 Concession 8 |  |  | J4857928 | J4161447 | 32763 | INSTALLED |  |  |  |  |  | land |
+| 1790864664832-ub779o | 2026-10-01 10:24:24 | Phillip Monteiro | 906502 |  | 6 St Michaels St, Windham | 42.84134 | -80.4864 | J4858123 | J2261108 | 84979 | INSTALLED |  |  |  |  |  | land |
+| 1790864857528-ke6vhn | 2026-10-01 10:27:37 | Josue Vasquez | 855784 |  | 14218 Bruce Rd 10 |  |  | J4835347 | J3445492 | 27627 | INSTALLED |  |  |  |  |  | land |
+| 1790864951250-9kxwzr | 2026-10-01 10:29:11 | Phillip Monteiro | 902584 |  | 2 St Michaels St, Windham | 42.841515 | -80.486434 | J4858121 | J2261236 | 24869 | INSTALLED |  |  |  |  |  | land |
+| 1790865181000-fg7nvr | 2026-10-01 10:33:00 | Quincy Orta | 904935 |  | 806 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.90052 | -80.434643 | J4857463 | J4140247 | 18278 | INSTALLED |  |  |  |  |  | land |
+| 1790865396728-3pp1s5 | 2026-10-01 10:36:36 | Phillip Monteiro | 906437 |  | 10 St Michaels St, Windham | 42.84107 | -80.486622 | J4858132 | J4025046 | 48329 | INSTALLED |  |  |  |  |  | land |
+| 1790865469552-t1s4y5 | 2026-10-01 10:37:49 | Josue Vasquez | 855929 |  | 14228 Bruce Rd 10 |  |  | J4835346 | J4030027 | 21563 | INSTALLED |  |  |  |  |  | land |
+| 1790865694337-4d3ydn | 2026-10-01 10:41:34 | Phillip Monteiro | 906353 |  | 5 St Michaels St, Windham | 42.84112 | -80.487041 | J4858124 | J3928792 | 29179 | INSTALLED |  |  |  |  |  | land |
+| 1790865986700-u2obti | 2026-10-01 10:46:26 | Phillip Monteiro | 905512 |  | 1 St Michaels St, Windham | 42.841263 | -80.486801 | J4858122 | J2261115 | 88102 | INSTALLED |  |  |  |  |  | land |
+| 1790866040342-l143ya | 2026-10-01 10:47:20 | Quincy Orta | 902831 |  | 801 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.901008 | -80.434954 | J4857461 | J3894629 | 82779 | INSTALLED |  |  |  |  |  | land |
+| 1790866528422-01ckmo | 2026-10-01 10:55:28 | Quincy Orta | 904842 |  | 792 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.90048 | -80.435821 | J4857464 | J3602907 | 52740 | INSTALLED |  |  |  |  |  | land |
+| 1790866649503-zgb32o | 2026-10-01 10:57:29 | Josue Vasquez | 856196 |  | 14298 Bruce Rd 10 |  |  |  |  |  | UTI | Electrical Repair |  |  |  |  | land |
+| 1790866595278-ucqmhl | 2026-10-01 10:56:35 | Phillip Monteiro | 907683 |  | 17 St Michaels St, Windham | 42.840665 | -80.487024 | J4858125 | J3954066 | 23698 | INSTALLED |  |  |  |  |  | land |
+| 1790866880426-mvjtak | 2026-10-01 11:01:20 | Phillip Monteiro | 906516 |  | 21 St Michaels St, Windham | 42.840573 | -80.48708 | J4858128 | J2261193 | 83455 | INSTALLED |  |  |  |  |  | land |
+| 1790867010745-z9pg8y | 2026-10-01 11:03:30 | Quincy Orta | 902048 |  | 751 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.900435 | -80.43951 | J4857462 | J3602909 | 36559 | INSTALLED |  |  |  |  |  | land |
+| 1790867165203-wwt3ed | 2026-10-01 11:06:05 | Josue Vasquez | 856286 |  | 14322 Bruce Rd 10 |  |  | J4835348 | J3118183 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790867301674-yuoykd | 2026-10-01 11:08:21 | Phillip Monteiro | 908066 |  | 22 St Michaels St, Windham | 42.840573 | -80.486719 | J4858131 | J3752073 | 51979 | INSTALLED |  |  |  |  |  | land |
+| 1790867564702-mayojn | 2026-10-01 11:12:44 | Phillip Monteiro | 905895 |  | 18 St Michaels St, Windham | 42.840688 | -80.486714 | J4858129 | J2628750 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790867645063-td7zg8 | 2026-10-01 11:14:05 | Quincy Orta | 902569 |  | 643 Windham Rd 9, Delhi, ON N4B 2W5, Canada | 42.898861 | -80.449911 | J4855683 | J2674564 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790867902732-hdx4aj | 2026-10-01 11:18:22 | Phillip Monteiro | 905691 |  | 13 St Michaels St, Windham | 42.840859 | -80.486979 | J4858126 | J3928805 | 45546 | INSTALLED |  |  |  |  |  | land |
+| 1790868014506-ccttyf | 2026-10-01 11:20:14 | Josue Vasquez | 856053 |  | 71 Main St |  |  | J4835349 | J3972423 | 77130 | INSTALLED |  |  |  |  |  | land |
+| 1790868125968-aylzyw | 2026-10-01 11:22:05 | Quincy Orta | 905434 |  | 656 Windham Rd 9, Delhi, ON N0E 1H0, Canada | 42.898379 | -80.447782 | J4855684 | J2589095 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790868177098-c02kmm | 2026-10-01 11:22:57 | Phillip Monteiro | 901281 |  | 9 St Michaels St, Windham | 42.840991 | -80.487128 | J4858130 | J2261114 | 24781 | INSTALLED |  |  |  |  |  | land |
+| 1790868454964-pxiwvx | 2026-10-01 11:27:34 | Phillip Monteiro | 902435 |  | 14 St Michaels St, Windham | 42.84092 | -80.486634 | J4858127 | J2261107 | 61047 | INSTALLED |  |  |  |  |  | land |
+| 1790868585308-4a614g | 2026-10-01 11:29:45 | Josue Vasquez | 856265 |  | 84 Bruce Rd 10 |  |  | J4835352 | J3089600 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790869138681-goh6de | 2026-10-01 11:38:58 | Quincy Orta | 905357 |  | 688 Windham Rd 9, Delhi, ON N0E 1H0, Canada | 42.898844 | -80.445313 | J4857641 | J3809703 | 2634 | INSTALLED |  |  |  |  |  | land |
+| 1790869201024-4399z7 | 2026-10-01 11:40:01 | Josue Vasquez | 860317 |  | 74 Main St |  |  | J4835351 | J3711789 | 48796 | INSTALLED |  |  |  |  |  | land |
+| 1790869910453-gcem6m | 2026-10-01 11:51:50 | Phillip Monteiro | 904377 |  | 34 St Michaels St, Windham | 42.840141 | -80.486573 | J4857661 | J3819560 | 3180 | INSTALLED |  |  |  |  |  | land |
+| 1790870313988-k8i799 | 2026-10-01 11:58:33 | Phillip Monteiro | 904822 |  | 38 St Michaels St, Windham | 42.840022 | -80.486443 | J4857663 | J2261435 | 68264 | INSTALLED |  |  |  |  |  | land |
+| 1790870469132-t33ohx | 2026-10-01 12:01:09 | Josue Vasquez | 857382 |  | 96 Main St |  |  | J4835350 | J3118182 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790870666101-i4n2lx | 2026-10-01 12:04:26 | Phillip Monteiro | 903825 |  | 30 St Michaels St, Windham | 42.840377 | -80.48662 | J4857662 | J4109003 | 41285 | INSTALLED |  |  |  |  |  | land |
+| 1790870822037-lxyhvl | 2026-10-01 12:07:02 | Josue Vasquez | 860080 |  | 102 Main St |  |  | J4835353 | J2196339 | 67738 | INSTALLED |  |  |  |  |  | land |
+| 1790870987619-ni9dzb | 2026-10-01 12:09:47 | Quincy Orta | 900781 |  | 689 Windham Rd 9, Delhi, ON N4B 2W5, Canada | 42.899485 | -80.445239 | J4855681 | J2674566 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790871137306-nvwuod | 2026-10-01 12:12:17 | Phillip Monteiro | 906858 |  | 26 St Michaels St, Windham | 42.840464 | -80.486709 | J4857664 | J4399955 | 12172 | INSTALLED |  |  |  |  |  | land |
+| 1790871651508-40qxyh | 2026-10-01 12:20:51 | Phillip Monteiro | 902166 |  | 25 St Michaels St, Windham | 42.84032 | -80.487094 | J4858119 | J3955590 | 47951 | INSTALLED |  |  |  |  |  | land |
+| 1790871970276-ar5axk | 2026-10-01 12:26:10 | Phillip Monteiro | 904633 |  | 29 St Michaels St, Windham | 42.840202 | -80.486957 | J4858120 | J3559030 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790872794112-r8sl9p | 2026-10-01 12:39:54 | Quincy Orta | 901109 |  | 715 Windham Rd 9, Delhi, ON N4B 2W5, Canada | 42.899864 | -80.442714 | J4857653 | J3616003 | 59673 | INSTALLED |  |  |  |  |  | land |
+| 1790873427671-l5urrm | 2026-10-01 12:50:27 | Phillip Monteiro | 902296 |  | 37 St Michaels St, Windham | 42.839806 | -80.486873 | J4857665 | J4141539 | 36559 | INSTALLED |  |  |  |  |  | land |
+| 1790873835148-b48d8e | 2026-10-01 12:57:15 | Quincy Orta | 900665 |  | 686 Windham Road 9, Norfolk County |  |  |  |  |  | UTI | Could Not Locate | Cords not adequate. Cx didn't answer. Tx not near working area. Address doesn't lead to anything |  |  |  | land |
+| 1790873931632-glfic4 | 2026-10-01 12:58:51 | Phillip Monteiro | 902972 |  | 41 St Michaels St, Windham | 42.839617 | -80.486972 | J4857666 | J4238052 | 10528 | INSTALLED |  |  |  |  |  | land |
+| 1790873935630-kiasfs | 2026-10-01 12:58:55 | Quincy Orta | 902026 | HSE | 86 Egypt School Road | 42.892929 | -80.439632 | J4857654 | J3909817 | 59350 | INSTALLED |  |  |  |  |  | land |
+| 1790874380083-qfziaa | 2026-10-01 13:06:20 | Phillip Monteiro | 904734 |  | 33 St Michaels St, Windham | 42.840011 | -80.486895 | J4857667 | J4108942 | 42568 | INSTALLED |  |  |  |  |  | land |
+| 1790874401900-38yl8i | 2026-10-01 13:06:41 | Quincy Orta | 906962 |  | 54 Egypt School Road | 42.890811 | -80.438786 | J4857656 | J3894694 | 66689 | INSTALLED |  |  |  |  |  | land |
+| 1790875190100-vpetg7 | 2026-10-01 13:19:50 | Josue Vasquez | 859534 |  | 561022 Concession 15 |  |  | J4835330 | J3073739 | 34925 | INSTALLED |  |  |  |  |  | land |
+| 1790875352159-auu3b9 | 2026-10-01 13:22:32 | Quincy Orta | 903166 |  | 43 Egypt School Rd, Delhi, ON N4B 2W5, Canada | 42.889789 | -80.439218 | J4857655 | J3967079 | 74284 | INSTALLED |  |  |  |  |  | land |
+| 1790875810328-azw9xd | 2026-10-01 13:30:10 | Quincy Orta | 907472 |  | 677 Windham Road 10, Norfolk County | 42.887348 | -80.438353 | J4857459 | J2241603 | 68451 | INSTALLED |  |  |  |  |  | land |
+| 1790875895530-isde21 | 2026-10-01 13:31:35 | Josue Vasquez | 859522 |  | 561034 Concession 15 |  |  | J4835331 | J3972442 | 37805 | INSTALLED |  |  |  |  |  | land |
+| 1790876239794-5ieeny | 2026-10-01 13:37:19 | Quincy Orta | 903481 |  | 688 Windham Road 10, Delhi, ON N4B 2W5, Canada | 42.886841 | -80.437421 | J4857458 | J2248427 | 71040 | INSTALLED |  |  |  |  |  | land |
+| 1790876767523-sm6d7f | 2026-10-01 13:46:07 | Quincy Orta | 907379 |  | 703 Windham Road 10, Norfolk County | 42.88758 | -80.436192 | J4857457 | J3938273 | 92894 | INSTALLED |  |  |  |  |  | land |
+| 1790877263047-kvlu3o | 2026-10-01 13:54:23 | Phillip Monteiro | 903271 |  | 49 St Michaels St, Windham | 42.839818 | -80.486 | J4858118 | J4051540 | 27295 | INSTALLED |  |  |  |  |  | land |
+| 1790877250727-vudocj | 2026-10-01 13:54:10 | Quincy Orta | 902552 |  | 729 Windham Road 10, Delhi, ON N4B 2W5, Canada | 42.888348 | -80.433615 | J4857460 | J2248425 | 54779 | INSTALLED |  |  |  |  |  | land |
+| 1790877626912-183s52 | 2026-10-01 14:00:26 | Phillip Monteiro | 907003 |  | 45 St Michaels St, Windham | 42.839705 | -80.486289 | J4858117 | J4400870 | 29249 | INSTALLED |  |  |  |  |  | land |
+| 1790877635100-0a6xoi | 2026-10-01 14:00:35 | Josue Vasquez | 857025 |  | 541009 Concession 14 |  |  | J4835332 | J3490404 | 19988 | INSTALLED |  |  |  |  |  | land |
+| 1790878462482-uctm55 | 2026-10-01 14:14:22 | Quincy Orta | 904537 |  | 776 Windham Road 10, Delhi, ON N4B 2W5, Canada | 42.888261 | -80.429273 | J4857454 | J2248448 | 1838 | INSTALLED |  |  |  |  |  | land |
+| 1790878895272-d02v5d | 2026-10-01 14:21:35 | Quincy Orta | 908054 |  | 795 Windham Road 10, Delhi, ON N4B 2W5, Canada | 42.888795 | -80.427333 | J4857453 | J4400872 | 30337 | INSTALLED |  |  |  |  |  | land |
+| 1790879619134-optoro | 2026-10-01 14:33:39 | Josue Vasquez | 856628 |  | 541010 Concession 14 |  |  | J4835333 | J3073736 |  | INSTALLED |  | Bad weather: 23 min | Missing segments |  |  | land |
+| 1790880693523-3s6nd5 | 2026-10-01 14:51:33 | Josue Vasquez | 860635 |  | 541021 Concession 14 |  |  | J4835334 | J3808316 | 55349 | INSTALLED |  |  |  |  |  | land |
+| 1790880774750-rsaycl | 2026-10-01 14:52:54 | Quincy Orta | 905793 |  | 917 Windham Road 10, Delhi, ON N0E 2A0, Canada | 42.890543 | -80.416493 | J4857456 | J4231908 | 5167 | INSTALLED |  |  |  |  |  | land |
+| 1790881249982-b5lj2m | 2026-10-01 15:00:49 | Josue Vasquez | 856721 |  | 541031 Concession 14 |  |  | J4835335 | J3801667 | 19809 | INSTALLED |  |  |  |  |  | land |
+| 1790881388601-m5uwyd | 2026-10-01 15:03:08 | Quincy Orta | 901176 |  | 2928 Nixon Rd, Norfolk County | 42.892904 | -80.414298 |  |  |  | UTI | Unsafe Conditions | Farmbox style meter |  |  |  | land |
+| 1790882121553-c7upux | 2026-10-01 15:15:21 | Josue Vasquez | 859324 |  | 541041 Concession 14 |  |  | J4835336 | J4152558 | 16288 | INSTALLED |  |  |  |  |  | land |
+| 1790882649101-he8if3 | 2026-10-01 15:24:09 | Quincy Orta | 907292 | A | 2965 Nixon Rd, Norfolk, ON N0E 2A0, Canada | 42.89477 | -80.41784 | J4857450 | J2241607 | 26567 | INSTALLED |  |  |  |  |  | land |
+| 1790882712066-7g6uk6 | 2026-10-01 15:25:12 | Josue Vasquez | 858457 |  | 541062 Concession 14 |  |  | J4835337 | J3073743 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790883460911-q7ogtj | 2026-10-01 15:37:40 | Josue Vasquez | 858132 |  | 541144 Concession 14 |  |  | J4835338 | J4204674 | 26729 | INSTALLED |  |  |  |  |  | land |
+| 1790884502072-8x8ptc | 2026-10-01 15:55:02 | Josue Vasquez | 856237 |  | 36 Concession 14 E |  |  | J4835339 | J3090776 | 80776 | INSTALLED |  |  |  |  |  | land |
+| 1790884773681-6cszb8 | 2026-10-01 15:59:33 | Josue Vasquez | 857502 |  | 43 Concession 14 E |  |  | J4835340 | J3803025 | 65304 | INSTALLED |  |  |  |  |  | land |
+| 1790885565652-8honjr | 2026-10-01 16:12:45 | Josue Vasquez | 859347 |  | 48 Concession 14 E |  |  | J4835341 | J3090773 | 1335 | INSTALLED |  |  |  |  |  | land |
+| 1790886224004-kqd5sf | 2026-10-01 16:23:43 | Josue Vasquez | 856561 |  | 14825 Bruce Rd 10 |  |  | J4852285 | J3073734 | 87549 | INSTALLED |  |  |  |  |  | land |
