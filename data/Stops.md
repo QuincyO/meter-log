@@ -1,6 +1,6 @@
 # Stops
 
-_2730 rows · exported 2026-10-02 03:52 America/Toronto_
+_2776 rows · exported 2026-10-03 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2734,3 +2734,49 @@ _2730 rows · exported 2026-10-02 03:52 America/Toronto_
 | 1790884773681-6cszb8 | 2026-10-01 15:59:33 | Josue Vasquez | 857502 |  | 43 Concession 14 E |  |  | J4835340 | J3803025 | 65304 | INSTALLED |  |  |  |  |  | land |
 | 1790885565652-8honjr | 2026-10-01 16:12:45 | Josue Vasquez | 859347 |  | 48 Concession 14 E |  |  | J4835341 | J3090773 | 1335 | INSTALLED |  |  |  |  |  | land |
 | 1790886224004-kqd5sf | 2026-10-01 16:23:43 | Josue Vasquez | 856561 |  | 14825 Bruce Rd 10 |  |  | J4852285 | J3073734 | 87549 | INSTALLED |  |  |  |  |  | land |
+| 1790947259257-8hbvj7 | 2026-10-02 09:20:59 | Josue Vasquez | 857877 |  | 561440 Bentinck Sullivan Townline |  |  | J4852286 | J4153749 | 29663 | INSTALLED |  |  |  |  |  | land |
+| 1790947726003-qnmviv | 2026-10-02 09:28:45 | Josue Vasquez | 860160 |  | 561441 Bentinck Sullivan Townline |  |  | J4859993 | J4002757 | 16750 | INSTALLED |  |  |  |  |  | land |
+| 1790949121310-h9j407 | 2026-10-02 09:52:01 | Quincy Orta | 906821 |  | 900 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.90196 | -80.42555 | J4823518 | J2675544 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790949562558-txnycb | 2026-10-02 09:59:22 | Quincy Orta | 907709 |  | 867 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.902079 | -80.429107 | J4823519 | J2675547 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790950178536-6gipvi | 2026-10-02 10:09:38 | Josue Vasquez | 857948 |  | 561413 Grey Rd 25 |  |  | J4859994 | J3118332 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1790950480478-za1v1c | 2026-10-02 10:14:40 | Quincy Orta | 903456 |  | 839 Windham Road 9, Norfolk County | 42.901642 | -80.43138 | J4823521 | J2675546 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790950889408-dznl6j | 2026-10-02 10:21:29 | Josue Vasquez | 856931 |  | 561494 Bentinck Sullivan Townline |  |  | J4859995 | J3073438 | 58188 | INSTALLED |  |  |  |  |  | land |
+| 1790950988750-qigat8 | 2026-10-02 10:23:08 | Quincy Orta | 900716 |  | 831 Windham Rd 9, Norfolk, ON N0E 1H0, Canada | 42.901357 | -80.432053 | J4823520 | J3539345 | 81615 | INSTALLED |  |  |  |  |  | land |
+| 1790951549685-wy56u9 | 2026-10-02 10:32:29 | Josue Vasquez | 860582 |  | 561403 Bentinck Sullivan Townline |  |  | J4859996 | J3118816 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790952113272-2drf20 | 2026-10-02 10:41:53 | Phillip Monteiro | 905327 |  | 84 St Michaels St, Windham | 42.840612 | -80.484193 | J4857668 | J3736079 | 47246 | INSTALLED |  |  |  |  |  | land |
+| 1790952583204-3jqxtq | 2026-10-02 10:49:43 | Phillip Monteiro | 900994 |  | 80 St Michaels St, Windham | 42.840475 | -80.484251 | J4823493 | J2898629 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790952806942-knab6i | 2026-10-02 10:53:26 | Quincy Orta | 906968 |  | 814 Windham Rd 9, Norfolk, ON N0E 2A0, Canada | 42.900722 | -80.433585 | J4857452 | J3375161 | 1285 | INSTALLED |  |  |  | 20933 |  | land |
+| 1790952846833-2kujta | 2026-10-02 10:54:06 | Phillip Monteiro | 901703 |  | 81 St Michaels St, Windham | 42.840226 | -80.483919 | J4823490 | J2051450 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790953088061-9q8a24 | 2026-10-02 10:58:08 | Quincy Orta | 905859 |  | 814 Windham Road 9, Norfolk County | 42.900725 | -80.433343 | J4857455 | J3617185 | 42124 | INSTALLED |  |  |  |  |  | land |
+| 1790953190832-rtp13r | 2026-10-02 10:59:50 | Phillip Monteiro | 900811 |  | 85 St Michaels St, Windham | 42.840279 | -80.483914 | J4823491 | J3226617 | 4434 | INSTALLED |  |  |  |  |  | land |
+| 1790953566510-q9hw7g | 2026-10-02 11:06:06 | Phillip Monteiro | 900844 |  | 89 St Michaels St, Windham | 42.840459 | -80.483783 | J4823492 | J4140269 | 16035 | INSTALLED |  |  |  |  |  | land |
+| 1790953900060-z0z2zi | 2026-10-02 11:11:40 | Phillip Monteiro | 903128 |  | 88 St Michaels St, Windham | 42.840656 | -80.483848 | J4823489 | J3967121 | 10489 | INSTALLED |  |  |  |  |  | land |
+| 1790954262795-84rjtp | 2026-10-02 11:17:42 | Phillip Monteiro | 905246 |  | 93 St Michaels St, Windham | 42.840506 | -80.483532 | J4823484 | J3736054 | 34034 | INSTALLED |  |  |  |  |  | land |
+| 1790954777055-xdhuv5 | 2026-10-02 11:26:17 | Phillip Monteiro | 905086 |  | 115 St Michaels St, Wind | 42.840447 | -80.483172 | J4823483 | J3833010 | 55926 | INSTALLED |  |  |  |  |  | land |
+| 1790955031115-jolp59 | 2026-10-02 11:30:31 | Phillip Monteiro | 905146 |  | 119 St Michael's St, Delhi, ON N4B 3C9, Canada | 42.84036 | -80.482954 | J4823488 | J3631838 | 81573 | INSTALLED |  |  |  |  |  | land |
+| 1790955306358-i10gui | 2026-10-02 11:35:06 | Phillip Monteiro | 905254 |  | 123 St Michaels St, Windham | 42.840211 | -80.483033 | J4823487 | J3732152 | 75045 | INSTALLED |  |  |  |  |  | land |
+| 1790955604849-oaepzi | 2026-10-02 11:40:04 | Phillip Monteiro | 905235 |  | 127 St Michaels St, Windham | 42.840192 | -80.483018 | J4823486 | J3792002 | 29946 | INSTALLED |  |  |  |  |  | land |
+| 1790956091263-w15eqa | 2026-10-02 11:48:11 | Quincy Orta | 905458 |  | 746 Norfolk County Rd 9, Norfolk, ON N0E 1H0, Canada | 42.911518 | -80.444482 | J4857451 | J2661726 |  | INSTALLED |  | Enbridge Meter on the side of the road covered in a lot of brush. Traffic control plan and the meter is in the ditch | Missing segments |  |  | land |
+| 1790957042565-k53f72 | 2026-10-02 12:04:02 | Quincy Orta | 906954 |  | 687 Windham Centre Rd, Norfolk, ON N0E 2A0, Canada | 42.912001 | -80.449987 | J4857449 | J4016401 | 51932 | INSTALLED |  |  |  |  |  | land |
+| 1790959274286-rqxnd5 | 2026-10-02 12:41:14 | Quincy Orta | 904972 |  | 670 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.910115 | -80.450699 | J4823517 | J2661725 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790959365488-qz37a9 | 2026-10-02 12:42:45 | Phillip Monteiro | 905121 |  | 5 Viola Crt, Windham | 42.841613 | -80.485127 | J4823494 | J3682866 | 66655 | INSTALLED |  |  |  |  |  | land |
+| 1790959740441-pef0a7 | 2026-10-02 12:49:00 | Phillip Monteiro | 900910 |  | 7 Viola Crt, Windham | 42.841626 | -80.485078 | J4823485 | J2662225 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790960133586-rgzjsn | 2026-10-02 12:55:33 | Phillip Monteiro | 903024 |  | 3 Viola Crt, Windham | 42.841761 | -80.485173 | J4823496 | J3894695 | 45222 | INSTALLED |  |  |  |  |  | land |
+| 1790960245870-acdqqg | 2026-10-02 12:57:25 | Quincy Orta | 908061 |  | 616 Windham Centre Road, Norfolk County | 42.909366 | -80.455708 | J4823514 | J3452168 | 129 | INSTALLED |  |  |  | 21552 |  | land |
+| 1790960486225-v7ju6j | 2026-10-02 13:01:26 | Phillip Monteiro | 903778 |  | 2 Viola Crt, Windham | 42.841573 | -80.485524 | J4823482 | J2662182 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790960486933-q450ie | 2026-10-02 13:01:26 | Quincy Orta | 902546 |  | 616 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.909329 | -80.455661 | J4823515 | J2171889 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1790960791906-rcr4z4 | 2026-10-02 13:06:31 | Phillip Monteiro | 906423 |  | 4 Viola Crt, Windham | 42.841357 | -80.485648 | J4823495 | J2662221 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790961176905-sqcplb | 2026-10-02 13:12:56 | Quincy Orta | 900647 |  | 588 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.908786 | -80.457902 | J4823516 | J2661890 |  | INSTALLED |  |  | Glass fogged / obstructed |  |  | land |
+| 1790961178498-xmf71r | 2026-10-02 13:12:58 | Phillip Monteiro | 906723 |  | 6 Viola Crt, Windham | 42.841288 | -80.485584 | J4823497 | J2662222 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790962043195-yagpsw | 2026-10-02 13:27:23 | Quincy Orta | 907068 |  | 571 Windham Centre Rd, Norfolk, ON N0E 2A0, Canada | 42.909383 | -80.459966 | J4798699 | J3617197 | 31250 | INSTALLED |  |  |  |  |  | land |
+| 1790962580218-zq2sdv | 2026-10-02 13:36:20 | Quincy Orta | 901222 | Garage | 808 Brantford Rd, Norfolk County | 42.908781 | -80.460218 | J4798701 | J2661821 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790963120933-jvwsgj | 2026-10-02 13:45:20 | Quincy Orta | 905208 |  | 800 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.90787 | -80.460138 | J4798698 | J3613592 | 99913 | INSTALLED |  |  |  |  |  | land |
+| 1790963380700-b8y9rz | 2026-10-02 13:49:40 | Phillip Monteiro | 904893 |  | 11 Viola Crt, Windham | 42.841087 | -80.485282 | J4858116 | J2662204 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790963645838-ng2ryz | 2026-10-02 13:54:05 | Phillip Monteiro | 907513 |  | 13 Viola Crt, Windham | 42.841075 | -80.4852 | J4858113 | J2662206 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790964006012-lfg5lp | 2026-10-02 14:00:06 | Phillip Monteiro | 905570 |  | 10 Viola Crt, Windham | 42.840922 | -80.48571 | J4858115 | J2662223 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790964305020-3io9l9 | 2026-10-02 14:05:05 | Phillip Monteiro | 907672 |  | 8 Viola Crt, Windham | 42.84117 | -80.485772 | J4858114 | J2662220 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1790965133112-ewxm47 | 2026-10-02 14:18:53 | Quincy Orta | 905179 | LWR | 799 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.90778 | -80.461813 | J4813812 | J3825780 | 10893 | INSTALLED |  |  |  |  |  | land |
+| 1790965365645-eqea7w | 2026-10-02 14:22:45 | Quincy Orta | 905076 | Upper | 799 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.907853 | -80.461811 | J4813810 | J3825796 | 2007 | INSTALLED |  |  |  |  |  | land |
+| 1790966455690-gose62 | 2026-10-02 14:40:55 | Quincy Orta | 907546 |  | 511 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.908613 | -80.46497 | J4798700 | J4399933 | 31916 | INSTALLED |  |  |  |  |  | land |
+| 1790966890873-v2nklz | 2026-10-02 14:48:10 | Quincy Orta | 906785 |  | 519 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.90874 | -80.464646 | J4813813 | J2689329 | 67011 | INSTALLED |  |  |  |  |  | land |
+| 1790967273050-i58jlz | 2026-10-02 14:54:33 | Quincy Orta | 902979 |  | 520 Lasalette Rd, Norfolk County | 42.908209 | -80.464287 | J4813811 | J2689405 | 12576 | INSTALLED |  |  |  |  |  | land |

@@ -1,6 +1,6 @@
 # Downtime
 
-_669 rows · exported 2026-10-02 03:52 America/Toronto_
+_683 rows · exported 2026-10-03 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -673,3 +673,17 @@ _669 rows · exported 2026-10-02 03:52 America/Toronto_
 | 1790883406059-z131wg | 2026-10-01 12:00:00 | Quincy Orta | DISPATCH | 30 | 904935 | gap 10:33–10:33 |  |
 | 1790883406059-79gerz | 2026-10-01 12:00:00 | Quincy Orta | BAD_WEATHER | 45 | 904935 | gap 10:33–10:33 |  |
 | 1790883406059-eq6lt0 | 2026-10-01 12:00:00 | Quincy Orta | ASSIST | 60 | 900665 | gap 12:39–12:57 |  |
+| 1790947254420-pmowy0 | 2026-10-02 09:20:54 | Josue Vasquez | TRAVEL_TIME | 23 | 857877 |  | land |
+| 1790950171165-vp190w | 2026-10-02 10:09:31 | Josue Vasquez | CELL_SIGNAL | 13 | 857948 |  | land |
+| 1790955070976-ct45ai | 2026-10-02 11:31:10 | Quincy Orta | ASSIST | 20 | 905458 |  | land |
+| 1790967172331-mzd8n7 | 2026-10-02 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 905327 | gap 10:41–10:41 |  |
+| 1790967172332-mfot38 | 2026-10-02 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 905327 | gap 10:41–10:41 |  |
+| 1790967172332-75kjkv | 2026-10-02 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 905327 | gap 10:41–10:41 |  |
+| 1790967172332-pw6gzj | 2026-10-02 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 905327 | gap 10:41–10:41 |  |
+| 1790967172332-xb74j9 | 2026-10-02 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 907672 | gap 14:00–14:05 |  |
+| 1790967172332-8nxd7j | 2026-10-02 12:00:00 | Phillip Monteiro | WAREHOUSE | 60 | 907672 | gap 14:00–14:05 |  |
+| 1790969157601-h7rlzh | 2026-10-02 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 906821 | gap 09:52–09:52 |  |
+| 1790969157601-n2cp60 | 2026-10-02 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 906821 | gap 09:52–09:52 |  |
+| 1790969157601-g9ab86 | 2026-10-02 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 906821 | gap 09:52–09:52 |  |
+| 1790969157601-ty84ru | 2026-10-02 12:00:00 | Quincy Orta | DISPATCH | 30 | 906821 | gap 09:52–09:52 |  |
+| 1790969157601-vbavu6 | 2026-10-02 12:00:00 | Quincy Orta | CELL_SIGNAL | 30 | 904972 | gap 12:04–12:41 |  |
