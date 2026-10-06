@@ -1,6 +1,6 @@
 # Stops
 
-_2776 rows · exported 2026-10-04 03:52 America/Toronto_
+_2839 rows · exported 2026-10-06 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2780,3 +2780,66 @@ _2776 rows · exported 2026-10-04 03:52 America/Toronto_
 | 1790966455690-gose62 | 2026-10-02 14:40:55 | Quincy Orta | 907546 |  | 511 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.908613 | -80.46497 | J4798700 | J4399933 | 31916 | INSTALLED |  |  |  |  |  | land |
 | 1790966890873-v2nklz | 2026-10-02 14:48:10 | Quincy Orta | 906785 |  | 519 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.90874 | -80.464646 | J4813813 | J2689329 | 67011 | INSTALLED |  |  |  |  |  | land |
 | 1790967273050-i58jlz | 2026-10-02 14:54:33 | Quincy Orta | 902979 |  | 520 Lasalette Rd, Norfolk County | 42.908209 | -80.464287 | J4813811 | J2689405 | 12576 | INSTALLED |  |  |  |  |  | land |
+| 1791207118922-obmi3v | 2026-10-05 09:31:58 | Josue Vasquez | 963567 |  | 443 Beresford St |  |  | J4822378 | J2323626 | 48612 | INSTALLED |  |  |  |  |  | land |
+| 1791207921522-t4i4in | 2026-10-05 09:45:21 | Josue Vasquez | 963502 |  | 441 Beresford St |  |  | J4822379 | J2323627 | 82109 | INSTALLED |  |  |  |  |  | land |
+| 1791210535463-63y972 | 2026-10-05 10:28:55 | Phillip Monteiro | 907182 |  | 15 Viola Crt, Windham | 42.84104 | -80.485386 | J4858135 | J3382593 | 63961 | INSTALLED |  |  |  |  |  | land |
+| 1791210865125-3f5ice | 2026-10-05 10:34:25 | Phillip Monteiro | 906812 |  | 17 Viola Crt, Windham | 42.840857 | -80.485337 | J4858133 | J2662205 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791210888299-43ohdj | 2026-10-05 10:34:48 | Quincy Orta | 907934 |  | 3221 Nixon Rd, Norfolk, ON N0E 1H0, Canada | 42.9115 | -80.424466 | J4813032 | J2661738 | 86170 | INSTALLED |  |  |  |  |  | land |
+| 1791211283215-5t48yd | 2026-10-05 10:41:23 | Phillip Monteiro | 901943 |  | 12 Viola Crt, Windham | 42.840798 | -80.485746 | J4858136 | J4051533 | 23441 | INSTALLED |  |  |  |  |  | land |
+| 1791211430412-7monwq | 2026-10-05 10:43:50 | Quincy Orta | 906888 |  | 3231 Nixon Road, Norfolk County | 42.912387 | -80.425198 | J4813033 | J2797001 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791211554060-m0hx92 | 2026-10-05 10:45:54 | Phillip Monteiro | 904812 |  | 14 Viola Crt, Windham | 42.840604 | -80.485839 | J4858134 | J2662227 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791211733754-legq32 | 2026-10-05 10:48:53 | Josue Vasquez | 963419 |  | 439 Beresford St |  |  | J4822380 | J2323628 | 61519 | INSTALLED |  |  |  |  |  | land |
+| 1791212219294-jyo9e0 | 2026-10-05 10:56:59 | Josue Vasquez | 963562 |  | 438 Beresford St |  |  | J4822381 | J2323617 | 626 | INSTALLED |  |  |  |  |  | land |
+| 1791212691894-ayl643 | 2026-10-05 11:04:51 | Quincy Orta | 905132 |  | 3239 Nixon Rd, Norfolk, ON N0E 2A0, Canada | 42.912967 | -80.425068 | J4813030 | J3711850 | 91262 | INSTALLED |  |  |  |  |  | land |
+| 1791212792047-c4gnex | 2026-10-05 11:06:32 | Phillip Monteiro | 901616 |  | 18 Viola Crt, Windham | 42.840406 | -80.485914 | J4813937 | J2662200 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791213072849-jagbhr | 2026-10-05 11:11:12 | Josue Vasquez | 963474 |  | 442 Beresford St |  |  | J4822402 | J2323618 | 55349 | INSTALLED |  |  |  |  |  | land |
+| 1791213164434-lexy7i | 2026-10-05 11:12:44 | Phillip Monteiro | 907691 |  | 16 Viola Crt, Windham | 42.840409 | -80.485865 | J4813936 | J2662202 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791213467739-ey27pu | 2026-10-05 11:17:47 | Phillip Monteiro | 900588 |  | 20 Viola Crt, Windham | 42.840172 | -80.485683 | J4813898 | J3823962 | 37236 | INSTALLED |  |  |  |  |  | land |
+| 1791213667455-wc95hp | 2026-10-05 11:21:07 | Quincy Orta | 902963 |  | 947 Windham Centre Rd, Norfolk, ON N0E 2A0, Canada | 42.914849 | -80.425412 | J4813031 | J2661719 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791213920683-db9h1u | 2026-10-05 11:25:20 | Phillip Monteiro | 905123 |  | 21 Viola Crt, Windham | 42.840403 | -80.485352 | J4813901 | J3609962 | 21139 | INSTALLED |  |  |  |  |  | land |
+| 1791214035909-28cfhm | 2026-10-05 11:27:15 | Josue Vasquez | 963439 |  | 436 Beresford St |  |  | J4822403 | J4048995 | 42489 | INSTALLED |  |  |  |  |  | land |
+| 1791214306051-90qkzr | 2026-10-05 11:31:46 | Phillip Monteiro | 905190 |  | 19 Viola Crt, Windham | 42.840636 | -80.485496 | J4813934 | J3610022 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791214507422-awnf5x | 2026-10-05 11:35:07 | Josue Vasquez | 963466 |  | 437 Beresford St |  |  | J4822404 | J2357197 | 97757 | INSTALLED |  |  |  |  |  | land |
+| 1791214766940-znxmkw | 2026-10-05 11:39:26 | Quincy Orta | 903361 |  | 3239 Regional Road 25, Norfolk County | 42.911242 | -80.426311 |  |  |  | UTI | Appointment Needed | Xplore net radio tower locked behind door |  |  |  | land |
+| 1791215029418-hgc7ib | 2026-10-05 11:43:49 | Josue Vasquez | 963511 |  | 431 Beresford St |  |  | J4822405 | J2356133 | 33019 | INSTALLED |  |  |  |  |  | land |
+| 1791215089714-n7cuwc | 2026-10-05 11:44:49 | Phillip Monteiro | 903619 |  | 24 Viola Crt, Windham | 42.839711 | -80.485487 | J4813900 | J2661411 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791215425682-pda0ig | 2026-10-05 11:50:25 | Phillip Monteiro | 904927 |  | 22 Viola Crt, Windham | 42.839832 | -80.485634 | J4813941 | J2662213 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791215424227-vmsx1e | 2026-10-05 11:50:24 | Quincy Orta | 904677 | 1 | 941 Norfolk County Rd 9, Norfolk, ON N0E 2A0, Canada | 42.914955 | -80.426162 | J4813028 | J2661717 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791215739804-euk8vk | 2026-10-05 11:55:39 | Josue Vasquez | 963512 |  | 447 Beresford St |  |  | J4822426 | J2323667 | 50310 | INSTALLED |  |  |  |  |  | land |
+| 1791215762688-qwtgei | 2026-10-05 11:56:02 | Phillip Monteiro | 902717 |  | 25 Viola Crt, Windham | 42.839846 | -80.485224 | J4813899 | J4009265 | 15706 | INSTALLED |  |  |  |  |  | land |
+| 1791215912404-bx6q1l | 2026-10-05 11:58:32 | Quincy Orta | 905917 | Garage | 907 Windham Centre Rd, Norfolk, ON N0E 2A0, Canada | 42.91434 | -80.429087 | J4813026 | J4399954 | 38448 | INSTALLED |  |  |  |  |  | land |
+| 1791216072762-d01lfr | 2026-10-05 12:01:12 | Josue Vasquez | 963533 |  | 449 Beresford St |  |  | J4822427 | J2323625 | 18677 | INSTALLED |  |  |  |  |  | land |
+| 1791216108884-natbmu | 2026-10-05 12:01:48 | Phillip Monteiro | 902165 |  | 27 Viola Crt, Windham | 42.839815 | -80.485108 | J4813935 | J2549171 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791217024783-5htyon | 2026-10-05 12:17:04 | Phillip Monteiro | 905874 |  | 28 Viola Crt, Windham | 42.83925 | -80.485287 | J4813942 | J4140271 | 13590 | INSTALLED |  |  |  |  |  | land |
+| 1791217016918-g6n1kk | 2026-10-05 12:16:56 | Quincy Orta | 900696 |  | 823 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.912937 | -80.43695 | J4813029 | J2661723 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791217486147-exoeoa | 2026-10-05 12:24:46 | Phillip Monteiro | 906626 |  | 31 Viola Crt, Windham | 42.839519 | -80.484926 | J4813945 | J2662212 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791217499809-uo2bzv | 2026-10-05 12:24:59 | Quincy Orta | 900928 |  | 823 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.913358 | -80.437413 | J4813027 | J4025124 | 0 | INSTALLED |  |  |  |  |  | land |
+| 1791217996051-fxf9oz | 2026-10-05 12:33:16 | Phillip Monteiro | 901657 |  | 26 Viola Crt, Windham | 42.839467 | -80.485372 | J4813940 | J4220600 | 4517 | INSTALLED |  |  |  |  |  | land |
+| 1791218525579-qv9wbl | 2026-10-05 12:42:05 | Phillip Monteiro | 905794 |  | 32 Viola Crt, Windham | 42.838801 | -80.48502 | J4813944 | J3823961 | 70078 | INSTALLED |  |  |  |  |  | land |
+| 1791218957284-j9lmss | 2026-10-05 12:49:17 | Phillip Monteiro | 905314 |  | 37 Viola Crt, Windham | 42.838814 | -80.484779 | J4813939 | J3730928 | 70765 | INSTALLED |  |  |  |  |  | land |
+| 1791219046268-8tzkkl | 2026-10-05 12:50:46 | Quincy Orta | 905437 |  | 794 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.912112 | -80.439397 | J4813820 | J2661722 | 53090 | INSTALLED |  |  |  |  |  | land |
+| 1791219367418-fs6u6x | 2026-10-05 12:56:07 | Phillip Monteiro | 905334 |  | 35 Viola Crt, Windham | 42.838993 | -80.484583 | J4813938 | J3633142 | 71931 | INSTALLED |  |  |  |  |  | land |
+| 1791219714183-fasrqx | 2026-10-05 13:01:54 | Phillip Monteiro | 904777 |  | 33 Viola Crt, Windham | 42.839147 | -80.484574 | J4813943 | J2662214 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791219458956-hxrxey | 2026-10-05 12:57:38 | Quincy Orta | 907987 |  | 746 Windham Centre Rd, Norfolk, ON N0E 1H0, Canada | 42.911316 | -80.443802 | J4813818 | J2661727 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791220725846-nawqe3 | 2026-10-05 13:18:45 | Quincy Orta | 907153 |  | 548 Windham Road 8, Norfolk, ON N0E 1H0, Canada | 42.908717 | -80.461727 | J4813819 | J4009281 | 38879 | INSTALLED |  |  |  |  |  | land |
+| 1791221565888-f8o7in | 2026-10-05 13:32:45 | Quincy Orta | 902568 |  | 549 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.909219 | -80.461975 | J4813821 | J2662286 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791222519653-11tg4e | 2026-10-05 13:48:39 | Phillip Monteiro | 908184 |  | 30 Viola Crt, Windham | 42.838939 | -80.485207 | J4813907 | J2662216 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791222531045-jb1cod | 2026-10-05 13:48:51 | Quincy Orta | 902682 |  | 538 Windham Road 8, Norfolk, ON N0E 1H0, Canada | 42.908273 | -80.46252 | J4813814 | J3674644 | 1783 | INSTALLED |  |  |  |  |  | land |
+| 1791222544822-2qo7xp | 2026-10-05 13:49:04 | Josue Vasquez | 963521 |  | 444 Beresford St |  |  | J4822428 | J2323620 | 59016 | INSTALLED |  |  |  |  |  | land |
+| 1791222843164-pydxtu | 2026-10-05 13:54:03 | Josue Vasquez | 963438 |  | 448 Beresford St |  |  | J4822429 | J2323619 | 82581 | INSTALLED |  |  |  |  |  | land |
+| 1791222982154-ycehsw | 2026-10-05 13:56:22 | Phillip Monteiro | 905057 |  | 23 Viola Crt, Windham | 42.840285 | -80.48522 | J4813908 | J3672439 | 8601 | INSTALLED |  |  |  |  |  | land |
+| 1791223168359-5gxpbe | 2026-10-05 13:59:28 | Quincy Orta | 900774 |  | 532 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.90821 | -80.463544 | J4813815 | J2689404 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791223505034-desrdn | 2026-10-05 14:05:05 | Josue Vasquez | 963472 |  | 450 Beresford St |  |  | J4822451 | J2323665 | 2960 | INSTALLED |  |  |  |  |  | land |
+| 1791223597674-ffk8dl | 2026-10-05 14:06:37 | Quincy Orta | 903142 | Rear | 532 LaSalette Rd, Norfolk, ON N0E 1H0, Canada | 42.90821 | -80.463511 | J4813817 | J4400786 | 24075 | INSTALLED |  |  |  |  |  | land |
+| 1791223870444-ypszzy | 2026-10-05 14:11:10 | Josue Vasquez | 963471 |  | 452 Beresford St |  |  | J4822450 | J2695631 | 24969 | INSTALLED |  |  |  |  |  | land |
+| 1791224259447-3490wl | 2026-10-05 14:17:39 | Quincy Orta | 904572 |  | 831 Brantford Rd, Norfolk, ON N0E 1H0, Canada | 42.910093 | -80.460756 | J4813816 | J2661888 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791224333629-in7z4y | 2026-10-05 14:18:53 | Josue Vasquez | 963571 |  | 455 Beresford St |  |  | J4822453 | J2323668 | 91933 | INSTALLED |  |  |  |  |  | land |
+| 1791225068382-20ff5u | 2026-10-05 14:31:08 | Josue Vasquez | 963408 |  | 459 Beresford St |  |  | J4822452 | J2323666 | 8316 | INSTALLED |  |  |  |  |  | land |
+| 1791225940185-ehh839 | 2026-10-05 14:45:40 | Quincy Orta | 903444 |  | 1009 Regional Rd 4, Norfolk, ON N0E 1V0, Canada | 42.920284 | -80.451187 | J4813822 | J3672467 | 84738 | INSTALLED |  |  |  |  |  | land |
+| 1791226564974-5i69yk | 2026-10-05 14:56:04 | Quincy Orta | 900762 | HSE | 743 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.924294 | -80.448416 | J4813825 | J2674875 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791227282612-q5spmp | 2026-10-05 15:08:02 | Quincy Orta | 900607 |  | 1192 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.929775 | -80.440913 | J4813823 | J2662352 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791227762246-yqrjly | 2026-10-05 15:16:02 | Josue Vasquez | 963564 |  | 236 Cameron St |  |  | J4822390 | J2356191 | 5375 | INSTALLED |  |  |  |  |  | land |
+| 1791228408927-8l00ym | 2026-10-05 15:26:48 | Josue Vasquez | 963460 |  | 234 Cameron St |  |  | J4822393 | J2356190 | 45744 | INSTALLED |  |  |  |  |  | land |
+| 1791228943900-i8rgx6 | 2026-10-05 15:35:43 | Josue Vasquez | 963444 |  | 238 Cameron St |  |  | J4822392 | J2356200 | 50808 | INSTALLED |  |  |  |  |  | land |
+| 1791229503600-8dtzak | 2026-10-05 15:45:03 | Josue Vasquez | 963522 |  | 461 Baird St |  |  | J4822391 | J2356453 | 21324 | INSTALLED |  |  |  |  |  | land |
+| 1791230138909-fweb7u | 2026-10-05 15:55:38 | Josue Vasquez | 963387 |  | 457 Baird St |  |  | J4822362 | J2356414 | 60593 | INSTALLED |  |  |  |  |  | land |
