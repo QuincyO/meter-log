@@ -1,6 +1,6 @@
 # Stops
 
-_2839 rows · exported 2026-10-06 03:52 America/Toronto_
+_2896 rows · exported 2026-10-07 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2843,3 +2843,60 @@ _2839 rows · exported 2026-10-06 03:52 America/Toronto_
 | 1791228943900-i8rgx6 | 2026-10-05 15:35:43 | Josue Vasquez | 963444 |  | 238 Cameron St |  |  | J4822392 | J2356200 | 50808 | INSTALLED |  |  |  |  |  | land |
 | 1791229503600-8dtzak | 2026-10-05 15:45:03 | Josue Vasquez | 963522 |  | 461 Baird St |  |  | J4822391 | J2356453 | 21324 | INSTALLED |  |  |  |  |  | land |
 | 1791230138909-fweb7u | 2026-10-05 15:55:38 | Josue Vasquez | 963387 |  | 457 Baird St |  |  | J4822362 | J2356414 | 60593 | INSTALLED |  |  |  |  |  | land |
+| 1791288853709-ysbebn | 2026-10-06 08:14:13 | Josue Vasquez | 963587 |  | 1 Cameron St |  |  | J4822365 | J3806718 | 9068 | INSTALLED |  |  |  |  |  | land |
+| 1791289467005-inxffx | 2026-10-06 08:24:27 | Josue Vasquez | 963505 |  | Lot 162-413 Concession |  |  | J4822364 | J2356188 | 10890 | INSTALLED |  |  |  |  |  | land |
+| 1791291802230-4uxbbg | 2026-10-06 09:03:22 | Josue Vasquez | 963433 |  | 227 Cameron St |  |  | J4822363 | J2357167 | 62471 | INSTALLED |  |  |  |  |  | land |
+| 1791292741158-uzy9oi | 2026-10-06 09:19:01 | Josue Vasquez | 963550 |  | 453 Baird St |  |  | J4822366 | J2356413 | 22758 | INSTALLED |  |  |  |  |  | land |
+| 1791293338811-szbtvq | 2026-10-06 09:28:58 | Josue Vasquez | 963506 |  | 244 Cameron St |  |  | J4822367 | J2356201 | 41542 | INSTALLED |  |  |  |  |  | land |
+| 1791295413223-cn52qf | 2026-10-06 10:03:33 | Phillip Monteiro | 910320 |  | 456 Callens Ave, Windham | 42.851418 | -80.4811 | J4813902 | J815293 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791296709275-bg8cwv | 2026-10-06 10:25:09 | Josue Vasquez | 963561 |  | 246 Cameron St |  |  | J4822368 | J2356203 | 80940 | INSTALLED |  |  |  |  |  | land |
+| 1791297197601-ws3hh5 | 2026-10-06 10:33:17 | Josue Vasquez | 963529 |  | 252 Cameron St |  |  | J4822369 | J2704587 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791297472557-v0337u | 2026-10-06 10:37:52 | Phillip Monteiro | 908101 |  | 2 Wilson Ave, Windham | 42.841326 | -80.48823 | J4813905 | J3561013 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791297611955-fy9zxs | 2026-10-06 10:40:11 | Josue Vasquez | 963407 |  | 254 Cameron St |  |  | J4859991 | J2356202 | 41632 | INSTALLED |  |  |  |  |  | land |
+| 1791297726052-aiz3ie | 2026-10-06 10:42:06 | Phillip Monteiro | 902049 |  | 10 Wilson Ave, Windham | 42.841484 | -80.487898 | J4813909 | J2258376 | 78253 | INSTALLED |  |  |  |  |  | land |
+| 1791298027333-y3pz8y | 2026-10-06 10:47:07 | Phillip Monteiro | 904940 |  | 20 Wilson Ave, Windham | 42.841593 | -80.487816 | J4813906 | J2248361 | 1380 | INSTALLED |  |  |  |  |  | land |
+| 1791298283211-opsfhh | 2026-10-06 10:51:23 | Josue Vasquez | 963486 |  | 256 Cameron St |  |  | J4859992 | J2356210 | 84625 | INSTALLED |  |  |  |  |  | land |
+| 1791298341968-yeglvz | 2026-10-06 10:52:21 | Phillip Monteiro | 905527 |  | 36 Wilson Ave, Windham | 42.841685 | -80.487358 | J4813904 | J2628748 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791298596176-f2ml04 | 2026-10-06 10:56:36 | Phillip Monteiro | 902873 |  | 30 Wilson Ave, Windham | 42.841678 | -80.487362 | J4813903 | J2628749 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791298693611-kkmrde | 2026-10-06 10:58:13 | Josue Vasquez | 963467 |  | 258 Cameron St |  |  | J4859990 | J2356208 | 94825 | INSTALLED |  |  |  |  |  | land |
+| 1791299079050-5wc8k4 | 2026-10-06 11:04:39 | Phillip Monteiro | 903095 |  | 42 Wilson Ave, Windham | 42.841796 | -80.486918 | J4813488 | J3616040 | 7116 | INSTALLED |  |  |  |  |  | land |
+| 1791299421334-9q2j6h | 2026-10-06 11:10:21 | Phillip Monteiro | 905562 |  | 50 Wilson Ave, Windham | 42.841831 | -80.486606 | J4813486 | J2248363 | 67141 | INSTALLED |  |  |  |  |  | land |
+| 1791299873445-o94pwd | 2026-10-06 11:17:53 | Quincy Orta | 902755 |  | 3474 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.929937 | -80.422624 | J4813824 | J3859134 | 68110 | INSTALLED |  |  |  |  |  | land |
+| 1791299879735-zs60c0 | 2026-10-06 11:17:59 | Phillip Monteiro | 904064 |  | 60 Wilson Ave, Windham | 42.841769 | -80.485812 | J4813477 | J2662180 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1791300139424-xqde3j | 2026-10-06 11:22:19 | Phillip Monteiro | 905660 |  | 70 Wilson Ave, Windham | 42.841924 | -80.485747 | J4813489 | J2662181 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791300443161-r87oxw | 2026-10-06 11:27:23 | Phillip Monteiro | 902497 |  | 56 Wilson Ave, Windham | 42.841838 | -80.486271 | J4813487 | J2662183 | 66696 | INSTALLED |  |  |  |  |  | land |
+| 1791300467116-t8ejut | 2026-10-06 11:27:47 | Quincy Orta | 900976 |  | 3457 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.928334 | -80.422739 | J4813495 | J3833014 | 48291 | INSTALLED |  |  |  |  |  | land |
+| 1791301155996-md3xlg | 2026-10-06 11:39:15 | Quincy Orta | 908148 | HSE | 909 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.926961 | -80.43344 | J4813494 | J2663791 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791301626545-inpaj4 | 2026-10-06 11:47:06 | Phillip Monteiro | 903714 |  | 82 Wilson Ave, Windham | 42.842615 | -80.481223 | J4813476 | J2662160 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791302229956-dotwy3 | 2026-10-06 11:57:09 | Quincy Orta | 905368 |  | 879 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.926245 | -80.435674 | J4813497 | J3649872 | 29428 | INSTALLED |  |  |  |  |  | land |
+| 1791302272755-2c7gl1 | 2026-10-06 11:57:52 | Phillip Monteiro | 903076 |  | 94 Wilson Ave, Windham | 42.842711 | -80.480241 | J4813474 | J2661402 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791302668608-86t92a | 2026-10-06 12:04:28 | Quincy Orta | 900770 |  | 812 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.924568 | -80.442147 | J4813496 | J2662342 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791303249807-gyjw64 | 2026-10-06 12:14:09 | Quincy Orta | 906308 |  | 791 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.92516 | -80.444971 | J4813492 | J3501067 |  | INSTALLED |  |  | Other: Can't see display |  |  | land |
+| 1791303576929-h4fazo | 2026-10-06 12:19:36 | Phillip Monteiro | 901801 |  | 4 Henry St, Middleton | 42.829771 | -80.487944 | J4813475 | J2248472 | 69180 | INSTALLED |  |  |  |  |  | land |
+| 1791303649670-wwh6vi | 2026-10-06 12:20:49 | Quincy Orta | 908007 | GasMtr | 791 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.924583 | -80.444053 | J4813491 | J2662339 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791303936266-ayinf9 | 2026-10-06 12:25:36 | Phillip Monteiro | 905032 |  | 5 Henry St, Middleton | 42.829622 | -80.488456 | J4813481 | J2697778 | 1960 | INSTALLED |  |  |  |  |  | land |
+| 1791304013159-pzxhur | 2026-10-06 12:26:53 | Quincy Orta | 905659 |  | 772 Windham Road 7, Norfolk, ON N0E 1H0, Canada | 42.923877 | -80.446334 | J4813490 | J3955589 | 66290 | INSTALLED |  |  |  |  |  | land |
+| 1791305911058-6xc8n6 | 2026-10-06 12:58:31 | Quincy Orta | 906887 | HSE | 752 Windham Road 7, Norfolk, ON N0E 1H0, Canada | 42.923151 | -80.447217 | J4813493 | J2662338 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791306033961-q0lscx | 2026-10-06 13:00:33 | Phillip Monteiro | 906771 |  | 8 Henry St, Middleton | 42.829926 | -80.487869 | J4813478 | J3616051 | 65765 | INSTALLED |  |  |  |  |  | land |
+| 1791306345839-lb4fml | 2026-10-06 13:05:45 | Phillip Monteiro | 904225 |  | 12 Henry St, Middleton | 42.830231 | -80.488094 | J4813480 | J2248471 | 8260 | INSTALLED |  |  |  |  |  | land |
+| 1791306861462-xu4ck8 | 2026-10-06 13:14:21 | Phillip Monteiro | 900815 |  | 9 Henry St, Middleton | 42.830051 | -80.488495 | J4813482 | J3266458 | 2689 | INSTALLED |  |  |  |  |  | land |
+| 1791307179632-8sgtcw | 2026-10-06 13:19:39 | Quincy Orta | 904894 |  | 612 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.921338 | -80.460435 | J4813009 | J4036086 | 195 | INSTALLED |  |  |  |  |  | land |
+| 1791307611948-c53g0u | 2026-10-06 13:26:51 | Quincy Orta | 902714 |  | 641 Windham Road 7, Norfolk, ON N0E 1V0, Canada | 42.922473 | -80.458035 | J4813008 | J3602923 | 4165 | INSTALLED |  |  |  |  |  | land |
+| 1791307646416-7pc9qv | 2026-10-06 13:27:26 | Josue Vasquez | 963530 |  | 262 Cameron St |  |  | J4859989 | J2356209 | 86049 | INSTALLED |  |  |  |  |  | land |
+| 1791307721769-mif8rx | 2026-10-06 13:28:41 | Phillip Monteiro | 904187 |  | 11 Henry St, Middleton | 42.830019 | -80.488738 | J4813479 | J2261099 | 5338 | INSTALLED |  |  |  |  |  | land |
+| 1791308137320-x7lrhm | 2026-10-06 13:35:37 | Phillip Monteiro | 900884 |  | 15 Henry St, Middleton | 42.830402 | -80.488902 | J4813485 | J3509860 | 16823 | INSTALLED |  |  |  |  |  | land |
+| 1791308145446-07yacg | 2026-10-06 13:35:45 | Quincy Orta | 903732 |  | 649 Windham Rd 7, Norfolk County | 42.923238 | -80.457027 | J4813006 | J2674873 | 38310 | INSTALLED |  |  |  |  |  | land |
+| 1791308609887-3092fg | 2026-10-06 13:43:29 | Phillip Monteiro | 904076 |  | 14 Henry St, Middleton | 42.830468 | -80.488337 | J4813484 | J4229948 | 13690 | INSTALLED |  |  |  |  |  | land |
+| 1791308971056-dw4m3a | 2026-10-06 13:49:31 | Phillip Monteiro | 902780 |  | 18 Henry St, Middleton | 42.830514 | -80.488386 | J4813483 | J4141518 | 25735 | INSTALLED |  |  |  |  |  | land |
+| 1791309026406-lpogw1 | 2026-10-06 13:50:26 | Josue Vasquez | 963503 |  | 461 Bentinck Dr |  |  | J4852287 | J3732799 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791310007468-tt95ie | 2026-10-06 14:06:47 | Quincy Orta | 905355 |  | 1215 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.931258 | -80.439893 | J4813007 | J3609966 | 82113 | INSTALLED |  |  |  |  |  | land |
+| 1791310556124-t0sqf3 | 2026-10-06 14:15:56 | Quincy Orta | 902038 | HSE | 1247 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.932565 | -80.437261 | J4813002 | J4231987 | 9679 | INSTALLED |  |  |  |  |  | land |
+| 1791311410116-qtwqbo | 2026-10-06 14:30:10 | Quincy Orta | 904909 | Barn | 1276 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.933051 | -80.434727 | J4813005 | J2791810 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791311775716-7wqdfr | 2026-10-06 14:36:15 | Quincy Orta | 907968 |  | 1334 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.93585 | -80.43047 | J4813003 | J2688990 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791312159782-mgryte | 2026-10-06 14:42:39 | Quincy Orta | 904219 |  | 1340 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.936051 | -80.430074 | J4813004 | J2688991 | 9775 | INSTALLED |  |  |  |  |  | land |
+| 1791312652929-1hteqw | 2026-10-06 14:50:52 | Quincy Orta | 903790 |  | 3530 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.933476 | -80.424186 | J4813502 | J2662362 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791312969098-dv1ugy | 2026-10-06 14:56:09 | Quincy Orta | 903518 | GasMtr | 3530 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.933071 | -80.424598 | J4813505 | J2662341 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791313533889-6f787h | 2026-10-06 15:05:33 | Quincy Orta | 904883 |  | 3569 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.934821 | -80.427334 | J4813503 | J2662360 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791314399035-gr17xa | 2026-10-06 15:19:59 | Josue Vasquez | 963409 |  | 476 Beresford St |  |  | J4852288 | J2356795 | 26045 | INSTALLED |  |  |  |  |  | land |
+| 1791314711426-rlfdm9 | 2026-10-06 15:25:11 | Josue Vasquez | 963416 |  | 474 Beresford St |  |  | J4814682 | J3562159 | 40530 | INSTALLED |  |  |  |  |  | land |
+| 1791315057888-l9ov7o | 2026-10-06 15:30:57 | Josue Vasquez | 963509 |  | 472 Beresford St |  |  | J4814683 | J2356930 | 24376 | INSTALLED |  |  |  |  |  | land |

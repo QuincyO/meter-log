@@ -1,6 +1,6 @@
 # Tracker
 
-_154 rows · exported 2026-10-06 03:52 America/Toronto_
+_157 rows · exported 2026-10-07 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -158,3 +158,6 @@ _154 rows · exported 2026-10-06 03:52 America/Toronto_
 | 2026-10-05 00:00:00 | Phillip Monteiro | 22 | 0 | 125 | 30 | 0 | 0 | 15 | 35 | 25 | 20 | 0 | 0 | 0 | Clear · NW 29 km/h · 15°C |  | 0 | 0 |  | 203 |  | land |
 | 2026-10-05 00:00:00 | Quincy Orta | 19 | 1 | 90 | 30 | 0 | 0 | 15 | 15 | 30 | 0 | 0 | 0 | 0 | Clear · NW 29 km/h · 14°C | Felt sick and nauseous all day | 0 | 0 |  | 272 |  | land |
 | 2026-10-05 00:00:00 | Josue Vasquez | 21 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Overcast · SW 16 km/h · 26°C |  | 0 | 0 |  | 385 |  | land |
+| 2026-10-06 00:00:00 | Phillip Monteiro | 22 | 0 | 125 | 30 | 0 | 0 | 15 | 35 | 25 | 20 | 0 | 0 | 0 | Clear · SW 17 km/h · 15°C |  | 0 | 0 |  | 217 |  | land |
+| 2026-10-06 00:00:00 | Quincy Orta | 20 | 0 | 180 | 30 | 0 | 0 | 15 | 15 | 0 | 120 | 0 | 0 | 0 | Clear · SW 17 km/h · 15°C | Had an appointment for tire change in the morning | 0 | 0 |  | 226 |  | land |
+| 2026-10-06 00:00:00 | Josue Vasquez | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Light drizzle · S 29 km/h · 25°C |  | 0 | 0 |  | 437 |  | land |
