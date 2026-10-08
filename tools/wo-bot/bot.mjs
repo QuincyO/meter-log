@@ -207,6 +207,8 @@ async function handleUpdates(updates){
     if(!allowed.has(user)){
       if(!warnedStrangers.has(user)){
         warnedStrangers.add(user);
+        console.log(`Not allowed: Telegram id ${user} (${[from.first_name, from.last_name].filter(Boolean).join(' ')}`
+          + `${from.username ? ' @' + from.username : ''}) — add it to allowedUserIds to let them in.`);
         await say(chat, `This bot is private. Your Telegram id is ${user} — `
           + 'ask the owner to add it to allowedUserIds.').catch(() => {});
       }
