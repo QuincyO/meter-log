@@ -27,3 +27,6 @@ _build_*
 # hook. Committing it would mean a graph diff on every code commit, and a checked-in
 # graph goes stale the moment someone commits without the hook installed.
 graphify-out/
+
+# The photo bot's secrets (Telegram token, allowed users) and its user→installer links.
+tools/wo-bot/*.local.json

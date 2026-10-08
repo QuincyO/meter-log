@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, seventeen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`. This is the truth.
+One spreadsheet, eighteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`, `WorklistInbox`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -2269,6 +2269,28 @@ append guarded by `tests/drivetracks-sheet-schema.test.mjs`.
 | `maxSpeed` | number | m/s, best single fix |
 | `gaps` | string | JSON `[{pauseLat,pauseLng,pauseT,resumeLat,resumeLng,resumeT}]` |
 | `encoded` | string | interleaved-varint polyline of `{lat,lng,t,spd}` |
+
+### WorklistInbox row  (one per queued work order → tab "WorklistInbox")
+The photo bot's drop box (`tools/wo-bot`). An installer photographs the handheld's
+work-order list and sends it to a Telegram bot on the owner's PC, which reads it
+locally — Windows OCR and an Ollama vision model, keeping only the numbers both
+report — and posts `queueWorklistOrders {hNumber, orders:[wo…], source}`. That skips
+any number already pending on the installer's `Worklist` or already waiting here,
+and returns `{ok, queued, skipped, installer}`. The next `?action=worklist` read for
+that H number runs `claimWorklistInbox` first: each waiting row becomes a pending,
+address-less `Worklist` row (id `inbox-<id>`, ordered after the installer's last
+`order`, exactly like a bulk paste) and gets `claimedAt` stamped. It is a separate
+tab because the phone whole-list replaces its `Worklist` slice after every log
+(`syncWorklist`), which would wipe a direct append before any Download. Created on
+first use by `ensureTab`; every column pinned to text.
+| field | type | notes |
+|-------|------|-------|
+| `id` | string | spine-generated (`newId`) |
+| `hNumber` | string | the installer the orders are for — the match key |
+| `workOrderId` | string | as read from the photo (six digits) |
+| `source` | string | `telegram` |
+| `receivedAt` | string | Toronto-local stamp of the queue |
+| `claimedAt` | string | stamp of the read that folded it into `Worklist`; blank = waiting |
 
 ---
 

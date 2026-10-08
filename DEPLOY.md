@@ -609,3 +609,36 @@ project — the code can't do these for you:
 To take a snapshot on demand, run `exportSheetToGithub()` from the editor — the
 execution log prints the new commit SHA. The PAT is a real secret and lives only
 in Script Properties, never in `Code.gs`.
+
+## Photo work-order bot (one-time setup)
+
+`tools/wo-bot/bot.mjs` turns photos of the handheld's work-order list into worklist
+orders: send photos to a Telegram bot, tap ✅ Send, and the installer's next
+**Worklist ▸ ⇩ Download** has them (via the `WorklistInbox` tab — see AGENTS.md).
+It runs on the PC with Ollama, uses long polling (nothing is exposed to the
+internet), and needs no `npm install`.
+
+1. **Create the bot:** in Telegram, message **@BotFather** ▸ `/newbot` ▸ pick a name.
+   Copy the token it gives you.
+2. **Configure:** copy `tools/wo-bot/config.example.json` to
+   `tools/wo-bot/config.local.json` (gitignored) and set `botToken`. Leave
+   `allowedUserIds` empty for now.
+3. **Find your Telegram id:** run `node tools/wo-bot/bot.mjs` and message the bot —
+   it replies with your id. Add it to `allowedUserIds`, restart the bot. Repeat for
+   each person who should be able to send orders. (Anyone can find a bot by name;
+   the allowlist is what keeps strangers out.)
+4. **Link:** each person sends `/link H12345` once — their employee number, checked
+   against the roster. Links live in `tools/wo-bot/state.local.json` (gitignored).
+5. **Readers:** Windows OCR is built in. The vision model is Ollama's
+   `qwen2.5vl:7b` (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the
+   config to use another. If Ollama is down the bot still answers, with every number
+   marked unsure.
+6. **(Optional) Start at logon:**
+   `schtasks /Create /SC ONLOGON /TN "meter-log wo-bot" /TR "node \"<repo>\tools\wo-bot\bot.mjs\""`
+   (replace `<repo>` with the full path).
+
+Check a photo without Telegram or the Sheet:
+`node tools/wo-bot/bot.mjs --dry-run photo1.jpg photo2.jpg`.
+
+The Apps Script side needs nothing: `WorklistInbox` is created on first use. (Running
+`setupSheets()` also creates it, with every column pinned to text.)

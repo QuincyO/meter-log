@@ -279,6 +279,14 @@ const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','pace
 const DRIVETRACKS_HEADERS = ['id','date','installer','workType','startTime','endTime',
   'pointCount','distanceM','driveMin','avgSpeed','maxSpeed','gaps','encoded'];
 
+// Work orders waiting to join an installer's worklist — written by the photo bot
+// (tools/wo-bot, via queueWorklistOrders), folded into `Worklist` by the
+// `?action=worklist` read (claimWorklistInbox), which stamps `claimedAt`.
+// A SEPARATE tab on purpose: the phone replaces its whole `Worklist` slice
+// silently after every logged stop (js/worklist.js syncWorklist), so rows a bot
+// appended there directly would be wiped before the installer ever downloaded.
+const WORKLIST_INBOX_HEADERS = ['id','hNumber','workOrderId','source','receivedAt','claimedAt'];
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -309,6 +317,7 @@ function setupSheets() {
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
+  ensureWorklistInboxTab(ss);
   // These values are minute counts and rates, not Sheets date serials — but a column
   // appended to a live sheet inherits the format of the one it lands beside, and the
   // one it lands beside is `updated`, a datetime. So every appended block arrives
@@ -417,6 +426,7 @@ function doPost(e) {
       case 'saveWorklist':   return json(saveWorklist(body));
       case 'savePlan':       return json(savePlan(body));
       case 'saveDriveTrack': return json(saveDriveTrack(body));
+      case 'queueWorklistOrders': return json(queueWorklistOrders(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
@@ -474,7 +484,12 @@ function doGet(e) {
   }
   if (p.action === 'worklist') {
     // One installer's saved planned orders, matched on H number (names can
-    // collide) — the worklist Download button.
+    // collide) — the worklist Download button. Orders the photo bot queued are
+    // folded in first, in this same request, so no phone push can land between
+    // the claim and the read — and phones on old bytes get them with no change.
+    // A failed claim must never cost the read: every Download and the Drive
+    // screen's refresh go through here, and the rows simply wait for next time.
+    try { claimWorklistInbox(p.hNumber); } catch (err) { console.error('claimWorklistInbox: ' + err); }
     return json({ ok: true, orders: worklistFor(p.hNumber), plan: worklistPlanFor(p.hNumber) });
   }
   if (p.action === 'lookup')  return json(lookup(p));
@@ -1449,6 +1464,115 @@ function worklistFor(hNumber) {
   const h = String(hNumber == null ? '' : hNumber).trim();
   if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist')) return [];
   return rows('Worklist').filter(r => String(r.hNumber).trim() === h).sort(wlCmp);
+}
+
+// ── Worklist inbox: the photo bot's drop box (tools/wo-bot) ─────────────────
+// See WORKLIST_INBOX_HEADERS for why this is not a direct Worklist append.
+
+function ensureWorklistInboxTab(ss) {
+  const sh = ensureTab(ss || SpreadsheetApp.getActiveSpreadsheet(), 'WorklistInbox', WORKLIST_INBOX_HEADERS);
+  // All text: a WO# must come back exactly as queued, and a timestamp string must
+  // not be coerced into a Date (see the Stops/Days pins in setupSheets).
+  sh.getRange('A2:F').setNumberFormat('@');
+  return sh;
+}
+
+const normInboxWo = v => String(v == null ? '' : v).trim().toUpperCase();
+
+/** The bot's write: queue WO numbers for one installer (H number). Skips any
+ *  already pending on that installer's Worklist or already waiting unclaimed
+ *  in the inbox, so a re-sent batch never doubles. Runs under doPost's lock. */
+function queueWorklistOrders(b) {
+  const h = String(b.hNumber == null ? '' : b.hNumber).trim();
+  if (!h) return { ok: false, error: 'hNumber required' };
+  const emp = employeeByH(h);
+  if (!emp) return { ok: false, error: 'unknown H number ' + h };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ensureWorklistInboxTab(ss);
+
+  const have = {};
+  if (ss.getSheetByName('Worklist')) rows('Worklist').forEach(r => {
+    if (String(r.hNumber).trim() === h && String(r.wlStatus).trim().toLowerCase() !== 'done')
+      have[normInboxWo(r.workOrderId)] = true;
+  });
+  rows('WorklistInbox').forEach(r => {
+    if (String(r.hNumber).trim() === h && !String(r.claimedAt || '').trim())
+      have[normInboxWo(r.workOrderId)] = true;
+  });
+
+  const queued = [], skipped = [], ts = now(), source = String(b.source || 'bot');
+  (b.orders || []).forEach(o => {
+    const wo = String(o == null ? '' : o).trim(), key = normInboxWo(wo);
+    if (!key) return;
+    if (have[key]) { skipped.push(wo); return; }
+    have[key] = true; queued.push(wo);
+  });
+  if (queued.length) {
+    const start = sh.getLastRow() + 1;
+    sh.getRange(start, 1, queued.length, WORKLIST_INBOX_HEADERS.length)
+      .setValues(queued.map(wo => [newId(), h, wo, source, ts, '']));
+    bustRows('WorklistInbox');
+  }
+  return { ok: true, queued: queued, skipped: skipped, installer: fullName(emp) };
+}
+
+/** Fold one installer's unclaimed inbox rows into Worklist as pending,
+ *  address-less orders after their last `order`, and stamp `claimedAt`. A WO
+ *  already pending there is claimed without a new row. Called from the
+ *  `worklist` read — doGet holds no lock, so this takes the script lock itself,
+ *  but only once a lockless peek has found something to claim (the Drive
+ *  screen polls that read all day). Lock busy → claim nothing; the rows wait
+ *  for the next read. Returns the number of Worklist rows added. */
+function claimWorklistInbox(hNumber) {
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const inbox = ss.getSheetByName('WorklistInbox');
+  if (!h || !inbox || inbox.getLastRow() < 2) return 0;
+  const waiting = data => data.slice(1).some(r => String(r[1]).trim() === h && !String(r[5]).trim());
+  if (!waiting(inbox.getDataRange().getValues())) return 0;
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return 0;
+  try {
+    const data = inbox.getDataRange().getValues();   // re-read under the lock
+    const mine = [];
+    for (let r = 1; r < data.length; r++)
+      if (String(data[r][1]).trim() === h && !String(data[r][5]).trim()) mine.push(r);
+    if (!mine.length) return 0;
+
+    const wl = ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
+    const wlData = wl.getDataRange().getValues();
+    const head = wlData[0].map(String);
+    const col = name => head.indexOf(name);
+    const pending = {};
+    let maxOrder = -10;
+    wlData.slice(1).forEach(r => {
+      if (String(r[col('hNumber')]).trim() !== h) return;
+      const o = Number(r[col('order')]);
+      if (r[col('order')] !== '' && isFinite(o)) maxOrder = Math.max(maxOrder, o);
+      if (String(r[col('wlStatus')]).trim().toLowerCase() !== 'done') pending[normInboxWo(r[col('workOrderId')])] = true;
+    });
+
+    const ts = now(), installer = nameOfH(h), add = [];
+    mine.forEach(r => {
+      const wo = String(data[r][2]).trim(), key = normInboxWo(wo);
+      data[r][5] = ts;
+      if (!key || pending[key]) return;
+      pending[key] = true;
+      // Header-keyed, so the row lands right on a sheet whose columns drifted.
+      const rec = { id: 'inbox-' + data[r][0], installer: installer, hNumber: h, workOrderId: wo,
+        wlStatus: 'pending', order: maxOrder + (add.length + 1) * 10, createdAt: ts, updatedAt: ts };
+      add.push(head.map(k => rec[k] === undefined ? '' : rec[k]));
+    });
+    if (add.length) {
+      wl.getRange(wl.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      bustRows('Worklist');
+    }
+    // claimedAt column only — never re-writes the other inbox cells.
+    inbox.getRange(2, 6, data.length - 1, 1).setValues(data.slice(1).map(r => [r[5]]));
+    bustRows('WorklistInbox');
+    return add.length;
+  } finally { lock.releaseLock(); }
 }
 
 function ensureWorklistPlansTab() {

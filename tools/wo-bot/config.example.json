@@ -1,0 +1,6 @@
+{
+  "botToken": "123456789:paste-the-token-from-BotFather",
+  "allowedUserIds": [123456789],
+  "ollamaUrl": "http://localhost:11434",
+  "model": "qwen2.5vl:7b"
+}
