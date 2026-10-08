@@ -28,7 +28,7 @@ the repo, and are not listed.
 
 | Day                                   | What shipped                                                       |
 | ------------------------------------- | ------------------------------------------------------------------ |
-| [2026-10-08](changelog/2026-10-08.md) | **Photograph the work-order list instead of typing it.** A Telegram bot on the owner’s PC reads photos of the handheld’s list with Windows OCR and a local vision model. It sends only the numbers both readers agree on, and they land on the phone at the next ⇩ Download through a new `WorklistInbox` tab. The inbox is claimed inside the `worklist` read, because the phone’s silent whole-list sync would wipe a direct `Worklist` append. |
+| [2026-10-08](changelog/2026-10-08.md) | **Photograph the work-order list instead of typing it.** A Telegram bot on the owner’s PC reads photos of the handheld’s list with Windows OCR and a local vision model. It sends only the numbers both readers agree on, and they land on the phone at the next ⇩ Download through a new `WorklistInbox` tab. The inbox is claimed inside the `worklist` read, because the phone’s silent whole-list sync would wipe a direct `Worklist` append. The bot runs as a Docker container you switch on and off from Docker Desktop. In the container, Tesseract with an adaptive threshold stands in for Windows OCR. |
 
 ## 2026-09
 

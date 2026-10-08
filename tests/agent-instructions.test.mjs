@@ -51,7 +51,7 @@ test('AGENTS.md describes the app as it is now, not as it was', () => {
   for(const term of ['Worklist', 'WorklistPlans', 'planner.html', 'reports.html', 'help.html',
     'StopsArchive', 'InstallerMetrics', 'archiveStop', 'route-variants.js',
     'DriveTracks', 'saveDriveTrack', 'drive-track.js',
-    'WorklistInbox', 'queueWorklistOrders', 'tools/wo-bot'])
+    'WorklistInbox', 'queueWorklistOrders', 'tools/wo-bot', 'tools/wo-bot/compose.yaml'])
     assert.ok(agents.includes(term), `AGENTS.md never mentions ${term}`);
   assert.ok(!/twelve tabs|four pages|four static pages|sixteen tabs|seventeen tabs/.test(agents),
     'AGENTS.md still carries a stale count from the old fork');
