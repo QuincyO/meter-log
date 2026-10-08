@@ -1,6 +1,6 @@
 # StopsArchive
 
-_31 rows · exported 2026-10-07 03:52 America/Toronto_
+_33 rows · exported 2026-10-08 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -35,3 +35,5 @@ _31 rows · exported 2026-10-07 03:52 America/Toronto_
 | 1790870885287-vud5xf | 2026-10-01 12:08:05 | Quincy Orta | 900781 |  | 689 Windham Rd 9, Delhi, ON N4B 2W5, Canada | 42.899515 | -80.445194 | J4855681 | J2674566 | 33281 | INSTALLED |  |  |  |  |  | land | 2026-10-01 12:09:10 | Quincy Orta | reset order |
 | 1790882843729-bai23t | 2026-10-01 15:27:23 | Quincy Orta | 900544 | B | 2965 Nixon Rd, Norfolk, ON N0E 2A0, Canada | 42.894755 | -80.41784 | J4857455 | J2241608 | 45458 | INSTALLED |  |  |  |  |  | land | 2026-10-01 15:29:50 | Quincy Orta | reset order |
 | 1790884129080-2iu8y3 | 2026-10-01 15:48:49 | Josue Vasquez | 859347 |  | 38 Concession 14 E |  |  | J4835339 | J3090776 | 80776 | INSTALLED |  |  |  |  |  | land | 2026-10-01 15:53:55 | Josue Vasquez | reset order |
+| 1791389966011-cngo8m | 2026-10-07 12:19:26 | Phillip Monteiro | 904209 |  | 44 Henry St, Middleton | 42.832235 | -80.489388 | J4812400 | J4009765 | 19707 | INSTALLED |  |  |  |  |  | land | 2026-10-07 12:22:30 | Phillip Monteiro | reset order |
+| 1791396370739-1z9n53 | 2026-10-07 14:06:10 | Phillip Monteiro | 906638 |  | 16 Alpha St, Middleton | 42.831889 | -80.487487 | J4812401 | J2628767 |  | INSTALLED |  |  | Display blank / dead |  |  | land | 2026-10-07 14:07:12 | Phillip Monteiro | reset order |

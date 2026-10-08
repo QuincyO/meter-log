@@ -1,6 +1,6 @@
 # Stops
 
-_2896 rows · exported 2026-10-07 03:52 America/Toronto_
+_2939 rows · exported 2026-10-08 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2900,3 +2900,46 @@ _2896 rows · exported 2026-10-07 03:52 America/Toronto_
 | 1791314399035-gr17xa | 2026-10-06 15:19:59 | Josue Vasquez | 963409 |  | 476 Beresford St |  |  | J4852288 | J2356795 | 26045 | INSTALLED |  |  |  |  |  | land |
 | 1791314711426-rlfdm9 | 2026-10-06 15:25:11 | Josue Vasquez | 963416 |  | 474 Beresford St |  |  | J4814682 | J3562159 | 40530 | INSTALLED |  |  |  |  |  | land |
 | 1791315057888-l9ov7o | 2026-10-06 15:30:57 | Josue Vasquez | 963509 |  | 472 Beresford St |  |  | J4814683 | J2356930 | 24376 | INSTALLED |  |  |  |  |  | land |
+| 1791383528523-n81p0f | 2026-10-07 10:32:08 | Phillip Monteiro | 906892 |  | 17 Henry St, Middleton | 42.830572 | -80.488827 | J4813471 | J3382755 | 96681 | INSTALLED |  |  |  |  |  | land |
+| 1791383881791-994h4x | 2026-10-07 10:38:01 | Phillip Monteiro | 904046 |  | 21 Henry St, Middleton | 42.830704 | -80.489054 | J4813472 | J2261101 | 98705 | INSTALLED |  |  |  |  |  | land |
+| 1791384365537-23jz3a | 2026-10-07 10:46:05 | Phillip Monteiro | 900725 |  | 22 Henry St, Middleton | 42.830813 | -80.488587 | J4813470 | J2261237 | 97248 | INSTALLED |  |  |  |  |  | land |
+| 1791384588220-izhznv | 2026-10-07 10:49:48 | Quincy Orta | 903446 |  | 557 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.933239 | -80.469756 | J4813504 | J2689273 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791384836564-w4r2gt | 2026-10-07 10:53:56 | Phillip Monteiro | 907205 |  | 24 Henry St, Middleton | 42.83108 | -80.488774 | J4813469 | J3616052 | 74578 | INSTALLED |  |  |  |  |  | land |
+| 1791385101801-r508lg | 2026-10-07 10:58:21 | Quincy Orta | 903448 |  | 662 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.934227 | -80.460218 | J4816818 | J2689278 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791385195888-uu39sc | 2026-10-07 10:59:55 | Phillip Monteiro | 907263 |  | 27 Henry St, Middleton | 42.830996 | -80.48932 | J4813466 | J3722138 | 52315 | INSTALLED |  |  |  |  |  | land |
+| 1791385626766-bxn21m | 2026-10-07 11:07:06 | Quincy Orta | 900953 |  | 760 Windham Road 6, Norfolk, ON N0E 1S0, Canada | 42.935639 | -80.45112 | J4816819 | J4399966 | 12549 | INSTALLED |  |  |  |  |  | land |
+| 1791385612588-pqdkjk | 2026-10-07 11:06:52 | Phillip Monteiro | 907360 |  | 28 Henry St, Middleton | 42.831254 | -80.488984 | J4813473 | J2261239 | 83860 | INSTALLED |  |  |  |  |  | land |
+| 1791386123644-xrsaap | 2026-10-07 11:15:23 | Quincy Orta | 902135 |  | 796 Windham Road 6, Norfolk, ON N0E 1S0, Canada | 42.936105 | -80.448164 | J4816821 | J3206689 | 75037 | INSTALLED |  |  |  |  |  | land |
+| 1791386153469-dv9jo8 | 2026-10-07 11:15:53 | Phillip Monteiro | 904482 |  | 31 Henry St, Middleton | 42.83129 | -80.489647 | J4813468 | J4051525 | 25934 | INSTALLED |  |  |  |  |  | land |
+| 1791386492712-b2vs6d | 2026-10-07 11:21:32 | Phillip Monteiro | 903612 |  | 33 Henry St, Middleton | 42.831394 | -80.489584 | J4813467 | J2047922 | 90150 | INSTALLED |  |  |  |  |  | land |
+| 1791386570134-yoed0w | 2026-10-07 11:22:50 | Quincy Orta | 907219 |  | 847 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.937358 | -80.443152 | J4816820 | J2689270 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791388886645-52vm6q | 2026-10-07 12:01:26 | Quincy Orta | 903215 |  | 874 Windham Rd 6, Norfolk County | 42.937253 | -80.440838 | J4816797 | J4199627 | 39427 | INSTALLED |  |  |  |  |  | land |
+| 1791389225550-k8mu7j | 2026-10-07 12:07:05 | Phillip Monteiro | 908010 |  | 41 Henry St, Middleton | 42.831751 | -80.489831 | J4812399 | J3928789 | 51944 | INSTALLED |  |  |  |  |  | land |
+| 1791389750740-2u6qe3 | 2026-10-07 12:15:50 | Quincy Orta | 906637 |  | 3709 Teeterville Rd, Norfolk, ON N0E 1S0, Canada | 42.94102 | -80.437629 | J4816796 | J4213534 | 38625 | INSTALLED |  |  |  |  |  | land |
+| 1791390137109-4vm5wi | 2026-10-07 12:22:17 | Quincy Orta | 901303 |  | 3663 Teeterville Rd, Norfolk, ON N0E 1V0, Canada | 42.939197 | -80.434046 | J4816795 | J3128635 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791390200006-45d63s | 2026-10-07 12:23:20 | Phillip Monteiro | 904209 |  | 44 Henry St, Middleton | 42.832231 | -80.489376 |  | J4009765 |  | UTI | Electrical Repair | Frost pull non urgent |  |  |  | land |
+| 1791390635885-ibolxo | 2026-10-07 12:30:35 | Quincy Orta | 905887 |  | 1032 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.939392 | -80.426478 | J4816794 | J4199672 | 18976 | INSTALLED |  |  |  |  |  | land |
+| 1791391575960-corrbj | 2026-10-07 12:46:15 | Quincy Orta | 900726 | HSE | 1051 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.940155 | -80.424711 | J4816798 | J2689268 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791391697490-qh8z82 | 2026-10-07 12:48:17 | Phillip Monteiro | 906646 |  | 5 Alpha St, Middleton | 42.832417 | -80.485801 | J4812400 | J2628752 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791391944539-dv726z | 2026-10-07 12:52:24 | Phillip Monteiro | 907918 |  | 6 Alpha St, Middleton | 42.832572 | -80.485981 | J4812402 | J2628755 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791392016549-n3p608 | 2026-10-07 12:53:36 | Quincy Orta | 901530 |  | 1435 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.940526 | -80.423356 | J4816801 | J2688987 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791392431278-td3mtx | 2026-10-07 13:00:31 | Phillip Monteiro | 904458 |  | 12 Alpha St, Middleton | 42.832602 | -80.486348 | J4812405 | J4061301 | 20391 | INSTALLED |  |  |  |  |  | land |
+| 1791392498968-0e48zm | 2026-10-07 13:01:38 | Quincy Orta | 904827 |  | 1472 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.941117 | -80.420226 | J4816799 | J3616016 | 96470 | INSTALLED |  |  |  |  |  | land |
+| 1791392750376-32c2ga | 2026-10-07 13:05:50 | Phillip Monteiro | 906930 |  | 11 Alpha St, Middleton | 42.832208 | -80.486294 | J4812404 | J2261800 | 1649 | INSTALLED |  |  |  |  |  | land |
+| 1791392926099-waunm2 | 2026-10-07 13:08:46 | Quincy Orta | 904847 | HSE | 1504 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.942491 | -80.417624 | J4816800 | J4025069 | 55081 | INSTALLED |  |  |  |  |  | land |
+| 1791393063000-igov7l | 2026-10-07 13:11:02 | Phillip Monteiro | 906126 |  | 14 Alpha St, Middleton | 42.832535 | -80.486924 | J4812409 | J2261797 | 40089 | INSTALLED |  |  |  |  |  | land |
+| 1791393390347-57aqo6 | 2026-10-07 13:16:30 | Quincy Orta | 904802 |  | 1530 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.942863 | -80.415176 | J4816791 | J2688983 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791393530456-kd0yia | 2026-10-07 13:18:50 | Phillip Monteiro | 901347 |  | 15 Alpha St, Middleton | 42.832204 | -80.486891 | J4812406 | J3682836 | 79698 | INSTALLED |  |  |  |  |  | land |
+| 1791393810141-21q1x9 | 2026-10-07 13:23:30 | Quincy Orta | 901105 |  | 1555 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.944698 | -80.413913 | J4816793 | J2688980 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791393844274-qzhpqk | 2026-10-07 13:24:04 | Phillip Monteiro | 904517 |  | 17 Alpha St, Middleton | 42.8321 | -80.487129 | J4812403 | J3617208 | 47900 | INSTALLED |  |  |  |  |  | land |
+| 1791394347412-dl2rrd | 2026-10-07 13:32:27 | Quincy Orta | 902735 |  | 1262 Windham Road 6, Norfolk, ON N0E 1V0, Canada | 42.942657 | -80.405282 | J4816790 | J4025073 | 58005 | INSTALLED |  |  |  |  |  | land |
+| 1791394417506-bbtp47 | 2026-10-07 13:33:37 | Phillip Monteiro | 901981 |  | 21 Alpha St, Middleton | 42.831956 | -80.487168 | J4812407 | J3785932 | 59935 | INSTALLED |  |  |  |  |  | land |
+| 1791395772182-hx9hoe | 2026-10-07 13:56:12 | Phillip Monteiro | 907299 |  | 24 Alpha St, Middleton | 42.832306 | -80.487644 | J4812398 | J2261792 | 60682 | INSTALLED |  |  |  |  |  | land |
+| 1791395943040-sih3pm | 2026-10-07 13:59:03 | Quincy Orta | 903923 |  | 1647 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.948493 | -80.407204 | J4816792 | J3674672 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791396023325-6snph5 | 2026-10-07 14:00:23 | Phillip Monteiro | 904797 |  | 20 Alpha St, Middleton | 42.832329 | -80.487407 | J4812408 | J2261798 | 30796 | INSTALLED |  |  |  |  |  | land |
+| 1791396472785-qaecg3 | 2026-10-07 14:07:52 | Phillip Monteiro | 906134 |  | 25 Alpha St, Middleton | 42.831893 | -80.487481 | J4812401 | J2628767 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1791397015476-tu8py4 | 2026-10-07 14:16:55 | Phillip Monteiro | 904083 |  | 27 Alpha St, Middleton | 42.831875 | -80.487882 | J4812468 | J2628766 |  | INSTALLED |  |  | Display blank / dead |  |  | land |
+| 1791397042730-ekfz5a | 2026-10-07 14:17:22 | Quincy Orta | 901471 |  | 1621 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.947496 | -80.409281 | J4816824 | J2688986 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791398204747-speyfu | 2026-10-07 14:36:44 | Quincy Orta | 905905 | HSE | 1607 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.947284 | -80.410213 | J4816823 | J4399510 | 13043 | INSTALLED |  |  |  |  |  | land |
+| 1791398718353-bi5v93 | 2026-10-07 14:45:18 | Quincy Orta | 905058 |  | 973 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.953096 | -80.421373 | J4816822 | J3672418 | 85976 | INSTALLED |  |  |  |  |  | land |
+| 1791399100255-etmx21 | 2026-10-07 14:51:40 | Quincy Orta | 906902 | HSE | 968 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952591 | -80.421871 | J4816825 | J4140273 | 29807 | INSTALLED |  |  |  |  |  | land |

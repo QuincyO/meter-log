@@ -1,6 +1,6 @@
 # Subs
 
-_6 rows · exported 2026-10-07 03:52 America/Toronto_
+_7 rows · exported 2026-10-08 03:52 America/Toronto_
 
 | name |
 | --- |
@@ -10,3 +10,4 @@ _6 rows · exported 2026-10-07 03:52 America/Toronto_
 | Rick |
 | Mario |
 | Buzz |
+| Tweedy |

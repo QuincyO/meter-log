@@ -1,6 +1,6 @@
 # Tracker
 
-_157 rows · exported 2026-10-07 03:52 America/Toronto_
+_159 rows · exported 2026-10-08 03:52 America/Toronto_
 
 | date | installer | installed | uti | downtimeTotalMin | nextGen | cellSignal | badWeather | warehouse | toolsMaterial | dispatch | truckIssues | assist | urgentEer | other | weather | notes | visited | unaccounted | autoIdleMin | travelMin | delayMin | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -161,3 +161,5 @@ _157 rows · exported 2026-10-07 03:52 America/Toronto_
 | 2026-10-06 00:00:00 | Phillip Monteiro | 22 | 0 | 125 | 30 | 0 | 0 | 15 | 35 | 25 | 20 | 0 | 0 | 0 | Clear · SW 17 km/h · 15°C |  | 0 | 0 |  | 217 |  | land |
 | 2026-10-06 00:00:00 | Quincy Orta | 20 | 0 | 180 | 30 | 0 | 0 | 15 | 15 | 0 | 120 | 0 | 0 | 0 | Clear · SW 17 km/h · 15°C | Had an appointment for tire change in the morning | 0 | 0 |  | 226 |  | land |
 | 2026-10-06 00:00:00 | Josue Vasquez | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | Light drizzle · S 29 km/h · 25°C |  | 0 | 0 |  | 437 |  | land |
+| 2026-10-07 00:00:00 | Phillip Monteiro | 21 | 1 | 125 | 30 | 0 | 0 | 15 | 35 | 25 | 20 | 0 | 0 | 0 | Clear · SW 31 km/h · 20°C |  | 0 | 0 |  | 216 |  | land |
+| 2026-10-07 00:00:00 | Quincy Orta | 21 | 0 | 90 | 30 | 0 | 0 | 15 | 15 | 30 | 0 | 0 | 0 | 0 | Clear · SW 30 km/h · 20°C |  | 0 | 0 |  | 241 |  | land |

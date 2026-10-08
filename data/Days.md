@@ -1,6 +1,6 @@
 # Days
 
-_155 rows · exported 2026-10-07 03:52 America/Toronto_
+_157 rows · exported 2026-10-08 03:52 America/Toronto_
 
 | date | installer | departure | returned | dispatchMin | boatDispatchMin |
 | --- | --- | --- | --- | --- | --- |
@@ -159,3 +159,5 @@ _155 rows · exported 2026-10-07 03:52 America/Toronto_
 | 2026-10-06 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 16:00:00 |  |  |
 | 2026-10-06 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 16:00:00 |  |  |
 | 2026-10-06 00:00:00 | Josue Vasquez | 1899-12-30 07:30:00 | 1899-12-30 16:30:00 |  |  |
+| 2026-10-07 00:00:00 | Phillip Monteiro | 1899-12-30 07:30:00 | 1899-12-30 16:00:00 |  |  |
+| 2026-10-07 00:00:00 | Quincy Orta | 1899-12-30 07:30:00 | 1899-12-30 16:00:00 |  |  |
