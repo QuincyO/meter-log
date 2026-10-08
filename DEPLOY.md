@@ -615,43 +615,39 @@ in Script Properties, never in `Code.gs`.
 `tools/wo-bot/bot.mjs` turns photos of the handheld's work-order list into worklist
 orders: send photos to a Telegram bot, tap ✅ Send, and the installer's next
 **Worklist ▸ ⇩ Download** has them (via the `WorklistInbox` tab — see AGENTS.md).
-It runs on the PC with Ollama, normally as a Docker container you switch on and
-off from Docker Desktop. It uses long polling, so nothing is exposed to the internet,
-and needs no `npm install`.
+It runs on the PC with Ollama, uses long polling (nothing is exposed to the
+internet), and needs no `npm install`.
 
 1. **Create the bot:** in Telegram, message **@BotFather** ▸ `/newbot` ▸ pick a name.
    Copy the token it gives you.
 2. **Configure:** copy `tools/wo-bot/config.example.json` to
    `tools/wo-bot/config.local.json` (gitignored) and set `botToken`. Leave
    `allowedUserIds` empty for now.
-3. **Start it in Docker** (once, from the repo root):
-   `docker compose -f tools/wo-bot/compose.yaml up -d --build`.
-   From then on it appears in **Docker Desktop ▸ Containers** as `meter-log` ▸
-   `wo-bot`. ■ stops it, ▶ starts it, and it comes back by itself with Docker Desktop
-   until you stop it. Its console is that container's **Logs** tab. The code and
-   config are mounted from the repo, so a `git pull` plus a restart runs new code.
-   Rebuild (`--build` again) only when `tools/wo-bot/Dockerfile` changes.
-   **Never also run `node tools/wo-bot/bot.mjs` while the container is up:**
-   Telegram allows one poller per bot, and the second one gets `409 Conflict`.
-4. **Find your Telegram id:** message the bot. It replies with your id, and the
-   container's Logs tab shows it with your name. Add it to `allowedUserIds` and
-   restart the container. Repeat for each person who should be able to send orders. (Anyone can find a bot by name;
+3. **Find your Telegram id:** turn the bot on (step 6) and message it. It replies
+   with your id, and its log shows the id with your name. Add the id to
+   `allowedUserIds`, then turn the bot off and on. Repeat for
+   each person who should be able to send orders. (Anyone can find a bot by name;
    the allowlist is what keeps strangers out.)
-5. **Link:** each person sends `/link H12345` once — their employee number, checked
+4. **Link:** each person sends `/link H12345` once — their employee number, checked
    against the roster. Links live in `tools/wo-bot/state.local.json` (gitignored).
-6. **Readers:** the vision model is Ollama's `qwen2.5vl:7b` on Windows
-   (`ollama pull qwen2.5vl:7b`); change `model` in the config to use another. The
-   container reaches it at `host.docker.internal:11434` (`OLLAMA_URL` in
-   `compose.yaml`, which overrides the config's `ollamaUrl`). The OCR reader is
-   Tesseract in the container and Windows' built-in OCR when run with `node`
-   directly. If Ollama is down the bot still answers, with every number marked
-   unsure.
+5. **Readers:** Windows OCR is built in. The vision model is Ollama's
+   `qwen2.5vl:7b` (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the
+   config to use another. If Ollama is down the bot still answers, with every number
+   marked unsure.
+6. **Turn it on and off:** run
+   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1 -Install`
+   once. It adds **Work-order bot** to the Start menu.
+   - Opening the shortcut turns the bot on and puts a dot in the tray by the clock:
+     green means on, grey means off. Click the dot to switch.
+   - Windows 11 may tuck a new tray icon under **^**. Drag it onto the taskbar to keep
+     it in view.
+   - Right-click the dot for **Open log** (the bot's console, `tools/wo-bot/bot.local.log`),
+     **Start with Windows** and **Quit**.
+   - Don't also run `node tools/wo-bot/bot.mjs` while the dot is green. Telegram
+     allows one poller per bot, and the tray stops any other copy when it turns on.
 
 Check a photo without Telegram or the Sheet:
-`node tools/wo-bot/bot.mjs --dry-run photo1.jpg photo2.jpg` (Windows OCR), or the
-same through the container with the photos' folder mounted:
-`docker compose -f tools/wo-bot/compose.yaml run --rm -v <folder>:/photos:ro wo-bot node tools/wo-bot/bot.mjs --dry-run /photos/photo1.jpg`
-(Tesseract). A dry run doesn't poll Telegram, so it is safe while the bot is up.
+`node tools/wo-bot/bot.mjs --dry-run photo1.jpg photo2.jpg`.
 
 The Apps Script side needs nothing: `WorklistInbox` is created on first use. (Running
 `setupSheets()` also creates it, with every column pinned to text.)

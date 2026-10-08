@@ -4,13 +4,11 @@
 // long list), send them to the bot, check its reply, tap ✅ Send. The numbers are
 // queued in the Sheet's WorklistInbox tab for the installer linked to your
 // Telegram account, and land on their phone on the next Worklist ▸ ⇩ Download
-// (Code.gs claimWorklistInbox). Everything is read locally — OCR plus a local
-// Ollama vision model; see ocr.mjs and extract.mjs.
+// (Code.gs claimWorklistInbox). Everything is read locally — Windows OCR plus a
+// local Ollama vision model; see ocr.mjs and extract.mjs.
 //
-//   docker compose -f tools/wo-bot/compose.yaml up -d --build
-//                                                  run it in Docker (then switch it
-//                                                  on and off from Docker Desktop)
-//   node tools/wo-bot/bot.mjs                      run it here instead — never both
+//   node tools/wo-bot/bot.mjs                      run the bot (tray.ps1 is the
+//                                                  on/off switch that runs it)
 //   node tools/wo-bot/bot.mjs --dry-run a.jpg …    read photos, print, touch nothing
 //
 // Setup (DEPLOY.md §"Photo work-order bot"): a token from @BotFather and the
@@ -27,13 +25,11 @@ import { newBatch, addPhoto, addTyped, removeFrom } from './extract.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(HERE, 'config.local.json');
 const STATE_PATH = join(HERE, 'state.local.json');
-// The container reaches the PC's Ollama at host.docker.internal, not localhost.
-const withEnv = c => process.env.OLLAMA_URL ? { ...c, ollamaUrl: process.env.OLLAMA_URL } : c;
 
 // ── dry run: no Telegram, no Sheet ──────────────────────────────────────────
 const args = process.argv.slice(2);
 if(args[0] === '--dry-run'){
-  const opts = withEnv(existsSync(CONFIG_PATH) ? JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) : {});
+  const opts = existsSync(CONFIG_PATH) ? JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) : {};
   const batch = newBatch();
   for(const path of args.slice(1)){
     const t = Date.now();
@@ -52,7 +48,7 @@ if(!existsSync(CONFIG_PATH)){
   console.error(`Missing ${CONFIG_PATH} — copy config.example.json and fill it in.`);
   process.exit(1);
 }
-const config = withEnv(JSON.parse(readFileSync(CONFIG_PATH, 'utf8')));
+const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
 if(!config.botToken){ console.error('config.local.json: botToken is required'); process.exit(1); }
 const allowed = new Set((config.allowedUserIds || []).map(String));
 const state = existsSync(STATE_PATH) ? JSON.parse(readFileSync(STATE_PATH, 'utf8')) : {};
@@ -167,7 +163,7 @@ async function handlePhotos(chat, user, fileIds){
       lines.push(`Photo ${i + 1}: ${s.read} read, ${s.added + s.promoted} new`
         + (s.unsure ? `, ${s.unsure} unsure` : ''));
       if(!r.engines.ocr || !r.engines.vision)
-        readerNote = `⚠ The ${!r.engines.vision ? 'AI reader (Ollama)' : 'OCR reader'} didn't answer, `
+        readerNote = `⚠ The ${!r.engines.vision ? 'AI reader (Ollama)' : 'Windows OCR'} didn't answer, `
           + 'so nothing could be double-checked — every number is listed as unsure.';
     } catch (e) {
       lines.push(`Photo ${i + 1}: couldn't read it (${e.message})`);

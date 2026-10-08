@@ -1,3 +1,0 @@
-# The image needs nothing from this folder (code and config are mounted at run
-# time), and config.local.json holds the bot token.
-*

@@ -29,4 +29,4 @@ _build_*
 graphify-out/
 
 # The photo bot's secrets (Telegram token, allowed users) and its user→installer links.
-tools/wo-bot/*.local.json
+tools/wo-bot/*.local.*

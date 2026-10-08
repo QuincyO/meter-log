@@ -202,7 +202,7 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 - **The photo bot writes to an inbox, never to `Worklist`.** `tools/wo-bot/bot.mjs` is a
   Telegram bot that runs on the owner's PC: an installer photographs the handheld's
-  work-order list, the PC reads it locally (an OCR reader **and** an Ollama vision model —
+  work-order list, the PC reads it locally (Windows OCR **and** an Ollama vision model —
   only numbers both report are sent; the rest are listed for the user to type), and ✅ Send
   posts `queueWorklistOrders`. That lands in `WorklistInbox`, not `Worklist`, because the
   phone **whole-list replaces** its `Worklist` slice silently after every logged stop
@@ -215,18 +215,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   nothing, and a throw is caught at the call site, rather than failing the read — every
   Download goes through it, and the rows wait for the next one; (3) a *second*
   device that has not downloaded can still wipe claimed rows with its own push — the same
-  hazard as any order added on another device, documented rather than fixed. It normally
-  runs as the `meter-log-wo-bot` Docker container (`tools/wo-bot/compose.yaml`), switched
-  on and off from Docker Desktop. Its code and config are bind-mounted, so a restart runs
-  new code. Only one copy may poll a bot: `node tools/wo-bot/bot.mjs` while the container
-  is up gets Telegram's 409 Conflict. The OCR reader depends on where it runs (`ocr.mjs`
-  `ocrRead`). On the PC it is Windows OCR, which must run under `powershell.exe` 5.1
-  (WinRT is missing from pwsh 7) and needs the image upscaled (`winocr.ps1`): at
-  Telegram's ~1280 px it reads `907110` as `007110`. In the container it is Tesseract,
-  which reads **nothing** off the raw photo; it needs ImageMagick's local adaptive
-  threshold (`-lat`) first, and that is what gets 15/15. Inside the container Ollama is
-  `host.docker.internal`, set by `OLLAMA_URL` in the compose file. Setup is DEPLOY.md
-  §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs` and
+  hazard as any order added on another device, documented rather than fixed. It runs on
+  Windows on purpose, switched on and off by a tray dot (`tools/wo-bot/tray.ps1`). The
+  tray also keeps it to one copy, because Telegram gives a second poller 409 Conflict. A
+  Docker container was tried and dropped on 2026-10-08. Windows OCR doesn't exist in a
+  Linux container, and Tesseract read nothing off the photo until it was given an
+  adaptive threshold, which was proven on only one photo. Windows OCR
+  must run under `powershell.exe` 5.1 (WinRT is missing from pwsh 7) and needs the image
+  upscaled (`winocr.ps1`): at Telegram's ~1280 px it reads `907110` as `007110`. Setup is
+  DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs` and
   `tests/wo-bot-extract.test.mjs`.
 - **A duplicate is a WARNING. It must never be a rejection.** `addStop` used to
   `return { ok:false, duplicate:true, history }` on an exact WO#+New J# match —
