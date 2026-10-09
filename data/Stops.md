@@ -1,6 +1,6 @@
 # Stops
 
-_2939 rows · exported 2026-10-08 03:52 America/Toronto_
+_2983 rows · exported 2026-10-09 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2943,3 +2943,47 @@ _2939 rows · exported 2026-10-08 03:52 America/Toronto_
 | 1791398204747-speyfu | 2026-10-07 14:36:44 | Quincy Orta | 905905 | HSE | 1607 Brantford Rd, Norfolk, ON N0E 1V0, Canada | 42.947284 | -80.410213 | J4816823 | J4399510 | 13043 | INSTALLED |  |  |  |  |  | land |
 | 1791398718353-bi5v93 | 2026-10-07 14:45:18 | Quincy Orta | 905058 |  | 973 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.953096 | -80.421373 | J4816822 | J3672418 | 85976 | INSTALLED |  |  |  |  |  | land |
 | 1791399100255-etmx21 | 2026-10-07 14:51:40 | Quincy Orta | 906902 | HSE | 968 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952591 | -80.421871 | J4816825 | J4140273 | 29807 | INSTALLED |  |  |  |  |  | land |
+| 1791464564028-8bj2cm | 2026-10-08 09:02:44 | Quincy Orta | 939610 |  | 31 Hare St, Norfolk, ON N0E 1Y0, Canada | 42.94127 | -80.296415 | J4820464 | J3916213 | 35378 | INSTALLED |  |  |  |  |  | land |
+| 1791465082977-v7fvnd | 2026-10-08 09:11:22 | Quincy Orta | 939592 |  | 203 Gibbons St, Norfolk, ON N0E 1Y0, Canada | 42.942897 | -80.29554 | J4820465 | J3995340 | 23175 | INSTALLED |  |  |  |  |  | land |
+| 1791466134948-je2zir | 2026-10-08 09:28:54 | Josue Vasquez | 963545 | 459 | 7 Lyndoch St |  |  | J4805429 | J2356284 | 89595 | INSTALLED |  |  |  |  |  | land |
+| 1791466448978-m4z2gu | 2026-10-08 09:34:08 | Phillip Monteiro | 910267 |  | 132 Crosier St, Delhi, ON N4B 3A9, Canada | 42.843861 | -80.494934 | J4812467 | J817820 | 306086 | INSTALLED |  | TR |  |  |  | land |
+| 1791468237101-b6snfm | 2026-10-08 10:03:57 | Josue Vasquez | 963516 | 459 | 8 Lyndoch St |  |  | J4822454 | J2356285 | 48835 | INSTALLED |  |  |  |  |  | land |
+| 1791470450846-fd9rad | 2026-10-08 10:40:50 | Phillip Monteiro | 906638 |  | 16 Alpha St, Middleton | 42.832446 | -80.487071 | J4812466 | J2261799 | 88811 | INSTALLED |  |  |  |  |  | land |
+| 1791470989989-r1oagh | 2026-10-08 10:49:49 | Phillip Monteiro | 906952 |  | 28 Alpha St, Middleton | 42.832232 | -80.488153 | J4812469 | J2261791 | 29740 | INSTALLED |  |  |  |  |  | land |
+| 1791471522594-p3z936 | 2026-10-08 10:58:42 | Phillip Monteiro | 905487 |  | 30 Alpha St, Middleton | 42.8322 | -80.488225 | J4818517 | J2261789 | 65223 | INSTALLED |  |  |  |  |  | land |
+| 1791471840107-xg932u | 2026-10-08 11:04:00 | Phillip Monteiro | 902591 |  | 31 Alpha St, Middleton | 42.831807 | -80.488206 | J4818514 | J2261111 | 26199 | INSTALLED |  |  |  |  |  | land |
+| 1791472244432-p40cfl | 2026-10-08 11:10:44 | Phillip Monteiro | 904304 |  | 34 Alpha St, Middleton | 42.83203 | -80.488527 | J4818509 | J4016404 | 34111 | INSTALLED |  |  |  |  |  | land |
+| 1791472543449-yiwequ | 2026-10-08 11:15:43 | Phillip Monteiro | 900623 |  | 38 Alpha St, Middleton | 42.832055 | -80.488827 | J4818506 | J2261795 | 40374 | INSTALLED |  |  |  |  |  | land |
+| 1791472985187-drcj8d | 2026-10-08 11:23:05 | Phillip Monteiro | 903077 |  | 53 Alpha St, Middleton | 42.831717 | -80.488508 | J4818515 | J2261112 | 30858 | INSTALLED |  |  |  |  |  | land |
+| 1791473282120-6o7mm1 | 2026-10-08 11:28:02 | Phillip Monteiro | 906982 |  | 39 Alpha St, Middleton | 42.831694 | -80.489056 | J4818508 | J3938293 | 61614 | INSTALLED |  |  |  |  |  | land |
+| 1791473482310-jol2tg | 2026-10-08 11:31:22 | Quincy Orta | 902732 |  | 753 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.950092 | -80.441633 | J4820462 | J3918596 | 24112 | INSTALLED |  |  |  |  |  | land |
+| 1791473704519-6vss5w | 2026-10-08 11:35:04 | Phillip Monteiro | 903346 |  | 42 Alpha St, Middleton | 42.831924 | -80.489383 | J4818516 | J2222041 | 24 | INSTALLED |  |  |  |  |  | land |
+| 1791474041942-8qo4ib | 2026-10-08 11:40:41 | Quincy Orta | 905486 |  | 223 Teeter St, Norfolk, ON N0E 1V0, Canada | 42.947713 | -80.441571 | J4820463 | J2661972 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791474389454-odii25 | 2026-10-08 11:46:29 | Quincy Orta | 907209 |  | 213 Teeter St, Norfolk, ON N0E 1V0, Canada | 42.947274 | -80.441788 | J4818392 | J2661974 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791474721903-a166fb | 2026-10-08 11:52:01 | Phillip Monteiro | 902940 |  | 4 Tisdale Dr, Delhi, ON N4B 1B3, Canada | 42.835299 | -80.485753 |  |  |  | UTI | Inside Meter - Need Appointment | CX not home |  |  |  | land |
+| 1791474724566-j5021t | 2026-10-08 11:52:04 | Quincy Orta | 902803 |  | 207 Teeter St, Norfolk, ON N0E 1V0, Canada | 42.947214 | -80.441997 | J4818393 | J4108964 | 30329 | INSTALLED |  |  |  |  |  | land |
+| 1791474987836-g7myvv | 2026-10-08 11:56:27 | Phillip Monteiro | 904705 |  | 12 Tisdale Dr, Delhi | 42.835486 | -80.485737 | J4818511 | J2568578 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791475231744-vxwj3d | 2026-10-08 12:00:31 | Quincy Orta | 902580 |  | 205 Teeter St, Norfolk County | 42.946833 | -80.442461 | J4818391 | J2662364 | 85953 | INSTALLED |  |  |  |  |  | land |
+| 1791475324777-5iexvh | 2026-10-08 12:02:04 | Phillip Monteiro | 904557 |  | 18 Tisdale Dr, Delhi | 42.83586 | -80.484882 | J4818510 | J2261235 | 24714 | INSTALLED |  |  |  |  |  | land |
+| 1791476864878-9l9fbz | 2026-10-08 12:27:44 | Quincy Orta | 900913 |  | 206 Teeter St, Norfolk, ON N0E 1V0, Canada | 42.946758 | -80.441936 | J4818390 | J2662365 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791476936757-o63xjj | 2026-10-08 12:28:56 | Phillip Monteiro | 902996 |  | 751 James St, Delhi | 42.841022 | -80.488128 | J4818513 | J4050171 | 31479 | INSTALLED |  |  |  |  |  | land |
+| 1791477294096-1uq465 | 2026-10-08 12:34:54 | Quincy Orta | 904048 |  | 3 Broad Lane, Norfolk County | 42.946399 | -80.442237 | J4818386 | J2662371 | 66038 | INSTALLED |  |  |  |  |  | land |
+| 1791477397430-ytwauq | 2026-10-08 12:36:37 | Phillip Monteiro | 901649 |  | 765 James St, Delhi | 42.840651 | -80.488099 | J4818512 | J2261446 | 78906 | INSTALLED |  |  |  |  |  | land |
+| 1791477821965-p3ojgp | 2026-10-08 12:43:41 | Phillip Monteiro | 903105 |  | 777 James St, Delhi, ON N4B 2C9, Canada | 42.840328 | -80.488011 | J4818507 | J3732190 | 53530 | INSTALLED |  |  |  |  |  | land |
+| 1791477863424-lx1o4m | 2026-10-08 12:44:23 | Quincy Orta | 906876 |  | 193 Teeter St, Norfolk County | 42.946116 | -80.443447 | J4818389 | J2662370 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791478328617-l1jzc5 | 2026-10-08 12:52:08 | Quincy Orta | 902702 |  | 187 Teeter St, Norfolk, ON N0E 1V0, Canada | 42.945926 | -80.443579 | J4818388 | J2662367 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791478356248-wg0pn2 | 2026-10-08 12:52:36 | Phillip Monteiro | 906467 |  | 783 James St, Delhi, ON N4B 2C9, Canada | 42.840101 | -80.4878 | J4815125 | J3909816 | 63573 | INSTALLED |  |  |  |  |  | land |
+| 1791478732925-bs2iry | 2026-10-08 12:58:52 | Quincy Orta | 905592 |  | 190 Teeter St, Norfolk, ON N0E 1S0, Canada | 42.946012 | -80.442933 | J4818387 | J2662366 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791478803805-ynntdr | 2026-10-08 13:00:03 | Phillip Monteiro | 904780 |  | 801 James St, Delhi, ON N4B 2C9, Canada | 42.839466 | -80.487504 | J4815122 | J2248375 | 42550 | INSTALLED |  |  |  |  |  | land |
+| 1791479412549-nfzzf6 | 2026-10-08 13:10:12 | Phillip Monteiro | 907566 |  | 811 James St, Delhi, ON N4B 2C9, Canada | 42.838933 | -80.486958 | J4815130 | J2027615 | 64780 | INSTALLED |  |  |  |  |  | land |
+| 1791479602490-o4b81y | 2026-10-08 13:13:22 | Phillip Monteiro | 903755 |  | 815 James St, Delhi, ON N4B 2C9, Canada | 42.838939 | -80.486929 | J4815123 | J4220597 | 7164 | INSTALLED |  |  |  |  |  | land |
+| 1791479726033-alc2zx | 2026-10-08 13:15:26 | Quincy Orta | 904899 |  | 194 Teeter St, Norfolk County | 42.946273 | -80.442555 | J4818426 | J3674661 | 41104 | INSTALLED |  |  |  |  |  | land |
+| 1791480058106-lsby31 | 2026-10-08 13:20:58 | Quincy Orta | 902686 |  | 13 Broad Ln, Norfolk, ON N0E 1S0, Canada | 42.94607 | -80.441461 | J4818428 | J4199669 | 7985 | INSTALLED |  |  |  |  |  | land |
+| 1791480402905-v28uv4 | 2026-10-08 13:26:42 | Quincy Orta | 900724 |  | 425 William St, Norfolk, ON N0E 1S0, Canada | 42.946159 | -80.441208 |  | J4051474 | 25017 | UTI | Electrical Repair | Broken L4 Jaw Site turned over to kpc |  |  |  | land |
+| 1791481431193-i44jpc | 2026-10-08 13:43:51 | Quincy Orta | 907110 |  | 429 William St, Norfolk, ON N0E 1S0, Canada | 42.946422 | -80.441147 | J4818429 | J275127 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791481828661-x4m1dd | 2026-10-08 13:50:28 | Phillip Monteiro | 906221 | 29 | 29 Viola Ct, Delhi, ON N4B 3C9, Canada | 42.839542 | -80.485071 | J4815133 | J4000121 | 19987 | INSTALLED |  |  |  |  |  | land |
+| 1791482754593-9yqn0x | 2026-10-08 14:05:54 | Quincy Orta | 906971 | HSE | 827 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.951624 | -80.43503 | J4818427 | J4231975 | 12011 | INSTALLED |  |  |  |  |  | land |
+| 1791483145635-kmpyf4 | 2026-10-08 14:12:25 | Quincy Orta | 905299 |  | 836 Windham Road 5, Norfolk, ON N0E 1S0, Canada | 42.950549 | -80.434319 | J4813499 | J3752000 | 63122 | INSTALLED |  |  |  |  |  | land |
+| 1791483547793-33g2x5 | 2026-10-08 14:19:07 | Quincy Orta | 900652 |  | 881 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952361 | -80.430025 | J4813498 | J2674848 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791485775542-79gylx | 2026-10-08 14:56:15 | Quincy Orta | 906481 |  | 917 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952346 | -80.426939 | J4813501 | J4238037 | 17864 | INSTALLED |  |  |  |  |  | land |
+| 1791486029301-nexupv | 2026-10-08 15:00:29 | Quincy Orta | 903220 | B | 917 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.95238 | -80.42687 | J4813500 | J4051504 | 25313 | INSTALLED |  |  |  |  |  | land |

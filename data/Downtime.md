@@ -1,6 +1,6 @@
 # Downtime
 
-_714 rows · exported 2026-10-08 03:52 America/Toronto_
+_720 rows · exported 2026-10-09 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -718,3 +718,9 @@ _714 rows · exported 2026-10-08 03:52 America/Toronto_
 | 1791402492999-nut43x | 2026-10-07 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 903446 | gap 10:49–10:49 |  |
 | 1791402492999-f2pcr3 | 2026-10-07 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 903446 | gap 10:49–10:49 |  |
 | 1791402492999-vxgcos | 2026-10-07 12:00:00 | Quincy Orta | DISPATCH | 30 | 903446 | gap 10:49–10:49 |  |
+| 1791489330780-1r01k7 | 2026-10-08 12:00:00 | Quincy Orta | NEXT_GEN | 30 | 939610 | gap 09:02–09:02 |  |
+| 1791489330780-ovrb9f | 2026-10-08 12:00:00 | Quincy Orta | WAREHOUSE | 15 | 939610 | gap 09:02–09:02 |  |
+| 1791489330780-a1qhx9 | 2026-10-08 12:00:00 | Quincy Orta | TOOLS_MATERIAL | 15 | 939610 | gap 09:02–09:02 |  |
+| 1791489330780-49mmoi | 2026-10-08 12:00:00 | Quincy Orta | DISPATCH | 30 | 939610 | gap 09:02–09:02 |  |
+| 1791489330780-0sg33o | 2026-10-08 12:00:00 | Quincy Orta | CELL_SIGNAL | 20 | 900913 | gap 12:00–12:27 |  |
+| 1791489330780-8fhswo | 2026-10-08 12:00:00 | Quincy Orta | ASSIST | 20 | 900724 | gap 13:20–13:26 |  |
