@@ -1,6 +1,6 @@
 # Downtime
 
-_720 rows · exported 2026-10-09 03:52 America/Toronto_
+_726 rows · exported 2026-10-10 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -724,3 +724,9 @@ _720 rows · exported 2026-10-09 03:52 America/Toronto_
 | 1791489330780-49mmoi | 2026-10-08 12:00:00 | Quincy Orta | DISPATCH | 30 | 939610 | gap 09:02–09:02 |  |
 | 1791489330780-0sg33o | 2026-10-08 12:00:00 | Quincy Orta | CELL_SIGNAL | 20 | 900913 | gap 12:00–12:27 |  |
 | 1791489330780-8fhswo | 2026-10-08 12:00:00 | Quincy Orta | ASSIST | 20 | 900724 | gap 13:20–13:26 |  |
+| 1791575538722-sdujef | 2026-10-09 12:00:00 | Phillip Monteiro | NEXT_GEN | 30 | 907319 | gap 09:01–09:01 |  |
+| 1791575538722-7gg2jn | 2026-10-09 12:00:00 | Phillip Monteiro | WAREHOUSE | 15 | 907319 | gap 09:01–09:01 |  |
+| 1791575538722-lh19ro | 2026-10-09 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 15 | 907319 | gap 09:01–09:01 |  |
+| 1791575538722-n3ylwu | 2026-10-09 12:00:00 | Phillip Monteiro | DISPATCH | 25 | 907319 | gap 09:01–09:01 |  |
+| 1791575538722-1jf7ln | 2026-10-09 12:00:00 | Phillip Monteiro | TOOLS_MATERIAL | 20 | 902196 | gap 13:08–13:23 |  |
+| 1791575538722-gc3741 | 2026-10-09 12:00:00 | Phillip Monteiro | TRUCK_ISSUES | 20 | 902196 | gap 13:08–13:23 |  |

@@ -1,6 +1,6 @@
 # Stops
 
-_2983 rows · exported 2026-10-09 03:52 America/Toronto_
+_3004 rows · exported 2026-10-10 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2987,3 +2987,24 @@ _2983 rows · exported 2026-10-09 03:52 America/Toronto_
 | 1791483547793-33g2x5 | 2026-10-08 14:19:07 | Quincy Orta | 900652 |  | 881 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952361 | -80.430025 | J4813498 | J2674848 |  | INSTALLED |  |  | Missing segments |  |  | land |
 | 1791485775542-79gylx | 2026-10-08 14:56:15 | Quincy Orta | 906481 |  | 917 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.952346 | -80.426939 | J4813501 | J4238037 | 17864 | INSTALLED |  |  |  |  |  | land |
 | 1791486029301-nexupv | 2026-10-08 15:00:29 | Quincy Orta | 903220 | B | 917 Windham Road 5, Norfolk, ON N0E 1V0, Canada | 42.95238 | -80.42687 | J4813500 | J4051504 | 25313 | INSTALLED |  |  |  |  |  | land |
+| 1791550916245-8pe4ky | 2026-10-09 09:01:56 | Phillip Monteiro | 907319 |  | 160 St. Michaels St, Delhi | 42.839673 | -80.482037 | J4815127 | J2642338 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791551553752-fda8wj | 2026-10-09 09:12:33 | Phillip Monteiro | 905481 |  | 819 James St, Delhi | 42.838014 | -80.487051 | J4815126 | J4108943 | 30866 | INSTALLED |  |  |  |  |  | land |
+| 1791552148294-2k44a3 | 2026-10-09 09:22:28 | Phillip Monteiro | 905771 |  | 825 James St, Delhi | 42.837767 | -80.486976 | J4815124 | J3773275 | 30352 | INSTALLED |  |  |  |  |  | land |
+| 1791552552103-zg4jz9 | 2026-10-09 09:29:12 | Phillip Monteiro | 901802 |  | 831 James St, Delhi | 42.837437 | -80.486877 | J4815131 | J3752075 | 74888 | INSTALLED |  |  |  |  |  | land |
+| 1791553144147-r9akis | 2026-10-09 09:39:04 | Phillip Monteiro | 903658 |  | 837 James St, Delhi | 42.837027 | -80.486665 | J4815129 | J2248372 | 78149 | INSTALLED |  |  |  |  |  | land |
+| 1791553698290-yji9pn | 2026-10-09 09:48:18 | Phillip Monteiro | 903064 |  | 855 James St, Delhi, ON N4B 1B3, Canada | 42.836509 | -80.486315 | J4815128 | J4050120 | 21014 | INSTALLED |  |  |  |  |  | land |
+| 1791553914536-ltsjlk | 2026-10-09 09:51:54 | Phillip Monteiro | 908095 |  | 849 James St, Delhi | 42.836617 | -80.486459 | J4815132 | J2261232 | 77119 | INSTALLED |  |  |  |  |  | land |
+| 1791554345648-3su194 | 2026-10-09 09:59:05 | Phillip Monteiro | 904349 |  | 843 James St, Delhi, ON N4B 3C9, Canada | 42.836695 | -80.486444 | J4821001 | J3938226 | 32854 | INSTALLED |  |  |  |  |  | land |
+| 1791554815739-1c1d2e | 2026-10-09 10:06:55 | Phillip Monteiro | 902484 |  | 861 James St, Delhi, ON N4B 1B3, Canada | 42.836179 | -80.486277 | J4821000 | J3954062 | 33848 | INSTALLED |  |  |  |  |  | land |
+| 1791555131539-ka8ik9 | 2026-10-09 10:12:11 | Phillip Monteiro | 903643 |  | 867 James St, Delhi, ON N4B 1B3, Canada | 42.836153 | -80.486197 | J4820998 | J4400868 | 25937 | INSTALLED |  |  |  |  |  | land |
+| 1791557601159-ufsgxk | 2026-10-09 10:53:21 | Phillip Monteiro | 906463 |  | 885 James St, Delhi, ON N4B 2E2, Canada | 42.835126 | -80.485704 | J4820999 | J2261441 | 85263 | INSTALLED |  |  |  |  |  | land |
+| 1791558918132-ed7qfn | 2026-10-09 11:15:18 | Phillip Monteiro | 904024 |  | 897 James St, Delhi, ON N4B 2E2, Canada | 42.834485 | -80.485574 | J4820993 | J3616038 | 52742 | INSTALLED |  |  |  |  |  | land |
+| 1791559507890-ns3bdb | 2026-10-09 11:25:07 | Phillip Monteiro | 901917 |  | 903 James St, Delhi, ON N4B 2E2, Canada | 42.834254 | -80.48532 | J4820992 | J2261466 | 88979 | INSTALLED |  |  |  |  |  | land |
+| 1791560251693-4bj8ob | 2026-10-09 11:37:31 | Phillip Monteiro | 903029 |  | 909 James St, Delhi, ON N4B 2E3, Canada | 42.833684 | -80.485254 | J4820990 | J2261465 | 30286 | INSTALLED |  |  |  |  |  | land |
+| 1791560610697-69sgjz | 2026-10-09 11:43:30 | Phillip Monteiro | 903418 |  | 909 James St, Delhi, ON N4B 2E3, Canada | 42.833684 | -80.485247 | J4860161 | J3909805 | 37809 | INSTALLED |  |  |  |  |  | land |
+| 1791561084690-4swmys | 2026-10-09 11:51:24 | Phillip Monteiro | 904399 |  | 910 James St, Delhi, ON N4B 2E1, Canada | 42.833033 | -80.486236 | J4860164 | J4238033 | 6465 | INSTALLED |  |  |  |  |  | land |
+| 1791561905385-6ojs6x | 2026-10-09 12:05:05 | Phillip Monteiro | 906384 |  | 923 James St, Delhi, ON N4B 2E3, Canada | 42.832773 | -80.484572 | J4860162 | J3240783 | 27841 | INSTALLED |  |  |  |  |  | land |
+| 1791562425807-ttaogs | 2026-10-09 12:13:45 | Phillip Monteiro | 902381 |  | 917 James St, Delhi, ON N4B 2E3, Canada | 42.83298 | -80.485033 | J4820991 | J2713532 |  | INSTALLED |  |  | Missing segments |  |  | land |
+| 1791563534318-q6byky | 2026-10-09 12:32:14 | Phillip Monteiro | 905379 |  | 916 James St, Delhi, ON N4B 2E1, Canada | 42.832954 | -80.485776 | J4860163 | J3649848 | 67923 | INSTALLED |  |  |  |  |  | land |
+| 1791565732427-5qyhgx | 2026-10-09 13:08:52 | Phillip Monteiro | 905119 |  | 20 Simcoe St, Delhi, ON N4B 0A2, Canada | 42.828145 | -80.481758 | J4860154 | J3809717 | 42565 | INSTALLED |  |  |  |  |  | land |
+| 1791566588634-ozng61 | 2026-10-09 13:23:08 | Phillip Monteiro | 902196 |  | 54 Willow Dr, Delhi, ON N4B 2A7, Canada | 42.827569 | -80.481498 | J4860153 | J2661244 |  | INSTALLED |  |  | Missing segments |  |  | land |

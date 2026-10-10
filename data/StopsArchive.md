@@ -1,6 +1,6 @@
 # StopsArchive
 
-_33 rows · exported 2026-10-09 03:52 America/Toronto_
+_35 rows · exported 2026-10-10 03:52 America/Toronto_
 
 | id | timestamp | installer | workOrderId | unit | address | lat | lng | newJNumber | oldJNumber | meterRead | status | utiReason | notes | noReadReason | meterReadReceived | requestedMeter | workType | removedAt | removedBy | reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -37,3 +37,5 @@ _33 rows · exported 2026-10-09 03:52 America/Toronto_
 | 1790884129080-2iu8y3 | 2026-10-01 15:48:49 | Josue Vasquez | 859347 |  | 38 Concession 14 E |  |  | J4835339 | J3090776 | 80776 | INSTALLED |  |  |  |  |  | land | 2026-10-01 15:53:55 | Josue Vasquez | reset order |
 | 1791389966011-cngo8m | 2026-10-07 12:19:26 | Phillip Monteiro | 904209 |  | 44 Henry St, Middleton | 42.832235 | -80.489388 | J4812400 | J4009765 | 19707 | INSTALLED |  |  |  |  |  | land | 2026-10-07 12:22:30 | Phillip Monteiro | reset order |
 | 1791396370739-1z9n53 | 2026-10-07 14:06:10 | Phillip Monteiro | 906638 |  | 16 Alpha St, Middleton | 42.831889 | -80.487487 | J4812401 | J2628767 |  | INSTALLED |  |  | Display blank / dead |  |  | land | 2026-10-07 14:07:12 | Phillip Monteiro | reset order |
+| 1791553415618-j7ja70 | 2026-10-09 09:43:35 | Phillip Monteiro | 908095 |  | 849 James St, Delhi | 42.836717 | -80.486456 | J4815128 | J3938226 | 32854 | INSTALLED |  |  |  |  |  | land | 2026-10-09 09:45:36 | Phillip Monteiro | reset order |
+| 1791557194734-95o9gf | 2026-10-09 10:46:34 | Phillip Monteiro | 907911 |  | 873 James St, Delhi, ON N4B 1B3, Canada | 42.835717 | -80.486047 |  | J2697552 |  | UTI | No Access | Blocked by wall |  |  |  | land | 2026-10-09 11:09:19 | Phillip Monteiro |  |
