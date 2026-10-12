@@ -1,6 +1,6 @@
 # Downtime
 
-_726 rows · exported 2026-10-10 03:52 America/Toronto_
+_726 rows · exported 2026-10-12 03:52 America/Toronto_
 
 | id | timestamp | installer | category | minutes | workOrderId | note | workType |
 | --- | --- | --- | --- | --- | --- | --- | --- |
