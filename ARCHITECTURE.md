@@ -2528,9 +2528,33 @@ consistent with the rest of the app.
 - **One shared token**, defined once in `js/config.js` (imported by every page),
   must match `SHARED_TOKEN` in `Code.gs`. The Web App URL lives there too. That's
   the only two places either value appears now (was five).
-- **No page-level login** on the viewer — a deliberate trade for "open the link
-  and it works." The token sits in the page source, so anyone who opens either
-  page can read it. Keeping the repo private is a sensible extra step.
+- **The token is public and proves nothing about who is calling.** It sits in
+  page source on GitHub Pages, so anyone can read it and call the Web App
+  directly. It gates only the capture-side actions the phone, the wo-bot and the
+  Apple Shortcut need.
+- **Office actions need an admin password** (2026-10-14). `Code.gs`
+  `ADMIN_GET`/`ADMIN_POST` hold the crew-wide and GPS reads (`pins`,
+  `driveTracks`, `archived`, `tracker`, `timing`, `boatdays`, `dispatch`,
+  `downtime`, `nearby`, `avgDispatchTime`, plus `day`/`range` with a blank
+  installer) and the roster/admin writes (`restoreStop`, team/captain/sub
+  saves and deletes, `deleteEmployee`). These require `adminKey` to equal the
+  Script Property `ADMIN_KEY` (`isAdmin`). It fails closed when unset and locks out
+  for 10 minutes after 10 bad keys.
+  - The five office pages start with `await requireAdmin()` (`js/admin-auth.js`),
+    a login box that stores the key in `localStorage['adminKey']`. `js/api.js`
+    attaches the key to every call.
+  - The box is the affordance; the spine is the lock.
+  - `tests/admin-gate.test.mjs` fails if a capture-side action ever lands in an
+    admin set.
+- **What stays reachable with the public token alone** is by the owner's choice:
+  one *named* installer's stops (`day`/`range`/`lookup`, GPS included), the
+  roster (home/start addresses), and stop edits/removals (`updateStop`/
+  `archiveStop`), because the phone uses all of them. Closing that needs
+  per-installer auth on the phone.
+- **The repo is private** (GitHub Pro keeps Pages publishing at the same URL).
+  Pages still serves every file in the tree publicly, so nothing sensitive may
+  be committed. That is why the nightly export writes to its own repo; see
+  DEPLOY.md §"Nightly Sheet → Markdown export".
 - **Identity = self-registration** (first name, last name, H number) on first
   open of `index.html`. The form enqueues a `saveEmployee` call through the
   offline queue, so the employee record is created even with no signal at

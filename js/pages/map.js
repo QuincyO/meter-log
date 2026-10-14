@@ -7,6 +7,11 @@ import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { decodeTrack } from '../drive-track.js';
 import { lifetimeRows, modePace, dwellRows } from '../compute/installer-lifetime.js';
+import { requireAdmin } from '../admin-auth.js';
+
+// Office page: nothing below runs until the admin password is accepted (the
+// spine enforces it regardless — see js/admin-auth.js).
+await requireAdmin();
 
 const COLORS = { INSTALLED:'#1E8E5A', UTI:'#D64500', VISITED:'#2563EB', UNACCOUNTED:'#64748B', DONE:'#8A94A6' };
 const CATCOLS = [['nextGen','Next Gen'],['cellSignal','Cell Signal'],['badWeather','Bad Weather'],

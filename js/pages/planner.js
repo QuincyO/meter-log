@@ -35,6 +35,11 @@ import {
   createLastRunRecord, createLatestProbeRunner, formatLastRunSummary, parsePlannerLastRunRecord,
   probeNominatim, probeOsrm, probeBuilder,
 } from '../planner-services.js';
+import { requireAdmin } from '../admin-auth.js';
+
+// Office page: nothing below runs until the admin password is accepted (the
+// spine enforces it regardless — see js/admin-auth.js).
+await requireAdmin();
 
 const addressLabel = item => addressText.formatOrderAddress
   ? addressText.formatOrderAddress(item) : [item.unit, item.address].filter(Boolean).join(' ');

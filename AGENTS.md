@@ -150,7 +150,10 @@ map + analytics), `/teams.html` (crew/boat admin), `/edit.html` (back-office edi
 optimize against a local OSRM server, upload the ordered list; see DEPLOY.md §"Desktop
 planner + local OSRM"), or `/help.html` (the in-app user guide — renders `USER-GUIDE.md`
 via `js/pages/help.js`'s markdown-subset renderer; keep the guide inside that subset and
-in sync with UI changes). Seven pages in total.
+in sync with UI changes). Seven pages in total. **The five office pages (map, teams,
+edit, reports, planner) sit behind the admin password** — see §"Security note";
+locally they show the login box, and their gated reads need a real `ADMIN_KEY` or a
+CDP-stubbed spine (VERIFY.md §4).
 
 The production deploy is **GitHub Pages serving the repo root** — pushing to `main`
 publishes. There is nothing to compile, so "deploy" = commit + push.
@@ -200,6 +203,13 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 
 ## Things that are easy to get wrong
 
+- **A new spine read that returns GPS, addresses, or other installers' data goes in
+  `ADMIN_GET`.** The token is public (§"Security note"), so a read left out of the set is
+  readable by anyone. The reverse also matters: an action the capture phone, the wo-bot
+  (`queueWorklistOrders`, `roster`) or the Apple Shortcut (`dispatchRequest`) sends must
+  **never** go in an admin set. It would answer "admin required" to every phone, and the
+  queue would park real stops. `tests/admin-gate.test.mjs` scans the capture-side callers
+  for exactly that. A new office page starts with `await requireAdmin()` after its imports.
 - **The photo bot writes to an inbox, never to `Worklist`.** `tools/wo-bot/bot.mjs` is a
   Telegram bot that runs on the owner's PC: an installer photographs the handheld's
   work-order list, the PC reads it locally (Windows OCR **and** an Ollama vision model —
@@ -984,7 +994,17 @@ and the crew wants it again after the paste anyway.
 
 ## Security note
 
-`SHARED_TOKEN` and the Web App URL sit in client-side source on a public-capable GitHub Pages site — this is a deliberate, documented trade-off (open-the-link-and-it-works), mitigated by keeping the repo private. Do not treat the token as a real secret, but also do not introduce anything that assumes per-user auth exists.
+`SHARED_TOKEN` and the Web App URL sit in client-side source on GitHub Pages, which serves every file publicly. That holds **even from a private repo**. So the token proves only "this came from the app", and anyone can call the spine with it. Treat it as public. Two layers sit on top (2026-10-14):
+
+- **Office actions need `ADMIN_KEY`.** `Code.gs` `ADMIN_GET`/`ADMIN_POST` (crew-wide and GPS reads such as `pins`/`driveTracks`/`archived`, `day`/`range` with a blank installer, and the roster/admin writes) require `adminKey` to equal the Script Property `ADMIN_KEY` (`isAdmin`).
+  - It fails closed when the property is unset, and refuses everything for 10 minutes after 10 bad keys.
+  - The five office pages `await requireAdmin()` (`js/admin-auth.js`) before anything else runs, and `js/api.js` attaches the stored key with no new named export (skew rule).
+  - The box is the affordance; the spine is the lock.
+- **The repo is private, and nothing sensitive may be committed anyway.** Pages still publishes the tree. The nightly export writes to `QuincyO/meter-log-data`, and `githubCommitFiles` refuses the app repo (`EXPORT_FORBIDDEN_REPOS`). Before that, ~100 nights of every stop's GPS and crew home addresses were public at `/data/`.
+
+**Owner's decision, not an oversight:** the capture phone keeps editing and removing stops, so `updateStop`/`archiveStop`, the named-installer reads (`day`/`range`/`lookup`, GPS included) and `roster` stay token-only. Closing those needs per-installer auth on the phone, which does not exist. Don't build anything that assumes it does.
+
+`tests/admin-gate.test.mjs` pins both directions: office reads stay gated, and **no capture-side action ever enters an admin set**. Gating one would return "admin required" to every phone, and the offline queue would park real stops.
 
 ## Knowledge graph (graphify)
 

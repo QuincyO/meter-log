@@ -42,6 +42,48 @@
 const SHARED_TOKEN = 'Bko1PP6sPFJMabph7ZF7TtZDLFqXuFOr'; // crude gate; must match the caller
 const TIMEZONE     = 'America/Toronto';
 
+// ── Admin gate ───────────────────────────────────────────────────────────
+// SHARED_TOKEN is in public client source (js/config.js on GitHub Pages), so it
+// only proves "this came from the app", never "this came from the owner". The
+// actions below are the office pages' — crew-wide/GPS reads and roster/admin
+// writes — and additionally require `adminKey` to equal the Script Property
+// ADMIN_KEY, which is set by hand in the Apps Script editor and NEVER in source.
+// Fails closed: no ADMIN_KEY set ⇒ nobody is admin. Everything the capture
+// phone, the wo-bot and the Apple Shortcut call stays token-only — see the
+// "Security note" in AGENTS.md. A NEW read that returns GPS, addresses across
+// the crew, or another installer's data belongs in ADMIN_GET.
+const ADMIN_GET = {
+  pins: 1, tracker: 1, downtime: 1, timing: 1, boatdays: 1, dispatch: 1,
+  driveTracks: 1, archived: 1, nearby: 1, avgDispatchTime: 1, adminCheck: 1
+};
+const ADMIN_POST = {
+  restoreStop: 1, deleteEmployee: 1, saveTeam: 1, deleteTeam: 1,
+  saveCaptain: 1, deleteCaptain: 1, saveSub: 1, deleteSub: 1
+};
+const ADMIN_MAX_FAILS = 10;     // bad keys allowed per window…
+const ADMIN_LOCKOUT_S = 600;    // …before every admin key is refused for this long
+
+function isAdmin(key) {
+  const want = String(PropertiesService.getScriptProperties().getProperty('ADMIN_KEY') || '');
+  if (!want) return false;                       // fail closed
+  const given = String(key == null ? '' : key);
+  if (!given) return false;                      // no key offered: not an attempt
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('adminFails') || 0);
+  if (fails >= ADMIN_MAX_FAILS) return false;    // brute-force brake
+  if (given === want) return true;
+  cache.put('adminFails', String(fails + 1), ADMIN_LOCKOUT_S);
+  return false;
+}
+
+// `day`/`range` with a blank installer return EVERY installer's stops (GPS
+// included) — the phone always names itself, so only the office may ask blank.
+function getNeedsAdmin(p) {
+  if (ADMIN_GET[p.action]) return true;
+  if (p.action === 'day' || p.action === 'range') return !String(p.installer || '').trim();
+  return false;
+}
+
 // ── Travel / downtime tuning (field-tunable) ───────────────────────────────
 // Timing is derived from the timestamps + GPS already on each stop. Walking the
 // team's stops in time order, each gap between two consecutive stops is gated by
@@ -403,6 +445,8 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return json({ ok: false, error: String(err) }); }
   if (body.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+  if (ADMIN_POST[body.action] && !isAdmin(body.adminKey))
+    return json({ ok: false, error: 'admin required' });
   if (body.action === 'previewDailyLog') {
     try { return json(previewDailyLog(body)); }
     catch (err) { return json({ ok: false, error: String(err) }); }
@@ -448,6 +492,9 @@ function doPost(e) {
 function doGet(e) {
   const p = e.parameter || {};
   if (p.token !== SHARED_TOKEN) return json({ ok: false, error: 'bad token' });
+  if (getNeedsAdmin(p) && !isAdmin(p.adminKey)) return json({ ok: false, error: 'admin required' });
+  // The office pages' login box: reaching this line means the key was accepted.
+  if (p.action === 'adminCheck') return json({ ok: true });
 
   if (p.action === 'nearby') {
     return json(nearby(parseFloat(p.lat), parseFloat(p.lng),
@@ -3431,6 +3478,8 @@ const EXPORT_TABS = [
   'Stops', 'StopsArchive', 'Downtime', 'Tracker', 'Employees', 'Teams', 'Captains', 'Subs',
   'Timing', 'Days', 'BoatDays', 'Dispatch', 'Metrics'
 ];
+// Repos the export must never write to — the app repo is served by GitHub Pages.
+const EXPORT_FORBIDDEN_REPOS = ['quincyo/meter-log'];
 
 // Read every EXPORT_TABS tab into [{path, content}] markdown files, plus the
 // data/README.md index. A missing tab is skipped (run setupSheets() to create
@@ -3466,6 +3515,12 @@ function githubCommitFiles(files, message) {
   const repo  = props.getProperty('GITHUB_REPO');
   if (!token || !repo)
     throw new Error('Set GITHUB_TOKEN and GITHUB_REPO in Script Properties (Project Settings ▸ Script Properties).');
+  // GitHub Pages serves the app repo's tree publicly (even from a private repo),
+  // so an export landing there publishes every stop's GPS + crew home addresses.
+  // That happened for ~100 nights; the export now goes to its own private repo.
+  if (EXPORT_FORBIDDEN_REPOS.indexOf(String(repo).trim().toLowerCase()) !== -1)
+    throw new Error('GITHUB_REPO=' + repo + ' is the app repo, which GitHub Pages publishes. ' +
+      'Point it at the private export repo (e.g. QuincyO/meter-log-data).');
 
   const api = 'https://api.github.com/repos/' + repo + '/git';
   function gh(path, method, payload) {
@@ -3538,7 +3593,7 @@ function githubDiag() {
       ((r.permissions && r.permissions.push) ? '' : '  ⚠ no push/write — PAT needs Contents: Read AND write'));
   } else {
     Logger.log("→ 404/403 on the repo means the fine-grained PAT wasn't granted access to THIS repo. " +
-      "Fix: the PAT's Resource owner = QuincyO, Repository access = select meter-log, Permissions ▸ Contents = Read and write.");
+      "Fix: the PAT's Resource owner = QuincyO, Repository access = select the export repo (meter-log-data — NEVER meter-log, which Pages publishes), Permissions ▸ Contents = Read and write.");
   }
 }
 

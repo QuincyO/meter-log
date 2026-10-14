@@ -11,6 +11,11 @@ import { $, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { PRINTABLE } from '../compute/tally.js';
 import { BREAK_CATS, TRAVEL_ADJ_CATS } from '../compute/categories.js';
+import { requireAdmin } from '../admin-auth.js';
+
+// Office page: nothing below runs until the admin password is accepted (the
+// spine enforces it regardless — see js/admin-auth.js).
+await requireAdmin();
 
 let roster = { employees: [], teams: [] };
 let rows = [];        // the loaded date's report lines

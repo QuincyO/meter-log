@@ -8,6 +8,11 @@ import { clockOf, hhmmMin, ordinal, parseLocalMs } from '../time.js';
 import { buildLocalSummary } from '../compute/summary.js';
 import { downloadDailyLog } from '../dailylog.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
+import { requireAdmin } from '../admin-auth.js';
+
+// Office page: nothing below runs until the admin password is accepted (the
+// spine enforces it regardless — see js/admin-auth.js).
+await requireAdmin();
 
 let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[] };
 

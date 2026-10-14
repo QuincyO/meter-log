@@ -482,8 +482,9 @@ Setup (2 minutes, free, no card):
 
 ORS is **backup-only**, so its volume is a small fraction of the generous free
 quota even on a heavy day — it's only hit when Google/OSRM already failed. Same
-public-client-key tradeoff as the keys above (client source on a public-capable
-Pages site, mitigated by keeping the repo private).
+public-client-key tradeoff as the keys above (client source on a public Pages
+site — a private repo still serves its Pages files to anyone; the key's quota cap
+is the real protection).
 
 ## After a schema change
 
@@ -594,21 +595,50 @@ hourly time trigger:
 ## Nightly Sheet → Markdown export (one-time setup)
 
 `exportSheetToGithub()` (in `Code.gs`) snapshots every sheet tab into `data/*.md`
-on `main` nightly. It needs two one-time manual steps in the bound Apps Script
-project — the code can't do these for you:
+on `main` of a **separate private repo**, `QuincyO/meter-log-data`, nightly.
 
-1. **Create a GitHub fine-grained PAT** scoped to `QuincyO/meter-log` with
-   **Contents: Read and write**. Copy the token.
-2. **Apps Script ▸ Project Settings ▸ Script Properties**, add:
-   - `GITHUB_TOKEN` = the PAT from step 1
-   - `GITHUB_REPO` = `QuincyO/meter-log`
-3. **Install the trigger:** in the editor, run `createDailyExportTrigger()` once
+**Never point it at `QuincyO/meter-log`.** GitHub Pages publishes that repo's tree
+to the world, private or not. Until 2026-10-14 it did exactly that: ~100 nights of
+every stop's GPS and the crew's home addresses sat at
+`quincyo.github.io/meter-log/data/`. `githubCommitFiles` now throws if
+`GITHUB_REPO` names the app repo (`EXPORT_FORBIDDEN_REPOS`), and `data/*.md` is
+gitignored there.
+
+It needs one-time manual steps in the bound Apps Script project. The code can't do
+these for you:
+
+1. **Create the private repo** `QuincyO/meter-log-data` (empty is fine; give it a
+   README so `main` exists).
+2. **Create a GitHub fine-grained PAT** scoped to `QuincyO/meter-log-data` with
+   **Contents: Read and write**. Copy the token. Editing the old PAT's repository
+   access works too.
+3. **Apps Script ▸ Project Settings ▸ Script Properties**, set:
+   - `GITHUB_TOKEN` = the PAT from step 2
+   - `GITHUB_REPO` = `QuincyO/meter-log-data`
+4. **Install the trigger:** in the editor, run `createDailyExportTrigger()` once
    (authorize when prompted). It installs a ~3am America/Toronto daily trigger
    and is safe to re-run (it de-dupes its own trigger).
 
 To take a snapshot on demand, run `exportSheetToGithub()` from the editor — the
 execution log prints the new commit SHA. The PAT is a real secret and lives only
 in Script Properties, never in `Code.gs`.
+
+## Office admin password (one-time setup)
+
+The office pages (map/analytics, edit, teams, reports, planner) and the spine
+actions behind them need an admin password. See ARCHITECTURE.md §"Auth / config".
+
+1. **Apps Script ▸ Project Settings ▸ Script Properties**, add `ADMIN_KEY` = a long
+   passphrase. It lives only there, never in `Code.gs` or `js/`, because both are
+   public.
+2. That's it. No redeploy is needed: `isAdmin` reads the property on every call.
+   **Changing it logs every device out**: the next refused call clears the stored
+   key and shows the login box again.
+
+With `ADMIN_KEY` unset the gate **fails closed**: every office page shows the login
+box and no password works. The capture page is unaffected either way. After 10
+wrong passwords in 10 minutes, every admin login is refused for 10 minutes,
+including the right one.
 
 ## Photo work-order bot (one-time setup)
 

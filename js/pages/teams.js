@@ -4,6 +4,11 @@
 import { $, enc, esc, attr, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { store } from '../store.js';
+import { requireAdmin } from '../admin-auth.js';
+
+// Office page: nothing below runs until the admin password is accepted (the
+// spine enforces it regardless — see js/admin-auth.js).
+await requireAdmin();
 
 let state = { employees:[], teams:[], captains:[], subs:[] };
 

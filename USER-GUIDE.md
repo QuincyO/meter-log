@@ -14,6 +14,8 @@ This guide covers the whole app: the capture page the installers use in the fiel
 - **Edit & Daily Log** (`edit.html`) — the back-office editor: fix any stop, remove or restore stops, set day times, close or re-close a day, and generate the daily-log PDF for anyone. For the office.
 - **Reports** (`reports.html`) — pick a sub foreman and a date, see the whole crew's totals for that day, and close out anyone who forgot. For sub foremen and the office.
 
+**The office pages are password-protected.** Opening any of them shows an **Office login** box first; type the admin password and the page loads. The phone remembers it, so the other office pages open without asking again, until you tap **🔒 Log out** (bottom-left corner). After 10 wrong tries, logins pause for 10 minutes. The capture page and this guide never ask for a password.
+
 The office pages link to each other through the dropdown in the top bar (**Log / Map / Analytics / Crew & Teams / Edit & Daily Log / Reports / Help**). The capture page keeps things simple for the field: its ☰ menu has only **📋 Worklist**, **🗓 Recent days**, **⚙︎ Settings**, and **❓ Help**.
 
 ---

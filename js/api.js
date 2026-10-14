@@ -18,15 +18,36 @@ async function fetchRetry(url, opts){
   catch { return await fetch(url, opts); }
 }
 
+// The office pages' admin password (js/admin-auth.js stores it after a
+// successful login). Attached to every call when present; the spine only looks
+// at it for its ADMIN_GET/ADMIN_POST actions, so the capture page — which never
+// logs in — is unaffected. Deliberately NOT a named export or import: api.js is
+// on the capture page's critical path, and per-file shell skew makes a new
+// named binding a link error waiting to happen (AGENTS.md, cross-file contract).
+function adminKey(){
+  try { return localStorage.getItem('adminKey') || ''; } catch { return ''; }
+}
+// A refused key is cleared, and the gate (if this page has one) is told via a
+// window hook — again no import, so a page without admin-auth.js ignores it.
+function checkAdmin(res){
+  if(res && res.ok === false && res.error === 'admin required'){
+    try { localStorage.removeItem('adminKey'); } catch {}
+    try { if(typeof window.__onAdminRequired === 'function') window.__onAdminRequired(); } catch {}
+  }
+  return res;
+}
+
 // GET ?token=…&action=…&<params>. `params` values are URL-encoded.
 export async function apiGet(action, params = {}){
   const c = cfg();
   let u = `${c.url}?token=${enc(c.token)}&action=${enc(action)}`;
+  const ak = adminKey();
+  if(ak) u += `&adminKey=${enc(ak)}`;
   for(const k in params){
     const v = params[k];
     if(v !== undefined && v !== null) u += `&${k}=${enc(v)}`;
   }
-  return (await fetchRetry(u)).json();
+  return checkAdmin(await (await fetchRetry(u)).json());
 }
 
 // Optional observer for direct writes — the capture page's activity log
@@ -42,11 +63,12 @@ export async function apiPost(body){
   const t0 = Date.now();
   let res, error;
   try {
+    const ak = adminKey();
     const resp = await fetchRetry(c.url, {
       method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify(Object.assign({ token:c.token }, body))
+      body: JSON.stringify(Object.assign(ak ? { token:c.token, adminKey:ak } : { token:c.token }, body))
     });
-    res = await resp.json();
+    res = checkAdmin(await resp.json());
     return res;
   } catch(e){ error = e; throw e; }
   finally { if(_postHook) try { _postHook({ body, res, error, ms: Date.now() - t0 }); } catch {} }

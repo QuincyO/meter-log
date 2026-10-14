@@ -30,3 +30,7 @@ graphify-out/
 
 # The photo bot's secrets (Telegram token, allowed users) and its user→installer links.
 tools/wo-bot/*.local.*
+
+# Nightly sheet export: lives in the private QuincyO/meter-log-data repo, NEVER here —
+# GitHub Pages publishes this tree to the world (see DEPLOY.md, nightly export).
+data/*.md
