@@ -1384,6 +1384,33 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   today-anchor re-lead, the drag re-persist, and `applyVariant` — or the divider
   prices the last stop with the previous run's on-site minutes.
 
+### Analytics Land / Boat / All (by date, not by tag)
+
+`map.html` Analytics has a three-way **Land / Boat / All** switch
+(`#workSeg`, persisted on its own `localStorage['analyticsWorkType']` key,
+default land; never `captureWorkMode`, never `teamsViewMode`). It filters the
+windowed analytics (every tile, the three charts and the By-installer table,
+through `pinsInScope`/`trkInScope`/`gapsInScope` and the Dispatch filter in
+`js/pages/map.js`). It also switches the lifetime table and dwell card to that
+mode's `boat*`/`land*` columns (`metricsForMode`, a client mirror of
+`installerMetricsRead`'s projection). It does **not** touch the Map (`forMap`),
+and the land-vs-boat pace chart keeps reading the wide rows because it compares
+the two. In Land the two boat-wide tiles are hidden, since land days have no
+`BoatDays` membership and they would just repeat the solo averages.
+
+**A row's mode comes from its date and installer, never its `workType` tag.**
+`js/compute/installer-lifetime.js workTypeOn(date, installer)` returns boat before
+`LAND_START` (`2026-07-20`, the first land day in the sheet) and for the
+installer/day pairs in `BOAT_DAYS_AFTER_LAND_START` (Quincy, 2026-08-04 and
+08-06, the island days when boat work briefly came back). Everything else is
+land. The tag can't do this job: Timing and Dispatch have no tag, `pins()` drops
+it from its projection, Downtime's gap-tagged `saveTravel` rows are blank (read
+as boat by `normWorkType`) right through October, and Quincy's all-island 08-06
+was closed with a `land` Tracker row. **If boat work resumes, add its days to
+that map.** The lifetime figures are still rolled up spine-side from the tags,
+so Quincy's 08-06 counts as land there until that Tracker row is retagged and
+`backfillInstallerMetrics()` re-run.
+
 ### On-site time (dwell)
 
 The other half of every ETA, and until it was measured it was one flat number for

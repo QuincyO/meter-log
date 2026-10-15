@@ -235,6 +235,18 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   upscaled (`winocr.ps1`): at Telegram's ~1280 px it reads `907110` as `007110`. Setup is
   DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs` and
   `tests/wo-bot-extract.test.mjs`.
+- **Analytics splits boat from land by DATE + installer, not by the `workType` tag.**
+  `map.html`'s Land / Boat / All switch classifies every row with
+  `js/compute/installer-lifetime.js workTypeOn(date, installer)`: boat before
+  `LAND_START` (2026-07-20) and on the installer/days listed in
+  `BOAT_DAYS_AFTER_LAND_START`, land otherwise. Don't "simplify" it back to the tag.
+  Timing and Dispatch have no tag, `pins()` drops it, gap-tagged Downtime rows are
+  blank (which reads as boat), and Quincy's all-island 2026-08-06 has a `land`
+  Tracker row. **When boat work resumes, add those days to the map**, or they'll
+  count as land. The switch is on its own `analyticsWorkType` key, and `map.js`
+  reaches the helpers through `import * as life`, so a stale cached module degrades
+  to plain totals instead of a dead page. See ARCHITECTURE.md §"Analytics Land / Boat /
+  All". `tests/analytics-work-type.test.mjs`.
 - **A duplicate is a WARNING. It must never be a rejection.** `addStop` used to
   `return { ok:false, duplicate:true, history }` on an exact WO#+New J# match —
   *before* `sh.appendRow(row)` — and the phone rendered "Duplicate — … Entry

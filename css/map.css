@@ -69,6 +69,16 @@ body{
 
 #analytics{overflow:auto;padding:18px 16px 40px}
 .wrap{max-width:1000px;margin:0 auto}
+/* Land / Boat / All switch (analytics only) — pill shape from teams.css, amber
+   "on" state to match the filter bar's presets */
+.workbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.mode-seg{display:flex;gap:2px;padding:3px;border:2px solid var(--line);border-radius:999px;background:var(--panel)}
+.workbar[hidden]{display:none}
+.mode-seg button{height:36px;min-width:64px;padding:0 14px;border:0;border-radius:999px;background:none;
+     color:var(--ink-soft);font-size:14px;font-weight:800;font-family:inherit;cursor:pointer}
+.mode-seg button.on{background:var(--amber);color:#1a1300}
+.mode-seg button:focus-visible{outline:3px solid rgba(245,158,11,.5);outline-offset:1px}
+.workhint{font-size:13px;color:var(--ink-soft)}
 .note{background:#FFF7E8;border:1px solid #F1D79A;color:#7A5B00;border-radius:12px;padding:11px 13px;font-size:14px;margin-bottom:16px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}

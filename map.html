@@ -77,6 +77,14 @@
   <!-- ANALYTICS VIEW -->
   <div class="view" id="analytics">
     <div class="wrap">
+      <div class="workbar">
+        <div class="mode-seg" id="workSeg" role="group" aria-label="Show land, boat, or all work">
+          <button type="button" data-wt="land">Land</button>
+          <button type="button" data-wt="boat">Boat</button>
+          <button type="button" data-wt="all">All</button>
+        </div>
+        <span class="workhint">Boat = before 2026-07-20, plus the Aug 4 &amp; 6 island days · Land = everything else</span>
+      </div>
       <div id="trkNote"></div>
       <div class="tiles" id="tiles"></div>
       <div class="cards">
@@ -87,7 +95,7 @@
       </div>
       <div class="lifehead">
         <h2>Installer lifetime metrics</h2>
-        <p>All-time rollups, rebuilt at end of day — the date range above does not apply. Installer chips do.</p>
+        <p>All-time rollups, rebuilt at end of day — the date range above does not apply. Installer chips and the Land / Boat / All switch do.</p>
       </div>
       <div class="cards">
         <div class="card wide">

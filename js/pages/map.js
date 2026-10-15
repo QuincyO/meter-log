@@ -7,6 +7,11 @@ import { $, esc, toast } from '../dom.js';
 import { apiGet, apiPost } from '../api.js';
 import { decodeTrack } from '../drive-track.js';
 import { lifetimeRows, modePace, dwellRows } from '../compute/installer-lifetime.js';
+// The Land/Boat/All helpers are newer than the named imports above, so they are
+// reached through the namespace: a browser still holding an older cached copy of
+// the module gets plain 'all' totals instead of a link error that kills the page.
+import * as life from '../compute/installer-lifetime.js';
+import { store } from '../store.js';
 import { requireAdmin } from '../admin-auth.js';
 
 // Office page: nothing below runs until the admin password is accepted (the
@@ -33,6 +38,14 @@ let METRICS = null, metricsPromise = null;
 // null before the first load. Narrowing inside the fetched window is filtered
 // client-side (instant); widening past it refetches.
 let FETCHED = null;
+// Analytics Land / Boat / All view. Its own key on purpose: never the capture
+// app's captureWorkMode (or the abandoned workMode), never teams' teamsViewMode.
+// Analytics only — forMap() ignores it, so the map keeps every pin in range.
+const WORK_VIEW_KEY = 'analyticsWorkType';
+const WORK_VIEWS = ['land', 'boat', 'all'];
+let workView = WORK_VIEWS.includes(store.get(WORK_VIEW_KEY)) ? store.get(WORK_VIEW_KEY) : 'land';
+const matchesWorkType = typeof life.matchesWorkType === 'function' ? life.matchesWorkType : () => true;
+const metricsForMode  = typeof life.metricsForMode  === 'function' ? life.metricsForMode  : m => m || [];
 
 // ── helpers shared with the form's logic ──────────────────────────────────
 function locLabel(s){
@@ -61,6 +74,8 @@ const hasCoords = s => s.lat!=null && s.lng!=null && !isNaN(s.lat) && !isNaN(s.l
 const trkNum = v => Number(v)||0;
 const inRange = k => (!state.from || k>=state.from) && (!state.to || k<=state.to);
 const instMatch = name => !state.installers.length || state.installers.includes(String(name||'').trim());
+// By the row's date + installer, never its workType tag — see LAND_START.
+const wtMatch = (k, installer) => matchesWorkType(k, installer, workView);
 
 // ── load ────────────────────────────────────────────────────────────────────
 // Fetches the current state.from/to window from the spine (all five reads take
@@ -121,14 +136,20 @@ function forMap(){
   return ALL.filter(s => hasCoords(s) && instMatch(s.installer)
     && state.statuses[s.status] && inRange(dateKey(s.timestamp)));
 }
-function pinsInScope(){ return ALL.filter(s => instMatch(s.installer) && inRange(dateKey(s.timestamp))); }
-function trkInScope(){ return TRK.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))); }
+// The analytics scopes also apply the Land/Boat/All view (forMap above does not).
+function pinsInScope(){
+  return ALL.filter(s => { const k = dateKey(s.timestamp); return instMatch(s.installer) && inRange(k) && wtMatch(k, s.installer); });
+}
+function trkInScope(){
+  return TRK.filter(r => { const k = dateKey(r.date); return instMatch(r.installer) && inRange(k) && wtMatch(k, r.installer); });
+}
 // WO→WO gaps (Travel / Flagged) in scope — Launch/Return dock legs excluded. This is
 // the any-log-to-any-log lens for "avg time between meters"; filter by fromStatus/
 // toStatus on top for the install-to-install lens.
 function gapsInScope(){
-  return TIM.filter(r => instMatch(r.installer) && inRange(dateKey(r.date))
-    && (r.type==='Travel' || r.type==='Flagged'));
+  return TIM.filter(r => { const k = dateKey(r.date);
+    return instMatch(r.installer) && inRange(k) && wtMatch(k, r.installer)
+      && (r.type==='Travel' || r.type==='Flagged'); });
 }
 // Each installer's OWN consecutive-stop gaps (the partner's logs are NOT merged in),
 // pooled across the range: sum of gap-minutes ÷ number of gaps. Chains are built per
@@ -361,7 +382,7 @@ function renderAnalytics(){
 
   // Measured dispatch downtimes (Dispatch tab, matched='Y'), dated by completion.
   const disp = DISP.filter(r => String(r.matched).trim().toUpperCase()==='Y'
-    && instMatch(r.installer) && inRange(dateKey(r.completedTime)));
+    && instMatch(r.installer) && inRange(dateKey(r.completedTime)) && wtMatch(dateKey(r.completedTime), r.installer));
   const avgDispatch = disp.length
     ? Math.round(disp.reduce((a,r)=>a+(trkNum(r.minutes)||0),0)/disp.length) : null;
 
@@ -382,15 +403,18 @@ function renderAnalytics(){
     ? Math.round(boatDispVals.reduce((a,v)=>a+v,0)/boatDispVals.length) : null;
 
   const mins = v => v==null ? '—' : (v+' min');
+  // The two boat-wide tiles are hidden in Land: land days have no BoatDays
+  // membership, so they would only repeat each installer's solo average.
+  const boatTiles = workView !== 'land';
   $('tiles').innerHTML =
       tile(installed,'Installed','t-install') + tile(uti,'UTI','t-uti')
     + tile(rate+'%','Install rate','') + tile(down,'Downtime min','')
     + tile(mins(avgInst),     'Avg install→install','')
     + tile(mins(avgCompleted),'Avg between completed WOs','')
     + tile(mins(avgLog),      'Avg log→log (w/ partner)','')
-    + tile(mins(avgBoat),     'Avg log→log (boat)','')
+    + (boatTiles ? tile(mins(avgBoat), 'Avg log→log (boat)','') : '')
     + tile(mins(avgDispatch), 'Avg dispatch downtime','')
-    + tile(mins(avgBoatDispatch), 'Avg boat dispatch downtime','')
+    + (boatTiles ? tile(mins(avgBoatDispatch), 'Avg boat dispatch downtime','') : '')
     + tile(totalDispatch+' min', 'Total dispatch downtime','')
     + tile(visited,'Visited','') + tile(unaccounted,'Unaccounted','')
     + tile(autoIdle,'Auto-idle min','');
@@ -481,11 +505,14 @@ function renderLifetime(){
     return;
   }
   const inScope = METRICS.filter(m => instMatch(m.name));
+  // The Land/Boat/All view picks the column group; the land-vs-boat chart below
+  // compares the two side by side, so it keeps reading the wide rows.
+  const modeScope = metricsForMode(inScope, workView);
   const emptyMsg = 'No installer metrics yet — they build at end of day.';
 
   // lifetime table (+ derived rates). The recent-30 cell carries the pace trend:
   // ▼ = recently faster than lifetime, ▲ = slower, plain = steady.
-  const rows = lifetimeRows(inScope);
+  const rows = lifetimeRows(modeScope);
   if(!rows.length){ $('lifeTable').innerHTML = `<div class="empty">${emptyMsg}</div>`; }
   else{
     const trend = r => r.trend==='faster' ? ' <span class="tr-glyph tr-faster" title="Faster than lifetime pace">▼</span>'
@@ -516,7 +543,7 @@ function renderLifetime(){
   });
 
   // dwell model — the measured on-site numbers behind the route planner's ETAs
-  const dw = dwellRows(inScope);
+  const dw = dwellRows(modeScope);
   if(!dw.length){ $('dwellTable').innerHTML = '<div class="empty">No measured dwell yet — it builds from closed days.</div>'; }
   else{
     const badge = s => s ? `<span class="srcbadge src-${esc(s)}">${esc(s)}</span>` : NONE;
@@ -595,6 +622,30 @@ $('instWrap').onclick = e => { if(e.target===$('instWrap')||e.target===$('instCh
 document.querySelectorAll('#statusChips .chip').forEach(ch => {
   ch.onclick = () => { state.statuses[ch.dataset.st] = !state.statuses[ch.dataset.st]; syncControls(); drawMarkers(false); };
 });
+// Land / Boat / All on the Analytics view — client-side only, no refetch. Bound
+// behind a null check: a browser can run this module against an older cached
+// map.html that has no #workSeg, and a throw here would stop everything below.
+function paintWorkSeg(){
+  document.querySelectorAll('#workSeg button').forEach(b => {
+    const on = b.dataset.wt === workView;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function setWorkView(m){
+  if(!WORK_VIEWS.includes(m) || m === workView) return;
+  workView = m; store.set(WORK_VIEW_KEY, m);
+  paintWorkSeg(); renderAnalytics();
+}
+// Without the control (old markup) or the helpers (old module) the view is 'all':
+// a filter nobody can see or change must not quietly trim the numbers.
+const workSeg = $('workSeg');
+if(!workSeg || typeof life.matchesWorkType !== 'function'){
+  workView = 'all';
+  if(workSeg) (workSeg.closest('.workbar') || workSeg).hidden = true;
+} else {
+  workSeg.querySelectorAll('button').forEach(b => b.onclick = () => setWorkView(b.dataset.wt));
+  paintWorkSeg();
+}
 $('driveToggle').onclick = () => {
   showDrives = !showDrives;
   $('driveToggle').classList.toggle('on', showDrives);

@@ -63,7 +63,59 @@ export function modePace(metrics){
   };
 }
 
-// The measured on-site (dwell) model behind route ETAs — combined mode only.
+// ── Land / Boat / All split for the analytics view ──────────────────────────
+// Boat vs land is decided by the row's DATE (plus a short list of known boat
+// days after it), not by its workType tag. Every day before the first land day
+// was boat work; since then it has been land, except the week boat work briefly
+// came back. The tag can't be used for this, because the analytics rows don't
+// agree on it: Timing and Dispatch have no tag at all, the `pins` read drops
+// it, Downtime's gap-tagged saveTravel rows carry a blank tag (which
+// normWorkType reads as boat) right through October, and Quincy's all-island
+// 2026-08-06 was closed with a `land` Tracker row while its Stops say boat.
+// Checked against the 2026-10-14 export: Tracker is boat through 2026-07-15,
+// land from 2026-07-20.
+export const LAND_START = '2026-07-20';
+// Boat work done on or after LAND_START, by date → installer display names
+// (the name the Stops/Tracker rows carry). From the island addresses on the
+// `boat`-tagged Stops rows. If boat work resumes, add its days here.
+export const BOAT_DAYS_AFTER_LAND_START = {
+  '2026-08-04': ['Quincy Orta'],
+  '2026-08-06': ['Quincy Orta'],
+};
+
+// ('yyyy-MM-dd' Toronto date, installer name) → 'boat' | 'land'.
+export function workTypeOn(dateKey, installer){
+  const d = String(dateKey || '');
+  if (d < LAND_START) return 'boat';
+  const names = BOAT_DAYS_AFTER_LAND_START[d];
+  return names && names.includes(String(installer == null ? '' : installer).trim()) ? 'boat' : 'land';
+}
+
+// mode is 'land' | 'boat' | 'all'; anything else behaves as 'all'.
+export function matchesWorkType(dateKey, installer, mode){
+  if (mode !== 'land' && mode !== 'boat') return true;
+  return workTypeOn(dateKey, installer) === mode;
+}
+
+// Client mirror of Code.gs installerMetricsRead's boat/land projection: maps the
+// wide row's `boat*` / `land*` columns onto the canonical names, so lifetimeRows
+// and dwellRows read one mode unchanged. 'all' (or anything else) returns the
+// wide rows as-is — their unprefixed columns are already the combined figures.
+const MODE_KEYS = ['daysWorked','hoursWorked','totalLogs','installs','utis','visited',
+  'unaccounted','downtimeMin','avgLogMin','avgPerDay','avgPerHour','recent30AvgLogMin',
+  'onSiteMin','extraMeterMin','travelMinPerKm','onSiteSource'];
+export function metricsForMode(metrics, mode){
+  if (mode !== 'land' && mode !== 'boat') return metrics || [];
+  return (metrics || []).map(m => {
+    const o = { hNumber: m.hNumber, name: m.name, workType: mode,
+                firstDay: m.firstDay, lastDay: m.lastDay, updated: m.updated };
+    MODE_KEYS.forEach(k => { o[k] = m[mode + k[0].toUpperCase() + k.slice(1)]; });
+    return o;
+  });
+}
+
+// The measured on-site (dwell) model behind route ETAs. Reads the canonical
+// (unprefixed) fields — pass metricsForMode() output to see one mode.
 // Rows with no dwell evidence at all (every field blank, source 'pace' or not)
 // are dropped: 'pace' alone means "still guessing", which isn't worth a row.
 export function dwellRows(metrics){
