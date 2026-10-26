@@ -660,10 +660,10 @@ internet), and needs no `npm install`.
    the allowlist is what keeps strangers out.)
 4. **Link:** each person sends `/link H12345` once — their employee number, checked
    against the roster. Links live in `tools/wo-bot/state.local.json` (gitignored).
-5. **Readers:** Windows OCR is built in. The vision model is Ollama's
-   `qwen2.5vl:7b` (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the
-   config to use another. If Ollama is down the bot still answers, with every number
-   marked unsure.
+5. **Reader:** the bot reads photos with Ollama's `qwen2.5vl:7b`
+   (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the config to use
+   another. Ollama must be running: with it down, each photo is answered with
+   "the AI reader (Ollama) didn't answer".
 6. **Turn it on and off:** run
    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1 -Install`
    once. It adds **Work-order bot** to the Start menu.

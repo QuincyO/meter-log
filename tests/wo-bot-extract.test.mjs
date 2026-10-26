@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { numbersIn, mergeEngines, newBatch, addPhoto, addTyped, removeFrom }
+import { numbersIn, newBatch, addPhoto, addTyped, removeFrom }
   from '../tools/wo-bot/extract.mjs';
 
 // What Windows OCR actually returned for the reference photo of the handheld's
@@ -56,44 +56,22 @@ test('a number OCR split with a space is rejoined; repeats are dropped', () => {
   assert.deepEqual(numbersIn('902 732\n902732\n900821'), ['902732','900821']);
 });
 
-test('both engines agree → trusted; one engine only → unsure', () => {
-  const m = mergeEngines(['902732','900821','905486'], ['902732','900821','905466']);
-  assert.deepEqual(m.agreed, ['902732','900821']);
-  assert.deepEqual(m.unsure, ['905486','905466']);
-});
-
-test('one engine down → nothing is trusted, all of the other is unsure', () => {
-  assert.deepEqual(mergeEngines(['902732'], null), { agreed: [], unsure: ['902732'] });
-  assert.deepEqual(mergeEngines(null, ['902732']), { agreed: [], unsure: ['902732'] });
-});
-
-test('overlapping photos: repeats are harmless, a later agreement promotes an unsure number', () => {
+test('overlapping photos: repeats are harmless and counted once', () => {
   const b = newBatch();
-  let r = addPhoto(b, { agreed: ['902732','900821'], unsure: ['905486'] });
-  assert.deepEqual(r, { read: 3, added: 2, promoted: 0, unsure: 1 });
-  r = addPhoto(b, { agreed: ['900821','905486','907209'], unsure: [] });
-  assert.deepEqual(r, { read: 3, added: 1, promoted: 1, unsure: 0 });
+  assert.deepEqual(addPhoto(b, ['902732','900821']), { read: 2, added: 2 });
+  assert.deepEqual(addPhoto(b, ['900821','905486','907209']), { read: 3, added: 2 });
   assert.deepEqual(b.confirmed, ['902732','900821','905486','907209']);
-  assert.deepEqual(b.unsure, []);
 });
 
-test('an unsure reading of a number already confirmed is not re-flagged', () => {
+test('typed numbers join the batch; one already there is not doubled', () => {
   const b = newBatch();
-  addPhoto(b, { agreed: ['902732'], unsure: [] });
-  addPhoto(b, { agreed: [], unsure: ['902732'] });
-  assert.deepEqual(b.unsure, []);
-});
-
-test('typed numbers confirm directly, including an unsure one', () => {
-  const b = newBatch();
-  addPhoto(b, { agreed: [], unsure: ['905486'] });
-  assert.deepEqual(addTyped(b, '905486 907209'), { found: 2, added: 2 });
+  addPhoto(b, ['905486']);
+  assert.deepEqual(addTyped(b, '905486 907209'), { found: 2, added: 1 });
   assert.deepEqual(b.confirmed, ['905486','907209']);
-  assert.deepEqual(b.unsure, []);
 });
 
-test('remove drops a number from either list', () => {
-  const b = { confirmed: ['902732','900821'], unsure: ['905486'] };
-  assert.equal(removeFrom(b, '/remove 900821 905486'), 2);
-  assert.deepEqual(b, { confirmed: ['902732'], unsure: [] });
+test('remove drops a number from the batch', () => {
+  const b = { confirmed: ['902732','900821','905486'] };
+  assert.equal(removeFrom(b, '/remove 900821 905486 999999'), 2);
+  assert.deepEqual(b, { confirmed: ['902732'] });
 });

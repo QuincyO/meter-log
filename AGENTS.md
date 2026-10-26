@@ -212,9 +212,8 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   for exactly that. A new office page starts with `await requireAdmin()` after its imports.
 - **The photo bot writes to an inbox, never to `Worklist`.** `tools/wo-bot/bot.mjs` is a
   Telegram bot that runs on the owner's PC: an installer photographs the handheld's
-  work-order list, the PC reads it locally (Windows OCR **and** an Ollama vision model —
-  only numbers both report are sent; the rest are listed for the user to type), and ✅ Send
-  posts `queueWorklistOrders`. That lands in `WorklistInbox`, not `Worklist`, because the
+  work-order list, the PC reads it locally with an Ollama vision model (`qwen2.5vl:7b`),
+  the user checks the listed numbers, and ✅ Send posts `queueWorklistOrders`. That lands in `WorklistInbox`, not `Worklist`, because the
   phone **whole-list replaces** its `Worklist` slice silently after every logged stop
   (`syncWorklist`) — a row appended straight into `Worklist` is wiped by the next log,
   before the installer ever downloads. The inbox is folded in by `claimWorklistInbox`
@@ -228,11 +227,13 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   hazard as any order added on another device, documented rather than fixed. It runs on
   Windows on purpose, switched on and off by a tray dot (`tools/wo-bot/tray.ps1`). The
   tray also keeps it to one copy, because Telegram gives a second poller 409 Conflict. A
-  Docker container was tried and dropped on 2026-10-08. Windows OCR doesn't exist in a
-  Linux container, and Tesseract read nothing off the photo until it was given an
-  adaptive threshold, which was proven on only one photo. Windows OCR
-  must run under `powershell.exe` 5.1 (WinRT is missing from pwsh 7) and needs the image
-  upscaled (`winocr.ps1`): at Telegram's ~1280 px it reads `907110` as `007110`. Setup is
+  Docker container was tried and dropped on 2026-10-08. **Don't put an OCR engine back
+  beside the model.** Until 2026-10-26 Windows OCR read every photo too, and only numbers
+  both readers reported were sent. Telegram shrinks a photo to ~1280 px on its long side,
+  so a tall list photo arrives ~230 px wide. OCR then dropped or mangled the leading 9
+  (`07955`, `106276`, `)06362`) while the model read all 30 numbers right. The agreement
+  rule parked good orders as "unsure", and the user had to retype them. The check on a
+  model misread is now the user reading the list before ✅ Send. Setup is
   DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs` and
   `tests/wo-bot-extract.test.mjs`.
 - **Analytics splits boat from land by DATE + installer, not by the `workType` tag.**

@@ -4,8 +4,8 @@
 // long list), send them to the bot, check its reply, tap ✅ Send. The numbers are
 // queued in the Sheet's WorklistInbox tab for the installer linked to your
 // Telegram account, and land on their phone on the next Worklist ▸ ⇩ Download
-// (Code.gs claimWorklistInbox). Everything is read locally — Windows OCR plus a
-// local Ollama vision model; see ocr.mjs and extract.mjs.
+// (Code.gs claimWorklistInbox). Everything is read locally by an Ollama vision
+// model; see ocr.mjs and extract.mjs.
 //
 //   node tools/wo-bot/bot.mjs                      run the bot (tray.ps1 is the
 //                                                  on/off switch that runs it)
@@ -33,13 +33,12 @@ if(args[0] === '--dry-run'){
   const batch = newBatch();
   for(const path of args.slice(1)){
     const t = Date.now();
-    const r = await readPhoto(path, opts);
-    const s = addPhoto(batch, r);
-    console.log(`${path}: ${s.read} read, ${s.added} new, ${s.promoted} confirmed by this photo, `
-      + `${s.unsure} unsure · readers ${JSON.stringify(r.engines)} · ${Date.now() - t} ms`);
+    try {
+      const s = addPhoto(batch, await readPhoto(path, opts));
+      console.log(`${path}: ${s.read} read, ${s.added} new · ${Date.now() - t} ms`);
+    } catch (e) { console.log(`${path}: ${e.message}`); }
   }
-  console.log(`\nConfirmed (${batch.confirmed.length}):\n${batch.confirmed.join('\n')}`);
-  if(batch.unsure.length) console.log(`\nUnsure (${batch.unsure.length}):\n${batch.unsure.join('\n')}`);
+  console.log(`\nRead (${batch.confirmed.length}):\n${batch.confirmed.join('\n')}`);
   process.exit(0);
 }
 
@@ -82,7 +81,7 @@ async function spinePost(body){
 // ── replies ─────────────────────────────────────────────────────────────────
 const HELP = [
   'Send photos of the work-order list — several overlapping photos are fine for a long list.',
-  'I read each one twice (OCR + AI) and only keep numbers both agree on; anything doubtful is listed for you to check.',
+  'I read them with AI and list every number; check the list against the screen before you send.',
   '',
   '/link H12345 — whose worklist the orders go to',
   '/list — show the batch',
@@ -97,15 +96,12 @@ function batchButtons(user, batch){
   const row = [];
   if(batch.confirmed.length && link)
     row.push({ text: `✅ Send ${batch.confirmed.length} to ${link.name}`, callback_data: 'send' });
-  if(batch.confirmed.length || batch.unsure.length) row.push({ text: '✕ Clear', callback_data: 'clear' });
+  if(batch.confirmed.length) row.push({ text: '✕ Clear', callback_data: 'clear' });
   return row.length ? { reply_markup: { inline_keyboard: [row] } } : {};
 }
 
 function batchStatus(user, batch){
   const lines = [`Batch: ${batch.confirmed.length} ready.`];
-  if(batch.unsure.length)
-    lines.push(`⚠ Not included — only one reader saw ${batch.unsure.length === 1 ? 'this' : 'these'}. `
-      + `Check the photo and type any that are right:\n${batch.unsure.join('\n')}`);
   if(!state.links[user]) lines.push('Link your worklist first: /link H12345');
   return lines.join('\n');
 }
@@ -153,25 +149,19 @@ async function handlePhotos(chat, user, fileIds){
   await say(chat, `Reading ${fileIds.length} photo${fileIds.length === 1 ? '' : 's'}…`);
   const batch = batchFor(chat);
   const lines = [];
-  let readerNote = '';
   for(const [i, id] of fileIds.entries()){
     let path;
     try {
       path = await downloadPhoto(id);
-      const r = await readPhoto(path, config);
-      const s = addPhoto(batch, r);
-      lines.push(`Photo ${i + 1}: ${s.read} read, ${s.added + s.promoted} new`
-        + (s.unsure ? `, ${s.unsure} unsure` : ''));
-      if(!r.engines.ocr || !r.engines.vision)
-        readerNote = `⚠ The ${!r.engines.vision ? 'AI reader (Ollama)' : 'Windows OCR'} didn't answer, `
-          + 'so nothing could be double-checked — every number is listed as unsure.';
+      const s = addPhoto(batch, await readPhoto(path, config));
+      lines.push(`Photo ${i + 1}: ${s.read} read, ${s.added} new`);
     } catch (e) {
       lines.push(`Photo ${i + 1}: couldn't read it (${e.message})`);
     } finally {
       if(path) try { unlinkSync(path); } catch {}
     }
   }
-  const text = [lines.join('\n'), readerNote, batchStatus(user, batch)].filter(Boolean).join('\n\n');
+  const text = [lines.join('\n'), batchStatus(user, batch)].join('\n\n');
   return say(chat, text, batchButtons(user, batch));
 }
 

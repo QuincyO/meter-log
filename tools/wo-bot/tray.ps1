@@ -4,7 +4,7 @@
 # Start with Windows and Quit (Quit also stops the bot). The bot's console goes to
 # bot.local.log beside this file (gitignored).
 #
-# Run under Windows PowerShell 5.1 (powershell.exe), like winocr.ps1:
+# Run under Windows PowerShell 5.1 (powershell.exe):
 #   powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1 -Install
 #     (adds a "Work-order bot" Start-menu shortcut that runs the line above)

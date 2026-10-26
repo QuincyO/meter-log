@@ -2300,8 +2300,8 @@ append guarded by `tests/drivetracks-sheet-schema.test.mjs`.
 ### WorklistInbox row  (one per queued work order → tab "WorklistInbox")
 The photo bot's drop box (`tools/wo-bot`). An installer photographs the handheld's
 work-order list and sends it to a Telegram bot on the owner's PC, which reads it
-locally — Windows OCR and an Ollama vision model, keeping only the numbers both
-report — and posts `queueWorklistOrders {hNumber, orders:[wo…], source}`. That skips
+locally with an Ollama vision model (Windows OCR was dropped on 2026-10-26; see
+AGENTS.md) and, once the user taps ✅ Send, posts `queueWorklistOrders {hNumber, orders:[wo…], source}`. That skips
 any number already pending on the installer's `Worklist` or already waiting here,
 and returns `{ok, queued, skipped, installer}`. The next `?action=worklist` read for
 that H number runs `claimWorklistInbox` first: each waiting row becomes a pending,

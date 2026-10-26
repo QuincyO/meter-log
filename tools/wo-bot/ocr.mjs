@@ -1,29 +1,15 @@
-// ── The two local readers behind the photo bot ──────────────────────────────
-// Windows OCR (winocr.ps1, instant, no install) and a local Ollama vision model
-// (default qwen2.5vl:7b). Both read every photo; extract.mjs decides which
-// numbers to trust. Either failing returns null rather than throwing, so one
-// reader down still yields something (all of it flagged unsure).
-import { execFile } from 'node:child_process';
+// ── The reader behind the photo bot ─────────────────────────────────────────
+// A local Ollama vision model (default qwen2.5vl:7b) reads every photo, and its
+// numbers are the batch. Windows OCR used to read alongside it, keeping only the
+// numbers both reported; it was dropped on 2026-10-26 because at Telegram's
+// ~1280 px it lost the leading 9 off tall list photos ("07955", "106276",
+// ")06362") that the vision model read correctly, parking good orders as unsure.
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { numbersIn, mergeEngines, WO_DIGITS } from './extract.mjs';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
+import { numbersIn, WO_DIGITS } from './extract.mjs';
 
 const VLM_PROMPT = 'This photo shows a handheld device screen listing work order numbers. '
   + `List every ${WO_DIGITS}-digit work order number visible, top to bottom, one per line. `
   + 'Output only the numbers.';
-
-/** Windows OCR text for one image, or null. powershell.exe, not pwsh — see winocr.ps1. */
-export function winOcr(path){
-  return new Promise(resolve => {
-    execFile('powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(HERE, 'winocr.ps1'), path],
-      { timeout: 60000, windowsHide: true },
-      (err, stdout) => resolve(err ? null : String(stdout)));
-  });
-}
 
 /** The vision model's text for one image, or null. keep_alive holds the model in
  *  VRAM between photos of the same list (cold load is ~30 s, warm a few). */
@@ -42,11 +28,10 @@ export async function visionRead(path, { ollamaUrl = 'http://localhost:11434', m
   } catch { return null; }
 }
 
-/** Both readers over one photo → { agreed, unsure, engines } where `engines`
- *  says which readers answered (for the reply when one is down). */
+/** The work-order numbers in one photo, top to bottom. Throws when the model
+ *  doesn't answer, so the reply says why rather than reporting an empty photo. */
 export async function readPhoto(path, opts = {}){
-  const [ocrText, vlmText] = await Promise.all([winOcr(path), visionRead(path, opts)]);
-  const ocr = ocrText == null ? null : numbersIn(ocrText);
-  const vlm = vlmText == null ? null : numbersIn(vlmText);
-  return { ...mergeEngines(ocr, vlm), engines: { ocr: ocr != null, vision: vlm != null } };
+  const text = await visionRead(path, opts);
+  if(text == null) throw new Error("the AI reader (Ollama) didn't answer — is Ollama running?");
+  return numbersIn(text);
 }
