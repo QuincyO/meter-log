@@ -19,7 +19,7 @@ import { apiGet, apiPost } from '../api.js';
 import { idb } from '../idb.js';
 import { store } from '../store.js';
 import { stamp, localDate, hhmmMin } from '../time.js';
-import { optimizeRoute, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
+import { optimizeRoute, unroutableReason, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { dwellLookup } from '../route-dwell.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
@@ -971,6 +971,8 @@ async function optimize(pending, health){
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
+    const unroutable = unroutableReason(base, pending.length);
+    if(unroutable) throw new Error(unroutable);
     // Real road-travel lookup — non-null only on a road run that got durations. It
     // feeds the ROAD variant's schedule so its ETAs reflect actual drive times; the
     // straight variant stays flat-pace and its times are hidden in the UI. The

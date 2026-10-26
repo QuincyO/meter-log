@@ -14,7 +14,7 @@ import { idb } from './idb.js';
 import { store, cfg } from './store.js';
 import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
-import { optimizeRoute, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, localRoadGeometry } from './route.js';
+import { optimizeRoute, unroutableReason, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
 // `lastFix` only. avgMovingSpeed used to price this module's remaining route and no
 // longer prices anything here — see the on-pace projection header for why.
@@ -884,6 +884,8 @@ async function optimizeRouteHandler(useNetwork){
       x && (x.appointmentDate || x.lockedDate));
     if(blocked.length) throw new Error('Fix the address before routing constrained ' +
       blocked.map(x => `WO ${x.workOrderId || x.id}`).join(', '));
+    const unroutable = unroutableReason(base, pending.length);
+    if(unroutable) throw new Error(unroutable);
     // Drive-time lookup for the ETAs: real durations from the road matrix (Google/
     // ORS/OSRM), or the estimate route.js derived from distances — either way the
     // first stop's ETA now includes the crew-start drive and the day fits the clock.

@@ -1457,6 +1457,18 @@ export function travelLookup(measure){
 // actually pulled a road matrix. A straight-line run (opts.straightLine) or one
 // whose matrix fell back still does exactly one solve: there is no road matrix to
 // compare against, and this flag must never cause a matrix call of its own.
+// Why an optimizeRoute result has no route to schedule, or null when it has one.
+// Fewer than two orders on the map returns both variants null, and both Optimize
+// handlers (worklist.js, planner.js) read computed[primary].orderedIds — so a list
+// that is mostly "Needs address" (a bulk paste, the photo bot) crashed with
+// "Cannot read properties of undefined (reading 'orderedIds')". Check this first.
+export function unroutableReason(base, pendingCount){
+  if(base.variants && (base.variants.road || base.variants.straight)) return null;
+  const mapped = pendingCount - base.parkedIds.length;
+  return `Only ${mapped} of ${pendingCount} orders can be put on the map — `
+    + 'fill in the missing addresses, then optimize again';
+}
+
 // Returns { orderedIds, parkedIds, usedFallback, fallbackReason, mode,
 // startFallback, geoReason, note, variants, measure, straightDistanceSource }
 // — orderedIds is the optimized sequence;

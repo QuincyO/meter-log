@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, routeOrderFromMatrix, solveAnchoredPath, solveVariant, encodePolyline, decodePolyline, osrmLegGeometry, estimateDurations, estimateTravelFromCoords, parseGoogleDuration } from '../js/route.js';
+import { legMetersFor, homeLegMetersFor, travelLookup, optimizeRoute, unroutableReason, routeOrderFromMatrix, solveAnchoredPath, solveVariant, encodePolyline, decodePolyline, osrmLegGeometry, estimateDurations, estimateTravelFromCoords, parseGoogleDuration } from '../js/route.js';
 
 function matrix(rows){
   return rows.map(row => Float64Array.from(row));
@@ -276,6 +276,28 @@ function withOsrm(distances, run){
   };
   return run(() => calls).finally(() => { globalThis.fetch = before; });
 }
+
+// 2026-10-26: 30 orders from the photo bot, 29 with no address yet. optimizeRoute
+// returned both variants null, and both Optimize handlers read
+// computed[primary].orderedIds off nothing — "Cannot read properties of undefined
+// (reading 'orderedIds')". unroutableReason is the guard they now check first.
+test('fewer than two orders on the map: no route, and unroutableReason says why', async () => {
+  const before = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  try {
+    const items = [{ id:'a', address:'A', lat:45.0, lng:-79.0 },
+      { id:'b', address:'' }, { id:'c', address:'' }];
+    const r = await optimizeRoute(items, null, null, { straightLine:true, compareVariants:true });
+    assert.equal(r.variants.road, null);
+    assert.equal(r.variants.straight, null);
+    assert.match(unroutableReason(r, items.length), /1 of 3 orders/);
+  } finally { globalThis.fetch = before; }
+});
+
+test('a result with a route has no unroutable reason', async () => {
+  const r = await optimizeRoute(STOPS(), null, null, { straightLine:true });
+  assert.equal(unroutableReason(r, 4), null);
+});
 
 test('a road-matrix run saves both routes, priced on the same road matrix', async () => {
   await withOsrm(ROAD, async calls => {
