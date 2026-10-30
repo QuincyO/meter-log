@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { numbersIn, newBatch, addPhoto, addTyped, removeFrom }
+import { numbersIn, newBatch, addPhoto, addTyped, removeFrom, sendOrder }
   from '../tools/wo-bot/extract.mjs';
 
 // What Windows OCR actually returned for the reference photo of the handheld's
@@ -74,4 +74,10 @@ test('remove drops a number from the batch', () => {
   const b = { confirmed: ['902732','900821','905486'] };
   assert.equal(removeFrom(b, '/remove 900821 905486 999999'), 2);
   assert.deepEqual(b, { confirmed: ['902732'] });
+});
+
+test('orders go up lowest work-order number first, without reordering the batch', () => {
+  const b = { confirmed: ['907209','900821','905486','902732'] };
+  assert.deepEqual(sendOrder(b), ['900821','902732','905486','907209']);
+  assert.deepEqual(b.confirmed, ['907209','900821','905486','902732']);
 });

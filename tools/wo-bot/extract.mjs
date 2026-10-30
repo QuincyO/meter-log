@@ -51,6 +51,13 @@ export function addTyped(batch, text){
   return { found: nums.length, added: addPhoto(batch, nums).added };
 }
 
+/** The batch as ✅ Send queues it: lowest work-order number first. The inbox
+ *  claim keeps this order on the phone's list. The batch itself stays in
+ *  reading order, so /list still matches the handheld's screen top to bottom. */
+export function sendOrder(batch){
+  return [...batch.confirmed].sort((a, b) => Number(a) - Number(b));
+}
+
 /** Drop numbers from the batch. Returns how many went. */
 export function removeFrom(batch, text){
   let removed = 0;

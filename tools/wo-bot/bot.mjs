@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WEB_APP_URL, SHARED_TOKEN } from '../../js/config.js';
 import { readPhoto } from './ocr.mjs';
-import { newBatch, addPhoto, addTyped, removeFrom } from './extract.mjs';
+import { newBatch, addPhoto, addTyped, removeFrom, sendOrder } from './extract.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(HERE, 'config.local.json');
@@ -125,7 +125,7 @@ async function handleSend(chat, user){
   if(!batch.confirmed.length) return say(chat, 'Nothing to send yet — send a photo first.');
   let r;
   try { r = await spinePost({ action: 'queueWorklistOrders', hNumber: link.hNumber,
-    orders: batch.confirmed, source: 'telegram' }); }
+    orders: sendOrder(batch), source: 'telegram' }); }
   catch (e) { return say(chat, `Couldn't reach the sheet (${e.message}). The batch is kept — try /send again.`); }
   if(!r || !r.ok) return say(chat, `The sheet refused it: ${(r && r.error) || 'unknown error'}. The batch is kept.`);
   batches.delete(chat);
