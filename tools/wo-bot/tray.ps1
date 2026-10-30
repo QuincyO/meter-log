@@ -12,6 +12,9 @@
 # Telegram lets only one copy of a bot poll (a second gets 409 Conflict), so a
 # second tray just says where the first is, and turning on first stops any
 # bot.mjs that was started some other way.
+#
+# Turning on also starts Ollama (the photo reader) when it isn't running and the
+# config points at this PC. Turning off leaves Ollama alone.
 param([switch]$Install)
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
@@ -68,7 +71,22 @@ function Get-OtherBots {
 }
 function Test-On { [bool]($script:proc -and -not $script:proc.HasExited) }
 
+# Without Ollama every photo is answered "the AI reader (Ollama) didn't answer".
+# Returns a line for the balloon when Ollama can't be started, else nothing.
+function Start-Ollama {
+  $url = 'http://localhost:11434'
+  try { $c = Get-Content (Join-Path $here 'config.local.json') -Raw | ConvertFrom-Json; if ($c.ollamaUrl) { $url = $c.ollamaUrl } } catch {}
+  if (([Uri]$url).Host -notin 'localhost', '127.0.0.1') { return }
+  if (Get-Process 'ollama', 'ollama app' -ErrorAction SilentlyContinue) { return }
+  $app = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama app.exe'
+  $exe = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+  if (Test-Path $app) { Start-Process $app }
+  elseif ($exe) { Start-Process $exe -ArgumentList 'serve' -WindowStyle Hidden }
+  else { return " Ollama isn't installed, so photos can't be read." }
+}
+
 function Start-Bot {
+  Start-Ollama
   Get-OtherBots | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   if ((Test-Path $log) -and (Get-Item $log).Length -gt 1MB) { Move-Item $log "$log.1" -Force }
   Add-Content -Path $log -Value "`r`n=== turned on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ==="
@@ -106,7 +124,7 @@ function Show-State {
 function Switch-Bot {
   try {
     if (Test-On) { Stop-Bot; $msg = 'Off.' }
-    else { Start-Bot; $msg = 'On. Send photos to the bot on Telegram.' }
+    else { $note = Start-Bot; $msg = "On. Send photos to the bot on Telegram.$note" }
   } catch { $msg = "Couldn't switch: $($_.Exception.Message)" }
   Show-State
   $tray.ShowBalloonTip(2000, $name, $msg, [System.Windows.Forms.ToolTipIcon]::None)
@@ -141,10 +159,10 @@ $timer.add_Tick({
 })
 
 $tray.ContextMenuStrip = $menu
-Start-Bot
+$note = Start-Bot
 Show-State
 $tray.Visible = $true
-$tray.ShowBalloonTip(2000, $name, 'On. Click the dot to turn it off.', [System.Windows.Forms.ToolTipIcon]::None)
+$tray.ShowBalloonTip(2000, $name, "On. Click the dot to turn it off.$note", [System.Windows.Forms.ToolTipIcon]::None)
 $timer.Start()
 [System.Windows.Forms.Application]::Run()
 $timer.Stop()

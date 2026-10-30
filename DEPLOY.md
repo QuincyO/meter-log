@@ -663,7 +663,9 @@ internet), and needs no `npm install`.
 5. **Reader:** the bot reads photos with Ollama's `qwen2.5vl:7b`
    (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the config to use
    another. Ollama must be running: with it down, each photo is answered with
-   "the AI reader (Ollama) didn't answer".
+   "the AI reader (Ollama) didn't answer". The tray (step 6) starts Ollama when it
+   turns the bot on, if `ollamaUrl` points at this PC and Ollama isn't already
+   running. Turning the bot off leaves Ollama running.
 6. **Turn it on and off:** run
    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1 -Install`
    once. It adds **Work-order bot** to the Start menu.

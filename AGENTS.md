@@ -226,8 +226,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   device that has not downloaded can still wipe claimed rows with its own push — the same
   hazard as any order added on another device, documented rather than fixed. It runs on
   Windows on purpose, switched on and off by a tray dot (`tools/wo-bot/tray.ps1`). The
-  tray also keeps it to one copy, because Telegram gives a second poller 409 Conflict. A
-  Docker container was tried and dropped on 2026-10-08. **Don't put an OCR engine back
+  tray also keeps it to one copy, because Telegram gives a second poller 409 Conflict.
+  Turning the bot on also starts Ollama when the config's `ollamaUrl` is local and Ollama
+  isn't running. Turning it off leaves Ollama running, because other tools on this PC use
+  it too. A Docker container was tried and dropped on 2026-10-08. **Don't put an OCR engine back
   beside the model.** Until 2026-10-26 Windows OCR read every photo too, and only numbers
   both readers reported were sent. Telegram shrinks a photo to ~1280 px on its long side,
   so a tall list photo arrives ~230 px wide. OCR then dropped or mangled the leading 9
