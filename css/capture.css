@@ -186,7 +186,14 @@
 .wl-addr-nav{display:flex;gap:10px;margin-top:16px}
 .wl-addr-nav button{flex:1;height:48px}
 .wl-addr-nav button:disabled{opacity:.45}
-#wlAddrSave{height:56px;font-size:16px}
+/* Save sits in the sticky header, top right, so the keyboard never covers it.
+   The title gives way (wraps to two lines) rather than pushing it off-screen. */
+#wlAddrScreen .wl-head h2{flex:1;min-width:0;font-size:17px;line-height:1.15;overflow-wrap:anywhere}
+#wlAddrSave{flex:none;width:auto;height:44px;margin:0;padding:0 14px;border-radius:12px;font-size:16px}
+@media (max-width:374px){
+  #wlAddrScreen .wl-head h2{font-size:15px}
+  #wlAddrSave{padding:0 12px;font-size:15px}
+}
 
 /* Set-aside orders: out of the route, still on the list. Muted like done cards
    (same "not part of today's work" reading) but kept legible — the crew has to

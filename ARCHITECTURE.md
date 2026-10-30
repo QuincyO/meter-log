@@ -668,8 +668,12 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   built from numbers first and the addresses looked up after; doing that through
   the list meant scrolling to an order, opening Edit (which paints at the *top*
   of the screen), saving, and scrolling back. The screen shows the WO# big enough
-  to read and tap-to-copy, the address fields, the same one-tap town chips an
-  ambiguous card offers, and ‹ Back / Skip › / Save & next. The queue is
+  to read and tap-to-copy, the recent-street chips and the same one-tap town chips
+  an ambiguous card offers, the address fields, and ‹ Back / Skip ›, with
+  **Save & next in the sticky header** opposite ‹ Worklist. That order is
+  deliberate: the No. box takes focus on every order, so the keyboard covers the
+  bottom of the screen, and anything tapped while typing has to sit above the
+  fields (pinned by `tests/worklist-address-fill.test.mjs`). The queue is
   **snapshotted on open**, so saving advances but Back still steps into orders
   already filled. Leaving it — by the button, by Finish, or by hardware Back —
   runs the sink once: orders **still without any address** are renumbered to the

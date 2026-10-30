@@ -197,6 +197,18 @@ test('the walkthrough has a screen, an entry button, and its own history entry',
   assert.match(js, /location\.hash === '#worklist-address'/);
 });
 
+// The No. box is focused on every order, so the phone keyboard covers the bottom
+// of the screen. Everything tapped while typing has to sit above the fields.
+test('the walkthrough keeps Save and the chips above the keyboard', () => {
+  const screen = html.slice(html.indexOf('id="wlAddrScreen"'));
+  const head = screen.slice(screen.indexOf('class="wl-head"'), screen.indexOf('</div>'));
+  assert.match(head, /id="wlAddrSave"/, 'Save & next must live in the sticky header');
+  const at = id => screen.indexOf(`id="${id}"`);
+  for(const id of ['wlAddrChips', 'wlAddrTowns'])
+    assert.ok(at(id) < at('wlAddrNum'), `#${id} must come before the address fields`);
+  assert.match(css, /#wlAddrSave\{[^}]*width:auto/, 'the header Save must not stretch full width');
+});
+
 test('leaving the walkthrough sinks the still-blank orders through the shared order writer', () => {
   assert.match(js, /persistOrderIds\(sinkAddressless\(before\)\)/);
   assert.match(js, /onDone: afterAddressFill/);
