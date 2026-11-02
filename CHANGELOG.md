@@ -28,7 +28,7 @@ the repo, and are not listed.
 
 | Day                                   | What shipped                                                       |
 | ------------------------------------- | ------------------------------------------------------------------ |
-| [2026-11-02](changelog/2026-11-02.md) | **Fill in addresses gets a second Save.** Save & next stays top right, and a second one is back under Back / Skip for when the keyboard is down. |
+| [2026-11-02](changelog/2026-11-02.md) | **Fill in addresses: a second Save, a chip for every street.** Save & next stays top right, and a second one is back under Back / Skip for when the keyboard is down. Its street chips now include every street on the list, not just 6, in a box that scrolls. |
 
 ## 2026-10
 

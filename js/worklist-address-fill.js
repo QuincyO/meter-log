@@ -191,10 +191,14 @@ export function initWorklistAddressFill(opts){
 
   function paintChips(items){
     const box = $('wlAddrChips');
-    const streets = recentStreets(items);
+    // Every distinct street, not the Edit form's 6: a list built from WO#s alone is
+    // filled in street by street, and a 7th street would otherwise be retyped every
+    // order. The box scrolls past ~3 rows (css) so the fields stay above the keyboard.
+    const streets = recentStreets(items, Infinity);
     if(!streets.length){ box.classList.add('hide'); box.innerHTML = ''; return; }
     box.classList.remove('hide');
     box.innerHTML = streets.map(st => `<button class="chip" type="button">${esc(st)}</button>`).join('');
+    box.scrollTop = 0;  // most recent first, so a new order starts at the top
     [...box.children].forEach((b, i) => b.onclick = () => {
       $('wlAddrStreet').value = streets[i];
       $('wlAddrNum').focus();

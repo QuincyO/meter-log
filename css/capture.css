@@ -191,6 +191,9 @@
 #wlAddrScreen .wl-head h2{flex:1;min-width:0;font-size:17px;line-height:1.15;overflow-wrap:anywhere}
 #wlAddrSave{flex:none;width:auto;height:44px;margin:0;padding:0 14px;border-radius:12px;font-size:16px}
 #wlAddrSaveBottom{height:56px;font-size:16px}
+/* Every street gets a chip here, so cap the box at 3 rows of 36px chips plus a
+   sliver of a 4th (the cue that it scrolls), to keep the fields above the keyboard. */
+#wlAddrChips{max-height:140px;overflow-y:auto;overscroll-behavior:contain}
 @media (max-width:374px){
   #wlAddrScreen .wl-head h2{font-size:15px}
   #wlAddrSave{padding:0 12px;font-size:15px}

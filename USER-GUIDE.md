@@ -172,8 +172,9 @@ and go through them one at a time instead of scrolling up and down:
 
 - The **work order # is shown big at the top; tap it to copy**, so you can paste
   it straight into the work app's search to look the address up.
-- Type the address (**No.** + **Street** — the recent-street chips sit just above
-  the boxes; pasting a whole address into the Street box works fine) and tap
+- Type the address (**No.** + **Street** — there's a chip for every street already
+  on your list, newest first, just above the boxes; swipe inside the chips to see
+  more. Pasting a whole address into the Street box works fine) and tap
   **Save & next** at the **top right**. Both stay in view with the keyboard up.
   With the keyboard down, the same **Save & next** is also under Back / Skip.
 - **Units or meter details:** in the **No. / unit** box, type `14-a` for house 14,

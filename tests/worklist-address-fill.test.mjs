@@ -70,6 +70,17 @@ test('recentStreets lists distinct streets, most recently added first', () => {
   assert.deepEqual(streets, ['Lake Rd', 'Bay St']);
 });
 
+test('the walkthrough chips list every street; the Edit form keeps its 6', () => {
+  const many = Array.from({ length: 9 }, (_, i) => order('s' + i, { address: `${i + 1} Street${i} Rd` }));
+  assert.equal(recentStreets(many).length, 6, 'the default stays 6 for the Edit form');
+  assert.equal(recentStreets(many, Infinity).length, 9);
+  const fill = readFileSync(new URL('../js/worklist-address-fill.js', import.meta.url), 'utf8');
+  assert.match(fill, /recentStreets\(items, Infinity\)/, 'the walkthrough must ask for every street');
+  const css = readFileSync(new URL('../css/capture.css', import.meta.url), 'utf8');
+  assert.match(css, /#wlAddrChips\{[^}]*max-height:[^}]*overflow-y:auto/,
+    'unbounded chips must scroll in their own box, or they push the fields under the keyboard');
+});
+
 test('the queue holds blank, unmapped and ambiguous orders — never a done one', () => {
   assert.equal(needsAddressFix(order('a', { address: '' })), true);
   assert.equal(needsAddressFix(order('b', { address: '   ' })), true);
