@@ -22,6 +22,9 @@ import { stamp, localDate, hhmmMin } from '../time.js';
 import { optimizeRoute, unroutableReason, geocodeOne, coordsOf, isParked, legMetersFor, homeLegMetersFor, travelLookup, osrmLegGeometry, encodePolyline, decodePolyline } from '../route.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints } from '../route-constraints.js';
 import { dwellLookup } from '../route-dwell.js';
+// Namespace import: routeLeadId is newer than the named imports above, and a stale
+// cached route-constraints.js must cost the lead, not the page.
+import * as routeConstraints from '../route-constraints.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
 import { orderAnchorFirst, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
@@ -964,6 +967,9 @@ async function optimize(pending, health){
     const base = await optimizeRoute(pending, progress, home,
       { osrmUrl, geocodeUrl, osrmReady:health.osrm.online, compareVariants:true,
         start, target,
+        // A stop locked to Day 1 slot 1 is where the route starts: Day 1 grows from it.
+        leadId: typeof routeConstraints.routeLeadId === 'function'
+          ? routeConstraints.routeLeadId(pending, planShape().routeStartDate) : null,
         departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
         commutePull:planShape().commutePull });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;

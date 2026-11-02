@@ -41,6 +41,10 @@ import { bulkAddPlan, dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
+// Namespace import on purpose: routeLeadId is newer than this file's other
+// route-constraints imports, and a phone can run this file against an older cached
+// copy of that module — a missing NAMED export is a link error that kills the page.
+import * as routeConstraints from './route-constraints.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeScopeText, routeTotalSummary, variantMatchesLive,
@@ -874,6 +878,9 @@ async function optimizeRouteHandler(useNetwork){
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
       straightLine: !useNetwork, noLocalGraph: useNetwork,
       startFromCurrent, start: crewStart, compareVariants: true,
+      // A stop locked to Day 1 slot 1 is where the route starts: Day 1 grows from it.
+      leadId: typeof routeConstraints.routeLeadId === 'function'
+        ? routeConstraints.routeLeadId(pending, planShape().routeStartDate) : null,
       target, departMin: hhmmMin(ROUTE_DEPART_TIME),
       paceMin: planShape().paceMin, commutePull: planShape().commutePull
     });

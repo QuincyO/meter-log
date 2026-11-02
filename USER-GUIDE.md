@@ -272,6 +272,11 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   possible and marked **⚠ 39m late** (or whatever the shortfall is) on its card and on
   the route view. The rest of the route still plans normally. That badge is your cue
   to call the customer or move the appointment; the app won't quietly plan you late.
+- **Lock a stop to slot 1 of Day 1 to start the route there.** Optimize then builds
+  Day 1 outward from it — the next stop is the one nearest to it, then the one nearest
+  to that, and so on — on both the road and straight-line routes. Later days are
+  planned as usual. This works even if you picked "start from where I am": the route
+  still begins at the locked stop.
 - Locked stops keep their exact date and slot while the remaining stops optimize
   around them. If two constraints conflict, the route is left unchanged and the
   message names the affected work order.

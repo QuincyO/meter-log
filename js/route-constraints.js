@@ -94,6 +94,17 @@ export function workdayOffset(start, target){
   return n;
 }
 
+// The order the installer locked to the route's FIRST slot (Day 1, slot 1), or
+// null. Optimize hands it to the solver as `leadId` so Day 1 is built outward from
+// it (js/route.js solveWithLead). A lock anywhere else is still only a scheduling
+// pin, placed by scheduleRouteConstraints below. Callers pass their pending list.
+export function routeLeadId(items, routeStartDate){
+  if(!dateAtUtc(routeStartDate)) return null;
+  const hit = (items || []).find(x => x && x.id && x.lockedDate && Number(x.lockedSlot) === 1
+    && workdayOffset(routeStartDate, x.lockedDate) === 0);
+  return hit ? hit.id : null;
+}
+
 export function currentRoutePlacement(items, itemId, target){
   const route = (items || []).filter(Boolean);
   const index = route.findIndex(x => x.id === itemId);

@@ -708,6 +708,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   Orders can carry a Toronto-local timed appointment and a fixed calendar-date /
   within-day slot. Appointment cards use a bell badge; locking snapshots the
   current date+slot, removes that card's drag handle, and survives Upload/Download.
+  **A lock on the route's first slot (Day 1, slot 1) is a solver input, not just a
+  pin** — it is the *lead*, "start the route here". `route-constraints.js routeLeadId`
+  finds it and both Optimize handlers pass it to `optimizeRoute` as `opts.leadId`;
+  `route.js solveVariant` then grows Day 1 from it (nearest-neighbour from the lead
+  picks the day's `target` members, anchored 2-opt/Or-opt orders them with the lead
+  first and the end bent home by `commutePull`), and solves the remaining stops for
+  days 2+ by the unchanged rules. The lead also outranks a GPS "start from here" fix
+  as the first stop; the fix stays in the measure matrix, so the drive to the lead is
+  still timed and priced. Every other lock is still placed by the scheduler only.
+  Why: applied after the solve, the scheduler filled slots 2..N from the home-ward
+  (furthest-first) sequence, so a street of houses beside the lock could land days
+  later — and differently on the road and straight-line variants (2026-11-02).
   This per-order lock is **not** the work-list lock below — that one freezes the whole
   of day 1 and lives on the `WorklistPlans` row, not on an order.
   `WorklistPlans` stores route start date, first-stop time, editable pace, the

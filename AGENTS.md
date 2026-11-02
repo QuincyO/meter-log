@@ -437,6 +437,17 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   before an `applyTodayAnchor` that immediately re-derived it. Derive the marker from
   the lookup that produced the numbers (`travel.measured`), never from the call site,
   and keep the writers down to the two that own a model: Optimize, and the re-anchor.
+- **A slot-1 lock has to reach the SOLVER, not just the scheduler.** A stop locked to
+  Day 1 slot 1 means "start the route here", and it only works because Optimize hands
+  it to `optimizeRoute` as `opts.leadId` (`route-constraints.js routeLeadId`), so
+  `route.js solveWithLead` grows Day 1 outward from it. `scheduleRouteConstraints`
+  alone cannot do this: it only drops the lock into slot 1 and fills slots 2..N from
+  the geographic sequence it was handed, and the normal solve runs furthest-from-home
+  first — so Day 1 becomes the lock plus stops from across town (field report
+  2026-11-02, 114 Brook St). A new Optimize caller that forgets `leadId` brings that
+  back silently. Both pages reach `routeLeadId` through `import * as
+  routeConstraints` with a `typeof` check, because a stale cached module must cost the
+  lead, not the page. Pinned by `tests/route-lead.test.mjs`.
 - **The day-1 clock is an ETA input and must never become a sizing input.**
   `ROUTE_DEPART_TIME` is where the day *starts*, not where every re-solve of it
   starts — `scheduleRouteConstraints` read `opts.firstStopTime` once and applied
