@@ -209,6 +209,19 @@ test('the walkthrough keeps Save and the chips above the keyboard', () => {
   assert.match(css, /#wlAddrSave\{[^}]*width:auto/, 'the header Save must not stretch full width');
 });
 
+// A second Save stays in the original spot under Back/Skip, for when the keyboard
+// is down. It is a new id, so it is bound defensively and ships hidden: older JS
+// against this markup must not show a button that does nothing.
+test('the walkthrough also has a bottom Save, hidden until the module binds it', () => {
+  const screen = html.slice(html.indexOf('id="wlAddrScreen"'), html.indexOf('</section>', html.indexOf('id="wlAddrScreen"')));
+  assert.match(screen, /class="primary hide" id="wlAddrSaveBottom"/);
+  assert.ok(screen.indexOf('id="wlAddrSaveBottom"') > screen.indexOf('id="wlAddrSkip"'),
+    'the bottom Save belongs under Back / Skip');
+  const fill = readFileSync(new URL('../js/worklist-address-fill.js', import.meta.url), 'utf8');
+  assert.match(fill, /const saveBottom = \$\('wlAddrSaveBottom'\);\s*if\(saveBottom\)\{ saveBottom\.classList\.remove\('hide'\); saveBottom\.onclick = save; \}/);
+  assert.match(fill, /if\(saveBottom\) saveBottom\.textContent = /, 'both Saves must carry the same label');
+});
+
 test('leaving the walkthrough sinks the still-blank orders through the shared order writer', () => {
   assert.match(js, /persistOrderIds\(sinkAddressless\(before\)\)/);
   assert.match(js, /onDone: afterAddressFill/);

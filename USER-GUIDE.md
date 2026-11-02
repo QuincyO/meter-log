@@ -175,6 +175,7 @@ and go through them one at a time instead of scrolling up and down:
 - Type the address (**No.** + **Street** — the recent-street chips sit just above
   the boxes; pasting a whole address into the Street box works fine) and tap
   **Save & next** at the **top right**. Both stay in view with the keyboard up.
+  With the keyboard down, the same **Save & next** is also under Back / Skip.
 - **Units or meter details:** in the **No. / unit** box, type `14-a` for house 14,
   unit a, or `13-2` for house 13, unit 2. With `Whatever Lane` in Street, the card
   shows **14 Whatever Lane · Unit a**. Text such as `14-rear door` works too.

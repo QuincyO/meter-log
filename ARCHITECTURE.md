@@ -673,7 +673,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   **Save & next in the sticky header** opposite ‹ Worklist. That order is
   deliberate: the No. box takes focus on every order, so the keyboard covers the
   bottom of the screen, and anything tapped while typing has to sit above the
-  fields (pinned by `tests/worklist-address-fill.test.mjs`). The queue is
+  fields (pinned by `tests/worklist-address-fill.test.mjs`). A second Save
+  (`#wlAddrSaveBottom`) stays in the old spot under Back / Skip for when the
+  keyboard is down. It ships `hide` and the module unhides it when it binds it,
+  so older JS against newer markup never shows a dead button. The queue is
   **snapshotted on open**, so saving advances but Back still steps into orders
   already filled. Leaving it — by the button, by Finish, or by hardware Back —
   runs the sink once: orders **still without any address** are renumbered to the

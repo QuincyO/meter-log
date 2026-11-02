@@ -125,6 +125,10 @@ export function initWorklistAddressFill(opts){
   let open_ = false;
   const numInput = $('wlAddrNum');
   if(numInput) numInput.inputMode = 'text';  // also works against older HTML
+  // A second Save under Back/Skip, beside the header one. Older HTML lacks it,
+  // and it ships hidden so older JS never shows a button nothing is bound to.
+  const saveBottom = $('wlAddrSaveBottom');
+  if(saveBottom){ saveBottom.classList.remove('hide'); saveBottom.onclick = save; }
 
   function isOpen(){ return open_; }
 
@@ -179,6 +183,7 @@ export function initWorklistAddressFill(opts){
     $('wlAddrPrev').disabled = idx === 0;
     $('wlAddrSkip').textContent = last ? 'Finish ✓' : 'Skip ›';
     $('wlAddrSave').textContent = last ? 'Save & finish' : 'Save & next';
+    if(saveBottom) saveBottom.textContent = $('wlAddrSave').textContent;
     paintChips(await opts.getItems());
     paintTowns(item);
     $('wlAddrNum').focus();
