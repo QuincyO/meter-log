@@ -45,6 +45,7 @@ import { dwellLookup } from './route-dwell.js';
 // route-constraints imports, and a phone can run this file against an older cached
 // copy of that module — a missing NAMED export is a link error that kills the page.
 import * as routeConstraints from './route-constraints.js';
+import * as routeMod from './route.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeScopeText, routeTotalSummary, variantMatchesLive,
@@ -901,8 +902,19 @@ async function optimizeRouteHandler(useNetwork){
     // it has to move the route's CLOCK too, or a run pressed at 11:40 arrives
     // everywhere at breakfast. Starting from the muster point deliberately keeps
     // 08:15 — that press means "show me the day as planned from the depot".
+    // After a timed appointment or a locked stop the route carries on FROM it
+    // (route-constraints.js reflow). Reached through the namespace import: a phone
+    // can hold an older cached route.js, and that must cost the reflow, not the page.
+    const reflow = typeof routeMod.anchorFiller === 'function'
+      ? routeMod.anchorFiller(base.measure, { commutePull: planShape().commutePull }) : null;
+    // 🔒 Locked: today's frozen set leads and Day 1 is sized to it, so the reflow can
+    // reorder today's orders but never trade one for a later day's. (applyTodayAnchor
+    // below re-imposes the same set; doing it here first is what keeps the reflowed
+    // order intact through that call instead of being re-shuffled by it.)
+    const lockedDay1 = dayLocked() ? anchorDay1Ids(loadAnchor(), pending) : [];
     const planOpts = { ...planShape(), target: base.dayTarget || target, travel, dwell,
-      day1FirstStopTime: day1DepartTime(startFromCurrent) };
+      day1FirstStopTime: day1DepartTime(startFromCurrent), reflow,
+      ...(lockedDay1.length ? { day1Count: lockedDay1.length } : {}) };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals
@@ -912,8 +924,9 @@ async function optimizeRouteHandler(useNetwork){
       for(const v of VARIANTS){
         const variant = base.variants[v];
         if(!variant) continue;
-        const routedItems = variant.orderedIds.map(id => refreshedById[id]).filter(Boolean);
-        const s = scheduleRouteConstraints(routedItems, variant.orderedIds, planOpts);
+        const seq = lockedDay1.length ? orderAnchorFirst(variant.orderedIds, lockedDay1) : variant.orderedIds;
+        const routedItems = seq.map(id => refreshedById[id]).filter(Boolean);
+        const s = scheduleRouteConstraints(routedItems, seq, planOpts);
         computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
           homeLegMeters: homeLegMetersFor(base.measure, s.orderedIds, s.dayOf) };
       }

@@ -448,6 +448,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   back silently. Both pages reach `routeLeadId` through `import * as
   routeConstraints` with a `typeof` check, because a stale cached module must cost the
   lead, not the page. Pinned by `tests/route-lead.test.mjs`.
+  **The same holds after a timed appointment or any other lock**: the route carries on
+  from it only because Optimize passes `opts.reflow` (`route.js anchorFiller`) into
+  `scheduleRouteConstraints` (field report 2026-11-03). Two rules: (1) **reflow is
+  Optimize-only** — a drag (`persistOrderIds`) or the per-log `applyTodayAnchor` must
+  never pass it, or the installer's hand order is re-shuffled under them; (2)
+  **`placeAppointments` must search with the same `fillDay`** (its `fillSlots`
+  argument) — that is the "never model the day twice" rule again, and filling the
+  search one way and the final day another is how an on-time slot arrives late.
+  Pinned by `tests/route-reflow.test.mjs`.
 - **The day-1 clock is an ETA input and must never become a sizing input.**
   `ROUTE_DEPART_TIME` is where the day *starts*, not where every re-solve of it
   starts — `scheduleRouteConstraints` read `opts.firstStopTime` once and applied

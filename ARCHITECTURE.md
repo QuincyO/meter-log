@@ -716,7 +716,22 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   first and the end bent home by `commutePull`), and solves the remaining stops for
   days 2+ by the unchanged rules. The lead also outranks a GPS "start from here" fix
   as the first stop; the fix stays in the measure matrix, so the drive to the lead is
-  still timed and priced. Every other lock is still placed by the scheduler only.
+  still timed and priced.
+  **After any other anchor — a timed appointment or a lock in a later slot — the route
+  carries on FROM it** (Optimize only). Both Optimize handlers pass
+  `scheduleRouteConstraints` an `opts.reflow` built by `route.js anchorFiller` over the
+  run's distance matrix; its `fillDay` then fills each run of free slots that follows
+  an anchor nearest-first from that anchor (cheapest insertion when another anchor
+  closes the run; the day's end bent home by `commutePull` after the last one), drawing
+  on **every order still unplaced, whatever day it was tagged for** — the owner
+  re-plans today every morning and doesn't use the later days, so a stop a block from
+  the appointment belongs today. Days keep their target size. Three limits: the
+  stretch before a day's first anchor, and the one after the lead, keep the solver's
+  order; a 🔒 work-list lock (`day1Count`) restricts Day 1 to its frozen members, so
+  reflow only reorders them; and `placeAppointments` searches slots with the same
+  `fillDay`, so the slot it picks is priced on the day that will really be driven.
+  Every other caller (drag, the per-log re-anchor) passes no reflow and keeps the
+  order it hands in.
   Why: applied after the solve, the scheduler filled slots 2..N from the home-ward
   (furthest-first) sequence, so a street of houses beside the lock could land days
   later — and differently on the road and straight-line variants (2026-11-02).

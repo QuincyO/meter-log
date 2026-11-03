@@ -277,6 +277,11 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   to that, and so on — on both the road and straight-line routes. Later days are
   planned as usual. This works even if you picked "start from where I am": the route
   still begins at the locked stop.
+- **After a timed appointment or a locked stop, the route carries on from there.**
+  The stops right after it are the ones nearest to it, even if they were planned for a
+  later day, instead of driving you back to where you were before. The day still holds
+  your Meters/day number. If **🔒 Work list locked** is on, only today's own orders are
+  used.
 - Locked stops keep their exact date and slot while the remaining stops optimize
   around them. If two constraints conflict, the route is left unchanged and the
   message names the affected work order.

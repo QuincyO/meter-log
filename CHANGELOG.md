@@ -28,6 +28,7 @@ the repo, and are not listed.
 
 | Day                                   | What shipped                                                       |
 | ------------------------------------- | ------------------------------------------------------------------ |
+| [2026-11-03](changelog/2026-11-03.md) | **After an appointment, the route carries on from it.** The stops right after a timed appointment or a locked stop are now the ones nearest to it, even if they were planned for a later day, instead of driving back to where you were. |
 | [2026-11-02](changelog/2026-11-02.md) | **Fill in addresses: a second Save, a chip for every street.** Save & next stays top right, and a second one is back under Back / Skip for when the keyboard is down. Its street chips now include every street on the list, not just 6, in a box that scrolls. **A stop locked to Day 1 slot 1 now starts the route:** Optimize builds Day 1 outward from it, nearest stop next, on both the road and straight-line routes. |
 
 ## 2026-10

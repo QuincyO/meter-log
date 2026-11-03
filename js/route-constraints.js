@@ -203,7 +203,10 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
 // still wins (the latest non-late slot, so the day stays productive). Only when NO
 // arrangement is on time does the least-late one carry the day, and then it is
 // reported through `lateMin` rather than thrown.
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds){
+// `fillSlots` (optional) replaces the free-list padding below with the caller's own
+// day assembly — the reflow path's fillDay — so the search prices exactly the day the
+// final simulation will walk once the route carries on from each anchor.
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds, fillSlots){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
@@ -213,14 +216,18 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
 
   function visit(i, lastSlot){
     if(i === ordered.length){
-      const slots = Array(count).fill(null);
-      Object.keys(chosen).forEach(k => { slots[Number(k) - 1] = chosen[k]; });
-      // Empty slots take the real orders that will occupy them. The `__free_k`
-      // placeholder survives only as a backstop for a caller that supplied no free
-      // list (or too short a one); simulateDay still prices it at the dwell base.
-      let f = 0;
-      for(let k = 0; k < count; k++)
-        if(!slots[k]) slots[k] = (freeIds && freeIds[f] != null) ? freeIds[f++] : `__free_${k}`;
+      let slots;
+      if(fillSlots) slots = fillSlots(chosen);
+      else {
+        slots = Array(count).fill(null);
+        Object.keys(chosen).forEach(k => { slots[Number(k) - 1] = chosen[k]; });
+        // Empty slots take the real orders that will occupy them. The `__free_k`
+        // placeholder survives only as a backstop for a caller that supplied no free
+        // list (or too short a one); simulateDay still prices it at the dwell base.
+        let f = 0;
+        for(let k = 0; k < count; k++)
+          if(!slots[k]) slots[k] = (freeIds && freeIds[f] != null) ? freeIds[f++] : `__free_${k}`;
+      }
       const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
@@ -255,6 +262,40 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
   // time on every candidate. That is still a hard error.
   if(!best && !late) throw new Error(`Timed appointments on ${date} cannot be placed in order: ${ordered.map(label).join(', ')}`);
   return best || late;
+}
+
+// One day's slots for the reflow path: anchors where they were placed, and each run
+// of free slots filled from `pool` (ordered ids, route order). A run that follows an
+// anchor asks `reflow(fromId, toId|null, k, availIds)` for its k stops — nearest-first
+// from the anchor, ending near `toId` when another anchor closes the run. A run at
+// the start of the day, or after `keepAfter`, takes the pool in route order, as the
+// non-reflow path always has. Anything reflow does not supply is topped up in route
+// order, so a short or odd answer can never drop or duplicate an order.
+function fillDay(count, anchors, pool, reflow, keepAfter){
+  const slots = Array(count).fill(null);
+  Object.keys(anchors).forEach(k => { slots[Number(k) - 1] = anchors[k]; });
+  const isAnchor = slots.map(Boolean);
+  let avail = pool.slice(), pad = 0;
+  for(let s = 0; s < count; ){
+    if(isAnchor[s]){ s++; continue; }
+    let e = s; while(e < count && !isAnchor[e]) e++;
+    const k = e - s;
+    const from = s > 0 ? slots[s - 1] : null;
+    const availSet = new Set(avail);
+    const got = [], seen = new Set();
+    if(from && from !== keepAfter){
+      for(const id of (reflow(from, e < count ? slots[e] : null, k, avail) || [])){
+        if(got.length >= k) break;
+        if(availSet.has(id) && !seen.has(id)){ got.push(id); seen.add(id); }
+      }
+    }
+    for(const id of avail){ if(got.length >= k) break; if(!seen.has(id)){ got.push(id); seen.add(id); } }
+    while(got.length < k) got.push(`__free_${pad++}`);
+    got.forEach((id, j) => { slots[s + j] = id; });
+    avail = avail.filter(id => !seen.has(id));
+    s = e;
+  }
+  return slots;
 }
 
 export function scheduleRouteConstraints(items, geographicIds, opts={}){
@@ -339,6 +380,60 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
     counts[i] += add; remaining -= add;
   }
   while(remaining){ const add = Math.min(remaining, target); counts.push(add); remaining -= add; }
+
+  // Each day's locks (slot → id) and timed appointments, validated.
+  function dayConstraints(day, date){
+    const fixed = {}, appts = [];
+    for(const item of (constrainedByDay[day] || [])){
+      if(item.lockedDate){
+        const slot = Number(item.lockedSlot);
+        if(slot < 1 || slot > counts[day]) throw new Error(`${label(item)} is locked beyond the available slots on ${date}`);
+        if(fixed[slot]) throw new Error(`${label(byId[fixed[slot]])} and ${label(item)} are both locked to ${date} slot ${slot}`);
+        fixed[slot] = item.id;
+      }
+      if(item.appointmentDate) appts.push(item);
+    }
+    return { fixed, appts };
+  }
+
+  // REFLOW — Optimize only (opts.reflow, built by js/route.js anchorFiller). After a
+  // timed appointment or a locked stop the route CARRIES ON FROM IT: the free slots
+  // that follow are re-chosen nearest-first from the anchor (ending near the next
+  // anchor when there is one), drawing on every order still unplaced, whatever day
+  // it was tagged for. Without it those slots took the next stops of a sequence
+  // solved with the anchor left out, so an appointment across town was followed by
+  // the drive straight back to the cluster it interrupted (field report 2026-11-03).
+  // Opt-in because every other caller (drag, the per-log re-anchor) must keep the
+  // order it is handed.
+  const reflow = typeof opts.reflow === 'function' ? opts.reflow : null;
+  if(reflow){
+    let pool = route.filter(id => !constrainedIds.has(id));
+    const finalIds = [], scheduleById = {}, dayOf = {};
+    for(let day = 0; day < counts.length; day++){
+      const date = addWorkdays(startDate, day);
+      const { fixed, appts } = dayConstraints(day, date);
+      const nFree = Math.max(0, counts[day] - (constrainedByDay[day] || []).length);
+      // A locked work list (day1Count) freezes Day 1's MEMBERS: reflow may reorder
+      // them, never swap one for a later day's order.
+      const dayPool = (day === 0 && day1Count != null) ? pool.slice(0, nFree) : pool;
+      // The lead (a LOCK in Day 1 slot 1) was already grown from by the solver
+      // (route.js solveWithLead), so the stretch after it keeps the solver's order.
+      const keepAfter = day === 0 ? (fixed[1] || null) : null;
+      const fill = anchors => fillDay(counts[day], anchors, dayPool, reflow, keepAfter);
+      const anchors = placeAppointments(date, counts[day], fixed, appts, byId,
+        firstMinFor(day), pace, travel, dwell, null, fill).anchors;
+      const ids = fill(anchors);
+      const used = new Set(ids);
+      pool = pool.filter(id => !used.has(id));
+      const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell);
+      if(sim.errors.length) throw new Error(sim.errors.join('; '));
+      ids.forEach(id => {
+        finalIds.push(id); dayOf[id] = day + 1;
+        scheduleById[id] = { date, ...sim.schedule[id] };
+      });
+    }
+    return { orderedIds:finalIds, dayOf, scheduleById };
+  }
 
   // Every anchor is a constrained item and every constrained item becomes an anchor
   // (placeAppointments only ever chooses from `fixed` + this day's appointments), so

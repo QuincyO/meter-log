@@ -1382,6 +1382,75 @@ function solveWithLead(M, located, leadK, { startC, homeC, target, commutePull }
     dayFallback: r.dayFallback || homeNode == null };
 }
 
+// The reflow filler for scheduleRouteConstraints (opts.reflow): "the route carries
+// on from this appointment/locked stop". Given the anchor `fromId`, the next anchor
+// `toId` (or null at the end of the day), a slot count `k` and the orders still
+// unplaced, it returns up to k of them:
+//   - between two anchors: cheapest insertion into the path from → to, so the stops
+//     chosen are the ones that cost least to fit on the way, then the anchored
+//     2-opt/Or-opt orders them with both ends pinned;
+//   - after the day's last anchor: nearest-neighbour from the anchor (each stop the
+//     nearest to the one before), then ordered with the anchor pinned first and the
+//     end bent toward home by commutePull, as every day's end already is.
+// Priced on the run's DISTANCE matrix — the same one the solve used — so both saved
+// variants carry on the same way. Pure over `measure`; null when there is none.
+export function anchorFiller(measure, { commutePull } = {}){
+  if(!measure || !measure.D) return null;
+  const { D, indexById, homeIndex } = measure;
+  const w = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
+  const cost = (i, j) => {
+    const v = (D[i][j] + D[j][i]) / 2;
+    return Number.isFinite(v) ? v : 1e12;
+  };
+  const memo = new Map();
+  return function fill(fromId, toId, k, availIds){
+    const a = indexById[fromId];
+    if(a == null || !(k > 0)) return [];
+    const b = toId != null ? indexById[toId] : null;
+    const key = `${fromId}|${toId}|${k}|${availIds.join(',')}`;
+    if(memo.has(key)) return memo.get(key);
+    const idAt = new Map();
+    for(const id of availIds){ const n = indexById[id]; if(n != null && n !== a && n !== b) idAt.set(n, id); }
+    const left = [...idAt.keys()];
+    let out = [];
+    if(left.length){
+      if(b != null){
+        const path = [a, b];
+        while(path.length - 2 < k && left.length){
+          let best = null;
+          for(let q = 0; q < left.length; q++)
+            for(let e = 0; e < path.length - 1; e++){
+              const c = cost(path[e], left[q]) + cost(left[q], path[e + 1]) - cost(path[e], path[e + 1]);
+              if(!best || c < best.c) best = { c, q, e };
+            }
+          path.splice(best.e + 1, 0, left[best.q]);
+          left.splice(best.q, 1);
+        }
+        const t = solveAnchoredPath(subMatrix(D, path), { pinEnd:true });
+        out = t.slice(1, -1).map(p => idAt.get(path[p]));
+      } else {
+        const members = [];
+        let cur = a;
+        while(members.length < k && left.length){
+          let bi = 0;
+          for(let q = 1; q < left.length; q++) if(cost(cur, left[q]) < cost(cur, left[bi])) bi = q;
+          cur = left[bi]; members.push(cur); left.splice(bi, 1);
+        }
+        const nodes = [a, ...members];
+        if(homeIndex != null && homeIndex !== a){
+          nodes.push(homeIndex);
+          const t = solveAnchoredPath(withHomeWeight(subMatrix(D, nodes), nodes.length - 1, w), { pinEnd:true });
+          out = t.slice(1, -1).map(p => idAt.get(nodes[p]));
+        } else {
+          out = solveAnchoredPath(subMatrix(D, nodes)).slice(1).map(p => idAt.get(nodes[p]));
+        }
+      }
+    }
+    memo.set(key, out);
+    return out;
+  };
+}
+
 // Price a finished sequence against the run's distance matrix: metres driven
 // ARRIVING at each stop from the previous point. Each day's FIRST stop is charged
 // 0 — the morning drive out is measured separately by homeLegMetersFor and kept

@@ -25,6 +25,7 @@ import { dwellLookup } from '../route-dwell.js';
 // Namespace import: routeLeadId is newer than the named imports above, and a stale
 // cached route-constraints.js must cost the lead, not the page.
 import * as routeConstraints from '../route-constraints.js';
+import * as routeMod from '../route.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
 import { orderAnchorFirst, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
@@ -984,8 +985,13 @@ async function optimize(pending, health){
     // straight variant stays flat-pace and its times are hidden in the UI. The
     // effective per-day count (dayTarget, time-shrunk) keeps day boundaries aligned.
     const roadTravel = travelLookup(base.measure);
+    // After a timed appointment or a locked stop the route carries on FROM it
+    // (route-constraints.js reflow) — namespace import, so a stale cached route.js
+    // costs the reflow and not the page.
+    const reflow = typeof routeMod.anchorFiller === 'function'
+      ? routeMod.anchorFiller(base.measure, { commutePull: planShape().commutePull }) : null;
     const planOpts = { ...planShape(), target: base.dayTarget || target,
-      day1Count: lockedDay1.length ? lockedDay1.length : null };
+      day1Count: lockedDay1.length ? lockedDay1.length : null, reflow };
     const computed = {};
     for(const v of VARIANTS){
       const variant = base.variants[v];
