@@ -1671,6 +1671,10 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const startC = (wantsCurrentStart ? gps : null) || teamStartC;
   const usingTeamStart = startC != null && startC === teamStartC && !(wantsCurrentStart && gps);
   const startFallback = wantsCurrentStart && !gps && !teamStartC;
+  // Handed back so the phone can show where this run really began. It is the one
+  // thing here that must stay off the sheet: see the wlRouteStartFix write in
+  // worklist.js, and never fold it into the synced homeLegGeometry* fields.
+  const startFix = (wantsCurrentStart && gps) ? { lat:gps.lat, lng:gps.lng } : null;
   const mode = startC
     ? (homeC ? (usingTeamStart ? 'start-home' : 'here-home') : (usingTeamStart ? 'start' : 'here'))
     : (homeC ? 'home' : 'first');
@@ -1680,7 +1684,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     const only = { orderedIds: located.map(x => x.id),
       dayOf: located.length ? { [located[0].id]: 1 } : {}, dayFallback:false };
     return { ...only, parkedIds, usedFallback:false,
-      fallbackReason:'', mode, startFallback, geoReason, note: combineNotes(orsNote(notes), geoNote),
+      fallbackReason:'', mode, startFallback, startFix, geoReason, note: combineNotes(orsNote(notes), geoNote),
       variants:{ road:null, straight:null }, measure:null, straightDistanceSource:'',
       roadGraph:null, usedLocalGraph:false,
       provenance:{ geocoding:geoProvenance, routing:routingProvenance } };
@@ -1846,7 +1850,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
     homeIndex: homeC ? (startC ? coords.length - 1 : 0) : null,
     startIsCommute: usingTeamStart };
 
-  return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason,
+  return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, startFix, geoReason,
     note: combineNotes(orsNote(notes), geoNote, localNote),
     variants, measure, straightDistanceSource: onRoad ? 'road' : 'straight-line',
     dayTarget: target, estimatedTimes,

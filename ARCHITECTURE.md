@@ -988,7 +988,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   opens on every run (see "the start-location question" below). When taken, Optimize
   asks for one fresh GPS fix and uses it as the fixed start while retaining Home as
   the fixed end; without Home, the end floats. The fix is reused as the geocode
-  gate and is never stored or synced. If it is denied or times out, the run
+  gate and is never synced. It is kept on the phone only, as
+  `localStorage['wlRouteStartFix']`, so the route map can draw it (see "The phone
+  draws that saved geometry too"). If it is denied or times out, the run
   visibly falls back to the normal Home/first-order behavior. `Route starts`,
   `First stop at`, and `Pace` remain scheduling inputs applied after this
   geographic solve; they do not choose the route's geographic origin.
@@ -2273,6 +2275,34 @@ geometry; the phone only *displays* it and stays fully offline. The phone also d
 the crew-start **drive-out** the same way — decoding the day-first-stop's
 `homeLegGeometry*` into a faint dashed line with a distinct start pin (road path when
 the office saved one, straight otherwise; nothing when the crew has no start).
+
+**A "start from here" run draws its real start, and only on the phone that ran it.**
+`homeLegGeometry*` is always built from the crew start, because it syncs, and the
+`worklist` read is not admin-gated. So the GPS point never goes in it. `optimizeRoute`
+returns it as `startFix`, the phone keeps it in `localStorage['wlRouteStartFix']` as
+`{lat, lng, date, left}`, and `liveStartFix` decides when it applies: the same plan day,
+and no stop logged since (`left` is the pending count at the run). `routeLegs` and
+`buildRouteMapModel` take it as `startOverride` for Day 1 only. Later days keep the
+morning meet, because that is where the crew starts them. A morning-meet run writes the
+key empty. Other devices and the planner keep showing the morning meet.
+
+**Stops at one location share a pin.** `groupRoutePins` merges routed stops on equal
+coordinates, or with the same `siteKey` that starts with a civic number and within
+`PIN_MERGE_METERS` (50 m). The limit is there because `siteKey` drops the town, and the
+civic-number rule because it falls back to the road alone. Grouping never depends on zoom.
+Parked stops never merge. It only changes the markers: the route line still runs through
+each stop's own coordinates. `pinFace` draws 2 to 4 sections, then a `×N` count.
+
+Tapping a pin opens its list in **one shared `L.popup`** that lives on the map. It is not
+bound to a marker, because markers are rebuilt on every redraw, and a bound popup closes
+and reopens with them (that left two lists on screen). A redraw just gives it new content.
+▲▼ call `reorderWithinPin`, which swaps two of the pin's unlocked stops and leaves every
+other slot alone, then save through the same path as a dragged card.
+
+**The route map only fits when asked to.** `needsFit` is set by `open()` and the day
+tabs, and nothing else. It has to be opt-in: a reorder reaches `refresh()` twice, once
+directly and once through `persistOrder` → `planAdvance` → `renderWorklist`, so an
+opt-out on the reorder path would still zoom out.
 
 ### WorklistPlan row  (one per installer → tab "WorklistPlans")
 | field | type | notes |

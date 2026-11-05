@@ -828,6 +828,19 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   drop one as redundant; and `pathDetail` must not push the arrival segment
   twice when the target sits on the segment the route arrived along, which
   produced a phantom U-turn onto the road just joined.
+- **The route map's fit is opt-in, and its popup is not bound to a marker.** Two rules
+  from the same redraw path in `js/worklist-route-view.js`:
+  (1) only `open()` and the day tabs set `needsFit`. Don't turn this into a flag a reorder
+  passes to skip the fit: a reorder reaches `refresh()` a second time through
+  `persistOrder` → `planAdvance` → `renderWorklist`, and that render would zoom out;
+  (2) pin lists use one shared `L.popup`. Markers are rebuilt on every redraw, and
+  `bindPopup` on them put two lists on screen when a close and a reopen overlapped.
+  See ARCHITECTURE.md §"Route variants".
+- **A "start from here" GPS fix must never go in `homeLegGeometry*`.** That field syncs to
+  the `Worklist` tab, and the `worklist` read is deliberately not admin-gated, so drawing
+  the fix into it would publish where the installer stood. The map's start comes from the
+  phone-only `wlRouteStartFix` key instead (`liveStartFix`). Pinned by
+  `tests/worklist-start-location.test.mjs`.
 - **Road lines survive a reorder because the phone re-measures them, not
   because the saved ones are trusted.** Saved `legGeometry*` is keyed to the
   sequence it was fetched for, and both maps refuse to draw it once the live

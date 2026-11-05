@@ -1028,6 +1028,12 @@ async function optimizeRouteHandler(useNetwork){
       await idb.put('worklist', Object.assign({}, item, patch));
     }
     store.set('wlRouteVariant', primaryVariant);
+    // Where a "not at the meeting location" run really began, for the route map.
+    // Phone-only on purpose: homeLegGeometry* syncs to the sheet, and the worklist
+    // read is not admin-gated, so the fix can't ride there. A morning-meet run
+    // writes it empty, which puts the meet pin back.
+    store.set('wlRouteStartFix', base.startFix
+      ? JSON.stringify({ ...base.startFix, date:planDay(), left:pending.length }) : '');
     if(base.variants.straight) store.set('wlStraightDistanceSource', base.straightDistanceSource);
     // Display hint only: were these ETAs from real road durations or the distance
     // estimate? Drives the "(est.)" label on the route view. Local, never synced —
@@ -2993,6 +2999,11 @@ export function initWorklist(opts){
     // the map's ETA and the worklist's warnings used to.
     planStale,
     planIssue: () => store.get('wlPlanIssue') || '',
+    planDay,
+    savedStartFix: () => {
+      try { return JSON.parse(store.get('wlRouteStartFix') || 'null'); }
+      catch { return null; }
+    },
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

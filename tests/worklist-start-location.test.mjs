@@ -104,3 +104,20 @@ test('straightLineNode scales durations rather than writing metres into T', () =
   assert.match(route, /straightLineNode\(T, coords, 0, CROW_MIN_PER_METRE\)/);
   assert.match(route, /const CROW_MIN_PER_METRE =/);
 });
+
+test('a GPS start never reaches a field that syncs to the sheet', () => {
+  // homeLegGeometry* rides the Worklist upload and the worklist read is not
+  // admin-gated, so a fix drawn into it would publish where the installer stood.
+  assert.match(js, /pos\[id\]\.homeLegGeometry = localRoadGeometry\(graph, crewStart, fc\)/);
+  assert.match(js, /encodePolyline\(\[\[crewStart\.lat, crewStart\.lng\], \[fc\.lat, fc\.lng\]\]\)/);
+  assert.doesNotMatch(js, /homeLegGeometry[^\n]*startFix/);
+});
+
+test('the fix is kept on the phone, and a morning-meet run clears it', () => {
+  assert.match(js, /store\.set\('wlRouteStartFix', base\.startFix\s*\?\s*JSON\.stringify/);
+});
+
+test('optimizeRoute reports the GPS start only when it was asked for and found', () => {
+  assert.match(route, /const startFix = \(wantsCurrentStart && gps\) \? \{ lat:gps\.lat, lng:gps\.lng \} : null;/);
+  assert.equal((route.match(/\bstartFix,/g) || []).length, 2);
+});

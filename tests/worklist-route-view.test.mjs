@@ -11,6 +11,10 @@ import {
   routeLegs,
   legKey,
   START_ID,
+  groupRoutePins,
+  pinFace,
+  reorderWithinPin,
+  liveStartFix,
 } from '../js/worklist-route-view.js';
 import { decodePolyline, encodePolyline } from '../js/route.js';
 import { VARIANT_FIELDS } from '../js/route-variants.js';
@@ -243,4 +247,197 @@ test('a measured drive-out replaces the saved one; the start pin is unmoved', ()
     new Map([[legKey(START_ID, 'a'), road]]));
   assert.equal(model.driveOut.length, 3);
   assert.deepEqual(model.start.map(n => Math.round(n * 100) / 100), [45.42, -75.70]);
+});
+
+// ── pins that share a location ───────────────────────────────────────────────
+const stop = (id, lat, lng, address, extra = {}) => ({ id, lat, lng, address, wlStatus:'pending', ...extra });
+const pinsOf = items => groupRoutePins(buildRouteMapModel(items).markers);
+const pinIds = pins => pins.map(p => p.stops.map(s => s.item.id));
+
+test('stops on the exact same coordinates share one pin', () => {
+  const pins = pinsOf([
+    stop('a', 42.8370, -80.3040, '236 West St, Simcoe', { unit:'upr' }),
+    stop('b', 42.8370, -80.3040, '236 West St, Simcoe', { unit:'lwr' }),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a', 'b']]);
+  assert.deepEqual(pins[0].point, [42.8370, -80.3040]);
+});
+
+test('units of one street address merge even when their pins landed slightly apart', () => {
+  const pins = pinsOf([
+    stop('a', 42.83700, -80.30400, '272 West St, Simcoe'),
+    stop('b', 42.83704, -80.30404, '272 West St, Simcoe'),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a', 'b']]);
+});
+
+test('the same address more than 50 m apart stays two pins', () => {
+  // siteKey drops the town, so "12 Main St" in two towns has one key.
+  const pins = pinsOf([
+    stop('a', 42.8370, -80.3040, '12 Main St, Simcoe'),
+    stop('b', 42.9000, -80.4000, '12 Main St, Delhi'),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a'], ['b']]);
+});
+
+test('a street with no civic number never merges by address', () => {
+  // siteKey falls back to the road alone, which would join a whole street.
+  const pins = pinsOf([
+    stop('a', 42.83700, -80.30400, 'West St, Simcoe'),
+    stop('b', 42.83704, -80.30404, 'West St, Simcoe'),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a'], ['b']]);
+});
+
+test('next-door houses stay separate pins however close they are', () => {
+  const pins = pinsOf([
+    stop('a', 42.83700, -80.30400, '236 West St, Simcoe'),
+    stop('b', 42.83702, -80.30402, '238 West St, Simcoe'),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a'], ['b']]);
+});
+
+test('a parked stop keeps its own pin even on a shared spot', () => {
+  const pins = pinsOf([
+    stop('a', 42.8370, -80.3040, '236 West St, Simcoe'),
+    stop('b', 42.8370, -80.3040, '236 West St, Simcoe', { geoFail:true }),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a'], ['b']]);
+});
+
+test('a return visit shares a pin and keeps both route positions', () => {
+  const pins = pinsOf([
+    stop('a', 42.8370, -80.3040, '236 West St, Simcoe'),
+    stop('b', 42.8400, -80.3100, '9 Queen St, Simcoe'),
+    stop('c', 42.8370, -80.3040, '236 West St, Simcoe'),
+  ]);
+  assert.deepEqual(pinIds(pins), [['a', 'c'], ['b']]);
+  assert.deepEqual(pins[0].stops.map(s => s.position), [1, 3]);
+});
+
+test('merging pins leaves the route line running through every stop', () => {
+  const model = buildRouteMapModel([
+    stop('a', 42.83700, -80.30400, '272 West St, Simcoe'),
+    stop('b', 42.83704, -80.30404, '272 West St, Simcoe'),
+  ]);
+  groupRoutePins(model.markers);
+  assert.equal(model.markers.length, 2);
+  assert.deepEqual(model.line, [[42.83700, -80.30400], [42.83704, -80.30404]]);
+});
+
+const face = positions => pinFace(positions.map(position => ({ position, parked:false })));
+
+test('a single stop keeps the plain 30px pin', () => {
+  const f = face([7]);
+  assert.equal(f.size, 30);
+  assert.equal(f.className, 'wl-route-pin');
+  assert.equal(f.html, '<span>7</span>');
+});
+
+test('a parked pin still reads as a warning', () => {
+  const f = pinFace([{ position:4, parked:true }]);
+  assert.equal(f.className, 'wl-route-pin parked');
+  assert.equal(f.html, '<span>!</span>');
+});
+
+test('two to four stops split the pin, one section per route position', () => {
+  assert.equal(face([12, 13]).size, 38);
+  assert.equal(face([12, 13]).className, 'wl-route-pin split n2');
+  assert.equal(face([12, 13]).html, '<span>12</span><span>13</span>');
+  assert.equal(face([3, 4, 9]).className, 'wl-route-pin split n3');
+  assert.equal(face([3, 4, 8, 9]).className, 'wl-route-pin split n4');
+});
+
+test('three and four sections get a bigger pin, or two-digit numbers clip on the circle', () => {
+  assert.equal(face([9, 10, 11]).size, 44);
+  assert.equal(face([9, 10, 11, 12]).size, 44);
+});
+
+test('five or more stops show a count instead of sections', () => {
+  const f = face([1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(f.className, 'wl-route-pin split count');
+  assert.equal(f.html, '<span>×8</span>');
+});
+
+// ── reordering inside one pin ────────────────────────────────────────────────
+const dayOf = (...ids) => ids.map((id, i) => ({ id, wlStatus:'pending', day:1, order:i * 10 }));
+
+test('moving a stop swaps it with its neighbour at the pin', () => {
+  assert.deepEqual(reorderWithinPin(dayOf('a', 'b', 'c', 'd'), ['b', 'c'], 'c', -1), ['a', 'c', 'b', 'd']);
+});
+
+test('a pin with a gap swaps its two slots and leaves the stops between alone', () => {
+  assert.deepEqual(reorderWithinPin(dayOf('a', 'b', 'c', 'd'), ['a', 'd'], 'a', 1), ['d', 'b', 'c', 'a']);
+});
+
+test('there is nowhere to move past either end of the pin', () => {
+  assert.equal(reorderWithinPin(dayOf('a', 'b', 'c'), ['a', 'b'], 'a', -1), null);
+  assert.equal(reorderWithinPin(dayOf('a', 'b', 'c'), ['a', 'b'], 'b', 1), null);
+});
+
+test('a move skips over a locked stop at the pin', () => {
+  const items = dayOf('a', 'b', 'c');
+  Object.assign(items[1], { lockedDate:'2026-11-05', lockedSlot:2 });
+  assert.deepEqual(reorderWithinPin(items, ['a', 'b', 'c'], 'a', 1), ['c', 'b', 'a']);
+});
+
+test('a locked stop does not move', () => {
+  const items = dayOf('a', 'b');
+  Object.assign(items[0], { lockedDate:'2026-11-05', lockedSlot:1 });
+  assert.equal(reorderWithinPin(items, ['a', 'b'], 'a', 1), null);
+});
+
+test('a pin move goes through the normal reorder without disturbing a lock', () => {
+  const items = dayOf('a', 'b', 'c');
+  Object.assign(items[1], { lockedDate:'2026-11-05', lockedSlot:2 });
+  const ids = reorderWithinPin(items, ['a', 'b', 'c'], 'c', -1);
+  assert.deepEqual(reorderRouteGroup(items, 'day:1', ids).map(x => x.id), ['c', 'b', 'a']);
+});
+
+// ── the route's real start ───────────────────────────────────────────────────
+const meetField = VARIANT_FIELDS.road.homeLegGeometry;
+const firstWithMeet = () => ({ id:'a', lat:42.84, lng:-80.30,
+  [meetField]: encodePolyline([[43.50, -80.90], [42.84, -80.30]]) });
+
+test('a GPS start replaces the morning meet as the drive-out start', () => {
+  const model = buildRouteMapModel([firstWithMeet()], null, meetField, null, [42.80, -80.20]);
+  assert.deepEqual(model.start, [42.80, -80.20]);
+  assert.deepEqual(model.driveOut, [[42.80, -80.20], [42.84, -80.30]]);
+});
+
+test('a GPS start still takes the road path when one was measured', () => {
+  const measured = [[42.80, -80.20], [42.82, -80.25], [42.84, -80.30]];
+  const computed = new Map([[legKey(START_ID, 'a'), measured]]);
+  const model = buildRouteMapModel([firstWithMeet()], null, meetField, computed, [42.80, -80.20]);
+  assert.deepEqual(model.driveOut, measured);
+});
+
+test('routeLegs measures the drive-out from the GPS start, not the morning meet', () => {
+  const { legs, startPoint } = routeLegs([firstWithMeet()], meetField, [42.80, -80.20]);
+  assert.deepEqual(startPoint, [42.80, -80.20]);
+  assert.deepEqual(legs[0].from, { lat:42.80, lng:-80.20 });
+});
+
+test('with no GPS start the morning meet is still the start', () => {
+  const model = buildRouteMapModel([firstWithMeet()], null, meetField);
+  assert.deepEqual(model.start.map(n => Math.round(n * 100) / 100), [43.50, -80.90]);
+});
+
+const savedFix = { lat:42.80, lng:-80.20, date:'2026-11-05', left:13 };
+
+test('a saved start fix is live on its own plan day', () => {
+  assert.deepEqual(liveStartFix(savedFix, '2026-11-05', 13), [42.80, -80.20]);
+});
+
+test('a start fix from another day is ignored', () => {
+  assert.equal(liveStartFix(savedFix, '2026-11-06', 13), null);
+});
+
+test('logging a stop retires the start fix', () => {
+  assert.equal(liveStartFix(savedFix, '2026-11-05', 12), null);
+});
+
+test('no saved fix, or a malformed one, means no override', () => {
+  assert.equal(liveStartFix(null, '2026-11-05', 13), null);
+  assert.equal(liveStartFix({ date:'2026-11-05', left:13 }, '2026-11-05', 13), null);
 });

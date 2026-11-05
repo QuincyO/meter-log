@@ -256,9 +256,10 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   field (most often after you've hit your target and want to keep going): that run
   gets one fresh phone location and makes the **nearest** meter your next stop, still
   working toward your saved Home. With no Home saved it starts where you are and
-  leaves the last stop open. **Cancel** leaves the route alone. Your location is not
-  saved or uploaded, and if location is unavailable the message says so and normal
-  routing is used.
+  leaves the last stop open. **Cancel** leaves the route alone. The route map shows
+  that spot as your start on Day 1 until you log your next stop. Your location stays
+  on this phone and is never uploaded. If location is unavailable the message says so
+  and normal routing is used.
 - Appointment stops are placed no later than their entered time, allowing arrival
   up to 20 minutes early. Earlier arrival is shown as waiting time, and that wait
   shifts the ETAs after it. Weekends are not route days.
@@ -449,6 +450,9 @@ Tap **View route map** to check the selected day's route before or during the sh
 
 - Use the **Day** buttons above the map to inspect each remaining planned day. Orders without a day appear under **Other**; a one-day unassigned list is simply **Route**.
 - Numbered pins and the line match the compact order list below the map. Drag the **⠿** handle (or focus it and press the up/down arrow keys) to change the visiting order within that day. The change saves on this phone immediately — use **⇪ Upload list** later if another device needs the new order.
+- **Stops at the same address share one pin.** The circle splits into a section for each stop, and each section shows that stop's number in the route, like **1 | 2**. An address with 5 or more stops shows the count instead, like **×8**. Next-door houses keep their own pins.
+- **Tap any pin** for a list of its stops, with the work order, unit and arrival time. On a shared pin, use **▲ ▼** to change which unit comes first. This only swaps the stops at that pin, and every other stop stays where it is. A stop with a 🔒 stays in its slot.
+- The map zooms out to fit the whole day when you open it or switch days. After that it stays where you put it, so you can zoom in and reorder without losing your place.
 - **No pin** orders stay in the list but cannot appear on the map. A muted **!** pin is parked and deliberately left out of the route line. Tap **Fix pins or optimize** to return to the worklist, correct the address, or run Optimize.
 - The saved pins, line, and reordering work offline. Without signal the street-map background may be blank, but your route data is still available.
 

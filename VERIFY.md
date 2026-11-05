@@ -118,6 +118,16 @@ card action row is tight at 320 px.
 
 ## 5. Gotchas that cost real time
 
+- **`Page.captureScreenshot` can crash the tab in headless Edge, and it hides races.**
+  Listen for `Inspector.targetCrashed` (after `Inspector.enable`): a crashed tab looks
+  like a page hang, because `Runtime.evaluate` just never answers. Repeated captures at
+  `deviceScaleFactor:2` crashed it in most runs, with none in runs without captures. So
+  run the checks with no screenshots, and take each picture in its own fresh browser.
+  Screenshots also change the result: with no capture, headless paints no frames, so a
+  Leaflet pan finishes late, and the delay a capture adds can hide a timing bug. It hid a
+  two-lists bug on the route map on 2026-11-05. Stopping node leaves Edge running on the
+  debug port, and the next run then attaches to the old browser, so stop those processes
+  between runs (match `--user-data-dir` so a real Edge window is left alone).
 - **The service worker will serve you stale code.** Any profile that loaded a page
   earlier keeps returning the old module/CSS from the SW cache, so a fix you just made
   looks like it did nothing — and a bug you just fixed looks like it's still there. Clear

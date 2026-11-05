@@ -1,11 +1,12 @@
 // Mobile worklist route editor. The worklist module owns IndexedDB and hands
 // this view a sorted snapshot plus one persistence callback; this module owns
 // only the selected-day UI, Leaflet layers, and within-day drag interaction.
-import { $, esc } from './dom.js';
+import { $, esc, toast } from './dom.js';
 import * as addressText from './worklist-address-fill.js';
-import { coordsOf, decodePolyline, isParked, offlineRoutePaths } from './route.js';
+import { coordsOf, decodePolyline, haversine, isParked, offlineRoutePaths } from './route.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
+import { siteKey } from './route-dwell.js';
 
 const addressLabel = item => addressText.formatOrderAddress
   ? addressText.formatOrderAddress(item) : [item.unit, item.address].filter(Boolean).join(' ');
@@ -96,7 +97,12 @@ export const START_ID = 'start';
 // anchor, so there is no incoming between-stops leg to draw. `line` is the
 // straight pin-to-pin route kept as-is (used when neither geometry source is
 // passed).
-export function buildRouteMapModel(items, geomField, homeGeomField, computed){
+//
+// `startOverride` ([lat,lng]) is a one-run GPS start, kept on this phone. It replaces
+// the saved drive-out as the place the route starts, so the first stop's saved
+// polyline (always the morning meet, because it syncs) is not read at all. See
+// liveStartFix for when it applies.
+export function buildRouteMapModel(items, geomField, homeGeomField, computed, startOverride){
   const at = key => (computed && computed.get) ? (computed.get(key) || []) : [];
   const markers = [];
   const line = [];
@@ -118,7 +124,8 @@ export function buildRouteMapModel(items, geomField, homeGeomField, computed){
         // decode it as its own faint segment (its first point is the start pin).
         // A freshly measured one wins, but the saved polyline is still what says
         // WHERE the start is, so it is read either way.
-        const saved = homeGeomField ? decodePolyline(item[homeGeomField]) : [];
+        const saved = startOverride ? [startOverride, [c.lat, c.lng]]
+          : homeGeomField ? decodePolyline(item[homeGeomField]) : [];
         const fresh = at(legKey(START_ID, item.id));
         driveOut = fresh.length ? fresh : saved;
       } else {
@@ -139,9 +146,11 @@ export function buildRouteMapModel(items, geomField, homeGeomField, computed){
 /** The legs `renderMap` is about to draw, as offlineRoutePaths() wants them.
  *  `startPoint` is the crew start ([lat,lng]) when the group's first stop carries
  *  a saved drive-out — the only thing that says where the morning drive begins,
- *  since the crew start itself is not an order on the list. Pure, so the leg list
- *  the map draws is testable without a pack or a Leaflet canvas. */
-export function routeLegs(items, homeGeomField){
+ *  since the crew start itself is not an order on the list. A `startOverride`
+ *  ([lat,lng]) wins over it, so the pack measures the road from the GPS start.
+ *  Pure, so the leg list the map draws is testable without a pack or a Leaflet
+ *  canvas. */
+export function routeLegs(items, homeGeomField, startOverride){
   const legs = [];
   let prev = null;
   let first = null;
@@ -153,11 +162,81 @@ export function routeLegs(items, homeGeomField){
     prev = item;
   }
   const saved = (first && homeGeomField) ? decodePolyline(first[homeGeomField]) : [];
-  const startPoint = saved.length ? saved[0] : null;
+  const startPoint = (first && startOverride) || (saved.length ? saved[0] : null);
   if(startPoint && first)
     legs.push({ key:legKey(START_ID, first.id),
       from:{ lat:startPoint[0], lng:startPoint[1] }, to:first });
   return { legs, startPoint };
+}
+
+/** How far apart two units of one street address can be and still share a pin.
+ *  siteKey drops the town, so this is what keeps "12 Main St" in two towns apart. */
+export const PIN_MERGE_METERS = 50;
+/** A pin can carry this many numbered sections before it shows a count instead. */
+export const MAX_PIN_SECTIONS = 4;
+
+function sharesPin(a, b){
+  if(a.parked || b.parked) return false;     // out of the route: never a route section
+  if(a.point[0] === b.point[0] && a.point[1] === b.point[1]) return true;
+  // siteKey falls back to the road alone when there is no civic number, and a
+  // whole street is not one location.
+  const key = siteKey(a.item.address);
+  if(!/^\d/.test(key) || key !== siteKey(b.item.address)) return false;
+  const at = m => ({ lat:m.point[0], lng:m.point[1] });
+  return haversine(at(a), at(b)) <= PIN_MERGE_METERS;
+}
+
+/** One entry per place on the map: `{ point, stops }`, stops in route order, drawn
+ *  at the first stop's point. Grouping is by location only and never by zoom, so a
+ *  pin means the same thing at every scale. The route line ignores this entirely
+ *  and keeps running through each stop's own coordinates. */
+export function groupRoutePins(markers){
+  const pins = [];
+  for(const marker of markers || []){
+    const pin = pins.find(p => p.stops.some(s => sharesPin(s, marker)));
+    if(pin) pin.stops.push(marker);
+    else pins.push({ point:marker.point, stops:[marker] });
+  }
+  return pins;
+}
+
+/** What a pin looks like: its class, its inner HTML, and its size in pixels. */
+export function pinFace(stops){
+  if(stops.length === 1){
+    const { parked, position } = stops[0];
+    return { className:'wl-route-pin' + (parked ? ' parked' : ''),
+      html:`<span>${parked ? '!' : position}</span>`, size:30 };
+  }
+  if(stops.length > MAX_PIN_SECTIONS)
+    return { className:'wl-route-pin split count', html:`<span>×${stops.length}</span>`, size:38 };
+  return { className:`wl-route-pin split n${stops.length}`,
+    html:stops.map(s => `<span>${s.position}</span>`).join(''),
+    size:stops.length > 2 ? 44 : 38 };
+}
+
+/** The day's ids with `id` swapped into the next slot among the pin's unlocked
+ *  stops, or null when it has nowhere to go. Only those two slots change, so a pin
+ *  holding stops 3 and 9 trades them and leaves 4 to 8 where they are. */
+export function reorderWithinPin(items, pinIds, id, delta){
+  const list = items || [];
+  const ids = list.map(x => String(x.id));
+  const atPin = new Set((pinIds || []).map(String));
+  const movable = list.filter(x => atPin.has(String(x.id)) && !x.lockedDate).map(x => String(x.id));
+  const from = movable.indexOf(String(id));
+  const other = from < 0 ? undefined : movable[from + delta];
+  if(other === undefined) return null;
+  const a = ids.indexOf(String(id)), b = ids.indexOf(other);
+  [ids[a], ids[b]] = [ids[b], ids[a]];
+  return ids;
+}
+
+/** The phone-only "started from here" point as [lat,lng], or null. It is good for
+ *  the day it was planned for and only until a stop is logged: after that the crew
+ *  has moved on, the same way the saved drive-out goes with the first stop. */
+export function liveStartFix(saved, planDate, pendingCount){
+  const c = coordsOf(saved);
+  if(!c || saved.date !== planDate || Number(pendingCount) < Number(saved.left)) return null;
+  return [c.lat, c.lng];
 }
 
 export function routeCardState(item){
@@ -181,6 +260,17 @@ export function initWorklistRouteView(opts){
   let selected = null;
   let openState = false;
   let snapshot = [];
+  // The map fits only when something asks it to. Fitting is opt-in rather than
+  // something a reorder opts out of, because a reorder reaches refresh() twice: once
+  // here, and again through persistOrder → planAdvance → renderWorklist.
+  let needsFit = false;
+  let mapRun = 0;          // newest renderMap; an older one still awaiting paths stops
+  // One popup for every pin, living on the map rather than on a marker. Markers are
+  // rebuilt on each redraw, and a popup bound to one closes and reopens with it, which
+  // left two lists on screen when the timing overlapped. This one just gets new content.
+  let pinPopup = null;
+  let openPinId = null;    // a stop on the pin whose list is open, kept across redraws
+  let moving = false;      // one pin move at a time, so taps can't race the save
 
   const screen = $('worklistRouteScreen');
   const mapEl = $('wlRouteMap');
@@ -239,6 +329,8 @@ export function initWorklistRouteView(opts){
     tiles.on('tileload', () => { if(tileFailed){ tileFailed = false; updateOfflineNote(); } });
     tiles.addTo(map);
     layer = L.layerGroup().addTo(map);
+    pinPopup = L.popup({ minWidth:220, maxWidth:300 });
+    pinPopup.on('remove', () => { openPinId = null; });
     return true;
   }
 
@@ -262,7 +354,7 @@ export function initWorklistRouteView(opts){
         + (win ? ` · ${win}` : '')
         + (km == null ? '' : ` · ${fmtKm(km)}`)
         + (startKm == null ? '' : ` · start ${fmtKm(startKm)}`);
-      b.onclick = async () => { selected = group.key; await render(); };
+      b.onclick = async () => { selected = group.key; needsFit = true; await render(); };
       daysEl.appendChild(b);
     }
   }
@@ -304,13 +396,107 @@ export function initWorklistRouteView(opts){
     return (isFinite(n) && n > 0) ? `${Math.round(n)}m on site` : '';
   }
 
-  function markerTooltip(item, position, parked){
-    const prefix = parked ? '⚠ Parked — ' : `${position}. `;
-    const wo = item.workOrderId ? `WO ${esc(item.workOrderId)} — ` : '';
-    const eta = (showTimes() && item.scheduledEta) ? ` · ${etaText(item)}${planStale() ? ' (stale)' : ''}` : '';
-    const appt = item.appointmentTime ? ` · appointment ${esc(item.appointmentTime)}` : '';
-    const late = lateText(item) ? ` · ${lateText(item)}` : '';
-    return `${prefix}${wo}${esc(addressLabel(item) || 'No address')}${eta}${appt}${late}`;
+  // One stop's row in a pin's list. Every stop on a merged pin shares the street, so
+  // the row leads with what tells them apart: the unit.
+  function pinRowHtml({ item, position, parked }, merged){
+    const unit = String(item.unit || '').trim();
+    const where = merged && unit ? `Unit ${esc(unit)}` : esc(addressLabel(item) || 'No address');
+    const meta = [
+      (showTimes() && item.scheduledEta) ? `${etaText(item)}${planStale() ? ' (stale)' : ''}` : '',
+      item.appointmentTime ? `🔔 ${esc(item.appointmentTime)}` : '',
+      lateText(item) ? `<span class="wl-route-late">${lateText(item)}</span>` : '',
+    ].filter(Boolean).join(' · ');
+    return `<span class="wl-route-pos">${parked ? '!' : position}</span>
+      <div class="wl-route-pop-main">
+        <strong>${parked ? '⚠ Parked — ' : ''}${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>
+        <div>${where}</div>
+        ${meta ? `<div class="wl-route-meta${planStale() ? ' stale' : ''}">${meta}</div>` : ''}
+      </div>`;
+  }
+
+  function pinList(pin, group){
+    const merged = pin.stops.length > 1;
+    const pinIds = pin.stops.map(s => s.item.id);
+    const root = document.createElement('div');
+    root.className = 'wl-route-pop';
+    if(merged){
+      const head = document.createElement('div');
+      head.className = 'wl-route-pop-head';
+      head.innerHTML = `<strong>${pin.stops.length} stops here</strong>`
+        + `<div>${esc(pin.stops[0].item.address || 'No address')}</div>`;
+      root.appendChild(head);
+    }
+    const rows = document.createElement('div');
+    rows.className = 'wl-route-pop-rows';
+    for(const stop of pin.stops){
+      const row = document.createElement('div');
+      row.className = 'wl-route-pop-row';
+      row.innerHTML = pinRowHtml(stop, merged);
+      if(merged) row.appendChild(pinRowControls(stop, pinIds, group, root));
+      rows.appendChild(row);
+    }
+    root.appendChild(rows);
+    return root;
+  }
+
+  function pinRowControls({ item }, pinIds, group, root){
+    const box = document.createElement('div');
+    box.className = 'wl-route-pop-move';
+    if(item.lockedDate){
+      box.innerHTML = '<span aria-label="Locked position">🔒</span>';
+      return box;
+    }
+    const wo = item.workOrderId ? `WO ${item.workOrderId}` : 'this stop';
+    for(const [delta, glyph, word] of [[-1, '▲', 'earlier'], [1, '▼', 'later']]){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = glyph;
+      b.setAttribute('aria-label', `Move ${wo} ${word}`);
+      const ids = reorderWithinPin(group.items, pinIds, item.id, delta);
+      b.disabled = !ids;
+      b.onclick = () => movePinStop(ids, root);
+      box.appendChild(b);
+    }
+    return box;
+  }
+
+  const pinRows = () => {
+    const el = pinPopup.getElement();
+    return el ? el.querySelector('.wl-route-pop-rows') : null;
+  };
+
+  // Open a pin's list, or refresh the one already open. The offset lifts the popup's
+  // tip to the top of the pin (7 is Leaflet's default), so it doesn't cover the numbers.
+  function showPinList(pin, group, size, keepScroll){
+    const rows = keepScroll ? pinRows() : null;
+    const top = rows ? rows.scrollTop : 0;
+    pinPopup.options.offset = globalThis.L.point(0, 7 - size / 2);
+    pinPopup.setLatLng(pin.point).setContent(pinList(pin, group));
+    if(!map.hasLayer(pinPopup)) pinPopup.openOn(map);
+    const next = pinRows();
+    if(next) next.scrollTop = top;
+  }
+
+  // The same save as a dragged card, so the card list renumbers and locks and
+  // appointments behave as they do for a drag.
+  async function movePinStop(ids, root){
+    if(moving) return;
+    moving = true;
+    root.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+      await opts.persistOrder(reorderRouteGroup(snapshot, selected, ids));
+      await refresh();
+    } catch(e){
+      toast(e.message || 'Could not move that stop');
+      await refresh();
+    } finally { moving = false; }
+  }
+
+  // This phone's "started from here" point, for the group on screen. Day 1 only:
+  // the crew starts every later day from the morning meet again.
+  function routeStartFix(group){
+    if(!group || group.day > 1 || !opts.savedStartFix || !opts.planDay) return null;
+    return liveStartFix(opts.savedStartFix(), opts.planDay(), snapshot.filter(isPending).length);
   }
 
   async function renderMap(group){
@@ -319,7 +505,7 @@ export function initWorklistRouteView(opts){
       mapEl.innerHTML = '<div class="wl-route-map-empty">Map unavailable. The route list can still be reordered.</div>';
       return;
     }
-    layer.clearLayers();
+    const run = ++mapRun;
     const L = globalThis.L;
     const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
     // Only trust the SAVED road geometry while the live order still matches the
@@ -341,21 +527,36 @@ export function initWorklistRouteView(opts){
     // crew already downloaded can just answer for the current sequence instead.
     // No pack, or a leg it can't carry, leaves the key absent — saved geometry then
     // straight, exactly as before.
-    const { legs } = routeLegs(items, homeGeomField);
+    const startFix = routeStartFix(group);
+    const { legs } = routeLegs(items, homeGeomField, startFix);
     let computed = null;
     try { computed = await offlineRoutePaths(legs); }
     catch(e){ console.warn('route map: on-device paths unavailable:', e); }
-    const model = buildRouteMapModel(items, geomField, homeGeomField, computed);
+    // Two refreshes can overlap, and both would otherwise add a full set of pins.
+    // Clearing after the wait, and only for the newest run, keeps it to one set.
+    if(run !== mapRun) return;
+    layer.clearLayers();
+    const model = buildRouteMapModel(items, geomField, homeGeomField, computed, startFix);
     const bounds = [];
     const color = group && group.day ? dayColor(group.day) : '#2563EB';
-    model.markers.forEach(({ item, position, parked, point }) => {
-      bounds.push(point);
-      const marker = L.marker(point, { icon:L.divIcon({
-        className:'wl-route-pin' + (parked ? ' parked' : ''),
-        html:`<span>${parked ? '!' : position}</span>`,
-        iconSize:[30,30], iconAnchor:[15,15],
-      }) }).bindTooltip(markerTooltip(item, position, parked)).addTo(layer);
-      if(!parked){
+    let listOpen = false;
+    groupRoutePins(model.markers).forEach(pin => {
+      bounds.push(...pin.stops.map(s => s.point));
+      const face = pinFace(pin.stops);
+      const half = face.size / 2;
+      const marker = L.marker(pin.point, { icon:L.divIcon({
+        className:face.className, html:face.html,
+        iconSize:[face.size, face.size], iconAnchor:[half, half],
+      }) }).addTo(layer);
+      const ids = pin.stops.map(s => String(s.item.id));
+      const open = () => { openPinId = ids[0]; showPinList(pin, group, face.size, false); };
+      marker.on('click', open);
+      marker.on('keypress', e => { if(e.originalEvent.key === 'Enter') open(); });
+      if(ids.includes(openPinId)){
+        listOpen = true;
+        showPinList(pin, group, face.size, true);
+      }
+      if(!pin.stops[0].parked){
         const el = marker.getElement();
         if(el) el.style.background = color;
       }
@@ -372,10 +573,15 @@ export function initWorklistRouteView(opts){
       bounds.push(model.start);
       L.marker(model.start, { icon:L.divIcon({ className:'wl-route-pin wl-route-start',
         html:'<span>▶</span>', iconSize:[26,26], iconAnchor:[13,13] }) })
-        .bindTooltip('Start — drive out to the first stop').addTo(layer);
+        .bindTooltip(startFix ? 'Start — where you optimized from'
+          : 'Start — drive out to the first stop').addTo(layer);
     }
+    if(!listOpen) map.closePopup(pinPopup);    // its stops left this view
+    const fit = needsFit;
+    needsFit = false;
     setTimeout(() => {
       map.invalidateSize();
+      if(!fit) return;
       if(bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(.18));
       else if(bounds.length === 1) map.setView(bounds[0], 15);
       else map.setView([45.0, -79.3], 7);
@@ -522,6 +728,8 @@ export function initWorklistRouteView(opts){
   async function open(){
     openState = true;
     selected = null;
+    needsFit = true;
+    if(map) map.closePopup(pinPopup);
     screen.classList.remove('hide');
     await refresh();
     window.scrollTo(0, 0);
