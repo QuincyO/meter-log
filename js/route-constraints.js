@@ -96,7 +96,7 @@ export function workdayOffset(start, target){
 
 // The order the installer locked to the route's FIRST slot (Day 1, slot 1), or
 // null. Optimize hands it to the solver as `leadId` so Day 1 is built outward from
-// it (js/route.js solveWithLead). A lock anywhere else is still only a scheduling
+// it (js/route.js solveVariant's lead pin). A lock anywhere else is still only a scheduling
 // pin, placed by scheduleRouteConstraints below. Callers pass their pending list.
 export function routeLeadId(items, routeStartDate){
   if(!dateAtUtc(routeStartDate)) return null;
@@ -121,8 +121,9 @@ export function currentRoutePlacement(items, itemId, target){
 }
 
 // `travel` (optional) is the run's road-duration lookup (js/route.js travelLookup):
-// { fromStart(id) } for the morning drive out of the muster point to a day's first
-// stop, { between(fromId,toId) } for the drive between two stops. When present, each
+// { fromStart(id, dayNo) } for the morning drive out to a day's first stop (from the
+// run's start on Day 1, from the team meet on later days — `dayNo` is 1-based),
+// { between(fromId,toId) } for the drive between two stops. When present, each
 // stop's arrival is the previous departure plus real travel, and departure is arrival
 // plus on-site time — so ETAs reflect actual road time. When absent (straight-line /
 // no durations), the legacy flat-pace cadence is used unchanged. A leg with no known
@@ -142,7 +143,7 @@ export function currentRoutePlacement(items, itemId, target){
 // at all — an unparseable appointment time. It used to carry the late arrivals too,
 // and every caller treated a non-empty `errors` as fatal, which is how one
 // unreachable appointment took an entire 24-stop route down with it.
-function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
+function simulateDay(slotIds, byId, firstMin, pace, travel, dwell, dayNo){
   const schedule = {}, errors = [];
   const flatOnSite = onSiteMinutes(pace);
   // The route's typical dwell, used for the between-leg fallback only. Taking it
@@ -158,7 +159,7 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
     const item = byId[id];
     let raw;
     if(travel){
-      const move = (i === 0) ? travel.fromStart(id) : travel.between(prevId, id);
+      const move = (i === 0) ? travel.fromStart(id, dayNo) : travel.between(prevId, id);
       raw = departClock + (move == null ? (i === 0 ? 0 : moveFallback) : move);
     } else {
       raw = firstMin + i * pace + delayed;
@@ -206,7 +207,7 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell){
 // `fillSlots` (optional) replaces the free-list padding below with the caller's own
 // day assembly — the reflow path's fillDay — so the search prices exactly the day the
 // final simulation will walk once the route carries on from each anchor.
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds, fillSlots){
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds, fillSlots, dayNo){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
@@ -228,7 +229,7 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
         for(let k = 0; k < count; k++)
           if(!slots[k]) slots[k] = (freeIds && freeIds[f] != null) ? freeIds[f++] : `__free_${k}`;
       }
-      const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell);
+      const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell, dayNo);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
       if(sim.lateMin > 0){
@@ -417,15 +418,15 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       // them, never swap one for a later day's order.
       const dayPool = (day === 0 && day1Count != null) ? pool.slice(0, nFree) : pool;
       // The lead (a LOCK in Day 1 slot 1) was already grown from by the solver
-      // (route.js solveWithLead), so the stretch after it keeps the solver's order.
+      // (route.js solveVariant's lead pin), so the stretch after it keeps the solver's order.
       const keepAfter = day === 0 ? (fixed[1] || null) : null;
       const fill = anchors => fillDay(counts[day], anchors, dayPool, reflow, keepAfter);
       const anchors = placeAppointments(date, counts[day], fixed, appts, byId,
-        firstMinFor(day), pace, travel, dwell, null, fill).anchors;
+        firstMinFor(day), pace, travel, dwell, null, fill, day + 1).anchors;
       const ids = fill(anchors);
       const used = new Set(ids);
       pool = pool.filter(id => !used.has(id));
-      const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell);
+      const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell, day + 1);
       if(sim.errors.length) throw new Error(sim.errors.join('; '));
       ids.forEach(id => {
         finalIds.push(id); dayOf[id] = day + 1;
@@ -458,7 +459,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       freeCursor + Math.max(0, counts[day] - (constrainedByDay[day] || []).length));
     freeCursor += freeForDay.length;
     anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId,
-      firstMinFor(day), pace, travel, dwell, freeForDay).anchors;
+      firstMinFor(day), pace, travel, dwell, freeForDay, null, day + 1).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));
@@ -468,7 +469,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), ids = [];
     for(let slot = 1; slot <= counts[day]; slot++) ids.push(anchorsByDay[day][slot] || free[freeAt++]);
-    const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell);
+    const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell, day + 1);
     if(sim.errors.length) throw new Error(sim.errors.join('; '));
     ids.forEach(id => {
       finalIds.push(id); dayOf[id] = day + 1;

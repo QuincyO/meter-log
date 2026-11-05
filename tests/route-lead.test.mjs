@@ -1,5 +1,5 @@
-// A stop locked to Day 1 slot 1 is where the route STARTS (js/route.js
-// solveWithLead, js/route-constraints.js routeLeadId). Field report 2026-11-02:
+// A stop locked to Day 1 slot 1 is where the route STARTS (js/route.js solveVariant's
+// lead pin, js/route-constraints.js routeLeadId). Field report 2026-11-02:
 // the installer locked 114 Brook St to slot 1 with a dozen Brook St houses beside
 // it, and Optimize filled slots 2..10 from across town — because the lock was only
 // applied after the solve, and the solve runs furthest-from-home first.
@@ -27,20 +27,26 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const wobble = (i, j) => 1 + 0.15 * Math.sin(i * 7.1 + j * 3.3);
 
 // optimizeRoute's layout: [home, ...located] with no start; [start, ...located, home?] with one.
-function build(points, { start=null, home=HOME, road=false }={}){
+function build(points, { start=null, home=HOME, road=false, ids=IDS }={}){
   const nodes = [...(start ? [start] : []), ...(home && !start ? [home] : []),
-    ...IDS.map(id => points[id]), ...(home && start ? [home] : [])];
+    ...ids.map(id => points[id]), ...(home && start ? [home] : [])];
   return nodes.map((a, i) => Float64Array.from(nodes.map((b, j) =>
     i === j ? 0 : dist(a, b) * (road ? wobble(Math.min(i, j), Math.max(i, j)) : 1))));
 }
 const shape = extra => ({ startC:null, homeC:{ lat:0, lng:0 }, target:10, commutePull:0, ...extra });
 const day = (r, n) => r.orderedIds.filter(id => r.dayOf[id] === n);
 
-test('fixture reproduces the report: without a lead, Day 1 skips the street', () => {
-  const r = solveVariant(build(P), LOCATED, shape());
+// The old solve ran furthest-from-home first and this fixture reproduced the report
+// (Day 1 across town, the street on Day 3). Days are picked today-first now
+// (route-day-first.test.mjs), and with no start and no lead Day 1 grows from the
+// list's FIRST order — so a town stop at the head of the list keeps Day 1 in town.
+test('without a lead or a start, Day 1 grows from the list\'s first order', () => {
+  const ids = ['t1', ...IDS.filter(id => id !== 't1')];
+  const r = solveVariant(build(P, { ids }), ids.map(id => ({ id })), shape());
   const d1 = day(r, 1);
+  assert.ok(d1.includes('t1'));
   assert.ok(d1.filter(id => STREET.includes(id)).length <= 2,
-    `expected the old rule to send Day 1 across town, got ${d1.join(',')}`);
+    `expected Day 1 to stay in town around t1, got ${d1.join(',')}`);
 });
 
 test('a lead grows Day 1 outward along the street, nearest first (straight-line)', () => {

@@ -85,10 +85,10 @@ test('full commute pull ends the day at the stop nearest home', () => {
   assert.equal(r.orderedIds[r.orderedIds.length - 1], 's4');
 });
 
-test('zero commute pull drops the homeward endpoint constraint', () => {
+test('zero commute pull ignores Home: the same order as a solve with no Home node at all', () => {
   const pull0 = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:0 }));
-  const pull100 = solveVariant(HOME_CHUNK, HOME_LOCATED, homeShape({ commutePull:100 }));
-  assert.notDeepEqual(pull0.orderedIds, pull100.orderedIds);
+  const noHome = solveVariant(HOME_CHUNK.slice(1).map(r => r.slice(1)), HOME_LOCATED, homeShape({ commutePull:0, homeC:null }));
+  assert.deepEqual(pull0.orderedIds, noHome.orderedIds);
 });
 
 test('an absent commute pull reproduces the full-home-pin behavior', () => {
@@ -165,11 +165,11 @@ test('within a day, between-stop legs are still charged with a team start', () =
   assert.equal(legs.b, 4);   // a → b, same day
 });
 
-// A team muster start is ETA-only: it stays in the matrix so the drive-out can be
-// measured, but it must NOT anchor the ORDERING — the route still runs
-// furthest-from-home first, then works inward. A phone GPS "start from here" does
-// still anchor. Nodes: [start, a, b, c, home] on a line home=0, c=30, b=60, a=100,
-// start=25 (nearest c). Furthest from home = a; nearest the start = c.
+// The day leaves wherever the crew starts — the team muster point or a phone GPS
+// "start from here" fix — for the nearest stop. (The muster point used to be
+// "ETA-only": measured for the drive-out but dropped from the ordering, so the route
+// ran furthest-from-home first; see tests/route-day-first.test.mjs.) Nodes:
+// [start, a, b, c, home] on a line home=0, c=30, b=60, a=100, start=25 (nearest c).
 const ETA_SOLVE = matrix([
   [0,   75,  35,  5,   25],   // team start (pos 25)
   [75,  0,   40,  70,  100],  // a (pos 100 — furthest from home)
@@ -180,9 +180,9 @@ const ETA_SOLVE = matrix([
 const ETA_LOCATED = [{ id:'a' }, { id:'b' }, { id:'c' }];
 const etaShape = extra => ({ startC:{ lat:0, lng:0 }, homeC:{ lat:0, lng:0 }, target:3, commutePull:100, ...extra });
 
-test('a team muster start is ETA-only — ordering runs furthest-from-home first', () => {
-  const team = solveVariant(ETA_SOLVE, ETA_LOCATED, etaShape({ startIsCommute:true }));
-  assert.deepEqual(team.orderedIds, ['a', 'b', 'c']);   // furthest meter first, working home
+test('a team muster start shapes the order: the day leaves the meet for the nearest stop', () => {
+  const team = solveVariant(ETA_SOLVE, ETA_LOCATED, etaShape({ startIsCommute:true, commutePull:0 }));
+  assert.deepEqual(team.orderedIds, ['c', 'b', 'a']);   // nearest the meet first, then outward
 });
 
 test('a phone GPS start still anchors the route at the nearest stop', () => {

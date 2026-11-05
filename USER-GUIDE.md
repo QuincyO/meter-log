@@ -28,7 +28,7 @@ Do this once per phone, with signal if possible:
 2. Tap **☰** (top right) → **⚙︎ Settings**. The "Who are you?" card opens.
 3. Enter your **First name**, **Last name**, and **Employee # (H)** — the H number is your unique ID; names can repeat, H numbers can't.
 4. **Sub foreman**: pick yours if you are *not* already on a team (a team's sub always wins over this setting). Picking your sub here also **adds you to that sub's crew** — a land crew is just its sub's installers. Once you're on a crew, this field locks ("Assigned with your crew").
-5. **Home address** is optional too: with it set, **🧭 Optimize route** on the worklist plans your day to finish heading toward home (it starts at the far end and works back). The hint line under the field shows the exact spot it matched — if that's the wrong town, add the town to the address and Save again.
+5. **Home address** is optional too: with it set, **🧭 Optimize route** on the worklist can bend the end of each day toward home — how hard is the **Commute pull** dial on the Route tuning screen (0 ignores Home, 100 ends as close to it as it can). The hint line under the field shows the exact spot it matched — if that's the wrong town, add the town to the address and Save again.
 6. Tap **Save**.
 
 That's it. Everything you log from now on is tagged with your name and H number. If you try to log a stop before doing this, the app stops you with an "Add your name first" message and opens Settings for you.
@@ -250,13 +250,19 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   route view shows its own figure beside the ETA. If it's wrong for the work you're
   actually doing you can set it yourself on the **Route tuning** screen; leave that
   box empty to go back to the measured number.
+- **Day 1 is picked first, and it is the day that finishes soonest from where you
+  start.** Optimize takes your meters/day target's worth of stops that can be done
+  quickest from your starting point — drive time and time at each meter — so a tight
+  cluster goes on today and scattered stops wait. Day 2 is planned the same way from
+  what's left, leaving the morning meeting location, and so on. One far-off stop can
+  slide to a later day; it still gets a day.
 - Every Optimize asks **"are you starting from the morning meeting location?"**
-  Answer **Yes** for the usual plan — the first stop is the far end of the day and
-  you work your way back toward home. Answer **No** when you are already out in the
+  Answer **Yes** for the usual plan — Day 1 leaves the meeting spot for the nearest
+  stop and works outward. Answer **No** when you are already out in the
   field (most often after you've hit your target and want to keep going): that run
-  gets one fresh phone location and makes the **nearest** meter your next stop, still
-  working toward your saved Home. With no Home saved it starts where you are and
-  leaves the last stop open. **Cancel** leaves the route alone. The route map shows
+  gets one fresh phone location and makes the **nearest** meter your next stop. Later
+  days still start from the meeting location, not from where you were standing.
+  **Cancel** leaves the route alone. The route map shows
   that spot as your start on Day 1 until you log your next stop. Your location stays
   on this phone and is never uploaded. If location is unavailable the message says so
   and normal routing is used.
@@ -293,7 +299,7 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   will always tell you which you're looking at.
 
 - Each address is looked up and matched **near where you are** (within the app's search radius), so "Main St" means *your* Main St, not one in another city.
-- With a **Home address** in Settings, normal routing ends heading toward home — the first stop is the far end of the day, and you work your way back. With no Home, and when you answered **Yes** to the meeting-location question, whatever order is first in your list stays the starting point.
+- With a **Home address** in Settings and **Commute pull** above 0, each day's end bends toward home — at 100 the day ends as close to home as it can, at 0 Home is ignored and the day simply finishes where the stops run out. With no meeting location on your crew and no "start from here", whatever order is first in your list is where Day 1 grows from.
 - Every card shows its state next to the WO#: a **📍 fix address** pill (couldn't be matched), a **⚠ pick a town** pill (matched more than one place), or a small **no pin** pill (not looked up yet). No pill means the order is pinned and routed. Cards show the **full address** — long ones wrap onto extra lines.
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it.
@@ -527,9 +533,10 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
   *installer* locked shows here on ⇩ Load. Don't confuse it with the 🔒 on an individual
   order row, which pins that one stop to a date and slot.
 - **Start and home addresses drive the times.** Set the crew's **start location**
-  on the boat/crew card in Crew & Teams (the morning meet-up spot — the route leaves
-  it at 08:00, no later than 08:30) and each installer's **home address** on their
-  crew row (the route is planned to end near it). With a road (Matrix) run the
+  on the boat/crew card in Crew & Teams (the morning meet-up spot — every day leaves
+  it at 08:00, no later than 08:30, and each day is the stops that finish soonest
+  from it) and each installer's **home address** on their crew row (their Commute
+  pull bends each day's end toward it). With a road (Matrix) run the
   planner then shows a real **ETA** per stop and a start→finish **time window** on
   each day header, and sizes the day so the target lands by about **2:00 PM** —
   leaving room to keep going or knock off early. A **Straight-line** route has no

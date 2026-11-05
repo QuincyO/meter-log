@@ -994,19 +994,33 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   visibly falls back to the normal Home/first-order behavior. `Route starts`,
   `First stop at`, and `Pace` remain scheduling inputs applied after this
   geographic solve; they do not choose the route's geographic origin.
-  **Multi-day split (`opts.target`, meters/day):** when set, the master route is
-  cut into `ceil(N/target)` **contiguous** chunks (farthest→nearest home, since a
-  home-pinned tour is roughly distance-banded) and **each chunk is re-solved
-  home-pinned** over its own sub-matrix so the day **ends near home** — the last
-  day ending at the globally closest-to-home meter, and a lone near-home order
-  falling into a late day, not an early far one. With **both** a team start and a
-  home (the planner's case), the team start is **ETA-only**: it stays in the matrix
-  for the drive-out timing/pricing but is dropped from the ordering, so each chunk is
-  still re-solved home-pinned (farthest→home). Only a phone GPS **Start from here**
-  re-solves each chunk pinned at **both** ends (`orderChunkStartHome`: start → … →
-  home). Zig-zag *within* a day is fine;
-  only the day endpoints are constrained. It returns `dayOf` (`{id: dayNumber}`);
-  with no home pin it degrades to plain count-chunks (`dayFallback:true`). The
+  **Multi-day split (`opts.target`, meters/day) — Day 1 is picked FIRST.** When set,
+  `solveVariant` builds the days one at a time, today first. Each day takes the
+  `target` stops that **finish soonest from where that day starts** — a
+  nearest-neighbour walk out of the start (`pickDay`), so a tight cluster beats a
+  scatter and a second meter at an address the crew is already parked at is won by the
+  near-zero drive between them — and is then ordered by the anchored 2-opt/Or-opt
+  with that start pinned first and its end bent toward Home by `commutePull`
+  (`orderDay`). **Day 1 leaves the run's start**: the team meet (`opts.start`) or a
+  phone GPS **Start from here** fix. **Every later day leaves the team meet**, never
+  today's GPS spot — a GPS run carries the meet as one extra matrix node appended
+  last (`measure.meetIndex`, `shape.meetNode`), so days 2+ are planned, timed
+  (`travelLookup.fromStart(id, day)`) and priced (`homeLegMetersFor`) from the place
+  the crew will actually leave tomorrow. A run with no start at all (no team, no fix)
+  grows each day from the first remaining order in list order. **Commute pull has a
+  real 0 now**: at 0 Home is not consulted for membership or order (the result is
+  byte-identical to a run with no Home pin); at 100 the walk prefers stops on the way
+  home and the day ends pinned to Home; in between it trades. Until 2026-11-05 this
+  was one long path through every stop — furthest-from-Home first, with the meet
+  dropped from the ordering as "ETA-only" and Home pulled at full strength whatever
+  the dial said — cut every `target` into days and re-ordered inside each, so which
+  stops shared a day was an accident of where the cuts fell. Measured on the real list
+  that reported it (53 stops, three days), the change is a relocation, not a saving:
+  Day 1 finishes 17 min (GPS start) to 52 min (meet start) earlier on 1–8 km less,
+  later days absorb it, and the total over all days is unchanged. A
+  swap-improvement search on top of the walk changed Day 1 in no case, so the walk
+  is the whole selection. It returns `dayOf` (`{id: dayNumber}`); `dayFallback:true`
+  only reports that there was no Home pin. The
   A day is sized by the **meters/day target and nothing else**. It briefly had a second,
   invisible input: a per-installer "Finish by" dial, with `min(target, timeCapacity)`
   shrinking the day to what landed before that clock. Above the implied ceiling the
@@ -1234,13 +1248,16 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   installer's own **home** (Employees `homeAddress` — the end-of-day bias). The phone
   reads both too (home from Settings; the crew start is cached read-only from Teams
   and geocoded on the phone). `optimizeRoute` takes the start as `opts.start` and the
-  home as `home`. The team start is **ETA-only — never an ordering anchor**: the
-  route still runs furthest-first toward home; the start only times, prices
-  (`homeLegMetersFor`, still kept out of the between-stop total), and draws the drive
-  OUT to each day's first (furthest) stop. `measure.startIsCommute` marks it a
-  commute so `solveVariant` drops it from the ordering matrix — distinct from the
-  one-run GPS start, which stays a real ordering anchor (its first leg is a charged
-  driven leg).
+  home as `home`. The team start is **where every day begins**: Day 1 is the stops
+  that finish soonest from it, and each later day is planned from it too (see
+  §"Multi-day split" above). It also times, prices (`homeLegMetersFor`, still kept
+  out of the between-stop total), and draws the drive OUT to each day's first stop.
+  `measure.startIsCommute` marks it a commute (every day's drive-out is from it) —
+  distinct from the one-run GPS start, whose first leg is a charged driven leg and
+  which anchors Day 1 only; with a team start on file a GPS run keeps the meet as
+  `measure.meetIndex` for days 2+. (Until 2026-11-05 the team start was "ETA-only":
+  measured but dropped from the ordering, so the route ran furthest-first toward
+  home and a meet-start Day 1 was the far stops.)
   **Which matrix is used is the press, not a menu.** A normal tap on 🧭 Optimize
   measures **on this phone**, against the district pack, and costs nothing. Holding
   it two seconds **skips the pack** and asks the network instead (Google → ORS →
@@ -1288,11 +1305,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   Optimize now opens a **`.sheet` popup** (`askStartLocation`, `#wlStartAsk`) — the
   app's existing modal idiom, since Optimize blocks on the answer the way the
   `confirm()` it replaced did — asking *are you
-  starting from the morning meeting location?* **Yes** routes the usual way
-  (furthest-meter-first, working back toward home). **No** takes one GPS fix as the
-  ordering anchor, so `solveVariant` runs `orderChunkStartHome` and the **nearest**
-  meter is next — the answer to "I hit my target and want to keep going, but the next
-  day's first stop is across the map". Cancel aborts, and so does a **backdrop tap**:
+  starting from the morning meeting location?* **Yes** plans Day 1 from the meet
+  (the stops that finish soonest from it, nearest first). **No** takes one GPS fix as
+  Day 1's start instead, so the **nearest** meter is next — the answer to "I hit my
+  target and want to keep going, but the next day's first stop is across the map" —
+  while days 2+ still leave the meet. Cancel aborts, and so does a **backdrop tap**:
   `capture.js` closes any `.sheet` that way, so `askStartLocation` listens for the same
   click and resolves null — without it the promise would sit pending behind a hidden
   sheet and Optimize would never continue. With no home pin on file either answer
@@ -2035,7 +2052,7 @@ blank). Storage stays `{hNumber: letter}`, so all attribution below is unchanged
 | `subName`       | string      | the sub/subforeman's first name (free text, no H#)  |
 | `memberLetters` | JSON string | map of `{hNumber: letter}` — no captain/sub here    |
 | `type`          | `"boat"` \| `"land"` | blank = boat. A **land crew** reuses the shape: crew number in `boatNumber`, sub foreman in `subName`, captain/boat name blank. `teamsList()` projects it (normalized via `normWorkType`) so the `roster` read carries it — teams.html's boat/land mode filter depends on that |
-| `startAddress`  | string      | the crew's shared **morning meet-up point** — the route's **ETA-only** drive-out reference (departs at 08:00, no later than 08:30; the drive-out to each day's first stop is measured/drawn from it, but it never anchors the ordering — the route runs furthest-first toward home). Entered on the boat/crew card; geocoded lazily by the planner (and on the phone). Rides `saveTeam` **only when the payload carries it**; `ensureTeamsColumns()` appends the three columns on any save |
+| `startAddress`  | string      | the crew's shared **morning meet-up point** — where every route day begins (departs at 08:00, no later than 08:30): each day is the stops that finish soonest from it (§"Multi-day split"), and the drive-out to each day's first stop is measured/drawn from it. Entered on the boat/crew card; geocoded lazily by the planner (and on the phone). Rides `saveTeam` **only when the payload carries it**; `ensureTeamsColumns()` appends the three columns on any save |
 | `startLat` / `startLng` | number | cached geocode of `startAddress` (may be blank — re-geocoded from the address when absent) |
 
 **End-of-day auto-fill.** When an installer ends their day, the form sends their

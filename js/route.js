@@ -1199,11 +1199,9 @@ function spreadStarts(n, count){
 }
 function range(a, b){ const r = []; for(let i = a; i < b; i++) r.push(i); return r; }
 
-// ── multi-day clustering (target/day, each day ends near home) ───────────────
-// The full matrix D is over [home, ...located] (node 0 = home). A day-cluster is
-// a set of located-indices; to order it so it ENDS near home we re-solve it as
-// its own home-pinned open path over the sub-matrix [home, ...chunk] (same trick
-// optimizeRoute uses for the whole route: pin home, read the tour backwards).
+// ── multi-day split helpers ──────────────────────────────────────────────────
+// A day is a set of located-indices ordered over its own sub-matrix of M, with the
+// anchors it needs (its start, Home) pulled in alongside.
 function subMatrix(D, nodes){
   const m = nodes.length;
   const S = [];
@@ -1229,157 +1227,131 @@ function withHomeWeight(S, homeNode, w){
   }
   return M;
 }
-// Order one day-cluster (an array of located-indices) so it ends at its
-// home-ward edge. `homeWeight` (0–1) tunes how hard the endpoint hugs home.
-// Returns the cluster's located-indices, re-ordered.
-function orderChunkHome(D, locIdxChunk, homeWeight=1){
-  if(locIdxChunk.length <= 1) return locIdxChunk.slice();
-  const nodes = [0, ...locIdxChunk.map(k => k + 1)];   // home + each order's D node
-  const t = solve(withHomeWeight(subMatrix(D, nodes), 0, homeWeight), true); // pinned AT home
-  // reverse + drop the home node → sub-positions 1..m, mapped back to the chunk.
-  return t.slice().reverse().slice(0, -1).map(p => locIdxChunk[p - 1]);
-}
-// Two-anchor day-cluster: matrix M is over [teamStart, ...located, home] (node 0
-// = the crew's morning muster point, last node = the installer's home). Order the
-// chunk as an open path pinned at BOTH ends — start near the muster point, end
-// near home — so each day is a tidy commute: short drive out, short drive home.
-// `homeWeight` (0–1) tunes how hard the end hugs home.
-function orderChunkStartHome(D, locIdxChunk, homeWeight=1){
-  if(locIdxChunk.length <= 1) return locIdxChunk.slice();
-  const home = D.length - 1;
-  const nodes = [0, ...locIdxChunk.map(k => k + 1), home];  // start + chunk + home
-  const t = solveAnchoredPath(withHomeWeight(subMatrix(D, nodes), nodes.length - 1, homeWeight), { pinEnd:true });
-  // drop start (first) and home (last); middle positions map back to the chunk.
-  return t.slice(1, -1).map(p => locIdxChunk[p - 1]);
+// The members of one day: a nearest-neighbour walk of `count` stops. It begins at
+// the pinned lead when there is one, else steps out of `from` (the run's start, or
+// the meet), else from the first remaining order in list order — nothing is known
+// about where that morning begins. Each step costs the drive plus, scaled by the
+// dial, how much further from Home it lands: at 100 the day drifts homeward as it
+// fills, at 0 Home is not consulted at all. On-site time is a constant per stop and
+// cannot change which set finishes soonest; the one exception — a second meter at an
+// address the crew is already parked at — is won by the near-zero drive between them.
+// Measured on the real list (2026-11-05, 53 stops): a swap-improvement search on top
+// of this walk changed Day 1 in no case, so the walk is the whole selection.
+function pickDay(S, remaining, count, { pin, from, homeNode, w, node }){
+  if(count >= remaining.length) return remaining.slice();
+  const left = new Set(remaining), members = [];
+  const pull = (homeNode != null && w > 0)
+    ? (a, b) => w * (S[b][homeNode] - S[a][homeNode]) : () => 0;
+  let cur;
+  const take = k => { members.push(k); left.delete(k); cur = node(k); };
+  if(pin != null) take(pin);
+  else if(from != null) cur = from;
+  else take(remaining[0]);
+  while(members.length < count){
+    let best = -1, bestCost = Infinity;
+    for(const k of left){
+      const c = S[cur][node(k)] + pull(cur, node(k));
+      if(c < bestCost){ bestCost = c; best = k; }
+    }
+    if(best < 0) break;                 // nothing reachable — fill below
+    take(best);
+  }
+  // A row of Infinities (an unroutable stop) must not strand the walk: the day still
+  // has to hold `count` stops or the split never terminates.
+  for(const k of left){ if(members.length >= count) break; take(k); }
+  return members;
 }
 
-// ── one route variant (solve + optional day-split) ──────────────────────────
+// Order one day's members. With a pinned lead or a start to leave from, the day is
+// an open path anchored there, and with a Home pin and a non-zero dial its end is
+// bent toward Home at weight w (1 = pinned to Home, 0 = free end). A day with no
+// start and a Home pin is solved pinned AT Home and read backwards, so it ends
+// toward Home with a free start; with Home ignored (dial at 0) it is a free path;
+// with no Home at all it starts at its first member (the list's first order — the
+// "first" mode the no-Home route has always had).
+function orderDay(M, members, { pin, from, homeNode, w, node }){
+  if(members.length <= 1) return members.slice();
+  const ks = pin != null ? [pin, ...members.filter(k => k !== pin)] : members.slice();
+  const stops = ks.map(node);
+  const homeEnd = homeNode != null && w > 0;
+  const anchored = nodes => solveAnchoredPath(
+    homeEnd ? withHomeWeight(subMatrix(M, nodes), nodes.length - 1, w) : subMatrix(M, nodes),
+    { pinEnd: homeEnd });
+  if(pin != null){
+    const t = anchored(homeEnd ? [...stops, homeNode] : stops);
+    return (homeEnd ? t.slice(0, -1) : t).map(p => ks[p]);
+  }
+  if(from != null){
+    const t = anchored(homeEnd ? [from, ...stops, homeNode] : [from, ...stops]);
+    return (homeEnd ? t.slice(1, -1) : t.slice(1)).map(p => ks[p - 1]);
+  }
+  if(homeEnd){
+    const t = solve(withHomeWeight(subMatrix(M, [homeNode, ...stops]), 0, w), true);
+    return t.slice().reverse().slice(0, -1).map(p => ks[p - 1]);
+  }
+  if(homeNode != null) return solve(subMatrix(M, stops), false).map(p => ks[p]);
+  return solveAnchoredPath(subMatrix(M, stops)).map(p => ks[p]);
+}
+
+// ── one route variant (Day-1-first solve + day split) ────────────────────────
 // Pulled out of optimizeRoute so the SAME construction can be run twice over
 // the same geocoded stops: once on the road matrix and once on straight-line
 // distances, yielding two candidate sequences to compare. M is the matrix to
 // SOLVE on; measuring is a separate step (legMetersFor) so both variants can be
 // priced with road distances.
-export function solveVariant(M, located, { startC, homeC, target, commutePull, startIsCommute, leadId }){
-  // A stop locked to the route's FIRST slot (route-constraints.js routeLeadId) is
-  // an ordering input, not just a scheduling pin — see solveWithLead.
-  const leadK = leadId ? located.findIndex(x => x.id === leadId) : -1;
-  if(leadK >= 0 && located.length >= 2)
-    return solveWithLead(M, located, leadK, { startC, homeC, target, commutePull });
-  const homeWeight = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
-  // A team muster start is ETA-only: it stays in the measure matrix (so the drive
-  // OUT to the first stop can be timed/priced and drawn) but must NOT anchor the
-  // ordering — the route still runs furthest-meter-first, working inward toward
-  // home. Only a phone GPS "start from here" anchors (the route literally begins
-  // where you are). So drop the ETA-only start node from the ORDERING matrix and
-  // fall back to the home-only (or no-anchor) path on the remaining nodes.
-  const startAnchors = !!startC && !startIsCommute;
-  const N = located.length;
-  let Mo = M, oStart = startAnchors, oHome = !!homeC;
-  if(startC && !startAnchors){
-    // located sit at nodes 1..N in M ([start, …located, home?]); home (if any) is
-    // the last node. Re-slice with home first so the home-only path applies as-is.
-    const locNodes = Array.from({ length: N }, (_, k) => k + 1);
-    Mo = homeC ? subMatrix(M, [M.length - 1, ...locNodes]) : subMatrix(M, locNodes);
-    oStart = false;
-  }
-  const masterSeq = routeOrderFromMatrix(Mo, N, { hasStart:oStart, hasHome:oHome });
-  let orderedSeq = masterSeq;
-  const dayOf = {};
-  let dayFallback = false;
-  if(target > 0){
-    if(oStart && oHome){
-      // GPS start anchor: crew leaves the fix each morning and heads home each
-      // night — every day is pinned start → … → home.
-      orderedSeq = [];
-      for(let s = 0; s < masterSeq.length; s += target){
-        const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkStartHome(Mo, masterSeq.slice(s, s + target), homeWeight);
-        ordered.forEach(k => { dayOf[located[k].id] = day; });
-        orderedSeq.push(...ordered);
-      }
-    } else if(oHome){
-      orderedSeq = [];
-      for(let s = 0; s < masterSeq.length; s += target){
-        const day = Math.floor(s / target) + 1;
-        const ordered = orderChunkHome(Mo, masterSeq.slice(s, s + target), homeWeight);
-        ordered.forEach(k => { dayOf[located[k].id] = day; });
-        orderedSeq.push(...ordered);
-      }
-    } else {
-      // No home pin — keep the master order, just cut it into count-sized days.
-      dayFallback = true;
-      masterSeq.forEach((k, r) => { dayOf[located[k].id] = Math.floor(r / target) + 1; });
-    }
-  }
-  return { orderedIds: orderedSeq.map(k => located[k].id), dayOf, dayFallback };
-}
-
-// The route with a LEAD: one order the installer locked to Day 1 slot 1, i.e.
-// "start the route here". Before this existed the lock was applied only after the
-// solve — scheduleRouteConstraints dropped it into slot 1 and filled slots 2..N
-// with the first free stops of the home-ward (furthest-first) sequence, which had
-// been chosen for being far from home, not near the lead. A street of houses
-// beside the locked one could land on Day 3, and whether it did differed between
-// the road and straight-line matrices (field report, 2026-11-02).
 //
-// So Day 1 is GROWN from the lead: a nearest-neighbour walk from it (2nd = nearest
-// to the 1st, 3rd = nearest to the 2nd, …) picks the day's `target` members, then
-// the existing anchored 2-opt/Or-opt orders them with the lead pinned first and the
-// end bent toward home by commutePull, exactly as any other day's end is. Every
-// later day is the untouched existing solve over whatever is left.
+// Days are chosen one at a time, TODAY FIRST. Each day takes the `target` stops
+// that finish soonest from where that day starts (pickDay — a tight cluster wins
+// over a scatter), then is ordered with that start pinned first and, by
+// commutePull, its end bent toward Home (orderDay). Day 1 leaves the run's start:
+// the GPS fix, or the team meet. Every later day leaves the team meet — `meetNode`
+// when the start was a GPS fix, the start itself when the start IS the meet — and
+// not today's GPS spot, which nobody drives from tomorrow.
 //
-// A GPS "start from here" fix does NOT pick the first stop when a lead exists —
-// the lock is the more explicit instruction. The fix stays in the measure matrix,
-// so the drive from it to the lead is still timed and priced (legMetersFor).
-// M is laid out as optimizeRoute builds it: [start?, ...located, home?] when a
-// start exists, else [home?, ...located].
-function solveWithLead(M, located, leadK, { startC, homeC, target, commutePull }){
+// It used to be one long path through every stop, cut every `target` into days and
+// re-ordered inside each. Which stops shared a day was an accident of where the
+// cuts fell (field report 2026-11-05: Day 1 wandered side streets while Day 2 was
+// one tidy street); the morning meet never shaped the order (it was "ETA-only" and
+// the path ran furthest-from-Home first, so a meet-start Day 1 was the far stops);
+// and the master path headed to Home at full strength whatever the dial said, so at
+// 0 Home still decided which stops landed on which day. Measured on that list, the
+// gain is a relocation: Day 1 finishes 17–52 min earlier on 1–8 km less, later days
+// absorb it, and the total across all days is unchanged.
+//
+// M is laid out as optimizeRoute builds it: [start, …located, home?, meet?] with a
+// start (the meet is appended only when the start is a GPS fix AND a team start is
+// on file), else [home?, …located].
+export function solveVariant(M, located, { startC, homeC, target, commutePull, startIsCommute, leadId, meetNode }){
   const N = located.length;
   const off = (startC || homeC) ? 1 : 0;
-  const homeNode = homeC ? (startC ? M.length - 1 : 0) : null;
-  const homeWeight = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
   const node = k => k + off;
-  const ids = ks => ks.map(k => located[k].id);
-  const others = range(0, N).filter(k => k !== leadK);
+  const startNode = startC ? 0 : null;
+  const homeNode = homeC ? (startC ? N + 1 : 0) : null;
+  const laterStart = startIsCommute ? startNode : (meetNode != null ? meetNode : null);
+  const w = commutePull == null ? 1 : Math.max(0, Math.min(1, Number(commutePull) / 100));
+  // A stop locked to the route's FIRST slot (route-constraints.js routeLeadId) is an
+  // ordering input: Day 1 grows from it and it stays first (field report 2026-11-02,
+  // 114 Brook St). The run's start still prices the drive to it (legMetersFor); it
+  // just doesn't pick the stop.
+  const leadK = leadId ? located.findIndex(x => x.id === leadId) : -1;
+  const perDay = target > 0 ? Math.floor(target) : 0;
+  const S = symmetrize(M);
 
-  // Order a set of located indices with the lead pinned first; `homeEnd` adds the
-  // home node pinned last at weight `w` (w=0 leaves the end free).
-  const fromLead = (rest, homeEnd, w) => {
-    const ks = [leadK, ...rest];
-    const nodes = ks.map(node);
-    if(homeEnd && homeNode != null){
-      nodes.push(homeNode);
-      const t = solveAnchoredPath(withHomeWeight(subMatrix(M, nodes), nodes.length - 1, w), { pinEnd:true });
-      return t.slice(0, -1).map(p => ks[p]);
-    }
-    return solveAnchoredPath(subMatrix(M, nodes)).map(p => ks[p]);
-  };
-
-  // No day split: one anchored path from the lead, home pinned last when present
-  // (the same full-weight home pin the unsplit route has always used).
-  if(!(target > 0))
-    return { orderedIds: ids(fromLead(others, true, 1)), dayOf: {}, dayFallback: false };
-
-  // Day 1 membership: nearest-neighbour from the lead over the located stops only.
-  const S = symmetrize(subMatrix(M, range(0, N).map(node)));
-  const walk = nearestNeighbour(S, leadK);
-  const day1 = walk.slice(0, Math.min(target, N));
-  const day1Ordered = fromLead(day1.filter(k => k !== leadK), true, homeWeight);
-  const dayOf = {};
-  ids(day1Ordered).forEach(id => { dayOf[id] = 1; });
-
-  const inDay1 = new Set(day1);
-  const rest = others.filter(k => !inDay1.has(k));
-  if(!rest.length) return { orderedIds: ids(day1Ordered), dayOf, dayFallback: homeNode == null };
-
-  // Days 2+: the existing rules, unchanged, over the remaining stops. The GPS fix
-  // is a one-run anchor for Day 1 only, so it is left out here.
-  const restNodes = rest.map(node);
-  const Mr = homeNode != null ? subMatrix(M, [homeNode, ...restNodes]) : subMatrix(M, restNodes);
-  const r = solveVariant(Mr, rest.map(k => located[k]), { startC:null, homeC, target, commutePull });
-  Object.keys(r.dayOf).forEach(id => { dayOf[id] = r.dayOf[id] + 1; });
-  return { orderedIds: [...ids(day1Ordered), ...r.orderedIds], dayOf,
-    dayFallback: r.dayFallback || homeNode == null };
+  const orderedSeq = [], dayOf = {};
+  let remaining = range(0, N);
+  for(let dayNo = 1; remaining.length; dayNo++){
+    const count = perDay > 0 ? Math.min(perDay, remaining.length) : remaining.length;
+    const shape = { pin: (dayNo === 1 && leadK >= 0) ? leadK : null,
+      from: dayNo === 1 ? startNode : laterStart, homeNode, w, node };
+    const members = pickDay(S, remaining, count, shape);
+    const seq = orderDay(M, members, shape);
+    if(perDay > 0) seq.forEach(k => { dayOf[located[k].id] = dayNo; });
+    orderedSeq.push(...seq);
+    const taken = new Set(members);
+    remaining = remaining.filter(k => !taken.has(k));
+  }
+  return { orderedIds: orderedSeq.map(k => located[k].id), dayOf,
+    dayFallback: perDay > 0 && homeNode == null };
 }
 
 // The reflow filler for scheduleRouteConstraints (opts.reflow): "the route carries
@@ -1508,12 +1480,17 @@ export function legMetersFor(measure, orderedIds, dayOf){
 // the driving total. Mirrors legMetersFor's day-start detection. The phone "start
 // from here" first leg is a real driven leg, not a drive-out, so it is not
 // recorded. Empty when the run had no team start.
+// A GPS "start from here" run that also has a team start on file carries the meet as
+// `meetIndex`: Day 1's first leg is the charged drive from the fix, and every later
+// day's first stop is a drive-out from the meet — the same place solveVariant planned
+// that day from and travelLookup times it from.
 export function homeLegMetersFor(measure, orderedIds, dayOf){
   const out = {};
   if(!measure || !measure.D) return out;
-  const { D, indexById, startIndex, startIsCommute } = measure;
+  const { D, indexById, startIndex, startIsCommute, meetIndex } = measure;
   const commuteAnchor = startIsCommute ? startIndex : null;
-  if(commuteAnchor == null) return out;
+  const laterAnchor = meetIndex != null ? meetIndex : commuteAnchor;
+  if(commuteAnchor == null && laterAnchor == null) return out;
   let prev = null, prevDay = null;
   (orderedIds || []).forEach((id, i) => {
     const idx = indexById[id];
@@ -1521,8 +1498,9 @@ export function homeLegMetersFor(measure, orderedIds, dayOf){
     const day = (dayOf && dayOf[id]) || null;
     const dayStart = prev == null || (day && day !== prevDay);
     const chargedGpsFirst = !startIsCommute && i === 0 && startIndex != null;
-    if(dayStart && !chargedGpsFirst){
-      const m = D[commuteAnchor][idx];
+    const anchor = (day == null || day === 1) ? commuteAnchor : laterAnchor;
+    if(dayStart && !chargedGpsFirst && anchor != null){
+      const m = D[anchor][idx];
       out[id] = isFinite(m) ? Math.round(m) : 0;
     }
     prev = idx; prevDay = day;
@@ -1533,13 +1511,18 @@ export function homeLegMetersFor(measure, orderedIds, dayOf){
 // Travel-time lookup over the run's duration matrix (T), for the scheduler's real
 // per-stop ETAs. `between(fromId,toId)` is the drive time between two stops; the
 // scheduler uses it for any adjacency it forms (appointments can reorder within a
-// day). `fromStart(toId)` is the morning drive out of the team muster point (or the
-// home pin) to a day's first stop. Returns null when the run carried no durations
-// (straight-line / non-OSRM matrix) — which is what keeps ETAs off those routes.
+// day). `fromStart(toId, day)` is the morning drive out to a day's first stop: from
+// the run's start (the team muster point, a GPS fix, or the home pin) on Day 1, and
+// from `meetIndex` — the team meet a GPS run carries along — on every later day,
+// because tomorrow leaves the meet, not the spot the crew optimized from today.
+// Callers that pass no day get the start, as before. Returns null when the run
+// carried no durations (straight-line / non-OSRM matrix) — which is what keeps ETAs
+// off those routes.
 export function travelLookup(measure){
   if(!measure || !measure.T) return null;
-  const { T, indexById, startIndex, homeIndex } = measure;
+  const { T, indexById, startIndex, homeIndex, meetIndex } = measure;
   const startNode = startIndex != null ? startIndex : homeIndex;
+  const laterNode = meetIndex != null ? meetIndex : startNode;
   const at = (a, b) => {
     if(a == null || b == null) return null;
     const v = T[a][b];
@@ -1547,7 +1530,7 @@ export function travelLookup(measure){
   };
   return {
     between: (fromId, toId) => at(indexById[fromId], indexById[toId]),
-    fromStart: (toId) => at(startNode, indexById[toId]),
+    fromStart: (toId, day) => at((day != null && day >= 2) ? laterNode : startNode, indexById[toId]),
   };
 }
 
@@ -1693,9 +1676,16 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   // Route anchors: an available requested phone fix pins the start and Home,
   // when present, pins the end. Otherwise legacy mode ends toward Home or pins
   // the first display-sorted pending order with an open end.
+  // A GPS fix as the start with a team start on file: the meet rides along as one
+  // extra node at the END, so days 2+ can be planned (solveVariant), timed
+  // (travelLookup) and priced (homeLegMetersFor) from it. Appended, never inserted,
+  // so every order keeps its node (indexById) and Home keeps its place.
+  const meetC = (startFix && teamStartC) ? teamStartC : null;
   const coords = startC
-    ? [startC, ...located.map(coordsOf), ...(homeC ? [homeC] : [])]
+    ? [startC, ...located.map(coordsOf), ...(homeC ? [homeC] : []), ...(meetC ? [meetC] : [])]
     : homeC ? [homeC, ...located.map(coordsOf)] : located.map(coordsOf);
+  const homeIndex = homeC ? (startC ? located.length + 1 : 0) : null;
+  const meetIndex = meetC ? coords.length - 1 : null;
 
   // Matrix source. straightLine (the phone's default Optimize button) solves on
   // straight-line distances up front — no road-matrix/ORS call at all, so no API
@@ -1820,9 +1810,9 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const anchorOffset = (startC || homeC) ? 1 : 0;
   const target = Math.max(0, Math.floor(Number(opts.target) || 0));
   // opts.leadId: the order locked to Day 1 slot 1 (route-constraints.js
-  // routeLeadId) — Day 1 is grown outward from it (solveWithLead).
+  // routeLeadId) — Day 1 is grown outward from it (solveVariant's lead pin).
   const shape = { startC, homeC, target, commutePull: opts.commutePull, startIsCommute: usingTeamStart,
-    leadId: opts.leadId || null };
+    leadId: opts.leadId || null, meetNode: meetIndex };
   const primary = solveVariant(D, located, shape);
 
   // Did this run actually get road distances? Only then is there a road route to
@@ -1840,14 +1830,15 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
 
   // Index map from order id → its row/column in D, plus the anchor nodes, so
   // legMetersFor prices distances and travelLookup reads durations (T) over the
-  // same stops. startIndex = the team muster point (drive-out + morning ETA anchor),
-  // homeIndex = the installer's home (end-of-day bias).
+  // same stops. startIndex = the run's start (team muster point or GPS fix: Day 1's
+  // drive-out + morning ETA anchor), homeIndex = the installer's home (end-of-day
+  // bias), meetIndex = the team meet a GPS run carries for days 2+ (null otherwise).
   const offset = anchorOffset;
   const indexById = {};
   located.forEach((x, k) => { indexById[x.id] = k + offset; });
   const measure = { D, T, indexById,
     startIndex: startC ? 0 : null,
-    homeIndex: homeC ? (startC ? coords.length - 1 : 0) : null,
+    homeIndex, meetIndex,
     startIsCommute: usingTeamStart };
 
   return { ...primary, parkedIds, usedFallback, fallbackReason, mode, startFallback, startFix, geoReason,
