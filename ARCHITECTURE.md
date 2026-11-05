@@ -1099,8 +1099,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     that handed back a whole fresh target was answering the wrong question: after 6
     installs a locked Optimize to 24 planned 24 more instead of the 18 left. Pressed
     while locked, Optimize plans Day 1 = **target − installs logged on the plan day**
-    (`route-today.js installCount`: the day's printable stops that are not UTIs — list
-    orders and walk-ups alike; `remainingDay1` floors it at 0), chosen **fresh from every
+    (`route-today.js installCount`: the day's INSTALLED stops and only those — list
+    orders and walk-ups alike; a UTI, VISITED or UNACCOUNTED stop installed nothing;
+    `remainingDay1` floors it at 0), chosen **fresh from every
     pending order** under the Day-1-first rules from where the crew starts, with days 2+
     at the full target; the new Day 1 **replaces** `wlTodayAnchor` (written from the
     strict day-1 tags, so a spent day freezes empty). Installs ≥ target ⇒ Day 1 empty,

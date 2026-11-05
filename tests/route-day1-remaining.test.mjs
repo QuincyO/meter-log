@@ -26,7 +26,9 @@ const worklistJs = readFileSync(new URL('../js/worklist.js', import.meta.url), '
 const plannerJs = readFileSync(new URL('../js/pages/planner.js', import.meta.url), 'utf8');
 
 // ── the count ───────────────────────────────────────────────────────────────
-test('installCount is today’s printable stops that are not UTIs — walk-ups included', () => {
+test('installCount is today’s INSTALLED stops only — walk-ups included, nothing else', () => {
+  // Owner's call: "I only want installs to count". A UTI, a visit and an unaccounted
+  // stop all installed nothing, so none of them spends a meter of the target.
   const stops = [
     { status:'INSTALLED', workOrderId:'1' },
     { status:'INSTALLED', workOrderId:'2' },
@@ -34,9 +36,10 @@ test('installCount is today’s printable stops that are not UTIs — walk-ups i
     { status:'UTI', workOrderId:'3' },           // a UTI spends no meter
     { status:'UTI', workOrderId:'4' },
     { status:'DONE', workOrderId:'5' },          // the coordinates-only marker never counts
-    { status:'VISITED', workOrderId:'6' },       // printable, not a UTI
+    { status:'VISITED', workOrderId:'6' },       // printable, but no meter went in
+    { status:'UNACCOUNTED', workOrderId:'7' },
   ];
-  assert.equal(installCount(stops), 4);
+  assert.equal(installCount(stops), 3);
   assert.equal(installCount([]), 0);
   assert.equal(installCount(null), 0);
 });
@@ -244,6 +247,9 @@ test('planner: the locked Optimize reads that installer’s installs from the sh
   assert.doesNotMatch(opt, /plLockedDay1Ids\(/);
   // A sheet read that fails must fail the run, not quietly plan a full day.
   assert.match(size, /throw new Error\(/);
-  // The passive variant switch still holds the day as tagged.
+  // The passive variant switch still holds the day as tagged — day 1 EXACTLY. After a
+  // locked Optimize that met the target, day 1 is empty and the lowest tagged day is
+  // 2; reading that as "day 1" would re-size day 1 to 24 on a variant flip.
   assert.match(plannerJs, /day1Count: plDay1Count\(\)/);
+  assert.match(plannerJs, /function plLockedDay1Ids\(\)\{ return plDayLocked\(\) \? strictDay1Ids\(pendingItems\(\)\) : \[\]; \}/);
 });

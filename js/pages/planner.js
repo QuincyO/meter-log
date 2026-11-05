@@ -27,7 +27,7 @@ import { dwellLookup } from '../route-dwell.js';
 import * as routeConstraints from '../route-constraints.js';
 import * as routeMod from '../route.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
-import { installCount, remainingDay1, taggedDay1Ids } from '../route-today.js';
+import { installCount, remainingDay1, strictDay1Ids, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -142,7 +142,11 @@ function plDayLocked(){
   const d = plLockDate();
   return Boolean(d) && d === $('plRouteDate').value;
 }
-function plLockedDay1Ids(){ return plDayLocked() ? taggedDay1Ids(pendingItems()) : []; }
+// The rows tagged day 1 EXACTLY (strictDay1Ids), not the lowest day present: a locked
+// Optimize whose target is already met leaves day 1 empty, and reading "the lowest
+// day" there would hand the variant switch day 2's size as day 1 and pull tomorrow
+// up into today. Nothing is pruned on the office copy, so strict is the honest read.
+function plLockedDay1Ids(){ return plDayLocked() ? strictDay1Ids(pendingItems()) : []; }
 // `null` unless locked — route-constraints.js reads null as "size day 1 by the
 // target like any other day", and 0 as a real, empty day.
 function plDay1Count(){

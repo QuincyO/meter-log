@@ -374,8 +374,9 @@ open and you plan it fresh.
 
 **Optimizing while locked plans what's left of your day.** Your Meters/day is a day's
 worth of installs, so a re-plan at lunch, or after a "No, from where I am", gives you
-Day 1 = **your target minus the meters you've installed today** — every meter counts,
-planned or walk-up; a UTI doesn't — picked fresh from everything still on your list,
+Day 1 = **your target minus the meters you've installed today** — every install counts,
+planned or walk-up; a UTI or a visit with no meter put in doesn't — picked fresh from
+everything still on your list,
 nearest your start first. Set out to do 24, install 6, optimize: Day 1 is the best 18
 from where you are, and tomorrow and after fill up at 24 again. The finished message
 says so (*🔒 Day 1: 18 left of 24 (6 installed)*). Want a different number? Unlock, type

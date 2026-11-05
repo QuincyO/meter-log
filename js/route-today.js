@@ -53,14 +53,16 @@
 // left) was answering the wrong question. The rule stands for every PASSIVE path —
 // a logged stop, the Drive screen's autoSync, a Download, the per-log re-anchor
 // never re-size — and the subtraction lives in exactly one call site on each page.
-import { PRINTABLE } from './compute/tally.js';
 
 /** Installs logged on a day that count against the meters/day target: the day's
- *  printable stops that are not UTIs — list orders and walk-ups alike, because a
- *  meter is a meter whoever planned it. A UTI spends no meter. The coordinates-only
- *  DONE marker is not printable and never counts. */
+ *  INSTALLED stops, and only those — list orders and walk-ups alike, because a meter
+ *  is a meter whoever planned it. A UTI spends no meter; a VISITED or UNACCOUNTED
+ *  stop installed nothing either (owner's call, 2026-11-05: "I only want installs to
+ *  count"); the coordinates-only DONE marker never counts. This is deliberately
+ *  narrower than the pace gauge's `done` (every PRINTABLE status), which answers a
+ *  different question — stops worked, not meters installed. */
 export function installCount(stops){
-  return (stops || []).filter(s => s && PRINTABLE[s.status] && s.status !== 'UTI').length;
+  return (stops || []).filter(s => s && s.status === 'INSTALLED').length;
 }
 
 /** How big a LOCKED Optimize plans Day 1: the target less the installs, floored at
