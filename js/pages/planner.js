@@ -27,7 +27,7 @@ import { dwellLookup } from '../route-dwell.js';
 import * as routeConstraints from '../route-constraints.js';
 import * as routeMod from '../route.js';
 import { weekdayOnOrAfter } from '../route-planday.js';
-import { orderAnchorFirst, taggedDay1Ids } from '../route-today.js';
+import { installCount, remainingDay1, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
 import {
@@ -148,6 +148,27 @@ function plLockedDay1Ids(){ return plDayLocked() ? taggedDay1Ids(pendingItems())
 function plDay1Count(){
   const ids = plLockedDay1Ids();
   return plDayLocked() ? ids.length : null;
+}
+// How big a LOCKED Optimize plans day 1: the target less the installs this installer
+// has logged on the route's start date (route-today.js installCount / remainingDay1)
+// — the same rule as the phone, read from the sheet instead of a dayCache. The day
+// read is keyed on the display name, as edit.html's is (Stops rows are filtered by
+// name, not H number), and is admin-gated only when the name is blank; the planner
+// already holds the key. A read that fails FAILS THE RUN: planning a whole fresh
+// target because the sheet did not answer is exactly the wrong day, silently.
+//
+// THE ONLY CALLER IS optimize(). The passive paths — the variant switch, ⇩ Load —
+// keep reading plDay1Count() (the day as tagged) and never see an install count.
+async function plLockedDay1Size(target){
+  const h = hNumber();
+  const who = (roster.employees || []).find(e => String(e.hNumber) === String(h));
+  const installer = who ? fullName(who) : '';
+  if(!installer) throw new Error('Pick an installer first');
+  const date = planShape().routeStartDate;
+  let r = null;
+  try { r = await apiGet('day', { installer, installerId: h, date }); } catch { r = null; }
+  if(!r || !r.ok) throw new Error(`Couldn’t read ${installer}’s installs for ${date} from the sheet — try again`);
+  return remainingDay1(target, installCount(r.stops || []));
 }
 // Which saved route is live for this installer. Uploaded with the list, so the
 // phone opens on the route the office chose — and the installer can still flip it.
@@ -951,9 +972,12 @@ async function optimize(pending, health){
   store.set('plannerGeocode', nominatimUrl);
   const geocodeUrl = health.nominatim.online ? nominatimUrl : '';
   const target = targetVal();
-  // Captured BEFORE the solve, because the solve is about to rewrite every `day`
-  // tag and the locked set is defined by the tags as they stand now.
-  const lockedDay1 = plLockedDay1Ids();
+  // 🔒 Locked: day 1 is what is LEFT of the installer's day — the target less the
+  // installs they have logged on the route date — chosen fresh from every pending
+  // order. Null when open, which both the solver and the scheduler read as the full
+  // target. Read before anything is shown as running: a sheet read that fails
+  // throws to the caller's toast and nothing is re-planned.
+  const day1Count = plDayLocked() ? await plLockedDay1Size(target) : null;
   const prog = $('plProg');
   prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try{
@@ -972,7 +996,9 @@ async function optimize(pending, health){
         leadId: typeof routeConstraints.routeLeadId === 'function'
           ? routeConstraints.routeLeadId(pending, planShape().routeStartDate) : null,
         departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
-        commutePull:planShape().commutePull });
+        commutePull:planShape().commutePull,
+        // Day 1's size while locked — the scheduler below takes the same number.
+        day1Count });
     const { parkedIds, usedFallback, fallbackReason, mode, geoReason, note } = base;
     const byId = {}; items.forEach(x => { byId[x.id] = x; });
     const blocked = parkedIds.map(id => byId[id]).filter(x => x && (x.appointmentDate || x.lockedDate));
@@ -990,18 +1016,18 @@ async function optimize(pending, health){
     // costs the reflow and not the page.
     const reflow = typeof routeMod.anchorFiller === 'function'
       ? routeMod.anchorFiller(base.measure, { commutePull: planShape().commutePull }) : null;
+    // `day1Count` reaches the scheduler as-is: null = the full target, 0 = a real
+    // empty day 1 (the target is met), never dropped as falsy.
     const planOpts = { ...planShape(), target: base.dayTarget || target,
-      day1Count: lockedDay1.length ? lockedDay1.length : null, reflow };
+      day1Count, reflow };
     const computed = {};
     for(const v of VARIANTS){
       const variant = base.variants[v];
       if(!variant) continue;
-      // A locked day 1 keeps its members through the re-solve: the geography is
-      // worked out fresh, then the locked orders are pulled back to the front and
-      // day 1 is sized to hold exactly them. Applied PER VARIANT — do it once
-      // outside the loop and flipping road↔straight quietly unlocks the day.
-      const seq = lockedDay1.length ? orderAnchorFirst(variant.orderedIds, lockedDay1)
-        : variant.orderedIds;
+      // A locked day 1 is the solver's fresh pick of `day1Count` stops from the
+      // start, on BOTH variants (optimizeRoute carried the count into each solve), so
+      // flipping road↔straight keeps the same-sized day.
+      const seq = variant.orderedIds;
       const routedItems = seq.map(id => byId[id]).filter(Boolean);
       const travel = v === 'road' ? roadTravel : null;
       const s = scheduleRouteConstraints(routedItems, seq, { ...planOpts, travel, dwell });
@@ -1287,7 +1313,7 @@ function paintDayLock(){
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   btn.textContent = on ? `🔒 Day 1 locked — ${n} order${n === 1 ? '' : 's'}` : '🔓 Day 1 is open';
   if(sub) sub.textContent = on
-    ? 'Optimize keeps exactly these orders on day 1'
+    ? 'Optimize plans day 1 as the target less what they’ve installed on that date'
     : 'Optimize sizes every day by the meters/day target';
   const t = $('plTarget');
   if(t){

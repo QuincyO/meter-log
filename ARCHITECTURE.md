@@ -1091,11 +1091,29 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   - **🔓 Unlocked.** Nothing is frozen. Set the meters/day target, set the day, press
     Optimize, and every day is sized by the target and nothing else — 6 gives six-order
     days, 8 gives eight. Changing the target alone re-splits on the spot.
-  - **🔒 Locked.** Day 1 is frozen exactly as it stands. Nothing moves work in or out of
-    it — not a logged stop, not a Download, not another Optimize — until the installer
-    unlocks. Optimize still re-solves the *geography* of the locked day; it just cannot
-    change who is in it.
-  - **The one exception**, while locked: adding an order raises the `#wlAddTo` sheet
+  - **🔒 Locked.** Day 1 is frozen exactly as it stands. Nothing passive moves work in
+    or out of it — not a logged stop, not a Download, not the Drive screen's refresh —
+    until the installer unlocks.
+  - **A locked Optimize plans what is LEFT of the day** (owner's decision, 2026-11-05).
+    The target is a day's worth of *installs* set in the morning, so a mid-day re-plan
+    that handed back a whole fresh target was answering the wrong question: after 6
+    installs a locked Optimize to 24 planned 24 more instead of the 18 left. Pressed
+    while locked, Optimize plans Day 1 = **target − installs logged on the plan day**
+    (`route-today.js installCount`: the day's printable stops that are not UTIs — list
+    orders and walk-ups alike; `remainingDay1` floors it at 0), chosen **fresh from every
+    pending order** under the Day-1-first rules from where the crew starts, with days 2+
+    at the full target; the new Day 1 **replaces** `wlTodayAnchor` (written from the
+    strict day-1 tags, so a spent day freezes empty). Installs ≥ target ⇒ Day 1 empty,
+    everything Day 2+; unlocking is how the crew asks for more. The number is whatever
+    the target box says at the press (unlock → type 20 → lock → Optimize gives 14 after
+    6). The count reaches **both** models — `optimizeRoute(..., {day1Count})` →
+    `solveVariant` (Day 1 takes the count, `perDay` applies to days 2+) and
+    `scheduleRouteConstraints`' `opts.day1Count` — and 0 is a real value at every hop.
+    The phone counts from its `dayCache`, refreshed first (`cacheRecentDays(1)`); the
+    planner reads the same figure from the sheet (`?action=day`) and fails the run if
+    the read fails. **Nothing passive consults the count**: `remainingDay1` has exactly
+    one caller per page, inside the Optimize handler.
+  - **The other exception**, while locked: adding an order raises the `#wlAddTo` sheet
     ("Add to today" / "Leave for later"). Accepted, it is slotted in by cheapest
     insertion and the day simply runs longer.
 
@@ -1151,9 +1169,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     was stamped Day 2 by mid-morning. Worse, once the target was **met** with orders
     still pending, capacity hit 0, `day1Count` was 0, and a full afternoon's work was
     silently declared tomorrow's — taking the pace gauge (which reads Day 1 strictly) off
-    the Drive screen with the crew still working. Nothing may re-size a locked day from
-    meters installed. Installing past the target reads as being **ahead of pace**
-    (`targetOver`, and a `Route done ~` clock that moves later), never as a shorter list.
+    the Drive screen with the crew still working. Nothing **passive** may re-size a
+    locked day from meters installed; the one explicit exception is an Optimize press
+    while locked (above), which is a press and not an inference. Installing past the
+    target reads as being **ahead of pace** (`targetOver`, and a `Route done ~` clock
+    that moves later), never as a shorter list.
   - **An exhausted locked day stays exhausted.** `needsCommit` used to re-commit the
     moment the set emptied, hauling the next chunk up into today. A finished day is
     finished; more work arrives by unlocking, or by hand through "Add to today".

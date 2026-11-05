@@ -287,8 +287,8 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - **After a timed appointment or a locked stop, the route carries on from there.**
   The stops right after it are the ones nearest to it, even if they were planned for a
   later day, instead of driving you back to where you were before. The day still holds
-  your Meters/day number. If **🔒 Work list locked** is on, only today's own orders are
-  used.
+  your Meters/day number — or, with **🔒 Work list locked** on, what's left of it after
+  the meters you've already installed today.
 - Locked stops keep their exact date and slot while the remaining stops optimize
   around them. If two constraints conflict, the route is left unchanged and the
   message names the affected work order.
@@ -359,10 +359,10 @@ Nothing is fixed yet, so try the number until the day looks right.
 
 **🔒 Work list locked** is *this is the day I'm driving.* Tap it and today's list is
 settled exactly as it stands. It gets shorter as you finish orders and it changes in no
-other way — not when you log a stop, not when you download a fresh plan from the
-office, not when you optimize again. If you set out to do 20, your Day 1 stays **the 20
-you picked**, and as you work it counts down: 20, 19, 18. No houses of tomorrow's
-tacked on the end, none of yours pushed off the bottom.
+other way on its own — not when you log a stop, not when you download a fresh plan from
+the office, not on the Drive screen's refresh. If you set out to do 20, your Day 1 stays
+**the 20 you picked**, and as you work it counts down: 20, 19, 18. No houses of
+tomorrow's tacked on the end, none of yours pushed off the bottom.
 
 While it's locked the **Meters/day** box and the **Planning for** date grey out. That's
 deliberate — the lock is a statement about a target on a day, so those two are what you
@@ -372,9 +372,15 @@ re-split at whatever number is in the box.
 **A new day unlocks it for you.** A lock is about one day's work, so tomorrow starts
 open and you plan it fresh.
 
-**Optimizing while locked still works** — it re-works the driving **order** of today's
-stops, which is exactly what you want after adding an order. It just can't change *who*
-is on today.
+**Optimizing while locked plans what's left of your day.** Your Meters/day is a day's
+worth of installs, so a re-plan at lunch, or after a "No, from where I am", gives you
+Day 1 = **your target minus the meters you've installed today** — every meter counts,
+planned or walk-up; a UTI doesn't — picked fresh from everything still on your list,
+nearest your start first. Set out to do 24, install 6, optimize: Day 1 is the best 18
+from where you are, and tomorrow and after fill up at 24 again. The finished message
+says so (*🔒 Day 1: 18 left of 24 (6 installed)*). Want a different number? Unlock, type
+20, lock, optimize: 20 − 6 = 14. Already at or past your target? Day 1 comes out empty
+and everything waits for tomorrow — unlock if you want more today.
 
 **Install extra and you're just ahead.** Meters you find in the field that were never
 on the plan don't eat into your list. Say your target is 20, you finish 5 planned
@@ -527,8 +533,10 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
 - The persistent **Last optimization** card shows the actual providers and
   fallback used for the most recent desktop run in that browser.
 - **🔓 / 🔒 Day 1** is the same lock the installer has on their phone. Open, Optimize
-  sizes every day by the Meters/day target. Locked, whatever is on day 1 stays on day 1
-  through a re-solve and the target box greys out. ⇪ Upload sends the lock with the
+  sizes every day by the Meters/day target. Locked, Optimize plans day 1 as the target
+  **minus the meters that installer has already logged on the route date** (read from
+  the sheet; UTIs don't count), picked fresh from their whole list, and the target box
+  greys out — the same thing their phone does. ⇪ Upload sends the lock with the
   route, so the installer's phone picks it up on their next ⇩ Download — and a day the
   *installer* locked shows here on ⇩ Load. Don't confuse it with the 🔒 on an individual
   order row, which pins that one stop to a date and slot.

@@ -29,8 +29,9 @@
 // installer still could not answer "is my day settled right now, and what do I press
 // to change it?" Inference is now a toggle, and the machinery is gone rather than
 // extended. Two of its lessons are load-bearing and survive as rules:
-//   • the target counts METERS and the set counts ORDERS, so nothing may re-size a
-//     locked day from meters installed. An order carrying two meters, or any walk-up,
+//   • the target counts METERS and the set counts ORDERS, so nothing PASSIVE may
+//     re-size a locked day from meters installed (the one explicit exception is the
+//     Optimize press, below). An order carrying two meters, or any walk-up,
 //     spends the room faster than it spends the list, and the tail of a committed day
 //     used to be stamped day 2 by mid-morning because of it. Installing past the
 //     target reads as being AHEAD OF PACE with a later finish clock
@@ -42,6 +43,45 @@
 // The anchor records the `target` it was locked at so the read-only meters/day box
 // can show the number the day was settled on. `anchor.extend` is gone; a legacy
 // anchor carrying it is ignored.
+//
+// ONE deliberate carve-out from "nothing may re-size a locked day from meters
+// installed" (2026-11-05): an explicit 🧭 Optimize press WHILE LOCKED plans Day 1 as
+// `target − installs logged on the plan day` (installCount / remainingDay1 below),
+// chosen fresh from every pending order, and that new Day 1 replaces the frozen set.
+// The target is a day's worth of installs set in the morning, so a mid-day re-plan
+// that handed back a whole fresh target (24 more after 6 done, instead of the 18
+// left) was answering the wrong question. The rule stands for every PASSIVE path —
+// a logged stop, the Drive screen's autoSync, a Download, the per-log re-anchor
+// never re-size — and the subtraction lives in exactly one call site on each page.
+import { PRINTABLE } from './compute/tally.js';
+
+/** Installs logged on a day that count against the meters/day target: the day's
+ *  printable stops that are not UTIs — list orders and walk-ups alike, because a
+ *  meter is a meter whoever planned it. A UTI spends no meter. The coordinates-only
+ *  DONE marker is not printable and never counts. */
+export function installCount(stops){
+  return (stops || []).filter(s => s && PRINTABLE[s.status] && s.status !== 'UTI').length;
+}
+
+/** How big a LOCKED Optimize plans Day 1: the target less the installs, floored at
+ *  zero. ZERO IS A REAL ANSWER — the day's target is met, so Day 1 holds nothing and
+ *  everything falls to Day 2+; unlocking is how the crew asks for more. `null` only
+ *  when there is no usable target, which route.js / route-constraints.js read as
+ *  "unset" (size Day 1 by the target like any other day). */
+export function remainingDay1(target, installs){
+  const t = Math.floor(Number(target));
+  if(!isFinite(t) || t <= 0) return null;
+  return Math.max(0, t - Math.max(0, Math.floor(Number(installs) || 0)));
+}
+
+/** The pending orders tagged day 1 EXACTLY, in list order. Unlike `taggedDay1Ids`
+ *  (the lowest tagged day — right for the 🔒 press, which freezes the day on screen)
+ *  this does not slide to day 2 when day 1 is empty: the anchor written after a
+ *  locked Optimize that planned an empty Day 1 must freeze EMPTY, or tomorrow's
+ *  orders become today's the moment the target is met. */
+export function strictDay1Ids(pending){
+  return (pending || []).filter(p => p && Number(p.day) === 1).map(p => String(p.id));
+}
 
 function anchorIdSet(anchor){
   return new Set(((anchor && anchor.ids) || []).map(String));

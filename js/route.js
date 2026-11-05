@@ -1238,6 +1238,9 @@ function withHomeWeight(S, homeNode, w){
 // Measured on the real list (2026-11-05, 53 stops): a swap-improvement search on top
 // of this walk changed Day 1 in no case, so the walk is the whole selection.
 function pickDay(S, remaining, count, { pin, from, homeNode, w, node }){
+  // A day of nothing (a locked Optimize whose target is already met) takes no stop —
+  // not even the "first remaining order" the no-start fallback below would grab.
+  if(!(count > 0)) return [];
   if(count >= remaining.length) return remaining.slice();
   const left = new Set(remaining), members = [];
   const pull = (homeNode != null && w > 0)
@@ -1321,7 +1324,16 @@ function orderDay(M, members, { pin, from, homeNode, w, node }){
 // M is laid out as optimizeRoute builds it: [start, …located, home?, meet?] with a
 // start (the meet is appended only when the start is a GPS fix AND a team start is
 // on file), else [home?, …located].
-export function solveVariant(M, located, { startC, homeC, target, commutePull, startIsCommute, leadId, meetNode }){
+//
+// `day1Count` is Day 1's size when it differs from the target: a LOCKED Optimize
+// passes `target − installs logged today` (route-today.js remainingDay1), so a
+// re-plan after six installs at 24 picks the 18 left, not 24 more. Days 2+ still take
+// `target`. Same null-is-unset contract as scheduleRouteConstraints' opts.day1Count —
+// 0 is a real value (the target is met: Day 1 holds nothing, the first group is Day
+// 2), so it is tested against null and never truthiness. Only an Optimize press
+// passes it; the one caller is the handler, and it hands the SAME number to the
+// scheduler, which is what keeps the two models of the day agreeing.
+export function solveVariant(M, located, { startC, homeC, target, commutePull, startIsCommute, leadId, meetNode, day1Count }){
   const N = located.length;
   const off = (startC || homeC) ? 1 : 0;
   const node = k => k + off;
@@ -1335,17 +1347,25 @@ export function solveVariant(M, located, { startC, homeC, target, commutePull, s
   // just doesn't pick the stop.
   const leadK = leadId ? located.findIndex(x => x.id === leadId) : -1;
   const perDay = target > 0 ? Math.floor(target) : 0;
+  const rawDay1 = Number(day1Count);
+  // The lead holds its slot whatever the count: the scheduler keeps a slot for a
+  // slot-1 lock even on a day of nothing, so the solver must too or the day is
+  // modelled twice.
+  const day1 = (day1Count == null || !isFinite(rawDay1)) ? null
+    : Math.max(Math.max(0, Math.floor(rawDay1)), leadK >= 0 ? 1 : 0);
   const S = symmetrize(M);
 
   const orderedSeq = [], dayOf = {};
   let remaining = range(0, N);
   for(let dayNo = 1; remaining.length; dayNo++){
-    const count = perDay > 0 ? Math.min(perDay, remaining.length) : remaining.length;
+    const cap = (dayNo === 1 && day1 != null) ? day1 : perDay;
+    const sized = (dayNo === 1 && day1 != null) || perDay > 0;
+    const count = sized ? Math.min(cap, remaining.length) : remaining.length;
     const shape = { pin: (dayNo === 1 && leadK >= 0) ? leadK : null,
       from: dayNo === 1 ? startNode : laterStart, homeNode, w, node };
     const members = pickDay(S, remaining, count, shape);
     const seq = orderDay(M, members, shape);
-    if(perDay > 0) seq.forEach(k => { dayOf[located[k].id] = dayNo; });
+    if(perDay > 0 || day1 != null) seq.forEach(k => { dayOf[located[k].id] = dayNo; });
     orderedSeq.push(...seq);
     const taken = new Set(members);
     remaining = remaining.filter(k => !taken.has(k));
@@ -1811,8 +1831,12 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   const target = Math.max(0, Math.floor(Number(opts.target) || 0));
   // opts.leadId: the order locked to Day 1 slot 1 (route-constraints.js
   // routeLeadId) — Day 1 is grown outward from it (solveVariant's lead pin).
+  // opts.day1Count: Day 1's size when it is not the target — a LOCKED Optimize's
+  // `target − installs today` (route-today.js). Null/absent = the target. Carried
+  // into BOTH variants' solves below, so road and straight agree on the day.
   const shape = { startC, homeC, target, commutePull: opts.commutePull, startIsCommute: usingTeamStart,
-    leadId: opts.leadId || null, meetNode: meetIndex };
+    leadId: opts.leadId || null, meetNode: meetIndex,
+    day1Count: opts.day1Count == null ? null : opts.day1Count };
   const primary = solveVariant(D, located, shape);
 
   // Did this run actually get road distances? Only then is there a road route to

@@ -94,10 +94,14 @@ test('the lock is one date, and a new plan day releases it', () => {
   assert.match(worklistJs, /releaseStaleDayLock\(_planDay\.date\);/);
 });
 
-test('the press is the only commit, and it snapshots what is on screen', () => {
+test('the press commits what is on screen; a locked Optimize is the only other commit', () => {
+  // Two deliberate acts write the set and nothing passive does: the 🔒 press freezes
+  // the day on screen, and an Optimize pressed while locked re-plans Day 1 as the
+  // target less the installs logged so far (tests/route-day1-remaining.test.mjs).
   const set = worklistJs.slice(worklistJs.indexOf('async function setDayLocked'));
   assert.match(set.slice(0, 700), /saveAnchor\(\{ date: day, ids: freshAnchorIds\(pending, target\), target \}\)/);
   assert.match(set.slice(0, 700), /store\.set\('wlDayLock', day\)/);
+  assert.equal((worklistJs.match(/saveAnchor\(\{ date: planDay\(\), ids: strictDay1Ids\(/g) || []).length, 1);
 });
 
 test('a phone that was mid-day when this shipped keeps its day', () => {

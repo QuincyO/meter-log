@@ -52,8 +52,8 @@ import {
   variantSelectable, variantSummary,
 } from './route-variants.js';
 import {
-  anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds,
-  insertByProximity, orderAnchorFirst, taggedDay1Ids,
+  anchorDay1Ids, anchorTarget, day1Count, freshAnchorIds, installCount,
+  insertByProximity, orderAnchorFirst, remainingDay1, strictDay1Ids, taggedDay1Ids,
 } from './route-today.js';
 import {
   isWorkday, nextWorkday, planDayLabel, resolvePlanDay, soonestAppointment, staleLockIds,
@@ -864,6 +864,15 @@ async function optimizeRouteHandler(useNetwork){
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
+    // 🔒 Locked: Day 1 is what is LEFT of the day — the target less the installs
+    // logged so far — chosen fresh from every pending order from where this run
+    // starts. The target is a day's worth of installs set in the morning, so a
+    // mid-day re-plan that handed back a whole fresh target (24 more after 6 done)
+    // was answering the wrong question. The number is whatever the box says at the
+    // press (the lock's own target, since the box is read-only under it). Null when
+    // unlocked, which both models read as "the full target". This is the ONE place
+    // the install count may size a day; every passive path holds the day as is.
+    const day1Count = dayLocked() ? await lockedDay1Size(target) : null;
     const home = await homePin();
     const crewStart = await crewStartPin();   // ETA-only anchor + drive-out to draw
     // compareVariants is asked for on BOTH presses and costs nothing on the one
@@ -883,7 +892,10 @@ async function optimizeRouteHandler(useNetwork){
       leadId: typeof routeConstraints.routeLeadId === 'function'
         ? routeConstraints.routeLeadId(pending, planShape().routeStartDate) : null,
       target, departMin: hhmmMin(ROUTE_DEPART_TIME),
-      paceMin: planShape().paceMin, commutePull: planShape().commutePull
+      paceMin: planShape().paceMin, commutePull: planShape().commutePull,
+      // Day 1's size while locked (above) — the solver picks that many from the
+      // start; the scheduler below is handed the same number.
+      day1Count
     });
     const { parkedIds, usedFallback, fallbackReason, mode, startFallback, geoReason, note } = base;
     const refreshed = await allSorted();
@@ -907,14 +919,17 @@ async function optimizeRouteHandler(useNetwork){
     // can hold an older cached route.js, and that must cost the reflow, not the page.
     const reflow = typeof routeMod.anchorFiller === 'function'
       ? routeMod.anchorFiller(base.measure, { commutePull: planShape().commutePull }) : null;
-    // 🔒 Locked: today's frozen set leads and Day 1 is sized to it, so the reflow can
-    // reorder today's orders but never trade one for a later day's. (applyTodayAnchor
-    // below re-imposes the same set; doing it here first is what keeps the reflowed
-    // order intact through that call instead of being re-shuffled by it.)
-    const lockedDay1 = dayLocked() ? anchorDay1Ids(loadAnchor(), pending) : [];
+    // 🔒 Locked: Day 1 is sized to what is left of the day (`day1Count`, the same
+    // number the solver just picked by), so the reflow can reorder today's orders
+    // but never grow the day past it. The solver's sequence is taken as it comes —
+    // the old frozen set no longer leads, because this press chose Day 1 afresh;
+    // the set is rewritten from the result below, and applyTodayAnchor then
+    // re-imposes THAT, which is what keeps the reflowed order intact through it.
+    // Spread on `!= null`: 0 is a real count (target met ⇒ an empty Day 1) and must
+    // reach the scheduler as 0, never be dropped as falsy.
     const planOpts = { ...planShape(), target: base.dayTarget || target, travel, dwell,
       day1FirstStopTime: day1DepartTime(startFromCurrent), reflow,
-      ...(lockedDay1.length ? { day1Count: lockedDay1.length } : {}) };
+      ...(day1Count != null ? { day1Count } : {}) };
     // Schedule and price EACH route this run produced. Constraint placement can
     // move stops, so the legs must be measured after it — and both variants are
     // measured against the same matrix, which is what makes their totals
@@ -924,7 +939,7 @@ async function optimizeRouteHandler(useNetwork){
       for(const v of VARIANTS){
         const variant = base.variants[v];
         if(!variant) continue;
-        const seq = lockedDay1.length ? orderAnchorFirst(variant.orderedIds, lockedDay1) : variant.orderedIds;
+        const seq = variant.orderedIds;
         const routedItems = seq.map(id => refreshedById[id]).filter(Boolean);
         const s = scheduleRouteConstraints(routedItems, seq, planOpts);
         computed[v] = { ...s, legMeters: legMetersFor(base.measure, s.orderedIds, s.dayOf),
@@ -1039,12 +1054,22 @@ async function optimizeRouteHandler(useNetwork){
     // estimate? Drives the "(est.)" label on the route view. Local, never synced —
     // a downloaded planner route is always real OSRM.
     store.set('wlTimesEstimated', base.estimatedTimes ? '1' : '');
-    // Re-time the route, and — while the list is LOCKED — put the frozen set back on
-    // top of the plain target-chunk days just written, so re-optimizing after
-    // finishing a few orders cannot pull tomorrow's up. Unlocked it holds the tags
-    // stamped moments ago in the loop above, which ARE this run's fresh split at the
-    // current target, so no `rechunk` is needed here (the meters/day box is the only
-    // caller that has to ask for one — it moved the number without re-solving).
+    // 🔒 The Day 1 this press planned REPLACES the frozen set: the lock is a
+    // statement about what is left of the day, and the press just re-decided it at
+    // the lock's own target. This is the second of the two commits there are (the
+    // press itself is the other); nothing passive ever writes the set. Strict day-1
+    // tags, not the lowest day: a spent day (0 left) must freeze EMPTY, or Day 2 is
+    // quietly adopted as today the moment the target is met.
+    if(day1Count != null){
+      const fresh = pendingOf(await allSorted());
+      saveAnchor({ date: planDay(), ids: strictDay1Ids(fresh), target });
+    }
+    // Re-time the route, and — while the list is LOCKED — put the (just rewritten)
+    // set back on top of the days just written, so the per-log re-anchors that
+    // follow hold exactly this day. Unlocked it holds the tags stamped moments ago
+    // in the loop above, which ARE this run's fresh split at the current target, so
+    // no `rechunk` is needed here (the meters/day box is the only caller that has to
+    // ask for one — it moved the number without re-solving).
     // `travel` is what separates this call from every other: only Optimize has a real
     // matrix to hand, so only its ETAs are exact. Everything else falls back to
     // `estimateTravel` and gets the "(est.)" marker.
@@ -1065,7 +1090,11 @@ async function optimizeRouteHandler(useNetwork){
     // a day behind the installer's back, and reading the echo keeps it that way if
     // anything ever sizes days again.
     const effective = Math.max(1, Math.floor(Number(base.dayTarget) || target));
-    const extra = ` · ${fmtKm(totalM)}`
+    // Locked: say what the day was sized to, in the installer's own terms — the
+    // number is `target − installed` and the toast is the only place that shows it.
+    const lockedNote = day1Count == null ? ''
+      : ` · 🔒 Day 1: ${day1Count} left of ${target} (${Math.max(0, target - day1Count)} installed)`;
+    const extra = lockedNote + ` · ${fmtKm(totalM)}`
       + (days > 1 ? ` · ${days} days of ${effective}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
@@ -2454,6 +2483,26 @@ async function tallyOn(date){
   return countDay((cached && cached.stops) || [], []);
 }
 async function todayTally(){ return tallyOn(localDate()); }
+
+// How big a LOCKED Optimize plans Day 1: the target less the installs logged on the
+// day being planned (route-today.js installCount / remainingDay1). Read from the same
+// storage-first dayCache the pace gauge's `done` reads, so it counts list orders and
+// walk-ups alike — and refreshed FIRST, for the same reason the Drive screen's
+// autoSync keeps cacheRecentDays(1) ahead of its re-anchor: a second phone the crew
+// only drives by otherwise believes nothing has been installed all day. Offline the
+// refresh is a no-op and the local copy stands (a stop logged here reaches the cache
+// before the queue ever drains). Keyed on the PLAN day like tallyOn: an evening plan
+// for tomorrow has no installs yet and gets the full target.
+//
+// THE ONLY CALLER IS optimizeRouteHandler. The install count sizes a day inside an
+// explicit Optimize press while locked and nowhere else — not a logged stop, not
+// autoSync, not Download, not the per-log re-anchor. See route-today.js.
+async function lockedDay1Size(target){
+  try { await cacheRecentDays(1); } catch { /* keep the last good cache */ }
+  const c = cfg();
+  const cached = c.name ? await idb.get('dayCache', `${c.name}|${planDay()}`) : null;
+  return remainingDay1(target, installCount((cached && cached.stops) || []));
+}
 
 // Has today's work actually begun? Installs OR UTIs — a UTI spends no meter slot
 // (installedToday deliberately ignores it) but it is still a stop the crew drove to,
