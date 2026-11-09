@@ -151,6 +151,20 @@ card action row is tight at 320 px.
   `caches.open('meterlog-v27').match('./js/dom.js')` now holds the **new** ones. Check at
   the same time that `localStorage` still has `name`/`hNumber` and the IndexedDB
   `worklist` row survived — preserving those is the point of the in-place design.
+- **A green push is not a deployed page — check the "pages build and deployment" run.**
+  GitHub Pages deploys from `main` through GitHub's built-in workflow, and its *deploy*
+  job can stall on GitHub's side: the log reaches `Current status: syncing_files`, never
+  leaves it, and `deploy-pages` gives up at its fixed 10-minute timeout ("Timeout
+  reached, aborting!"). The site then keeps serving the previous commit, so a phone
+  that pressed ⟳ Force update gets old bytes and a shipped fix looks broken. Happened
+  three times running on 2026-11-09 (run 42632197937, commit `4c24a5a`) while the
+  identical inputs — same `deploy-pages@v5`, same runner image, a site package within
+  5 KB of the last good one — had gone live in 5 seconds on 2026-11-05. Nothing in the
+  repo causes it. What to try, cheapest first: (1) a NEW commit, not a re-run — a
+  re-run reuses the commit SHA as the deployment id, so a deployment GitHub has stuck
+  stays stuck; (2) Settings ▸ Pages, switch the source to GitHub Actions and back to
+  "Deploy from a branch" (`main`, root) to reset the site's Pages state; (3) GitHub
+  Support, with the run link. Check githubstatus.com's **Pages** row, not the banner.
 - **Spine changes in `Code.gs` are not live until pushed** (CI deploys from `main`). New
   GET actions error against prod during verification — check the frontend degrades
   sensibly rather than assuming the code is wrong. (`driveTracks` is gentle here: the
