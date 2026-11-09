@@ -873,7 +873,11 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   the `Worklist` tab, and the `worklist` read is deliberately not admin-gated, so drawing
   the fix into it would publish where the installer stood. The map's start comes from the
   phone-only `wlRouteStartFix` key instead (`liveStartFix`). Pinned by
-  `tests/worklist-start-location.test.mjs`.
+  `tests/worklist-start-location.test.mjs`. **The ETAs must read the same spot** —
+  `estimateTravel`'s `runStartPin` rung. When only the map read it, every passive re-time
+  (back from the map, the Drive refresh) priced the day from the far-off muster point,
+  and the least-late slot search pushed every timed appointment to the top
+  (`tests/worklist-run-start-origin.test.mjs`).
 - **Road lines survive a reorder because the phone re-measures them, not
   because the saved ones are trusted.** Saved `legGeometry*` is keyed to the
   sequence it was fetched for, and both maps refuse to draw it once the live

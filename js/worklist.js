@@ -25,6 +25,10 @@ import { computeGapsLocal } from './compute/gaps.js';
 import { observedOnSiteMin } from './compute/cadence.js';
 import { projectDayReal } from './compute/estimate.js';
 import { initWorklistRouteView, needsOrderWrite } from './worklist-route-view.js';
+// Namespace import on purpose: liveStartFix is newer than the two names above, and a
+// phone can run this file against an older cached route view — a missing NAMED
+// export is a link error that kills the page. See runStartPin.
+import * as routeViewMod from './worklist-route-view.js';
 import { initWorklistTuning, navByPin } from './worklist-tuning.js';
 import { initDrive } from './drive.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
@@ -726,6 +730,28 @@ function lastDonePin(items){
     String(b.updatedAt || '') > String(a.updatedAt || '') ? b : a));
 }
 
+// The "start from here" spot of the last Optimize, while it still describes where
+// the crew is: the same plan day, and nothing logged since (liveStartFix — the rule
+// the route map draws its start pin by, so the map and the ETAs agree).
+//
+// Without this rung a run optimized "from here" was re-timed by every PASSIVE
+// re-anchor — back from the route map, the Drive screen's refresh, boot — from the
+// muster point instead, whenever no fresh GPS fix was to hand and nothing had been
+// logged yet. With the muster point a town or two away (field report 2026-11-09:
+// the meet is in Norwich, the day is in Corunna, ~150 km) Day 1's first leg became
+// a four-hour drive, every arrangement of the day was late, and placeAppointments'
+// "least late wins" moved every timed appointment to the top of the list — an
+// Optimize that looked right until the installer opened the map.
+function savedStartFix(){
+  try { return JSON.parse(store.get('wlRouteStartFix') || 'null'); }
+  catch { return null; }
+}
+function runStartPin(all){
+  if(typeof routeViewMod.liveStartFix !== 'function') return null;
+  const at = routeViewMod.liveStartFix(savedStartFix(), planDay(), pendingOf(all || []).length);
+  return at ? { lat: at[0], lng: at[1] } : null;
+}
+
 // Which saved column holds ROAD metres for the live sequence, or '' when there is
 // no column worth trusting. Both gates matter:
 //
@@ -768,12 +794,18 @@ async function estimateTravel(items, all){
   // phone is sitting on — is the wrong origin for it. Same today-vs-plan-day split
   // day1DepartTime makes, and it covers both rungs of the ladder below.
   //
-  // The ladder: the truck's live GPS fix, else the last completed driveway, else the
-  // muster point. Each rung is a worse answer to the same question ("where does the
+  // The ladder: the truck's live GPS fix, else where the last Optimize started "from
+  // here", else the last completed driveway, else the muster point. Each rung is a worse answer to the same question ("where does the
   // next drive start?") and each is reached only when the one above has nothing to
   // say, so a phone that is not the day's recorder behaves exactly as it did before
   // — silently, with no location prompt and no GPS wakeup of its own.
-  const here = planDay() === localDate() ? (livePin() || lastDonePin(all)) : null;
+  //
+  // Between the live fix and the last driveway sits the spot the last Optimize
+  // started "from here" (runStartPin): fresher than any driveway once it exists —
+  // a re-optimize after moving on is pressed after the last log — and void the
+  // moment another stop is logged, when lastDonePin is the better answer again.
+  const here = planDay() === localDate()
+    ? (livePin() || runStartPin(all) || lastDonePin(all)) : null;
   const start = here || cachedCoord('crewStartLat', 'crewStartLng');
   const home = cachedCoord('homeLat', 'homeLng');
   const road = await roadTravelFromCoords(items, start, home);
@@ -3049,10 +3081,7 @@ export function initWorklist(opts){
     planStale,
     planIssue: () => store.get('wlPlanIssue') || '',
     planDay,
-    savedStartFix: () => {
-      try { return JSON.parse(store.get('wlRouteStartFix') || 'null'); }
-      catch { return null; }
-    },
+    savedStartFix,
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

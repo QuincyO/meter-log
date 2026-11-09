@@ -1688,9 +1688,10 @@ screen, not just `#drive`.
 - **The ETA origin is the truck's live GPS fix (`js/worklist.js` `livePin`).** Every
   remaining ETA is `scheduleRouteConstraints` walking `arrival = previous departure +
   drive`, so the whole day hangs off one question: where does the *next* drive start?
-  The ladder in `estimateTravel` answers it in three rungs — **the drive recorder's
-  newest fix, else the pin of the last completed order (`lastDonePin`), else the crew's
-  muster point** — each reached only when the one above has nothing to say, all three
+  The ladder in `estimateTravel` answers it in four rungs — **the drive recorder's
+  newest fix, else the spot the last Optimize started "from here" (`runStartPin`), else
+  the pin of the last completed order (`lastDonePin`), else the crew's muster point** —
+  each reached only when the one above has nothing to say, all four
   inside the existing `planDay() === localDate()` guard (an evening plan for tomorrow
   departs from the depot like any morning does).
   `js/drive-recorder.js` has been `watchPosition`-ing all along; `lastFix()` is the only
@@ -2323,6 +2324,12 @@ and no stop logged since (`left` is the pending count at the run). `routeLegs` a
 `buildRouteMapModel` take it as `startOverride` for Day 1 only. Later days keep the
 morning meet, because that is where the crew starts them. A morning-meet run writes the
 key empty. Other devices and the planner keep showing the morning meet.
+**The ETAs use the same spot.** `estimateTravel` reads it through `runStartPin` (same
+`liveStartFix` rule) as the rung after the live GPS fix. Without it, every passive re-time
+(back from the map, the Drive refresh, boot) priced a "from here" day from the muster
+point. With the meet ~150 km away that made every arrangement late, and
+`placeAppointments`' least-late choice moved every timed appointment to the top (field
+report 2026-11-09).
 
 **Stops at one location share a pin.** `groupRoutePins` merges routed stops on equal
 coordinates, or with the same `siteKey` that starts with a civic number and within

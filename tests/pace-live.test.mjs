@@ -247,7 +247,9 @@ test('the on-device estimate starts from where the crew is, not the depot', () =
   // Today only: an evening plan for tomorrow starts at the depot like any morning.
   // The live GPS fix sits ahead of the done-pin in the ladder and inside the same
   // guard — see tests/drive-eta-origin.test.mjs for the rest of that story.
-  assert.match(worklistJs, /planDay\(\) === localDate\(\) \? \(livePin\(\) \|\| lastDonePin\(all\)\) : null/);
+  // (The "start from here" rung between them is tests/worklist-run-start-origin.test.mjs.)
+  assert.match(worklistJs,
+    /planDay\(\) === localDate\(\)\s*\? \(livePin\(\) \|\| runStartPin\(all\) \|\| lastDonePin\(all\)\) : null/);
   assert.match(worklistJs, /here \|\| cachedCoord\('crewStartLat', 'crewStartLng'\)/);
   // Every caller hands over the FULL list, or the done orders it needs to locate
   // the crew are invisible to it — a one-argument call is the silent regression.

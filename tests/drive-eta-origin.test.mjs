@@ -52,12 +52,13 @@ test('a stale fix is rejected rather than read as "here"', () => {
 });
 
 // ── the ladder ──────────────────────────────────────────────────────────────
-test('the origin is live fix → last completed pin → muster point', () => {
+test('the origin is live fix → "start from here" spot → last completed pin → muster point', () => {
   // Each rung is reached only when the one above has nothing to say, so a phone
   // that is not the day's armed recorder behaves exactly as it did before: no
-  // location prompt, no GPS wakeup of its own, nothing on screen.
+  // location prompt, no GPS wakeup of its own, nothing on screen. The run-start
+  // rung is tests/worklist-run-start-origin.test.mjs.
   assert.match(worklistJs,
-    /planDay\(\) === localDate\(\) \? \(livePin\(\) \|\| lastDonePin\(all\)\) : null/);
+    /planDay\(\) === localDate\(\)\s*\? \(livePin\(\) \|\| runStartPin\(all\) \|\| lastDonePin\(all\)\) : null/);
   assert.match(worklistJs, /here \|\| cachedCoord\('crewStartLat', 'crewStartLng'\)/);
   // Still inside the today-vs-plan-day guard. An evening plan for tomorrow starts
   // at the depot like any morning does — the couch the phone is sitting on is no
