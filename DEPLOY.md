@@ -652,21 +652,34 @@ internet), and needs no `npm install`.
    Copy the token it gives you.
 2. **Configure:** copy `tools/wo-bot/config.example.json` to
    `tools/wo-bot/config.local.json` (gitignored) and set `botToken`. Leave
-   `allowedUserIds` empty for now.
-3. **Find your Telegram id:** turn the bot on (step 6) and message it. It replies
-   with your id, and its log shows the id with your name. Add the id to
-   `allowedUserIds`, then turn the bot off and on. Repeat for
-   each person who should be able to send orders. (Anyone can find a bot by name;
-   the allowlist is what keeps strangers out.)
-4. **Link:** each person sends `/link H12345` once — their employee number, checked
+   `ownerUserId` as the placeholder for now.
+3. **Make yourself the owner:** turn the bot on (step 7) and message it. It replies
+   with your Telegram id, and its log shows the id with your name. Put that id in
+   `ownerUserId`, then turn the bot off and on. This is the only time you need the
+   config file. If `ownerUserId` is missing, the first `allowedUserIds` entry is
+   the owner.
+4. **Let people in, from Telegram:** someone who isn't allowed yet messages the bot.
+   The bot tells them it has asked you, and sends you a message with an **✅ Allow**
+   button. Tap it and they can use the bot straight away. The bot doesn't restart, so
+   nobody's unsent batch is lost. The bot then tells them to `/link`. Only the owner
+   can use these commands:
+   - `/users` lists who can use the bot and whose worklist each person is linked to.
+   - `/allow 123456789` lets a Telegram id in without waiting for them to message.
+   - `/revoke 123456789` takes someone back out, and drops their link.
+
+   People let in this way are saved in `tools/wo-bot/state.local.json` (gitignored).
+   Ids typed into `allowedUserIds` by hand also work, but they can only be removed by
+   editing the file. (Anyone can find a bot by name; this allowlist is what keeps
+   strangers out.)
+5. **Link:** each person sends `/link H12345` once — their employee number, checked
    against the roster. Links live in `tools/wo-bot/state.local.json` (gitignored).
-5. **Reader:** the bot reads photos with Ollama's `qwen2.5vl:7b`
+6. **Reader:** the bot reads photos with Ollama's `qwen2.5vl:7b`
    (`ollama pull qwen2.5vl:7b`); change `model`/`ollamaUrl` in the config to use
    another. Ollama must be running: with it down, each photo is answered with
-   "the AI reader (Ollama) didn't answer". The tray (step 6) starts Ollama when it
+   "the AI reader (Ollama) didn't answer". The tray (step 7) starts Ollama when it
    turns the bot on, if `ollamaUrl` points at this PC and Ollama isn't already
    running. Turning the bot off leaves Ollama running.
-6. **Turn it on and off:** run
+7. **Turn it on and off:** run
    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\wo-bot\tray.ps1 -Install`
    once. It adds **Work-order bot** to the Start menu.
    - Opening the shortcut turns the bot on and puts a dot in the tray by the clock:

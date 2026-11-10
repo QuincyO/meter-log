@@ -237,9 +237,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   so a tall list photo arrives ~230 px wide. OCR then dropped or mangled the leading 9
   (`07955`, `106276`, `)06362`) while the model read all 30 numbers right. The agreement
   rule parked good orders as "unsure", and the user had to retype them. The check on a
-  model misread is now the user reading the list before ✅ Send. Setup is
-  DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs` and
-  `tests/wo-bot-extract.test.mjs`.
+  model misread is now the user reading the list before ✅ Send.
+  **Who can use it is decided in Telegram, by the owner** (`tools/wo-bot/access.mjs`):
+  `ownerUserId` in the config (else the first `allowedUserIds` entry), plus the config
+  list, plus `state.local.json` `allowed`. A stranger's first message sends the owner an
+  ✅ Allow button, and `/allow`, `/revoke` and `/users` are owner-only. Two things to
+  keep: the bot never rewrites `config.local.json`, and letting someone in or out must
+  not need a restart, because a restart drops every unsent batch. Setup is
+  DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs`,
+  `tests/wo-bot-extract.test.mjs` and `tests/wo-bot-access.test.mjs`.
 - **Analytics splits boat from land by DATE + installer, not by the `workType` tag.**
   `map.html`'s Land / Boat / All switch classifies every row with
   `js/compute/installer-lifetime.js workTypeOn(date, installer)`: boat before

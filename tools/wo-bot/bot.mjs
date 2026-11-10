@@ -12,8 +12,10 @@
 //   node tools/wo-bot/bot.mjs --dry-run a.jpg …    read photos, print, touch nothing
 //
 // Setup (DEPLOY.md §"Photo work-order bot"): a token from @BotFather and the
-// allowed Telegram user ids go in tools/wo-bot/config.local.json (gitignored;
-// copy config.example.json). Long polling, so nothing is exposed to the internet.
+// owner's Telegram user id go in tools/wo-bot/config.local.json (gitignored;
+// copy config.example.json). The owner lets everyone else in from Telegram —
+// a stranger's first message sends the owner an ✅ Allow button — see access.mjs.
+// Long polling, so nothing is exposed to the internet.
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -21,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { WEB_APP_URL, SHARED_TOKEN } from '../../js/config.js';
 import { readPhoto } from './ocr.mjs';
 import { newBatch, addPhoto, addTyped, removeFrom, sendOrder } from './extract.mjs';
+import { ownerOf, isOwner, isAllowed, parseUserId, allowUser, revokeUser, listUsers } from './access.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(HERE, 'config.local.json');
@@ -49,9 +52,10 @@ if(!existsSync(CONFIG_PATH)){
 }
 const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
 if(!config.botToken){ console.error('config.local.json: botToken is required'); process.exit(1); }
-const allowed = new Set((config.allowedUserIds || []).map(String));
+const owner = ownerOf(config);
 const state = existsSync(STATE_PATH) ? JSON.parse(readFileSync(STATE_PATH, 'utf8')) : {};
 state.links = state.links || {};   // Telegram user id → { hNumber, name }
+state.allowed = state.allowed || {}; // Telegram user id → { name, addedAt } — let in by the owner
 const saveState = () => writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 const batches = new Map();         // chat id → batch (in memory; a restart drops it)
 const batchFor = chat => { if(!batches.has(chat)) batches.set(chat, newBatch()); return batches.get(chat); };
@@ -90,6 +94,14 @@ const HELP = [
   '/clear — start over',
   '/send — queue the batch (or tap ✅ Send)',
 ].join('\n');
+const OWNER_HELP = [
+  '',
+  'Only you (the owner):',
+  '/users — who can use the bot',
+  '/allow 123456789 — let a Telegram id in',
+  '/revoke 123456789 — take them back out',
+].join('\n');
+const helpFor = user => isOwner(config, user) ? HELP + '\n' + OWNER_HELP : HELP;
 
 function batchButtons(user, batch){
   const link = state.links[user];
@@ -134,6 +146,68 @@ async function handleSend(chat, user){
     + 'On the phone: Worklist ▸ ⇩ Download.');
 }
 
+// ── access: the owner lets people in and out from Telegram ──────────────────
+const strangers = new Map();       // Telegram id → display name, as last seen this run
+const nameOf = from => [from.first_name, from.last_name].filter(Boolean).join(' ')
+  + (from.username ? ` (@${from.username})` : '');
+
+// A stranger's first message (per run): tell them, and send the owner a button.
+async function handleStranger(chat, from){
+  const user = String(from.id), name = nameOf(from);
+  const known = strangers.has(user);
+  strangers.set(user, name);
+  if(known) return;
+  console.log(`Not allowed: Telegram id ${user} (${name}) — asked the owner.`);
+  await say(chat, `This bot is private. I've asked the owner to let you in — `
+    + `you'll get a message here when they do. (Your Telegram id is ${user}.)`).catch(() => {});
+  if(!owner) return;
+  await say(owner, `${name || 'Someone'} (id ${user}) wants to use the bot.`, {
+    reply_markup: { inline_keyboard: [[{ text: `✅ Allow ${name || user}`, callback_data: `allow:${user}` }]] },
+  }).catch(e => console.error(new Date().toISOString(), `couldn't reach the owner: ${e.message}`));
+}
+
+async function grant(chat, id){
+  const name = strangers.get(id) || '';
+  const r = allowUser(config, state, id, name);
+  if(!r.ok) return say(chat, `${name || id} can already use the bot.`);
+  saveState();
+  strangers.delete(id);
+  console.log(`Allowed: Telegram id ${id} (${name}) — by the owner.`);
+  await say(chat, `✅ ${name || id} can use the bot now. /revoke ${id} to undo.`);
+  // Private chat id = user id. Fails harmlessly if they never opened the bot.
+  await say(id, `You're in. First tell me whose worklist the orders go to: /link H12345\n\n${HELP}`)
+    .catch(() => say(chat, `(I couldn't message them — they need to open @${me.username} and tap Start.)`));
+}
+
+async function handleAllow(chat, text){
+  const id = parseUserId(text);
+  if(!id) return say(chat, 'Usage: /allow 123456789 (their Telegram id — the bot tells them it when they message it)');
+  return grant(chat, id);
+}
+
+async function handleRevoke(chat, text){
+  const id = parseUserId(text);
+  if(!id) return say(chat, 'Usage: /revoke 123456789 — /users shows the ids');
+  const r = revokeUser(config, state, id);
+  if(r.ok){
+    saveState();
+    batches.delete(Number(id));
+    console.log(`Revoked: Telegram id ${id} (${r.name}) — by the owner.`);
+    return say(chat, `Removed ${r.name || id}. They can't use the bot any more.`);
+  }
+  if(r.reason === 'owner') return say(chat, "That's you — the owner can't be removed.");
+  if(r.reason === 'config') return say(chat, `${id} is in config.local.json on the PC; remove it there.`);
+  return say(chat, `${id} isn't on the list. /users shows who is.`);
+}
+
+function handleUsers(chat){
+  const label = { owner: ' — owner', config: ' — in config file', bot: '' };
+  const lines = listUsers(config, state).map(u =>
+    `${u.name || '(no name yet)'} · ${u.id}${label[u.source]}`
+    + (u.link ? `\n   → ${u.link.name}'s worklist (${u.link.hNumber})` : '\n   → not linked yet'));
+  return say(chat, `Can use the bot (${lines.length}):\n\n${lines.join('\n')}`);
+}
+
 async function downloadPhoto(fileId){
   const f = await tg('getFile', { file_id: fileId });
   const r = await fetch(`https://api.telegram.org/file/bot${config.botToken}/${f.file_path}`);
@@ -168,7 +242,13 @@ async function handlePhotos(chat, user, fileIds){
 async function handleText(chat, user, text){
   const cmd = (text.match(/^\/(\w+)/) || [])[1];
   const batch = batchFor(chat);
-  if(cmd === 'start' || cmd === 'help') return say(chat, HELP);
+  if(cmd === 'start' || cmd === 'help') return say(chat, helpFor(user));
+  if(cmd === 'allow' || cmd === 'revoke' || cmd === 'users'){
+    if(!isOwner(config, user)) return say(chat, 'Only the owner can do that.');
+    if(cmd === 'allow') return handleAllow(chat, text);
+    if(cmd === 'revoke') return handleRevoke(chat, text);
+    return handleUsers(chat);
+  }
   if(cmd === 'link') return handleLink(chat, user, text);
   if(cmd === 'send') return handleSend(chat, user);
   if(cmd === 'clear'){ batches.delete(chat); return say(chat, 'Cleared.'); }
@@ -181,12 +261,11 @@ async function handleText(chat, user, text){
     return say(chat, `Removed ${n}. ${batchStatus(user, batch)}`, batchButtons(user, batch));
   }
   const r = addTyped(batch, text);
-  if(!r.found) return say(chat, `I only understand 6-digit work-order numbers and the commands below.\n\n${HELP}`);
+  if(!r.found) return say(chat, `I only understand 6-digit work-order numbers and the commands below.\n\n${helpFor(user)}`);
   return say(chat, `Added ${r.added}. ${batchStatus(user, batch)}`, batchButtons(user, batch));
 }
 
 // ── the poll loop ───────────────────────────────────────────────────────────
-const warnedStrangers = new Set();
 async function handleUpdates(updates){
   const photos = new Map();   // chat → { user, ids[] }, answered after the loop
   for(const u of updates){
@@ -195,20 +274,16 @@ async function handleUpdates(updates){
     if(!from) continue;
     const user = String(from.id);
     const chat = msg ? msg.chat.id : cb.message.chat.id;
-    if(!allowed.has(user)){
-      if(!warnedStrangers.has(user)){
-        warnedStrangers.add(user);
-        console.log(`Not allowed: Telegram id ${user} (${[from.first_name, from.last_name].filter(Boolean).join(' ')}`
-          + `${from.username ? ' @' + from.username : ''}) — add it to allowedUserIds to let them in.`);
-        await say(chat, `This bot is private. Your Telegram id is ${user} — `
-          + 'ask the owner to add it to allowedUserIds.').catch(() => {});
-      }
+    if(!isAllowed(config, state, user)){
+      await handleStranger(chat, from).catch(() => {});
       continue;
     }
     try {
       if(cb){
         await tg('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {});
-        if(cb.data === 'send') await handleSend(chat, user);
+        const allowId = (String(cb.data || '').match(/^allow:(\d+)$/) || [])[1];
+        if(allowId){ if(isOwner(config, user)) await grant(chat, allowId); }
+        else if(cb.data === 'send') await handleSend(chat, user);
         else if(cb.data === 'clear'){ batches.delete(chat); await say(chat, 'Cleared.'); }
         continue;
       }
@@ -232,7 +307,8 @@ async function handleUpdates(updates){
 }
 
 const me = await tg('getMe');
-console.log(`@${me.username} is running — ${allowed.size} allowed user(s).`);
+console.log(`@${me.username} is running — ${listUsers(config, state).length} allowed user(s)`
+  + (owner ? `, owner ${owner}.` : ' — no owner set, so nobody can let people in from Telegram.'));
 let offset = 0;
 for(;;){
   try {
