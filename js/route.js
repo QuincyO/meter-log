@@ -1227,21 +1227,98 @@ function withHomeWeight(S, homeNode, w){
   }
   return M;
 }
-// The members of one day: a nearest-neighbour walk of `count` stops. It begins at
-// the pinned lead when there is one, else steps out of `from` (the run's start, or
-// the meet), else from the first remaining order in list order — nothing is known
-// about where that morning begins. Each step costs the drive plus, scaled by the
-// dial, how much further from Home it lands: at 100 the day drifts homeward as it
-// fills, at 0 Home is not consulted at all. On-site time is a constant per stop and
-// cannot change which set finishes soonest; the one exception — a second meter at an
-// address the crew is already parked at — is won by the near-zero drive between them.
-// Measured on the real list (2026-11-05, 53 stops): a swap-improvement search on top
-// of this walk changed Day 1 in no case, so the walk is the whole selection.
-function pickDay(S, remaining, count, { pin, from, homeNode, w, node }){
+// The members of one day: the `count` stops that finish soonest from where the day
+// starts. Two candidate sets are built and the one whose ORDERED day is shorter wins:
+//
+//   walkDay — a nearest-neighbour walk (each stop the nearest to the one before);
+//   fitDay  — cheapest insertion (each stop added wherever it lengthens the path
+//             least, which may be in the middle of it).
+//
+// The walk alone was the whole selection until 2026-11-10, and a walk never looks
+// back. Field report, Sombra: two stops in, it had a near tie between the next house
+// south (108 m) and three orders up a dead-end stub to the north (112 m). South won
+// by 4 m, every later step found something closer ahead, the day filled at 19, and
+// the three orders the crew was standing beside became tomorrow's first three stops.
+// A pairwise swap search cannot repair that — trading ONE pocket stop for the day's
+// last stop costs the whole detour and saves one leg, so no single swap improves and
+// only the pocket as a group does (which is why the swap search measured on
+// 2026-11-05 "changed Day 1 in no case"). Insertion sees it directly: a pocket beside
+// the path is cheap to fit in on the way past.
+//
+// Insertion is NOT simply the better builder, so it does not replace the walk. Over
+// random village / rural / scattered lists it made Day 1 longer about as often as
+// shorter (worst cases +50–60%). Building both and keeping the shorter is the point:
+// the walk's day is always a candidate, so a day can never come out longer than it
+// did before this existed, and ties keep the walk.
+//
+// On-site time is a constant per stop and cannot change which set finishes soonest;
+// the one exception — a second meter at an address the crew is already parked at —
+// is won by the near-zero drive between them, in either builder.
+function pickDay(S, remaining, count, shape){
   // A day of nothing (a locked Optimize whose target is already met) takes no stop —
-  // not even the "first remaining order" the no-start fallback below would grab.
+  // not even the "first remaining order" the no-start fallback would grab.
   if(!(count > 0)) return [];
   if(count >= remaining.length) return remaining.slice();
+  const walk = walkDay(S, remaining, count, shape);
+  const fit = fitDay(S, remaining, count, shape);
+  const inWalk = new Set(walk);
+  if(fit.length === walk.length && fit.every(k => inWalk.has(k))) return walk;
+  // Strictly shorter, by more than float noise — anything else keeps the walk.
+  return dayLength(S, fit, shape) < dayLength(S, walk, shape) - 1e-6 ? fit : walk;
+}
+
+// What a candidate day costs, as orderDay will drive it: the leg out of the day's
+// start, the path through its stops, and — when the dial bends the end toward Home —
+// the weighted leg home, which is the same quantity orderDay itself minimises. Priced
+// on the matrix the members were picked on, so both candidates are judged alike.
+function dayLength(S, members, shape){
+  const { pin, from, homeNode, w, node } = shape;
+  const seq = orderDay(S, members, shape).map(node);
+  let len = (pin == null && from != null) ? S[from][seq[0]] : 0;
+  for(let i = 1; i < seq.length; i++) len += S[seq[i - 1]][seq[i]];
+  if(homeNode != null && w > 0) len += w * S[seq[seq.length - 1]][homeNode];
+  return len;
+}
+
+// Cheapest insertion. Grows a path from the day's anchor — the pinned lead, else
+// `from`, else the first remaining order — and at each step takes the stop that
+// lengthens it least, either appended to the end (the walk's own move, Home pull
+// included) or slotted between two stops already on it. The anchor never moves:
+// nothing is inserted ahead of position 0.
+function fitDay(S, remaining, count, { pin, from, homeNode, w, node }){
+  const left = new Set(remaining), members = [], path = [];
+  const pull = (homeNode != null && w > 0)
+    ? (a, b) => w * (S[b][homeNode] - S[a][homeNode]) : () => 0;
+  const take = (k, at) => { members.push(k); left.delete(k); path.splice(at, 0, node(k)); };
+  if(pin != null) take(pin, 0);
+  else if(from != null) path.push(from);
+  else take(remaining[0], 0);
+  while(members.length < count){
+    const end = path[path.length - 1];
+    let best = -1, bestCost = Infinity, bestAt = -1;
+    for(const k of left){
+      const n = node(k);
+      let c = S[end][n] + pull(end, n), at = path.length;
+      for(let e = 0; e < path.length - 1; e++){
+        const ins = S[path[e]][n] + S[n][path[e + 1]] - S[path[e]][path[e + 1]];
+        if(ins < c){ c = ins; at = e + 1; }
+      }
+      if(c < bestCost){ bestCost = c; best = k; bestAt = at; }
+    }
+    if(best < 0) break;                 // nothing reachable — fill below
+    take(best, bestAt);
+  }
+  // Same guarantee as the walk: the day holds `count` stops whatever the matrix says.
+  for(const k of left){ if(members.length >= count) break; take(k, path.length); }
+  return members;
+}
+
+// The nearest-neighbour walk. It begins at the pinned lead when there is one, else
+// steps out of `from` (the run's start, or the meet), else from the first remaining
+// order in list order — nothing is known about where that morning begins. Each step
+// costs the drive plus, scaled by the dial, how much further from Home it lands: at
+// 100 the day drifts homeward as it fills, at 0 Home is not consulted at all.
+function walkDay(S, remaining, count, { pin, from, homeNode, w, node }){
   const left = new Set(remaining), members = [];
   const pull = (homeNode != null && w > 0)
     ? (a, b) => w * (S[b][homeNode] - S[a][homeNode]) : () => 0;

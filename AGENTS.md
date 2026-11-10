@@ -459,7 +459,8 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   Pinned by `tests/route-reflow.test.mjs`.
 - **Days are picked TODAY FIRST, from where that day starts. Don't bring the master
   path back.** `route.js solveVariant` chooses Day 1 as the `target` stops that finish
-  soonest from the run's start (`pickDay`, a nearest-neighbour walk; drive + on-site),
+  soonest from the run's start (`pickDay`: a nearest-neighbour walk and a
+  cheapest-insertion build, the shorter day kept; drive + on-site),
   orders it from that start (`orderDay`), then plans each later day the same way from
   the **team meet** over what is left. Until 2026-11-05 it solved one long path through
   every stop — furthest-from-Home first, with the meet dropped from the ordering as
@@ -479,9 +480,26 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   no-Home run exactly (`tests/route-day-first.test.mjs`). The old master path headed
   to Home at full strength whatever the dial said, so at 0 Home still decided which
   stops landed on which day;
-  (3) **the walk is the selection.** A swap-improvement search on top of it changed
-  Day 1 in no case on the real list, so it was not shipped; re-measure before adding
-  one (`pickDay` ends with a fill loop so an unroutable row can never strand it);
+  (3) **a day is the SHORTER of two builds, and the walk must stay one of them.**
+  `pickDay` builds the day twice — `walkDay` (nearest-neighbour) and `fitDay`
+  (cheapest insertion: each stop added wherever it lengthens the path least) — orders
+  both (`dayLength` → `orderDay`) and keeps the shorter; ties keep the walk. The walk
+  alone was the selection until 2026-11-10, and a walk never looks back: in Sombra it
+  lost a 108 m / 112 m near tie, went south, found something closer ahead at every
+  later step, and left three orders the crew was standing beside as tomorrow's first
+  three stops. Two things not to "simplify": **don't replace the walk with insertion**
+  — measured over random village/rural/scattered lists it made Day 1 longer about as
+  often as shorter (worst +50–60%), so only the comparison is safe, and keeping the
+  walk as a candidate is what guarantees no day comes out longer than it used to;
+  and **don't reach for a pairwise swap search instead** — trading one pocket stop
+  for the day's last stop costs the whole detour and saves one leg, so no single
+  swap improves and only the pocket as a group does (that is why the swap search
+  measured on 2026-11-05 "changed Day 1 in no case"). The objective is still *today
+  finishes soonest*, not "no neighbour left behind": where the walk's day is the
+  shorter one it stands, stragglers and all (on that same Sombra list the
+  straight-line variant still leaves 108 Middle St for Day 2). Both builders end with
+  a fill loop so an unroutable row can never strand them.
+  `tests/route-day-pocket.test.mjs`;
   (4) **the lead is Day 1's pin, not a separate solver** — `leadId` makes `pickDay`
   grow from it and `orderDay` keep it first; the run's start still prices the drive
   to it. `solveWithLead` is gone;

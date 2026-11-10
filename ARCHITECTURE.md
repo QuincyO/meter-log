@@ -711,8 +711,8 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   **A lock on the route's first slot (Day 1, slot 1) is a solver input, not just a
   pin** — it is the *lead*, "start the route here". `route-constraints.js routeLeadId`
   finds it and both Optimize handlers pass it to `optimizeRoute` as `opts.leadId`;
-  `route.js solveVariant` then grows Day 1 from it (nearest-neighbour from the lead
-  picks the day's `target` members, anchored 2-opt/Or-opt orders them with the lead
+  `route.js solveVariant` then grows Day 1 from it (`pickDay` builds the day's
+  `target` members out from the lead, anchored 2-opt/Or-opt orders them with the lead
   first and the end bent home by `commutePull`), and solves the remaining stops for
   days 2+ by the unchanged rules. The lead also outranks a GPS "start from here" fix
   as the first stop; the fix stays in the measure matrix, so the drive to the lead is
@@ -996,10 +996,18 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   geographic solve; they do not choose the route's geographic origin.
   **Multi-day split (`opts.target`, meters/day) — Day 1 is picked FIRST.** When set,
   `solveVariant` builds the days one at a time, today first. Each day takes the
-  `target` stops that **finish soonest from where that day starts** — a
-  nearest-neighbour walk out of the start (`pickDay`), so a tight cluster beats a
-  scatter and a second meter at an address the crew is already parked at is won by the
-  near-zero drive between them — and is then ordered by the anchored 2-opt/Or-opt
+  `target` stops that **finish soonest from where that day starts** (`pickDay`), so a
+  tight cluster beats a scatter and a second meter at an address the crew is already
+  parked at is won by the near-zero drive between them. The day is built twice — a
+  nearest-neighbour walk out of the start (`walkDay`) and a cheapest-insertion build
+  (`fitDay`, each stop added wherever it lengthens the path least) — both are ordered,
+  and the **shorter day is kept** (ties keep the walk). The walk alone strands a pocket
+  it passes by a few metres, because it never looks back (field report 2026-11-10: three
+  orders beside the crew became tomorrow's first three stops); insertion picks such a
+  pocket up on the way past but is not better in general, so it is a second candidate
+  and never a replacement — the walk's day always being in the running is what
+  guarantees no day comes out longer than before. The chosen set is then ordered by
+  the anchored 2-opt/Or-opt
   with that start pinned first and its end bent toward Home by `commutePull`
   (`orderDay`). **Day 1 leaves the run's start**: the team meet (`opts.start`) or a
   phone GPS **Start from here** fix. **Every later day leaves the team meet**, never
@@ -1017,9 +1025,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   stops shared a day was an accident of where the cuts fell. Measured on the real list
   that reported it (53 stops, three days), the change is a relocation, not a saving:
   Day 1 finishes 17 min (GPS start) to 52 min (meet start) earlier on 1–8 km less,
-  later days absorb it, and the total over all days is unchanged. A
-  swap-improvement search on top of the walk changed Day 1 in no case, so the walk
-  is the whole selection. It returns `dayOf` (`{id: dayNumber}`); `dayFallback:true`
+  later days absorb it, and the total over all days is unchanged. A pairwise
+  swap-improvement search on top of the walk changed Day 1 in no case on that list —
+  a stranded pocket only pays as a group, which a single swap cannot see — and the
+  second, insertion-built candidate above is what covers that case. It returns `dayOf` (`{id: dayNumber}`); `dayFallback:true`
   only reports that there was no Home pin. The
   A day is sized by the **meters/day target and nothing else**. It briefly had a second,
   invisible input: a per-installer "Finish by" dial, with `min(target, timeCapacity)`
