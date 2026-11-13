@@ -266,6 +266,13 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   as removed. The 🗑 button carries a token, so a button from an earlier send or from
   before a restart answers "out of date" instead of removing against a list nobody is
   looking at; an order logged since the list was shown (`done`) is skipped.
+  **The queue and the claim skip a WO# that is on the list in ANY state, done
+  included.** The handheld keeps listing an order logged today (a UTI stays on it), so
+  re-photographing the whole list mid-day used to add a pending copy of every finished
+  order (field report 2026-11-13). This is deliberately stricter than the phone's own
+  add and paste, which let a done number back in for a revisit: a person typing a
+  number means it, a photo of the whole list does not. Done rows are swept nightly, so
+  the order is queued again the next morning if it is still on the handheld.
   Setup is DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs`,
   `tests/wo-bot-extract.test.mjs` and `tests/wo-bot-access.test.mjs`.
 - **Analytics splits boat from land by DATE + installer, not by the `workType` tag.**

@@ -112,16 +112,32 @@ test('another installer\'s inbox rows are left waiting', () => {
   assert.equal(s.claimWorklistInbox('H200'), 1);
 });
 
-test('queue skips numbers already pending, already waiting, or repeated in the batch', () => {
+test('queue skips numbers already on the list (pending OR done), already waiting, or repeated in the batch', () => {
   const s = withWorklist([
     { id: 'a', hNumber: 'H100', workOrderId: '902732', wlStatus: 'pending', order: 0 },
     { id: 'd', hNumber: 'H100', workOrderId: '905486', wlStatus: 'done', order: 10 },
+    { id: 'x', hNumber: 'H200', workOrderId: '907209', wlStatus: 'done', order: 0 },
   ]);
   s.queueWorklistOrders({ hNumber: 'H100', orders: ['900821'] });
   const q = s.queueWorklistOrders({ hNumber: 'H100',
     orders: ['902732', '900821', '905486', '907209', '907209', ' '] });
-  assert.deepEqual(q.queued, ['905486', '907209'], 'a done order may be re-queued (revisit)');
-  assert.deepEqual(q.skipped, ['902732', '900821', '907209']);
+  // An order logged today is still on the handheld's list when it is photographed
+  // again (a UTI stays there), so re-queueing a done number put a second, pending
+  // copy of a finished order on the phone — field report 2026-11-13, 984647.
+  assert.deepEqual(q.queued, ['907209'], 'a finished order is not queued again; another installer\'s done row is not ours');
+  assert.deepEqual(q.skipped, ['902732', '900821', '905486', '907209']);
+});
+
+test('a number finished between queue and claim is claimed without a second row', () => {
+  const s = withWorklist([]);
+  s.queueWorklistOrders({ hNumber: 'H100', orders: ['902732', '900821'] });
+  // Typed in by hand, logged, and pushed up as done before any Download.
+  const H = s.WORKLIST_HEADERS;
+  s.sheets.Worklist.grid.push(worklistRow(H, { id: 'x', hNumber: 'H100', workOrderId: '902732',
+    wlStatus: 'done', order: 0 }));
+  assert.equal(s.claimWorklistInbox('H100'), 1);
+  assert.deepEqual(s.worklistFor('H100').map(r => `${r.workOrderId} ${r.wlStatus}`),
+    ['902732 done', '900821 pending']);
 });
 
 test('a number that became pending between queue and claim is claimed without a second row', () => {

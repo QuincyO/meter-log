@@ -1552,8 +1552,13 @@ function ensureWorklistInboxTab(ss) {
 const normInboxWo = v => String(v == null ? '' : v).trim().toUpperCase();
 
 /** The bot's write: queue WO numbers for one installer (H number). Skips any
- *  already pending on that installer's Worklist or already waiting unclaimed
- *  in the inbox, so a re-sent batch never doubles. Runs under doPost's lock. */
+ *  already on that installer's Worklist — pending OR done — or already waiting
+ *  unclaimed in the inbox, so a re-sent batch never doubles. Done counts on
+ *  purpose: the handheld keeps listing an order logged today (a UTI stays on
+ *  it), so a mid-day re-photo of the whole list used to put a second, pending
+ *  copy of every finished order on the phone. Done rows are swept nightly, so
+ *  a UTI still on the handheld tomorrow is queued again then; a same-day
+ *  revisit is added by hand on the phone. Runs under doPost's lock. */
 function queueWorklistOrders(b) {
   const h = String(b.hNumber == null ? '' : b.hNumber).trim();
   if (!h) return { ok: false, error: 'hNumber required' };
@@ -1564,8 +1569,7 @@ function queueWorklistOrders(b) {
 
   const have = {};
   if (ss.getSheetByName('Worklist')) rows('Worklist').forEach(r => {
-    if (String(r.hNumber).trim() === h && String(r.wlStatus).trim().toLowerCase() !== 'done')
-      have[normInboxWo(r.workOrderId)] = true;
+    if (String(r.hNumber).trim() === h) have[normInboxWo(r.workOrderId)] = true;
   });
   rows('WorklistInbox').forEach(r => {
     if (String(r.hNumber).trim() === h && !String(r.claimedAt || '').trim())
@@ -1774,7 +1778,7 @@ function sweepWorklistRemovedCore() {
 
 /** Fold one installer's unclaimed inbox rows into Worklist as pending,
  *  address-less orders after their last `order`, and stamp `claimedAt`. A WO
- *  already pending there is claimed without a new row. Called from the
+ *  already there (pending or done) is claimed without a new row. Called from the
  *  `worklist` read — doGet holds no lock, so this takes the script lock itself,
  *  but only once a lockless peek has found something to claim (the Drive
  *  screen polls that read all day). Lock busy → claim nothing; the rows wait
@@ -1806,7 +1810,9 @@ function claimWorklistInbox(hNumber) {
       if (String(r[col('hNumber')]).trim() !== h) return;
       const o = Number(r[col('order')]);
       if (r[col('order')] !== '' && isFinite(o)) maxOrder = Math.max(maxOrder, o);
-      if (String(r[col('wlStatus')]).trim().toLowerCase() !== 'done') pending[normInboxWo(r[col('workOrderId')])] = true;
+      // Any row, done included — the same rule as queueWorklistOrders, for an
+      // order finished between the queue and this claim.
+      pending[normInboxWo(r[col('workOrderId')])] = true;
     });
 
     // An order the owner removed and that is now coming back — /undo, or the

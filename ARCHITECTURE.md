@@ -2423,8 +2423,11 @@ The photo bot's drop box (`tools/wo-bot`). An installer photographs the handheld
 work-order list and sends it to a Telegram bot on the owner's PC, which reads it
 locally with an Ollama vision model (Windows OCR was dropped on 2026-10-26; see
 AGENTS.md) and, once the user taps ✅ Send, posts `queueWorklistOrders {hNumber, orders:[wo…], source}`. That skips
-any number already pending on the installer's `Worklist` or already waiting here,
-and returns `{ok, queued, skipped, installer}`. The next `?action=worklist` read for
+any number already on the installer's `Worklist` — pending **or done** — or already
+waiting here, and returns `{ok, queued, skipped, installer}`. (Done counts because the
+handheld keeps listing an order logged today, so a mid-day re-photo would otherwise
+add a pending copy of every finished order. Done rows are swept nightly, so a UTI is
+queued again the next morning; a same-day revisit is added by hand on the phone.) The next `?action=worklist` read for
 that H number runs `claimWorklistInbox` first: each waiting row becomes a pending,
 address-less `Worklist` row (id `inbox-<id>`, ordered after the installer's last
 `order`, exactly like a bulk paste) and gets `claimedAt` stamped. It is a separate
