@@ -8,6 +8,10 @@ import { cfg } from './store.js';
 import { apiGet } from './api.js';
 import { withActivity } from './dom.js';
 import { stamp, localDate, localDateOffset } from './time.js';
+// Namespace import + `typeof` check, never a named one: a phone can run this file
+// against an older compute/gaps.js for as long as it likes (AGENTS.md §"cross-file
+// contract"), and a missing named export is a link error that kills the capture page.
+import * as gapsMod from './compute/gaps.js';
 
 // An empty day copy, seeded when logging before any server pull exists.
 const emptyDay = () => ({ stops:[], downtime:[], day:{}, closed:false, cachedAt:stamp() });
@@ -59,7 +63,9 @@ export async function applyOptimisticCache(payload){
 // The stop id stays the same (client-generated, used by server as-is).
 export async function reconcileCache(body, item){
   const c = cfg(); if(!c.name) return;
-  const key = `${c.name}|${localDate()}`;
+  // A saveTravel names its own day (Today's orders stamps it), so one that drains
+  // after midnight settles the day it was written for, not the one it arrived in.
+  const key = `${c.name}|${(item.action==='saveTravel' && item.date) || localDate()}`;
   const cached = await idb.get('dayCache', key);
   if(!cached) return;
   let changed = false;
@@ -84,11 +90,16 @@ export async function reconcileCache(body, item){
       cached.downtime.push({...dataOf(item), id:body.id});
       changed = true;
     }
-  } else if(item.action==='saveTravel' && body.ok && cached.eodTravel){
-    // The offline travel review reached the Sheet — drop the local pending copy
-    // so the next load reads the authoritative gap rows back via `idle`.
-    delete cached.eodTravel;
-    changed = true;
+  } else if(item.action==='saveTravel' && body.ok){
+    // The downtime review reached the Sheet. Make the cached day match what the
+    // Sheet now holds and drop the stash only if it is this same set — see
+    // settleTravel in compute/gaps.js. An older gaps.js keeps the old behaviour.
+    if(typeof gapsMod.settleTravel === 'function'){
+      changed = gapsMod.settleTravel(cached, item.allocations, { date:item.date || localDate(), installer:c.name });
+    } else if(cached.eodTravel){
+      delete cached.eodTravel;
+      changed = true;
+    }
   } else if(item.action==='archiveStop' && body.ok && (cached.removedIds||[]).includes(item.id)){
     // The removal reached the Sheet — the server no longer returns the row, so
     // the tombstone has done its job.
@@ -99,6 +110,21 @@ export async function reconcileCache(body, item){
   // cache it so the offline daily-log PDF always has those values fresh.
   if(body.boatMeta){ cached.boatMeta = body.boatMeta; changed = true; }
   if(changed) await idb.put('dayCache', cached, key);
+}
+
+// The same settle for a saveTravel that was POSTed directly rather than queued (the
+// End-of-day summary prefetch and the online Finish), which never pass through
+// reconcileCache. capture.js reaches this through `import * as`, for the skew reason
+// at the top of this file.
+export async function settleTravelCache(allocations, date){
+  const c = cfg(); if(!c.name) return;
+  if(typeof gapsMod.settleTravel !== 'function') return;
+  const day = date || localDate();
+  const key = `${c.name}|${day}`;
+  const cached = await idb.get('dayCache', key);
+  if(!cached) return;
+  if(gapsMod.settleTravel(cached, allocations, { date:day, installer:c.name }))
+    await idb.put('dayCache', cached, key);
 }
 
 // ── retention ───────────────────────────────────────────────────────────────

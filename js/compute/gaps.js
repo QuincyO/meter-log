@@ -11,6 +11,44 @@ export function gapNoteTimes(note){
   return String(note==null?'':note).match(/gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/);
 }
 
+// ── a saveTravel the Sheet has confirmed ─────────────────────────────────────
+// saveTravel REPLACES the day's gap-tagged Downtime rows with the posted set, so
+// once one is acked the phone knows exactly what the Sheet holds without asking.
+// settleTravel makes the cached day say so: the cached gap-tagged rows are rebuilt
+// from the acked allocations (manual downtime rows are left alone), and the
+// `eodTravel` stash — "edits the Sheet has not confirmed" — is dropped ONLY when it
+// is that same set. Both halves matter now that Today's orders saves downtime
+// mid-day:
+//  • dropping the stash without rebuilding the rows left the cache with neither, so
+//    an entry made at 10:00 vanished from the card the next time it was opened
+//    offline — and the next save, a whole-day replace, then deleted it for real;
+//  • dropping the stash on ANY ack threw away a newer edit still queued behind it.
+// Returns true when `cached` changed. Pure: the callers own the IndexedDB write.
+const travelSetKey = list => JSON.stringify((list||[])
+  .filter(a => a && a.category && (parseInt(a.minutes,10)||0) > 0)
+  .map(a => [String(a.fromTime||''), String(a.toTime||''), String(a.workOrderId==null?'':a.workOrderId),
+             String(a.category).toUpperCase(), parseInt(a.minutes,10)||0]));
+export function settleTravel(cached, allocations, o){
+  if(!cached) return false;
+  const opt = o || {};
+  const acked = (allocations||[]).filter(a => a && a.category && (parseInt(a.minutes,10)||0) > 0);
+  const date = opt.date || '';
+  cached.downtime = (cached.downtime||[]).filter(d => !gapNoteTimes(d.note)).concat(
+    acked.map((a, i) => ({
+      id: 'gap-' + i,
+      timestamp: date ? (date + ' 12:00:00') : '',   // anchored on the day, like saveTravel
+      installer: opt.installer || '',
+      category: String(a.category).toUpperCase(),
+      minutes: parseInt(a.minutes,10) || 0,
+      workOrderId: a.workOrderId || '',
+      note: 'gap ' + a.fromTime + '–' + a.toTime,
+      workType: ''                                   // saveTravel writes it blank
+    })));
+  if(Array.isArray(cached.eodTravel) && travelSetKey(cached.eodTravel) === travelSetKey(acked))
+    delete cached.eodTravel;
+  return true;
+}
+
 // Each gap is keyed to its arriving stop (toId) and carries the deductions
 // already entered: from `pending` (offline review not yet synced) when present,
 // otherwise from gap-tagged Downtime rows (server-synced). Times use clockOf's

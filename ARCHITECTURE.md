@@ -233,7 +233,8 @@ database, `meterlog`, with **four** object stores:
   WO→WO gaps from the cached stops' timestamps (the same walk as `computeIdle`,
   so the network `idle` fetch isn't needed to show or edit travel time), and the
   in-progress deductions + Departure/Returned bookends are stashed in the cache
-  field `eodTravel` (cleared once `saveTravel` syncs). Finishing the day with no
+  field `eodTravel` (settled once a `saveTravel` carrying the same set is acked — see
+  §"Travel vs delay" ▸ "Two sheets edit the one list"). Finishing the day with no
   signal queues `saveTravel` + `saveDay` + `endOfDay` and **renders the PDF on the
   device** from the cached day (the phone draws it with jsPDF — no connection
   needed; see "Daily-log PDF"); when online the authoritative `idle` overrides the
@@ -2556,6 +2557,38 @@ the caller's `workType`, else inferred from the day's stops (same as
 `buildDaySummary`). Boat days are untouched. The lead gap lives only in the `idle`
 read + client editor path, **not** in `computeIdle` used by `buildDaySummary`, so no
 bogus 0-minute `Timing`/travel row is written.
+
+**Two sheets edit the one list (2026-11-13).** The subtraction editor is on the
+work-order card in **Today's orders** as well as End of day, with the stop's note beside
+it (`capture.js makeStopCard` `opts.quick`: `'open'` on Today, `'fold'` on End of day).
+Both draw over the same `eodGaps` state and the same `dayCache.eodTravel` stash, so an
+entry made in either shows in both. What differs is the write:
+
+- **End of day** is unchanged — stash + bookends on a short debounce, `saveTravel` posted
+  by the summary prefetch and again at Finish.
+- **Today's orders** stashes the deductions (never the bookends) and, after a ~2 s lull,
+  puts a `saveTravel` on the **offline queue** with an explicit `date`. There is no Finish
+  coming for hours, so waiting for one would leave the entry on one phone.
+- **The note** is a notes-only `updateStop` (`{id, notes}`), saved on a debounce and on
+  blur. It is the stop's existing `notes` column; there is no per-entry comment.
+
+Three rules hold the shared state together:
+
+1. **`eodTravel` means "edits the Sheet has not confirmed", and while it exists it wins**
+   — over the cached rows (`localGapsFor`, including an *emptied* stash, which
+   `computeGapsLocal` alone would ignore) and over the allocations `idle` returns
+   (`overlayStash`: the spine supplies the gaps' windows, the stash supplies what is in
+   them; the spine's unsaved DISPATCH suggestion is kept).
+2. **An acked `saveTravel` settles the cache** (`compute/gaps.js settleTravel`, called by
+   `daycache.js reconcileCache` for a queued one and `settleTravelCache` for a direct
+   post): the cached gap-tagged rows are rebuilt from the acked set, and the stash is
+   dropped only if it *is* that set.
+3. **One load owns the screen** (`dayLoadSeq`): a `day`/`idle` response for a sheet that
+   is no longer the one open paints nothing, since it would replace the gap state under
+   the other sheet.
+
+`Today's orders` asks for `idle` too, so its gap windows are the ones End of day will be
+handed. See `AGENTS.md` §"Two sheets edit one downtime list".
 
 The two tunables (`FLAG_GAP_MIN`, `SAME_ISLAND_M`) sit at the top of `Code.gs` and
 are field-adjustable.

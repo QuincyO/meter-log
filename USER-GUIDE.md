@@ -149,6 +149,8 @@ Whenever the crew loses working time, log it as it happens:
 
 You won't find "Dispatch" in the reason list — waiting on a requested meter is calculated automatically during the end-of-day review, so don't log it by hand.
 
+Already logged the stop? You don't need this form. Open **Today's orders**, tap the order, and add the downtime (and a note) right on its card — see "Checking and fixing your logs" below.
+
 ---
 
 ## The worklist (planning your day)
@@ -555,7 +557,13 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
 
 ## Checking and fixing your logs
 
-- **Today's orders** — the day's tally and every stop so far. Tap a row → **Edit** to fix a field → **Save changes**. A stop that shouldn't be there at all: **Remove from log…** (it's archived, never deleted — the office can restore it). Logged the wrong thing and want a clean slate for that house? **↺ Reset order…** does both at once — it removes the logged meter (archived, restorable) **and** puts the work order back on your list to redo, keeping its WO#, address and old J#.
+- **Today's orders** — the day's tally and every stop so far. Tap a row and its card opens with a **Note** and a **Downtime** section ready to use, no Edit needed.
+- **Note** (on the card) — one note for the work order. Put anything about the order here, including why there was downtime if you want to say. It saves by itself as you type.
+- **Downtime** (on the card) — tap **+ Add downtime**, enter the minutes and pick the reason. Add as many rows as you need; **✕** removes one. It saves by itself and sends when there's signal.
+- The note and the downtime list are the same ones **End of day** shows on that order. Add or change them in either place and the other follows, so there's no need to do the note in one screen and the downtime in the other.
+- Downtime you logged earlier with the **Add downtime** button shows under the list as "Also logged with Add downtime". It's already counted — don't enter it again.
+- The first stop of a boat day has no downtime slot (there's nothing logged before it to measure from). On a land day every order has one.
+- Still in **Today's orders**: tap **Edit** on the card to fix a field → **Save changes**. A stop that shouldn't be there at all: **Remove from log…** (it's archived, never deleted — the office can restore it). Logged the wrong thing and want a clean slate for that house? **↺ Reset order…** does both at once — it removes the logged meter (archived, restorable) **and** puts the work order back on your list to redo, keeping its WO#, address and old J#.
 - **Look up · WO# / J#** — type a work order # or J# and **Search** to find any past stop and **Edit** it.
 - **☰ → 🗓 Recent days** — your last week of orders, stored on the phone. Works with no signal, so you can review or fix yesterday from the middle of the lake.
 
@@ -568,8 +576,8 @@ When the day's done, close it out — this files the day's record and produces t
 1. Tap **End of day**.
 2. Skim the tally and stop list; tap any stop to fix it.
 3. Check the day's bookend times: **Departure time (left dock)** and **Returned to land** on a boat day; **Start time** and **End time** on a land day. They start filled in at **7:30 AM** and **4:00 PM** — type over either one on a day that ran differently. (If times were already saved for the day, those show instead.)
-4. Do the **travel review**: the app shows the gap between each pair of work orders. For each gap, the untouched part counts as travel; add a reason + minutes row to carve out anything that wasn't travel (a lunch on the water, a wait). If you flagged a stop **Requested ✓**, a **Dispatch** row is already filled in with the calculated wait — adjust it if it's off.
-5. Add day **Notes** if you have any.
+4. Do the **travel review**. Each order's card has two fold-out rows: **▸ Note** (the note for that work order) and **▸ Downtime: … · travel in …**. Open the Downtime row: the app shows the gap since the order before, and the untouched part counts as travel. Tap **+ Add downtime** and enter minutes + a reason to carve out anything that wasn't travel (a lunch on the water, a wait). If you flagged a stop **Requested ✓**, a **Dispatch** row is already filled in with the calculated wait — adjust it if it's off. Anything you added from **Today's orders** during the day is already here, so you only fill in what's missing.
+5. Add day **Notes** if you have any (this one is for the whole day; the note on a card is for that order).
 6. Leave **Include delays & travel time on PDF** checked unless told otherwise.
 7. Tap **Finish day** — "Day closed ✓ · PDF downloaded". Offline it's "Day closed offline ✓ · PDF downloaded — will sync when online": the PDF still appears, and the close syncs itself later.
 

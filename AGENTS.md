@@ -753,6 +753,45 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   Also here: `eodStateKey` fingerprints the day's rows now, not just the gap
   allocations — without that, a summary prefetched before a downtime existed still
   "matched" at Finish and was reused verbatim.
+- **Two sheets edit one downtime list.** The work-order card carries a **Note** and a
+  **Downtime** section in *both* Today's orders and End of day (`capture.js makeStopCard`
+  `opts.quick`). The downtime is the End-of-day gap deductions — one `eodGaps` state, one
+  `dayCache.eodTravel` stash, one `saveTravel` — so an entry made in either sheet shows in
+  the other. The note is the stop's own `notes`, saved as a notes-only `updateStop`; the
+  owner asked for **one note per work order and no comment per downtime line**
+  (2026-11-13), so don't add one. Six things are load-bearing:
+  (1) **Today's orders writes `saveTravel` itself, through the queue, with a `date`.**
+  There is no Finish coming for hours. The save is debounced (~2 s) and **snapshots the
+  allocations at the edit**, never when the timer fires: End of day empties `eodGaps` for
+  its own load, and a `saveTravel` of `[]` *replaces* the day's deductions on the Sheet;
+  (2) **Today never writes the bookends.** `persistEodReview` reads `#eodDeparture` /
+  `#eodReturned`, which hold stale or default values while Today is the sheet on screen —
+  `stashTravel` is the deductions only. `gapHost` says which sheet drew the editor and
+  therefore which of the two an edit runs;
+  (3) **the stash means "the Sheet has not confirmed this", and while it exists it wins**
+  — over the cached rows *and* over the allocations `idle` sends back (`overlayStash`).
+  `loadDay` used to take the `idle` gaps wholesale, so downtime entered offline vanished
+  when the review next opened with signal, and the following `saveTravel` deleted it for
+  real. An **emptied** stash wins too (`localGapsFor`): `computeGapsLocal` only honours a
+  non-empty one, which handed a deleted entry straight back;
+  (4) **an acked `saveTravel` settles the cache, it does not just clear the stash**
+  (`compute/gaps.js settleTravel`). The cached gap rows are rebuilt from the acked set and
+  the stash is dropped only if it *is* that set. Clearing it unconditionally threw away a
+  newer edit queued behind the ack, and left the cache with neither the stash nor the rows
+  until the next server pull;
+  (5) **a late response must not rebuild an open card, and a response for the other sheet
+  must not paint at all.** `todayTouched` is Today's twin of `eodTouched`; `dayLoadSeq`
+  exists because the two sheets now share the gap state, so a stale paint re-points it
+  under the sheet on screen and every minute typed afterwards goes nowhere;
+  (6) **`s.notes` moves only when the `updateStop` is queued, never per keystroke**, and
+  `eodStateKey` reads `eodNoteEdits` — or the summary prefetch builds a PDF without the
+  note and then calls it current.
+  Known limits, deliberately not solved: removing or resetting a stop changes the next
+  stop's gap window, so that stop's saved downtime stops matching and is dropped at the
+  next save; and `saveTravel` is a whole-day replace, so a second phone that is offline on
+  a stale copy can overwrite the first one's entries. Both already applied to End of day.
+  `settleTravel` / `settleTravelCache` are reached through `import * as` + `typeof`, per
+  the skew rule below. Pinned by `tests/today-downtime.test.mjs`.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at

@@ -11,6 +11,11 @@ import { idb } from '../idb.js';
 import { apiGet, apiPost } from '../api.js';
 import { enqueue, flush, paint, migrateLegacyQueue, setQueueHooks, retryParked, parkedItems, retryParkedOne, discardParkedOne } from '../queue.js';
 import { pruneDayCache, cacheRecentDays, loadRecentDays } from '../daycache.js';
+// The newer daycache helper (settleTravelCache) is reached through a namespace
+// import + `typeof` check, never a named one: this file can run against an older
+// daycache.js indefinitely, and a missing named export is a link error that takes
+// Log stop and ⟳ Force update down with it (AGENTS.md §"cross-file contract").
+import * as daycacheMod from '../daycache.js';
 import { resolveAddress, cacheAddress, backfillAddresses } from '../geocode.js';
 import { computeGapsLocal } from '../compute/gaps.js';
 import { PRINTABLE, countDay, tallyText, tallyBlock } from '../compute/tally.js';
@@ -758,6 +763,11 @@ function summaryHTML(s, pos){
 }
 function makeStopCard(s, onSaved, opts){
   const pos = opts && opts.pos;
+  // The Note + Downtime block that sits straight on the card, so neither needs the
+  // full Edit form or a trip to another sheet: 'open' (Today's orders — one card,
+  // both showing), 'fold' (End of day — every order is listed, so both sit behind a
+  // fold), absent (Look up — the plain card).
+  const quick = opts && opts.quick;
   const card = document.createElement('div');
   card.className = 'stopcard';
   // A stored reason that isn't one of the known picks is an "Other" free-text
@@ -770,7 +780,8 @@ function makeStopCard(s, onSaved, opts){
       <div class="sc-sum">${summaryHTML(s, pos)}</div>
       <button class="mini" data-act="toggle">Edit</button>
     </div>
-    ${opts && opts.travel ? '<div class="sc-travel" style="margin-top:6px"></div>' : ''}
+    ${quick ? '<div class="sc-quick" style="margin-top:8px"></div>'
+            : (opts && opts.travel ? '<div class="sc-travel" style="margin-top:6px"></div>' : '')}
     <div class="sc-edit hide">
       <label>Work order #</label><input class="mono" data-f="wo" value="${attr(s.workOrderId)}">
       <label>Unit</label><input class="mono" data-f="unit" value="${attr(s.unit)}">
@@ -790,13 +801,18 @@ function makeStopCard(s, onSaved, opts){
       <select class="mono" data-f="utiReason">${utiReasonOptionsHTML(s.utiReason)}</select>
       <label data-f="utiOtherLabel" class="${reasonIsOther?'':'hide'}">What happened?</label>
       <textarea data-f="utiOther" class="${reasonIsOther?'':'hide'}">${esc(otherText)}</textarea>
-      <label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>
+      ${quick ? '' : `<label>Notes</label><textarea data-f="notes">${esc(s.notes)}</textarea>`}
       <button class="primary sc-save" data-act="save">Save changes</button>
       ${opts && opts.resettable ? '<button class="ghost sc-reset" data-act="reset">↺ Reset order…</button>' : ''}
       ${opts && opts.removable ? '<button class="danger sc-remove" data-act="remove">Remove from log…</button>' : ''}
     </div>`;
 
-  if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s, pos);
+  // With the quick block the note lives there and ONLY there: the Edit form drops
+  // its own Notes box and Save reads this one, so a stale copy in a form opened
+  // earlier can never be written back over a note typed since.
+  let quickNote = null;
+  if(quick) quickNote = renderQuick(card.querySelector('.sc-quick'), s, pos, quick);
+  else if(opts && opts.travel) renderStopTravel(card.querySelector('.sc-travel'), s, pos);
 
   const editBlock = card.querySelector('.sc-edit');
   const toggleBtn = card.querySelector('[data-act="toggle"]');
@@ -842,7 +858,7 @@ function makeStopCard(s, onSaved, opts){
       status:statusVal, newJNumber: statusVal==='UTI' ? '' : g('newJ'), oldJNumber:g('oldJ'),
       meterRead: g('read')===''? null : Number(g('read')),
       meterReadReceived: g('readRecv')===''? null : Number(g('readRecv')),
-      utiReason, notes:g('notes')
+      utiReason, notes: quickNote ? quickNote.value.trim() : g('notes')
     };
     // Optimistic DOM update — matches what the server will persist
     Object.assign(s, payload);
@@ -896,6 +912,74 @@ function makeStopCard(s, onSaved, opts){
   return card;
 }
 
+// ── Note + Downtime, straight on the work-order card ───────────────────────
+// One note per work order (the stop's own `notes` — anything about the order,
+// including why there was downtime) and one downtime list (the same gap deductions
+// the End-of-day review edits, so an entry made in either sheet shows in both).
+// Returns the note textarea, which the card's Edit form reads on Save.
+//
+// The note saves ITSELF — a debounce while typing, and on `change`, which fires on
+// blur and so runs before the click of whatever was tapped next (Finish day
+// included). `s.notes` moves only at the moment the write is queued, never per
+// keystroke: eodStateKey reads the saved notes, and a key that changed before the
+// updateStop existed would let the summary prefetch build a PDF without the note
+// and then call it current.
+function renderQuick(box, s, pos, mode){
+  const open = mode === 'open';
+  box.innerHTML = '';
+
+  const ta = document.createElement('textarea');
+  ta.setAttribute('data-f', 'quickNote');
+  ta.value = s.notes == null ? '' : String(s.notes);
+  ta.placeholder = 'Anything about this order — including the reason for any downtime';
+  let paintFold = null;
+  if(open){
+    const lbl = document.createElement('label'); lbl.textContent = 'Note';
+    box.appendChild(lbl); box.appendChild(ta);
+  } else {
+    const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+    toggle.style.cssText = 'display:block;max-width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
+    paintFold = () => {
+      const v = ta.value.trim();
+      toggle.textContent = (body.classList.contains('hide') ? '▸ ' : '▾ ') + (v ? 'Note: ' + v : 'Add a note');
+    };
+    toggle.onclick = () => {
+      touchEod(); body.classList.toggle('hide'); paintFold();
+      if(!body.classList.contains('hide')) ta.focus();
+    };
+    body.appendChild(ta);
+    box.appendChild(toggle); box.appendChild(body);
+    paintFold();
+  }
+
+  let timer;
+  const save = () => {
+    clearTimeout(timer);
+    const c = cfg(); if(!c.url || !c.token) return;
+    const v = ta.value.trim();
+    if(v === String(s.notes == null ? '' : s.notes).trim()) return;
+    s.notes = v;
+    // Notes only: updateStop touches just the keys it is sent, so this can never
+    // write a stale status or J# back over a fix made elsewhere.
+    enqueue({ token:c.token, action:'updateStop', id:s.id, notes:v });
+    if(!open){ eodNoteEdits[s.id] = v; schedulePersistEod(); }
+  };
+  ta.addEventListener('input', () => {
+    if(open) todayTouched = true; else touchEod();
+    if(paintFold) paintFold();
+    clearTimeout(timer); timer = setTimeout(save, 800);
+  });
+  ta.addEventListener('change', save);
+
+  const dt = document.createElement('div'); dt.className = 'sc-travel'; dt.style.marginTop = '8px';
+  box.appendChild(dt);
+  const drawDt = () => renderStopTravel(dt, s, pos, open);
+  box._redrawDt = drawDt;   // Today's orders swaps in the spine's gaps when they land
+  drawDt();
+  return ta;
+}
+
 // ── look up ────────────────────────────────────────────────────────────────
 $('openLookup').onclick = () => { $('lookupQ').value=''; $('lookupResults').innerHTML=''; openSheet('lookupSheet'); };
 $('doLookup').onclick = async () => {
@@ -926,7 +1010,11 @@ $('endDay').onclick = async () => {
   // The bookends open on the crew's normal shift; a time already saved for the day
   // overwrites it in renderDayData, and either can be typed over.
   $('eodDeparture').value=DAY_START_DEFAULT; $('eodReturned').value=DAY_END_DEFAULT;
+  // A downtime edit from Today's orders may still be inside its debounce — get it
+  // queued before the review below reloads the gap state it was made against.
+  await flushTravelSave();
   $('eodIdle').innerHTML=''; eodGaps=[]; eodTouched=false;
+  eodNoteEdits = {};
   // Fresh review → drop any prior day's prefetched high-fidelity summary.
   eodServerSummary = null; eodSummaryJob = null;
   // Open first, THEN drain: flush() is a real barrier now, so a long queue would
@@ -953,6 +1041,12 @@ let eodGaps = [];
 let eodTouched = false;
 function touchEod(){ eodTouched = true; }
 
+// Notes saved from an End-of-day card during THIS open, id → text. eodStateKey reads
+// it so a note typed after the summary prefetch forces a rebuild. It is its own map,
+// not a read of eodData.stops: a late `day` response swaps those objects for the
+// server's copies, which do not have the note yet.
+let eodNoteEdits = {};
+
 // gapByToId maps a gap to its arriving stop (g.toId === stop.id), so each gap shows
 // as an inline "Travel in" dropdown on its work-order card.
 let gapByToId = {};
@@ -975,15 +1069,88 @@ function gapNet(g){
 }
 // Re-sync every place a gap is shown. syncNet on minutes typing (keeps focus);
 // syncDraw rebuilds rows on add/delete.
-function syncNet(g){ touchEod(); (g._views||[]).forEach(v => v.onNet && v.onNet()); schedulePersistEod(); }
-function syncDraw(g){ touchEod(); (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); schedulePersistEod(); }
+function syncNet(g){ touchEod(); (g._views||[]).forEach(v => v.onNet && v.onNet()); afterGapEdit(); }
+function syncDraw(g){ touchEod(); (g._views||[]).forEach(v => { v.drawRows && v.drawRows(); v.onNet && v.onNet(); }); afterGapEdit(); }
+
+// ── the gap state is shared by two sheets ──────────────────────────────────
+// End of day and Today's orders both draw the downtime editor over `eodGaps`. They
+// are never open together and each open reloads it, so one copy is enough — but
+// what an edit must DO afterwards differs, and `gapHost` says which sheet drew it.
+//   End of day → schedulePersistEod: stash + bookends, and prefetch the summary.
+//   Today's orders → stash the deductions and queue a saveTravel. There is no
+//     Finish coming for hours, so waiting for one would leave the entry on this
+//     phone only; and it must NOT write the Departure/Returned bookends, which
+//     persistEodReview reads from End-of-day inputs that hold whatever they last
+//     held while Today is the sheet on screen.
+let gapHost = 'eod';
+let todayDay = { stops:[], downtime:[] };   // the rows Today's orders is showing
+// Today's twin of eodTouched: once a row is open, a late `day`/`idle` response may
+// refresh the table but never rebuild the card under the installer's finger.
+let todayTouched = false;
+let todayDtEdited = false;       // downtime changed since this open — keep these gaps
+let todayCardRedraw = null;      // redraws the open card's downtime section only
+let travelPending = null;        // { snap, date } — an edit still inside its debounce
+let travelQueuedKey = '';        // the set last loaded or queued; skips a no-op write
+let _travelStashTimer, _travelSaveTimer;
+const travelKey = (snap, date) => date + JSON.stringify(snap || []);
+
+function afterGapEdit(){
+  if(gapHost !== 'today'){ schedulePersistEod(); return; }
+  todayTouched = true; todayDtEdited = true;
+  paintTodayDowntime();
+  // Snapshot NOW. The timers below fire up to two seconds later, by which time
+  // End of day may have been opened and emptied `eodGaps` for its own load — and a
+  // saveTravel of an empty set REPLACES the day's deductions on the Sheet.
+  travelPending = { snap: collectGapAllocations(eodGaps), date: localDate() };
+  clearTimeout(_travelStashTimer); _travelStashTimer = setTimeout(stashTravel, 300);
+  clearTimeout(_travelSaveTimer);  _travelSaveTimer  = setTimeout(queueTravelSave, 2000);
+}
+// Storage-first: the deductions only, into the same `eodTravel` stash the
+// End-of-day review uses, so the entry survives a reload and shows in both sheets.
+async function stashTravel(){
+  clearTimeout(_travelStashTimer);
+  const p = travelPending, c = cfg();
+  if(!p || !c.name) return;
+  const key = `${c.name}|${p.date}`;
+  const cached = (await idb.get('dayCache', key))
+    || { stops:[], downtime:[], day:{}, closed:false, cachedAt:stamp() };
+  cached.eodTravel = p.snap;
+  await idb.put('dayCache', cached, key);
+}
+// Through the offline queue, so it survives no signal. `date` rides along because
+// the spine otherwise stamps "today" at whatever moment the queue drains — a save
+// made at 16:00 and delivered after midnight would replace tomorrow's rows.
+//
+// It CLEARS travelPending: this is the last thing a Today edit does, and a snapshot
+// left behind would be re-stashed by the next flushTravelSave — over whatever the
+// End-of-day review had saved since.
+function queueTravelSave(){
+  clearTimeout(_travelSaveTimer);
+  const p = travelPending, c = cfg();
+  travelPending = null;
+  if(!p || !c.name || !c.token) return;
+  const k = travelKey(p.snap, p.date);
+  if(k === travelQueuedKey) return;
+  travelQueuedKey = k;
+  return enqueue({ token:c.token, action:'saveTravel', installer:c.name, installerId:c.hNumber,
+                   date:p.date, allocations:p.snap });
+}
+// Run a pending Today edit now rather than at the end of its debounce, and resolve
+// once it is both stashed and in the queue — so a caller that reloads the day, or
+// drains the queue, next is guaranteed to see it.
+async function flushTravelSave(){
+  if(!travelPending) return;
+  const stashed = stashTravel();   // reads travelPending before queueTravelSave clears it
+  const queued = queueTravelSave();
+  try{ await stashed; await queued; } catch {/* the timers' own paths are equally silent */}
+}
 
 // Shared subtract-downtime editor (rows + "add"), bound to gap `g`. `onNet` lets the
 // host update its own net display; registers itself in g._views.
 function allocEditor(g, onNet){
   const wrap = document.createElement('div');
   wrap.innerHTML = `<div data-f="allocs"></div>
-    <button class="mini" data-act="add" style="margin-top:8px">+ Subtract downtime / break</button>`;
+    <button class="mini" data-act="add" style="margin-top:8px">+ Add downtime</button>`;
   const allocBox = wrap.querySelector('[data-f="allocs"]');
   const opts = sel => ALLOC_CATS.map(k => `<option value="${k}"${k===sel?' selected':''}>${CAT_LABEL[k]}</option>`).join('');
   const drawRows = () => {
@@ -1017,9 +1184,20 @@ let updateLaunch = null;
 // .sc-travel slot; binds to the gap that arrives at this stop (if any). The
 // chronologically-first WO (pos 1) has no WO→WO gap — its travel is the launch
 // leg from the Departure bookend, shown read-only and refreshed live.
-function renderStopTravel(box, s, pos){
+//
+// `open` (Today's orders) draws the same editor with no fold: a "Downtime" heading
+// carrying the running total, the rows showing. Either way the entries are the gap's
+// own allocations, so both sheets are editing one list.
+function renderStopTravel(box, s, pos, open){
   const g = gapByToId[s.id];
+  const logged = loggedDowntimeLine(s);
   if(!g){
+    if(open){
+      box.innerHTML = '<label>Downtime</label>'
+        + '<div class="sc-meta">No downtime slot on this order — nothing was logged before it to measure from.</div>'
+        + logged;
+      return;
+    }
     if(pos === 1){
       const render = () => {
         const dep = $('eodDeparture').value, arr = clockOf(s.timestamp);
@@ -1032,26 +1210,93 @@ function renderStopTravel(box, s, pos){
     } else {
       box.innerHTML = '<div class="sc-meta">Travel in: —</div>';
     }
+    if(logged) box.insertAdjacentHTML('beforeend', logged);
     return;
   }
   box.innerHTML = '';
-  const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
-  const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
-  const arrow = () => body.classList.contains('hide') ? '▸' : '▾';
-  // The land-mode lead gap has no travel to net against — it's just a slot to
-  // attribute downtime to the first WO, so it shows the running total, not net.
-  const onNet = g.lead
-    ? () => { const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
-        toggle.innerHTML = `${arrow()} Downtime: <b style="color:var(--install)">${used} min</b>`; }
-    : () => { const n = gapNet(g);
-        toggle.innerHTML = `${arrow()} Travel in: <b style="color:${n.over?'#c0392b':'var(--install)'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
-  toggle.onclick = () => { touchEod(); body.classList.toggle('hide'); onNet(); };
+  const body = document.createElement('div'); body.style.marginTop = '6px';
+  let onNet;
+  if(open){
+    const head = document.createElement('label');
+    onNet = () => {
+      const n = gapNet(g);
+      head.innerHTML = `Downtime <span style="font-weight:500">· ${n.used} min</span>`
+        + (!g.lead && n.over ? ` <span style="font-weight:500;color:#c0392b">· ⚠ over the ${g.idleMin} min gap</span>` : '');
+    };
+    box.appendChild(head);
+  } else {
+    const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+    body.className = 'hide';
+    const arrow = () => body.classList.contains('hide') ? '▸' : '▾';
+    // The land-mode lead gap has no travel to net against — it's just a slot to
+    // attribute downtime to the first WO, so it shows the running total alone.
+    onNet = g.lead
+      ? () => { const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
+          toggle.innerHTML = `${arrow()} Downtime: <b style="color:var(--install)">${used} min</b>`; }
+      : () => { const n = gapNet(g);
+          toggle.innerHTML = `${arrow()} Downtime: <b style="color:var(--install)">${n.used} min</b>`
+            + ` · travel in <b style="color:${n.over?'#c0392b':'var(--install)'}">${n.over ? esc(n.text) : (n.net+' min')}</b>`; };
+    toggle.onclick = () => { touchEod(); body.classList.toggle('hide'); onNet(); };
+    box.appendChild(toggle);
+  }
   const meta = document.createElement('div'); meta.className = 'sc-meta'; meta.style.marginBottom = '4px';
   meta.textContent = g.lead ? 'First stop · downtime on this WO' : `${g.start}–${g.end} · ${g.idleMin} min gap`;
   body.appendChild(meta);
   body.appendChild(allocEditor(g, onNet));
-  box.appendChild(toggle); box.appendChild(body);
+  if(logged) body.insertAdjacentHTML('beforeend', logged);
+  box.appendChild(body);
   onNet();
+}
+
+// A gap-tagged Downtime row is one the review wrote (note `gap HH:MM–HH:MM`); every
+// other row came from the main form's "Add downtime". Local on purpose — importing
+// gapNoteTimes here would be a new named import on the capture path.
+const isGapRow = d => /gap\s+\d{1,2}:\d{2}.+?\d{1,2}:\d{2}/.test(String((d && d.note) == null ? '' : d.note));
+
+// Downtime already logged against this WO# from the main form. Those rows are not
+// part of the gap list and cannot be edited here, so they are shown read-only under
+// it — otherwise the card looks empty and the same delay gets entered twice.
+function loggedDowntimeLine(s){
+  const rows = (gapHost === 'today' ? todayDay.downtime : eodData.downtime) || [];
+  const txt = dtForWO(s.workOrderId, rows.filter(d => !isGapRow(d)));
+  return txt ? `<div class="sc-meta" style="margin-top:6px">Also logged with Add downtime: ${esc(txt)}</div>` : '';
+}
+
+// The day's downtime as the sheet on screen should count it: the manual rows as
+// cached, plus the gap deductions as they stand in the editor right now (which may
+// be ahead of both the cache and the Sheet).
+function liveDowntime(rows){
+  return (rows || []).filter(d => !isGapRow(d)).concat(collectGapAllocations(eodGaps));
+}
+
+// Local gaps for a cached day. `eodTravel` is "edits the Sheet has not confirmed"
+// and wins while it exists — but computeGapsLocal only lets a NON-EMPTY stash win,
+// so a stash emptied by deleting the last entry would hand the saved rows straight
+// back. Dropping the gap-tagged rows first is what makes an empty stash mean empty.
+function localGapsFor(stops, downtime, stash){
+  const emptied = Array.isArray(stash) && !stash.length;
+  return computeGapsLocal(stops || [],
+    emptied ? (downtime || []).filter(d => !isGapRow(d)) : (downtime || []),
+    stash, workMode()==='land');
+}
+
+// The spine's `idle` gaps carry the allocations the SHEET holds. While a stash
+// exists the phone is ahead of the Sheet, so the stash supplies the allocations and
+// the spine supplies only the gaps' shape (its merged-boat windows). Replacing the
+// gaps wholesale is how downtime entered offline — or from Today's orders minutes
+// earlier — used to vanish the moment the review opened with signal, and was then
+// deleted for real by the saveTravel that followed. One thing is kept from the
+// spine: its pre-filled DISPATCH suggestion (an allocation with no row id), unless
+// the stash already has a DISPATCH entry on that gap.
+function overlayStash(gaps, stash){
+  if(!Array.isArray(stash)) return gaps;
+  const isDispatch = a => String((a && a.category) || '').toUpperCase() === 'DISPATCH';
+  return (gaps || []).map(g => {
+    const mine = stash.filter(a => a.fromTime === g.start && a.toTime === g.end)
+                      .map(a => ({ category:a.category, minutes:Number(a.minutes)||0 }));
+    const suggested = mine.some(isDispatch) ? [] : (g.allocations || []).filter(a => !a.id && isDispatch(a));
+    return Object.assign({}, g, { allocations: mine.concat(suggested) });
+  });
 }
 
 // Flattens the per-gap allocation state into the saveTravel payload (positive only).
@@ -1117,7 +1362,21 @@ function eodStateKey(){
        + '|' + ($('eodDeparture').value||'') + '|' + ($('eodReturned').value||'')
        + '|' + ($('eodNotes').value||'') + '|' + (!!$('eodIncludeDelays').checked)
        + '|' + workMode()
-       + '|' + (eodData.stops||[]).length + '|' + rows;
+       + '|' + (eodData.stops||[]).length + '|' + rows
+       // …and the notes saved from the cards this open. The summary's stops come off
+       // the Sheet as they stood at prefetch time, so without this a note typed
+       // afterwards still "matched" and the PDF printed without it.
+       + '|' + JSON.stringify(eodNoteEdits);
+}
+
+// A saveTravel POSTed directly (not queued) never reaches reconcileCache, so tell
+// the day cache what the Sheet now holds here — see settleTravel in compute/gaps.js.
+// Best-effort: an older daycache.js simply has no such helper.
+async function settlePosted(allocations){
+  try{
+    if(typeof daycacheMod.settleTravelCache === 'function')
+      await daycacheMod.settleTravelCache(allocations, localDate());
+  } catch {/* the next server pull corrects the cache anyway */}
 }
 
 // Best-effort background build of the spine summary for the current edit state.
@@ -1134,8 +1393,9 @@ function prefetchEodSummary(){
     try{
       await withActivity('Preparing daily log…', async () => {
       await flush();
-      await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber,
-                      allocations: collectGapAllocations(eodGaps) });
+      const allocations = collectGapAllocations(eodGaps);
+      const rt = await apiPost({ action:'saveTravel', installer:c.name, installerId:c.hNumber, allocations });
+      if(rt && rt.ok) await settlePosted(allocations);
       // Pass the typed bookends: saveDay hasn't run yet, so without them the spine
       // would read a still-empty Days row and the PDF would print blank Start/End.
       const d = await apiPost({ action:'previewDailyLog', installer:c.name, installerId:c.hNumber,
@@ -1161,15 +1421,23 @@ async function buildSummaryFromCache(includeDelays, weather){
   const key = `${c.name}|${localDate()}`;
   const cached = (await idb.get('dayCache', key)) || { stops:[], downtime:[], day:{}, boatMeta:null };
   const cd = cached.day || {};
+  // The deductions the Sheet has not confirmed are the cache's own `eodTravel`
+  // stash, NOT `eodGaps`: Finish stashes the review a line before calling this, so
+  // there they are the same thing — but Generate PDF runs from the main page, where
+  // `eodGaps` is whatever sheet was last open (or empty) and the stash may hold
+  // downtime entered from Today's orders that has not reached the Sheet yet. An
+  // EMPTIED stash means the last entry was deleted, so the saved gap rows go too.
+  const stash = Array.isArray(cached.eodTravel) ? cached.eodTravel : null;
+  const rows = cached.downtime || [];
   return buildLocalSummary({
     installer:c.name, installerId:c.hNumber, date:localDate(),
-    stops:cached.stops||[], downtime:cached.downtime||[],
+    stops:cached.stops||[], downtime: (stash && !stash.length) ? rows.filter(d => !isGapRow(d)) : rows,
     day:{ departure: $('eodDeparture').value || cd.departure || '',
           returned:  $('eodReturned').value  || cd.returned  || '' },
     boatMeta:cached.boatMeta,
     includeDelays, weather:weather||'', notes:$('eodNotes').value.trim(),
     workType:workMode(),
-    pendingTravel: collectGapAllocations(eodGaps)
+    pendingTravel: stash || []
   });
 }
 
@@ -1193,14 +1461,23 @@ function mergePending(serverArr, cachedArr, removedIds){
 // Opens Today or EOD: renders from IDB cache immediately (instant), then
 // re-fetches from Sheets in the background and re-renders with fresh data.
 // Offline → shows cached data (or a "nothing cached" message).
+//
+// `dayLoadSeq`: the two sheets share one gap state now, so a response that lands
+// after the OTHER sheet was opened must not paint. It would re-point `gapHost` and
+// replace `eodGaps` under the sheet on screen, leaving its editors bound to dead
+// gap objects — every minute typed after that would go nowhere. apiGet has no
+// timeout, so "open End of day, back out, open Today's orders" is enough to race it.
+let dayLoadSeq = 0;
 async function loadDay(mode){
   const c = cfg(); if(!c.name) return;
+  const seq = ++dayLoadSeq;
   const key = `${c.name}|${localDate()}`;
   const cached = await idb.get('dayCache', key);
   let renderedFromCache = false;
 
-  if(cached){
-    const localGaps = mode==='eod' ? computeGapsLocal(cached.stops||[], cached.downtime||[], cached.eodTravel, workMode()==='land') : [];
+  if(cached && seq === dayLoadSeq){
+    // Both sheets carry the downtime editor now, so both need the gaps.
+    const localGaps = localGapsFor(cached.stops, cached.downtime, cached.eodTravel);
     renderDayData(mode, cached.stops||[], cached.downtime||[], cached.day||{}, localGaps);
     renderedFromCache = true;
   }
@@ -1225,9 +1502,10 @@ async function loadDay(mode){
     // Fire `idle` alongside `day` (not after it) — the EOD open used to pay the
     // two round-trips back to back. The day render lands first with local gaps;
     // the authoritative `idle` gaps re-render when they arrive.
-    const idleP = mode==='eod'
-      ? apiGet('idle', { installerId:c.hNumber, installer:c.name, workType:workMode() }).catch(() => null)
-      : null;
+    // Today's orders asks for it too: downtime entered there is keyed to a gap's
+    // window, and it has to be the SAME window the End-of-day review will be handed
+    // (the spine's can differ from the local one when a partner logged in between).
+    const idleP = apiGet('idle', { installerId:c.hNumber, installer:c.name, workType:workMode() }).catch(() => null);
     const d = await apiGet('day', { installer:c.name, installerId:c.hNumber });
     // Re-read the cache (an enqueue may have run since the top of this fn) and
     // merge, so locally-pending stops/downtime survive the server pull.
@@ -1243,11 +1521,12 @@ async function loadDay(mode){
       removedIds: (local && local.removedIds) || []   // tombstones live until the archive syncs
     }, key);
     // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
-    let gaps = mode==='eod' ? computeGapsLocal(stops, downtime, pendingTravel, workMode()==='land') : [];
-    if(mode==='eod'){
-      const idata = await idleP;
-      if(idata && idata.gaps) gaps = idata.gaps;
-    }
+    let gaps = localGapsFor(stops, downtime, pendingTravel);
+    const idata = await idleP;
+    // Never the spine's allocations over an un-synced stash — see overlayStash.
+    if(idata && idata.gaps) gaps = overlayStash(idata.gaps, pendingTravel);
+    // A newer load owns the screen (see dayLoadSeq). The day is cached above either way.
+    if(seq !== dayLoadSeq) return;
     // Never re-render a review the installer has already started working in — the
     // rebuild would collapse the open card, drop the typed deductions and (because a
     // `.sheet` is a bottom-anchored backdrop) re-aim their tap at the dismiss area.
@@ -1258,6 +1537,18 @@ async function loadDay(mode){
     if(mode==='eod' && eodTouched){
       eodData = { stops, downtime };   // the rows the close + the summary key read
       $('eodTally').textContent = tallyText(countDay(stops, downtime));
+    }
+    // Same rule for Today's orders once a row is open: refresh the table and the
+    // tally, leave the card alone. Its downtime section takes the spine's gaps only
+    // while nothing has been entered against the local ones.
+    else if(mode==='today' && todayTouched){
+      todayDay = { stops, downtime };
+      if(!todayDtEdited){
+        setGapData(gaps);
+        travelQueuedKey = travelKey(collectGapAllocations(eodGaps), localDate());
+        if(todayCardRedraw) todayCardRedraw();
+      }
+      paintTodayTable();
     }
     else renderDayData(mode, stops, downtime, d.day||{}, gaps);
     // Gaps/bookends are now authoritative — start building the high-fidelity
@@ -1277,8 +1568,14 @@ async function loadDay(mode){
 
 function renderDayData(mode, stops, downtime, day, gaps){
   if(mode==='today'){
+    gapHost = 'today';
+    setGapData(gaps);
+    // What was just loaded is the baseline: adding an empty row, or typing a
+    // number and taking it back, must not queue a whole-day replace of nothing.
+    travelQueuedKey = travelKey(collectGapAllocations(eodGaps), localDate());
     renderToday(stops, downtime);
   } else {
+    gapHost = 'eod';
     setGapData(gaps);
     renderEod(stops, downtime);
     if(day.departure) $('eodDeparture').value = day.departure;
@@ -1297,7 +1594,7 @@ function renderEod(stops, downtime){
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = editable.slice().sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
-  ordered.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true })));
+  ordered.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true, quick: 'fold' })));
 }
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
@@ -1462,9 +1759,11 @@ $('finishDay').onclick = async () => {
       synced = true;
     } catch { queueClose(c, weather); }
     if(synced){
-      // The review reached the Sheet — drop the local pending copy so the next load
-      // reads the authoritative gap rows back. If it didn't sync, keep it: the
-      // queued endOfDay still carries the review and a re-open can re-check.
+      // The review reached the Sheet — make the cached rows say so, then drop the
+      // local pending copy so the next load reads the authoritative gap rows back.
+      // If it didn't sync, keep it: the queued endOfDay still carries the review and
+      // a re-open can re-check.
+      await settlePosted(collectGapAllocations(eodGaps));
       const key = `${c.name}|${localDate()}`;
       const cc = await idb.get('dayCache', key);
       if(cc && cc.eodTravel){ delete cc.eodTravel; await idb.put('dayCache', cc, key); }
@@ -1538,8 +1837,12 @@ $('genLog').onclick = async () => {
 $('openToday').onclick = async () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
+  // A downtime edit from the last open may still be inside its debounce: get it
+  // stashed and queued first, so the drain below sends it and the load reads it.
+  await flushTravelSave();
   await flush();
   $('todayTally').textContent = 'Loading…'; $('todayTable').innerHTML=''; $('todayEdit').innerHTML='';
+  todayTouched = false; todayDtEdited = false; todayCardRedraw = null;
   openSheet('todaySheet');
   await loadDay('today');
 };
@@ -1585,24 +1888,47 @@ function dtForWO(wo, downtime){
   return Object.keys(byCat).map(cat => `${byCat[cat]} ${catLabel(cat)}`).join(', ');
 }
 
-function renderToday(stops, downtime){
-  const editable = stops.filter(s => PRINTABLE[s.status]);
-  $('todayTally').textContent = tallyText(countDay(stops, downtime));
+// One stop's downtime for the table: what was logged against its WO# from the main
+// form, plus the gap deductions on the stop's own gap as they stand in the editor
+// right now — so the cell follows the card as minutes are typed.
+function dtForStop(s, downtime){
+  const byCat = {};
+  const add = (cat, min) => { const k = cat || 'OTHER'; byCat[k] = (byCat[k]||0) + (Number(min)||0); };
+  const w = String(s.workOrderId==null?'':s.workOrderId).trim();
+  if(w) (downtime||[]).forEach(d => {
+    if(!isGapRow(d) && String(d.workOrderId==null?'':d.workOrderId).trim() === w) add(d.category, d.minutes);
+  });
+  const g = gapByToId[s.id];
+  ((g && g.allocations) || []).forEach(a => add(a.category, a.minutes));
+  return Object.keys(byCat).filter(cat => byCat[cat] > 0).map(cat => `${byCat[cat]} ${catLabel(cat)}`).join(', ');
+}
 
+// A full render closes the open card; paintTodayTable redraws the table and tally
+// alone, which is what a late server response is allowed to do once a card is open.
+function renderToday(stops, downtime){
+  todayDay = { stops, downtime };
   $('todayEdit').innerHTML='';
+  todayCardRedraw = null;
+  paintTodayTable();
+}
+
+function paintTodayTable(){
+  const stops = todayDay.stops || [], downtime = todayDay.downtime || [];
+  const editable = stops.filter(s => PRINTABLE[s.status]);
+  $('todayTally').textContent = tallyText(countDay(stops, liveDowntime(downtime)));
+
   if(!editable.length){ $('todayTable').innerHTML = '<p class="muted">Nothing logged today yet.</p>'; return; }
 
   let html = '<div class="tblwrap"><table class="tbl"><thead><tr>'
            + '<th>WO#</th><th>Address</th><th>New J#</th><th>Meter read</th><th>Downtime (min)</th>'
            + '</tr></thead><tbody>';
   editable.forEach((s, i) => {
-    const dt = dtForWO(s.workOrderId, downtime);
     html += `<tr data-i="${i}">`
           + `<td class="mono nowrap">${esc(s.workOrderId)||'—'}</td>`
           + `<td>${esc(locLabel(s))||'—'}</td>`
           + `<td class="mono nowrap">${esc(s.newJNumber)||'—'}</td>`
           + `<td>${readCell(s)}</td>`
-          + `<td>${dt || '—'}</td>`
+          + `<td data-dt>${esc(dtForStop(s, downtime)) || '—'}</td>`
           + `</tr>`;
   });
   html += '</tbody></table></div>';
@@ -1612,16 +1938,37 @@ function renderToday(stops, downtime){
     tr.onclick = () => {
       const s = editable[+tr.dataset.i];
       const box = $('todayEdit'); box.innerHTML='';
-      box.appendChild(makeStopCard(s, () => renderToday(stops, downtime), {
+      // From here on a late `day`/`idle` response must not rebuild this card.
+      todayTouched = true;
+      box.appendChild(makeStopCard(s, () => renderToday(todayDay.stops, todayDay.downtime), {
+        quick:'open',
         removable:true,
         resettable:true,
         // Re-render from the (already updated) dayCache so the row vanishes
-        // immediately, online or offline.
-        onRemoved: () => { box.innerHTML=''; loadDay('today'); }
+        // immediately, online or offline. The card is gone, so the freeze goes too
+        // — but a downtime edit still inside its debounce is queued first.
+        onRemoved: async () => {
+          box.innerHTML='';
+          await flushTravelSave();
+          todayTouched = false; todayDtEdited = false; todayCardRedraw = null;
+          loadDay('today');
+        }
       }));
+      todayCardRedraw = () => { const q = box.querySelector('.sc-quick'); if(q && q._redrawDt) q._redrawDt(); };
       box.scrollIntoView({ behavior:'smooth', block:'start' });
     };
   });
+}
+
+// Follow the editor: the open card's downtime just changed, so the table cells and
+// the tally line are re-read from the live gap state (never the card rebuilt).
+function paintTodayDowntime(){
+  const editable = (todayDay.stops || []).filter(s => PRINTABLE[s.status]);
+  $('todayTable').querySelectorAll('tr[data-i]').forEach(tr => {
+    const s = editable[+tr.dataset.i], td = tr.querySelector('td[data-dt]');
+    if(s && td) td.textContent = dtForStop(s, todayDay.downtime) || '—';
+  });
+  $('todayTally').textContent = tallyText(countDay(todayDay.stops, liveDowntime(todayDay.downtime)));
 }
 
 // ── recent days (offline-viewable history) ─────────────────────────────────
