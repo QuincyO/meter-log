@@ -694,5 +694,14 @@ internet), and needs no `npm install`.
 Check a photo without Telegram or the Sheet:
 `node tools/wo-bot/bot.mjs --dry-run photo1.jpg photo2.jpg`.
 
-The Apps Script side needs nothing: `WorklistInbox` is created on first use. (Running
-`setupSheets()` also creates it, with every column pinned to text.)
+**Orders that left the handheld.** After a ✅ Send of photos, the bot also lists the
+orders on the worklist that were not in the photos. Photograph the whole list, or
+everything you left out will be listed. Nothing is removed until you tap **🗑 Remove**.
+- `/keep 902732` holds an order back from the removal before you tap.
+- `/undo` puts back the orders you last removed, with their address and appointment.
+- Removed orders leave the phone on its next **Worklist ▸ ⇩ Download**.
+- A batch of typed numbers only is never compared.
+
+The Apps Script side needs nothing: `WorklistInbox` and `WorklistRemoved` are created
+on first use. (Running `setupSheets()` also creates them, with every column pinned to
+text.) After a bot update, turn the tray dot off and on to load the new code.

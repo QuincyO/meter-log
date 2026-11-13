@@ -329,6 +329,25 @@ const DRIVETRACKS_HEADERS = ['id','date','installer','workType','startTime','end
 // appended there directly would be wiped before the installer ever downloaded.
 const WORKLIST_INBOX_HEADERS = ['id','hNumber','workOrderId','source','receivedAt','claimedAt'];
 
+// Orders the owner took off an installer's worklist from the photo bot
+// (removeWorklistOrders) — one row per removed order, and it does two jobs:
+//   ARCHIVE:   `row` is JSON of the details somebody typed (WORKLIST_REMOVED_DETAILS),
+//              so an order that comes back gets them back (claimWorklistInbox).
+//   TOMBSTONE: `worklistId` is the Worklist row id that was removed. saveWorklist
+//              drops any incoming order carrying it, because a phone that has not
+//              downloaded still holds the order and whole-list replaces its slice
+//              after every log — without this, the next logged stop on ANY stale
+//              phone puts the removed order straight back.
+// Keyed on the row id, not the WO#: a restore or a hand-typed re-add gets a fresh
+// id, so an old tombstone can never catch an order somebody put back on purpose.
+// Route fields and polylines are deliberately not archived — they describe a
+// sequence the order is no longer in, and could overflow a cell.
+const WORKLIST_REMOVED_HEADERS = ['id','hNumber','worklistId','workOrderId','source',
+  'removedAt','restoredAt','row'];
+const WORKLIST_REMOVED_DETAILS = ['unit','address','oldJNumber','lat','lng',
+  'appointmentDate','appointmentTime','ignored'];
+const WORKLIST_REMOVED_KEEP_DAYS = 30;   // swept nightly by clearDoneWorklistJob
+
 // Fields the web form is allowed to change on an existing stop.
 const STOP_EDITABLE = [
   'workOrderId','unit','address','newJNumber','oldJNumber','status','utiReason','notes','noReadReason'
@@ -360,6 +379,7 @@ function setupSheets() {
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
   ensureWorklistInboxTab(ss);
+  ensureWorklistRemovedTab(ss);
   // These values are minute counts and rates, not Sheets date serials — but a column
   // appended to a live sheet inherits the format of the one it lands beside, and the
   // one it lands beside is `updated`, a datetime. So every appended block arrives
@@ -471,6 +491,7 @@ function doPost(e) {
       case 'savePlan':       return json(savePlan(body));
       case 'saveDriveTrack': return json(saveDriveTrack(body));
       case 'queueWorklistOrders': return json(queueWorklistOrders(body));
+      case 'removeWorklistOrders': return json(removeWorklistOrders(body));
       case 'saveEmployee':   return json(saveEmployee(body));
       case 'deleteEmployee': return json(deleteEmployee(body));
       case 'saveTeam':       return json(saveTeam(body));
@@ -1461,7 +1482,11 @@ function saveWorklist(b) {
   // Sorting before renumbering is an identity transform for current clients
   // (they upload allSorted() output, sorted by this same comparator) but keeps
   // the numbering sane for an old/hand-crafted sender.
-  const orders = (b.orders || []).filter(o => o && o.id).sort(wlCmp);
+  // An order the owner removed from the photo bot is dropped here: a phone that
+  // has not downloaded since still holds it, and this whole-list replace would
+  // otherwise put it straight back (see WORKLIST_REMOVED_HEADERS).
+  const gone = removedWorklistIds(h);
+  const orders = (b.orders || []).filter(o => o && o.id && !gone[String(o.id).trim()]).sort(wlCmp);
   const added = orders.map((o, i) => pad([ String(o.id), installer, h,
     o.workOrderId || '', o.unit || '', o.address || '', o.oldJNumber || '',
     o.wlStatus === 'done' ? 'done' : 'pending',
@@ -1547,6 +1572,10 @@ function queueWorklistOrders(b) {
       have[normInboxWo(r.workOrderId)] = true;
   });
 
+  // Read BEFORE this batch is appended: "missing" is measured against the list
+  // as it stood, so the orders queued just below are never part of the count.
+  const diff = b.compare ? worklistMissing(h, b.orders) : null;
+
   const queued = [], skipped = [], ts = now(), source = String(b.source || 'bot');
   (b.orders || []).forEach(o => {
     const wo = String(o == null ? '' : o).trim(), key = normInboxWo(wo);
@@ -1560,7 +1589,187 @@ function queueWorklistOrders(b) {
       .setValues(queued.map(wo => [newId(), h, wo, source, ts, '']));
     bustRows('WorklistInbox');
   }
-  return { ok: true, queued: queued, skipped: skipped, installer: fullName(emp) };
+  const out = { ok: true, queued: queued, skipped: skipped, installer: fullName(emp) };
+  if (diff) { out.missing = diff.missing; out.pendingCount = diff.pendingCount; }
+  return out;
+}
+
+/** What `compare` adds to queueWorklistOrders: this installer's pending orders
+ *  that are NOT in the batch — the ones that left the handheld, when the batch
+ *  is photos of its whole list. Counts both homes an order can be in: a
+ *  non-done Worklist row, and an inbox row no phone has downloaded yet (given
+ *  the id the claim would give it, so removeWorklistOrders finds it either
+ *  side of a Download). A row with no WO# is never listed: it can't be matched
+ *  to the handheld, so its absence from a photo says nothing. Read-only. */
+function worklistMissing(h, orders) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const inBatch = {};
+  (orders || []).forEach(o => { const k = normInboxWo(o); if (k) inBatch[k] = true; });
+  const missing = [];
+  let pendingCount = 0;
+  if (ss.getSheetByName('Worklist')) worklistFor(h).forEach(r => {
+    const key = normInboxWo(r.workOrderId);
+    if (!key || String(r.wlStatus).trim().toLowerCase() === 'done') return;
+    pendingCount++;
+    if (!inBatch[key]) missing.push({ id: String(r.id), workOrderId: String(r.workOrderId).trim(),
+      address: String(r.address || ''), appointmentDate: String(r.appointmentDate || ''),
+      appointmentTime: String(r.appointmentTime || '') });
+  });
+  if (ss.getSheetByName('WorklistInbox')) rows('WorklistInbox').forEach(r => {
+    const key = normInboxWo(r.workOrderId);
+    if (!key || String(r.hNumber).trim() !== h || String(r.claimedAt || '').trim()) return;
+    pendingCount++;
+    if (!inBatch[key]) missing.push({ id: 'inbox-' + r.id, workOrderId: String(r.workOrderId).trim(),
+      address: '', appointmentDate: '', appointmentTime: '', waiting: true });
+  });
+  return { missing: missing, pendingCount: pendingCount };
+}
+
+function ensureWorklistRemovedTab(ss) {
+  const sh = ensureTab(ss || SpreadsheetApp.getActiveSpreadsheet(), 'WorklistRemoved', WORKLIST_REMOVED_HEADERS);
+  // All text, like the inbox: ids, WO#s, stamps and the JSON must come back as written.
+  sh.getRange('A2:H').setNumberFormat('@');
+  return sh;
+}
+
+/** The Worklist row ids removed from one installer's list — saveWorklist's
+ *  tombstones. Empty (and no tab read) until the first removal exists. */
+function removedWorklistIds(h) {
+  const out = {};
+  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('WorklistRemoved')) return out;
+  rows('WorklistRemoved').forEach(r => {
+    if (String(r.hNumber).trim() === h) out[String(r.worklistId).trim()] = true;
+  });
+  return out;
+}
+
+/** Replace a tab's body with `kept` (rows at `width`), given it held `oldRows`
+ *  data rows: one setValues plus one trailing delete, the same shape
+ *  saveWorklist and clearDoneWorklistJob use. */
+function rewriteSheetBody(sh, kept, oldRows, width) {
+  if (kept.length) sh.getRange(2, 1, kept.length, width).setValues(kept);
+  const excess = oldRows - kept.length;
+  if (excess <= 0) return;
+  // deleteRows throws if it would remove every non-frozen physical row.
+  if (sh.getMaxRows() - excess >= 2) sh.deleteRows(2 + kept.length, excess);
+  else sh.getRange(2 + kept.length, 1, excess, width).clearContent();
+}
+
+/** The bot's removal: take the named rows (ids from a `compare` response) off
+ *  one installer's worklist. A pending Worklist row is archived then deleted;
+ *  an inbox row nobody has downloaded is cancelled. Anything else — another
+ *  installer's row, an id already gone, an order logged since the list was
+ *  shown (`done`, reported in `skipped`) — is left alone, so every outcome is
+ *  terminal and a repeat call removes nothing. The archive row is written
+ *  BEFORE the delete (a crash leaves a tombstoned row the next push drops,
+ *  never a lost order). Runs under doPost's lock. Token-only on purpose: the
+ *  bot has no admin key (tests/admin-gate.test.mjs). */
+function removeWorklistOrders(b) {
+  const h = String(b.hNumber == null ? '' : b.hNumber).trim();
+  if (!h) return { ok: false, error: 'hNumber required' };
+  const emp = employeeByH(h);
+  if (!emp) return { ok: false, error: 'unknown H number ' + h };
+  const want = {};
+  (b.ids || []).forEach(id => { const k = String(id == null ? '' : id).trim(); if (k) want[k] = true; });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ts = now(), source = String(b.source || 'bot');
+  const removed = [], skipped = [], archive = [];
+  const shelve = (id, wo, details) => {
+    archive.push([newId(), h, id, wo, source, ts, '', JSON.stringify(details)]);
+    removed.push(wo);
+  };
+
+  const wl = ss.getSheetByName('Worklist');
+  let wlData = null, wlKept = null;
+  if (wl && wl.getLastRow() > 1) {
+    wlData = wl.getDataRange().getValues();
+    const head = wlData[0].map(String), col = name => head.indexOf(name);
+    wlKept = wlData.slice(1).filter(r => {
+      const id = String(r[col('id')]).trim();
+      if (String(r[col('hNumber')]).trim() !== h || !want[id]) return true;
+      delete want[id];
+      const wo = String(r[col('workOrderId')]).trim();
+      if (String(r[col('wlStatus')]).trim().toLowerCase() === 'done') { skipped.push(wo); return true; }
+      const details = {};
+      WORKLIST_REMOVED_DETAILS.forEach(k => {
+        const v = col(k) === -1 ? '' : r[col(k)];
+        if (k === 'ignored') { if (v === true || String(v).trim().toUpperCase() === 'TRUE') details[k] = true; }
+        else if (v !== '' && v != null) details[k] = v;
+      });
+      shelve(id, wo, details);
+      return false;
+    });
+  }
+
+  const inbox = ss.getSheetByName('WorklistInbox');
+  let inboxData = null, cancelled = false;
+  if (inbox && inbox.getLastRow() > 1 && Object.keys(want).length) {
+    inboxData = inbox.getDataRange().getValues();
+    for (let r = 1; r < inboxData.length; r++) {
+      const id = 'inbox-' + String(inboxData[r][0]).trim();
+      if (String(inboxData[r][1]).trim() !== h || !want[id] || String(inboxData[r][5]).trim()) continue;
+      delete want[id];
+      inboxData[r][5] = 'cancelled ' + ts;   // any non-blank claimedAt is never claimed
+      cancelled = true;
+      shelve(id, String(inboxData[r][2]).trim(), {});
+    }
+  }
+
+  if (archive.length) {
+    const sh = ensureWorklistRemovedTab(ss);
+    sh.getRange(sh.getLastRow() + 1, 1, archive.length, WORKLIST_REMOVED_HEADERS.length).setValues(archive);
+    bustRows('WorklistRemoved');
+  }
+  if (wlKept && wlKept.length < wlData.length - 1) {
+    rewriteSheetBody(wl, wlKept, wlData.length - 1, wlData[0].length);
+    bustRows('Worklist');
+  }
+  if (cancelled) {
+    // claimedAt column only — never re-writes the other inbox cells.
+    inbox.getRange(2, 6, inboxData.length - 1, 1).setValues(inboxData.slice(1).map(r => [r[5]]));
+    bustRows('WorklistInbox');
+  }
+  return { ok: true, removed: removed, skipped: skipped, installer: fullName(emp) };
+}
+
+/** One installer's archived details still waiting to be given back, keyed by
+ *  WO# (the newest removal wins): `{ sheetRow, details }`. claimWorklistInbox
+ *  reads this under its lock, only once it has rows to claim. */
+function unrestoredRemovals(ss, h) {
+  const out = {};
+  const sh = ss.getSheetByName('WorklistRemoved');
+  if (!sh || sh.getLastRow() < 2) return out;
+  const at = name => WORKLIST_REMOVED_HEADERS.indexOf(name);
+  const data = sh.getDataRange().getValues();
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][at('hNumber')]).trim() !== h || String(data[r][at('restoredAt')]).trim()) continue;
+    const key = normInboxWo(data[r][at('workOrderId')]);
+    if (!key) continue;
+    let details = {};
+    try { details = JSON.parse(String(data[r][at('row')] || '{}')) || {}; } catch (err) { details = {}; }
+    out[key] = { sheetRow: r + 1, details: details };
+  }
+  return out;
+}
+
+/** Drop archive rows older than WORKLIST_REMOVED_KEEP_DAYS. That retires the
+ *  tombstone too, which is the point: a WO# is not reused within a month, and
+ *  a phone that has not downloaded in one has bigger problems. A row whose
+ *  date can't be read is kept. Lockless — clearDoneWorklistJob holds the lock. */
+function sweepWorklistRemovedCore() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('WorklistRemoved');
+  if (!sh || sh.getLastRow() < 2) return 0;
+  const data = sh.getDataRange().getValues();
+  const at = WORKLIST_REMOVED_HEADERS.indexOf('removedAt');
+  const cutoff = Date.now() - WORKLIST_REMOVED_KEEP_DAYS * 86400000;
+  const kept = data.slice(1).filter(r => { const ms = localMs(r[at]); return ms == null || ms >= cutoff; });
+  const swept = data.length - 1 - kept.length;
+  if (swept) {
+    rewriteSheetBody(sh, kept, data.length - 1, data[0].length);
+    bustRows('WorklistRemoved');
+  }
+  return swept;
 }
 
 /** Fold one installer's unclaimed inbox rows into Worklist as pending,
@@ -1600,20 +1809,34 @@ function claimWorklistInbox(hNumber) {
       if (String(r[col('wlStatus')]).trim().toLowerCase() !== 'done') pending[normInboxWo(r[col('workOrderId')])] = true;
     });
 
+    // An order the owner removed and that is now coming back — /undo, or the
+    // handheld giving it back — returns with the details it was archived with.
+    const archived = unrestoredRemovals(ss, h), restored = [];
     const ts = now(), installer = nameOfH(h), add = [];
     mine.forEach(r => {
       const wo = String(data[r][2]).trim(), key = normInboxWo(wo);
       data[r][5] = ts;
       if (!key || pending[key]) return;
       pending[key] = true;
+      const back = archived[key], d = back ? back.details : {};
       // Header-keyed, so the row lands right on a sheet whose columns drifted.
-      const rec = { id: 'inbox-' + data[r][0], installer: installer, hNumber: h, workOrderId: wo,
+      const rec = { unit: d.unit, address: d.address, oldJNumber: d.oldJNumber, lat: d.lat, lng: d.lng,
+        appointmentDate: d.appointmentDate, appointmentTime: d.appointmentTime,
+        ignored: d.ignored ? 'TRUE' : '',
+        id: 'inbox-' + data[r][0], installer: installer, hNumber: h, workOrderId: wo,
         wlStatus: 'pending', order: maxOrder + (add.length + 1) * 10, createdAt: ts, updatedAt: ts };
       add.push(head.map(k => rec[k] === undefined ? '' : rec[k]));
+      if (back) restored.push(back.sheetRow);
     });
     if (add.length) {
       wl.getRange(wl.getLastRow() + 1, 1, add.length, head.length).setValues(add);
       bustRows('Worklist');
+    }
+    if (restored.length) {
+      const gone = ss.getSheetByName('WorklistRemoved');
+      const c = WORKLIST_REMOVED_HEADERS.indexOf('restoredAt') + 1;
+      restored.forEach(row => gone.getRange(row, c).setValue(ts));
+      bustRows('WorklistRemoved');
     }
     // claimedAt column only — never re-writes the other inbox cells.
     inbox.getRange(2, 6, data.length - 1, 1).setValues(data.slice(1).map(r => [r[5]]));
@@ -1711,6 +1934,10 @@ function clearDoneWorklistJob() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) { Logger.log('clearDoneWorklistJob: lock busy, skipped.'); return 0; }
   try {
+    // First, and fenced: the early returns below would skip it, and a failed
+    // sweep must never cost the done-row cleanup.
+    try { Logger.log('clearDoneWorklistJob swept %s old removed-order rows.', sweepWorklistRemovedCore()); }
+    catch (err) { Logger.log('sweepWorklistRemovedCore: ' + err); }
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Worklist');
     if (!sh) return 0;
     const data = sh.getDataRange().getValues();

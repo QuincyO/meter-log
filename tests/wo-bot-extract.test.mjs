@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { numbersIn, newBatch, addPhoto, addTyped, removeFrom, sendOrder }
+import { numbersIn, newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack }
   from '../tools/wo-bot/extract.mjs';
 
 // What Windows OCR actually returned for the reference photo of the handheld's
@@ -80,4 +80,44 @@ test('orders go up lowest work-order number first, without reordering the batch'
   const b = { confirmed: ['907209','900821','905486','902732'] };
   assert.deepEqual(sendOrder(b), ['900821','902732','905486','907209']);
   assert.deepEqual(b.confirmed, ['907209','900821','905486','902732']);
+});
+
+test('only a photo makes a batch a picture of the whole list', () => {
+  const typed = newBatch();
+  addTyped(typed, '905486 907209');
+  assert.equal(typed.photos, 0, 'typed numbers alone must never trigger the removed-orders compare');
+  const shot = newBatch();
+  addPhoto(shot, ['902732']); addPhoto(shot, ['900821']); addTyped(shot, '905486');
+  assert.equal(shot.photos, 2);
+  assert.deepEqual(shot.confirmed, ['902732', '900821', '905486']);
+});
+
+test('the removal notice names each order by what the installer would recognise', () => {
+  const text = missingText([
+    { id: 'a', workOrderId: '902111', address: '12 Main St', appointmentDate: '', appointmentTime: '' },
+    { id: 'b', workOrderId: '902222', address: '4 Oak Rd', appointmentDate: '2026-11-14', appointmentTime: '10:00' },
+    { id: 'c', workOrderId: '903333', address: '' },
+    { id: 'inbox-9', workOrderId: '904444', address: '', waiting: true },
+  ], 30);
+  assert.equal(text, [
+    '4 on your worklist weren\'t in these photos:',
+    '902111 — 12 Main St',
+    '902222 — 4 Oak Rd · appt 2026-11-14 10:00',
+    '903333 — (no address)',
+    '904444 — (not downloaded yet)',
+  ].join('\n'));
+  assert.match(missingText([{ id: 'a', workOrderId: '902111', address: '' }], 30),
+    /^1 on your worklist wasn't in these photos:/);
+});
+
+test('half the list missing reads as a missed photo, not as a busy dispatcher', () => {
+  const two = [{ id: 'a', workOrderId: '902111' }, { id: 'b', workOrderId: '902222' }];
+  assert.match(missingText(two, 4), /^⚠ That's 2 of the 4 on your list — did a photo get missed\?\n\n2 on your worklist/);
+  assert.doesNotMatch(missingText(two, 5), /⚠/);
+});
+
+test('/keep holds orders back from a removal', () => {
+  const items = [{ id: 'a', workOrderId: '902111' }, { id: 'b', workOrderId: '902222' }, { id: 'c', workOrderId: '903333' }];
+  assert.equal(keepBack(items, '/keep 902222 999999 903333'), 2);
+  assert.deepEqual(items, [{ id: 'a', workOrderId: '902111' }]);
 });

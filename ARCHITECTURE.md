@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, eighteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`, `WorklistInbox`. This is the truth.
+One spreadsheet, nineteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`, `WorklistInbox`, `WorklistRemoved`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -2438,7 +2438,43 @@ first use by `ensureTab`; every column pinned to text.
 | `workOrderId` | string | as read from the photo (six digits) |
 | `source` | string | `telegram` |
 | `receivedAt` | string | Toronto-local stamp of the queue |
-| `claimedAt` | string | stamp of the read that folded it into `Worklist`; blank = waiting |
+| `claimedAt` | string | stamp of the read that folded it into `Worklist`; blank = waiting; `cancelled <stamp>` = removed before any phone downloaded it |
+
+### WorklistRemoved row  (one per removed order → tab "WorklistRemoved")
+Orders get reassigned off the handheld during the day. When the bot's batch came from
+photos (the whole list), ✅ Send posts `queueWorklistOrders` with `compare: true` and
+the response also carries `missing: [{id, workOrderId, address, appointmentDate,
+appointmentTime, waiting?}]` — the installer's pending orders that were **not** in the
+batch (non-done `Worklist` rows with a WO#, plus inbox rows no phone has downloaded,
+under the id `inbox-<id>` the claim would give them) — and `pendingCount`, the size of
+the list they were measured against. The bot lists them; one tap posts
+`removeWorklistOrders {hNumber, ids:[…], source}` → `{ok, removed:[wo…], skipped:[wo…],
+installer}`. A pending row is archived here and then deleted from `Worklist`; a waiting
+inbox row is cancelled; a row that became `done` in between is `skipped`; anything else
+is ignored, so a repeat call is a no-op.
+
+Each row is an **archive and a tombstone**:
+- **Tombstone.** The phone whole-list replaces its `Worklist` slice after every log, so
+  a phone that has not downloaded would push the order straight back. `saveWorklist`
+  drops any incoming order whose row id is in `worklistId` here. It is the row id, not
+  the WO#, so an order put back on purpose (a fresh id) is never caught.
+- **Archive.** When that WO# is queued again — the bot's `/undo`, or the handheld
+  handing the order back — `claimWorklistInbox` builds the new `Worklist` row from
+  `row` and stamps `restoredAt`. A restore goes through the inbox for the same reason
+  an add does.
+
+Rows older than 30 days are dropped by the nightly `clearDoneWorklistJob`
+(`sweepWorklistRemovedCore`). Created on first use; every column pinned to text.
+| field | type | notes |
+|-------|------|-------|
+| `id` | string | spine-generated (`newId`) |
+| `hNumber` | string | whose worklist it came off |
+| `worklistId` | string | the removed `Worklist` row's id — the tombstone `saveWorklist` matches |
+| `workOrderId` | string | the WO#, the key a restore looks up |
+| `source` | string | `telegram` |
+| `removedAt` | string | Toronto-local stamp |
+| `restoredAt` | string | stamp of the claim that gave the details back; blank = not restored |
+| `row` | string | JSON of the typed details: `unit`, `address`, `oldJNumber`, `lat`, `lng`, `appointmentDate`, `appointmentTime`, `ignored`. Route fields and polylines are not kept |
 
 ---
 

@@ -22,7 +22,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WEB_APP_URL, SHARED_TOKEN } from '../../js/config.js';
 import { readPhoto } from './ocr.mjs';
-import { newBatch, addPhoto, addTyped, removeFrom, sendOrder } from './extract.mjs';
+import { newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack } from './extract.mjs';
 import { ownerOf, isOwner, isAllowed, parseUserId, allowUser, revokeUser, listUsers } from './access.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -56,9 +56,16 @@ const owner = ownerOf(config);
 const state = existsSync(STATE_PATH) ? JSON.parse(readFileSync(STATE_PATH, 'utf8')) : {};
 state.links = state.links || {};   // Telegram user id → { hNumber, name }
 state.allowed = state.allowed || {}; // Telegram user id → { name, addedAt } — let in by the owner
+state.lastRemoved = state.lastRemoved || {}; // Telegram user id → { hNumber, name, orders, at } — what /undo puts back
 const saveState = () => writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 const batches = new Map();         // chat id → batch (in memory; a restart drops it)
 const batchFor = chat => { if(!batches.has(chat)) batches.set(chat, newBatch()); return batches.get(chat); };
+// chat id → { token, hNumber, name, items, pendingCount }: worklist orders the
+// last photo Send did not find, waiting on the 🗑 button. In memory on purpose —
+// after a restart an old button answers "out of date" rather than removing
+// against a list nobody has just looked at.
+const removals = new Map();
+let removalSeq = 0;
 
 // ── Telegram + spine plumbing ───────────────────────────────────────────────
 const TG = `https://api.telegram.org/bot${config.botToken}`;
@@ -90,9 +97,14 @@ const HELP = [
   '/link H12345 — whose worklist the orders go to',
   '/list — show the batch',
   'Type numbers — add them (e.g. 905486 907209)',
-  '/remove 902732 — drop a number',
+  '/remove 902732 — drop a number from the batch',
   '/clear — start over',
   '/send — queue the batch (or tap ✅ Send)',
+  '',
+  'After a photo send I also list the worklist orders that were NOT in the photos,',
+  'so you can take the ones that left your handheld off the worklist (tap 🗑).',
+  '/keep 902732 — hold an order back from that removal',
+  '/undo — put back the orders you last removed',
 ].join('\n');
 const OWNER_HELP = [
   '',
@@ -136,13 +148,77 @@ async function handleSend(chat, user){
   if(!link) return say(chat, 'Link your worklist first: /link H12345');
   if(!batch.confirmed.length) return say(chat, 'Nothing to send yet — send a photo first.');
   let r;
+  // Photos are of the WHOLE list, so a photo batch also asks which pending
+  // orders it does not contain. Typed numbers alone never ask (see newBatch).
   try { r = await spinePost({ action: 'queueWorklistOrders', hNumber: link.hNumber,
-    orders: sendOrder(batch), source: 'telegram' }); }
+    orders: sendOrder(batch), source: 'telegram', compare: batch.photos > 0 }); }
   catch (e) { return say(chat, `Couldn't reach the sheet (${e.message}). The batch is kept — try /send again.`); }
   if(!r || !r.ok) return say(chat, `The sheet refused it: ${(r && r.error) || 'unknown error'}. The batch is kept.`);
   batches.delete(chat);
   const skipped = r.skipped.length ? ` (${r.skipped.length} already on the list)` : '';
-  return say(chat, `Queued ${r.queued.length} for ${r.installer}${skipped}.\n`
+  await say(chat, `Queued ${r.queued.length} for ${r.installer}${skipped}.\n`
+    + 'On the phone: Worklist ▸ ⇩ Download.');
+  // A spine that predates the compare answers without `missing` — nothing to offer.
+  const missing = Array.isArray(r.missing) ? r.missing : [];
+  if(!missing.length){ removals.delete(chat); return; }
+  removals.set(chat, { token: `${Date.now().toString(36)}${++removalSeq}`, hNumber: link.hNumber,
+    name: r.installer || link.name, items: missing, pendingCount: r.pendingCount });
+  return offerRemoval(chat);
+}
+
+// ── orders that left the handheld: list them, remove on a tap, /undo ────────
+function offerRemoval(chat, lead = ''){
+  const p = removals.get(chat), n = p.items.length;
+  return say(chat, `${lead}${missingText(p.items, p.pendingCount)}\n\n`
+    + `Gone from your handheld? Tap 🗑 to take ${n === 1 ? 'it' : 'them'} off the worklist. `
+    + '/keep 902732 holds one back first.',
+    { reply_markup: { inline_keyboard: [[
+      { text: `🗑 Remove ${n} from ${p.name}`, callback_data: `rm:${p.token}` },
+      { text: 'Keep all', callback_data: `rmno:${p.token}` }]] } });
+}
+
+function handleKeep(chat, text){
+  const p = removals.get(chat);
+  if(!p) return say(chat, 'Nothing is waiting to be removed.');
+  const n = keepBack(p.items, text);
+  if(!p.items.length){ removals.delete(chat); return say(chat, `Kept ${n}. Nothing left to remove.`); }
+  return offerRemoval(chat, `Kept ${n}.\n\n`);
+}
+
+async function handleRemoval(chat, user, token){
+  const p = removals.get(chat);
+  // An old button (an earlier send, or one from before a restart) must never
+  // remove against a list the user is not looking at.
+  if(!p || p.token !== token) return say(chat, 'That list is out of date — send the photos again.');
+  let r;
+  try { r = await spinePost({ action: 'removeWorklistOrders', hNumber: p.hNumber,
+    ids: p.items.map(m => m.id), source: 'telegram' }); }
+  catch (e) { return say(chat, `Couldn't reach the sheet (${e.message}). Nothing was removed — tap 🗑 again.`); }
+  if(!r || !r.ok) return say(chat, `The sheet refused it: ${(r && r.error) || 'unknown error'}. Nothing was removed.`);
+  removals.delete(chat);
+  const logged = r.skipped.length ? `\nLeft alone (logged since): ${r.skipped.join(', ')}` : '';
+  if(!r.removed.length) return say(chat, `Nothing was removed — those orders are already off the list.${logged}`);
+  state.lastRemoved[user] = { hNumber: p.hNumber, name: p.name, orders: r.removed, at: new Date().toISOString() };
+  saveState();
+  const n = r.removed.length;
+  return say(chat, `Removed ${n} from ${p.name}'s worklist.${logged}\n`
+    + `On the phone: Worklist ▸ ⇩ Download.\n/undo puts ${n === 1 ? 'it' : 'them'} back.`);
+}
+
+// Undo is just a re-queue: the spine gives a returning order its archived
+// address, pin and appointment back when the phone next downloads it.
+async function handleUndo(chat, user){
+  const last = state.lastRemoved[user];
+  if(!last) return say(chat, 'Nothing to undo.');
+  let r;
+  try { r = await spinePost({ action: 'queueWorklistOrders', hNumber: last.hNumber,
+    orders: last.orders, source: 'telegram-undo' }); }
+  catch (e) { return say(chat, `Couldn't reach the sheet (${e.message}). Try /undo again.`); }
+  if(!r || !r.ok) return say(chat, `The sheet refused it: ${(r && r.error) || 'unknown error'}.`);
+  delete state.lastRemoved[user];
+  saveState();
+  const skipped = r.skipped.length ? ` (${r.skipped.length} already back on the list)` : '';
+  return say(chat, `Put ${r.queued.length} back on ${r.installer}'s worklist${skipped}.\n`
     + 'On the phone: Worklist ▸ ⇩ Download.');
 }
 
@@ -192,6 +268,7 @@ async function handleRevoke(chat, text){
   if(r.ok){
     saveState();
     batches.delete(Number(id));
+    removals.delete(Number(id));
     console.log(`Revoked: Telegram id ${id} (${r.name}) — by the owner.`);
     return say(chat, `Removed ${r.name || id}. They can't use the bot any more.`);
   }
@@ -251,6 +328,8 @@ async function handleText(chat, user, text){
   }
   if(cmd === 'link') return handleLink(chat, user, text);
   if(cmd === 'send') return handleSend(chat, user);
+  if(cmd === 'keep') return handleKeep(chat, text);
+  if(cmd === 'undo') return handleUndo(chat, user);
   if(cmd === 'clear'){ batches.delete(chat); return say(chat, 'Cleared.'); }
   if(cmd === 'list'){
     const all = batch.confirmed.length ? `Ready:\n${batch.confirmed.join('\n')}\n\n` : '';
@@ -282,7 +361,13 @@ async function handleUpdates(updates){
       if(cb){
         await tg('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {});
         const allowId = (String(cb.data || '').match(/^allow:(\d+)$/) || [])[1];
+        const rm = String(cb.data || '').match(/^(rm|rmno):(\w+)$/);
         if(allowId){ if(isOwner(config, user)) await grant(chat, allowId); }
+        else if(rm && rm[1] === 'rm') await handleRemoval(chat, user, rm[2]);
+        else if(rm){
+          const p = removals.get(chat);
+          if(p && p.token === rm[2]){ removals.delete(chat); await say(chat, 'Kept — nothing was removed.'); }
+        }
         else if(cb.data === 'send') await handleSend(chat, user);
         else if(cb.data === 'clear'){ batches.delete(chat); await say(chat, 'Cleared.'); }
         continue;
