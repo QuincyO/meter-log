@@ -43,8 +43,22 @@ test('the dialog header never reads as a work order', () => {
   assert.deepEqual(numbersIn('10:43 90%'), []);
 });
 
-test('only exactly six digits: five and seven are rejected', () => {
-  assert.deepEqual(numbersIn('90273\n9027321\n902732'), ['902732']);
+test('six or seven digits: five and eight are rejected', () => {
+  assert.deepEqual(numbersIn('90273\n90273210\n902732\n1022668'), ['902732', '1022668']);
+});
+
+// The handheld's numbers passed 999999 in November 2026 (field report 2026-11-16:
+// every photo read "0 read" because the model's 7-digit lines were all rejected).
+test('seven-digit work orders are read, split, and listed like six-digit ones', () => {
+  assert.deepEqual(numbersIn('1022668\n1022677\n1. 1022693\n102 2695\n1022668'),
+    ['1022668', '1022677', '1022693', '1022695']);
+  assert.deepEqual(numbersIn('1022668.0 Minute'), []);
+});
+
+test('a batch mixing old six-digit and new seven-digit orders sends lowest first', () => {
+  const b = newBatch();
+  addPhoto(b, ['1022668', '907209']);
+  assert.deepEqual(sendOrder(b), ['907209', '1022668']);
 });
 
 test('a vision model\'s list formatting is stripped', () => {

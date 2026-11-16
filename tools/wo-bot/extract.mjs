@@ -1,21 +1,27 @@
 // ── Work-order numbers out of photo text — the pure half of the photo bot ────
 // The vision model (ocr.mjs) reads each photo; this turns its text into
-// six-digit numbers and keeps the batch the user sends. The user still sees
+// work-order numbers and keeps the batch the user sends. The user still sees
 // every number before ✅ Send, which is the check on a misread.
 //
 // Pure and dependency-free so `node --test` covers it (tests/wo-bot-extract.test.mjs).
 
-/** Work orders are exactly six digits (the handheld's list: 902732, 900821, …). */
-export const WO_DIGITS = 6;
+/** Work orders are six or seven digits. The handheld's numbers were six digits
+ *  (902732, 900821, …) until they passed 999999 in November 2026 (1022668, …).
+ *  Accepting only six made every photo of the new list read "0 read". Six stays
+ *  allowed so older orders and typed numbers still work. */
+export const WO_MIN_DIGITS = 6, WO_MAX_DIGITS = 7;
+/** How the bot's prompt and replies describe a work-order number. */
+export const WO_DIGITS_TEXT = `${WO_MIN_DIGITS}- or ${WO_MAX_DIGITS}-digit`;
 
-// A run of exactly six digits, not glued to another digit or a decimal point —
-// so the dialog header "5160.0 Minute" (and OCR's "51 60 n Minute") never match.
-const WO_IN_LINE = new RegExp(`(?<![\\d.])\\d{${WO_DIGITS}}(?![\\d.])`, 'g');
+const WO_LEN = `{${WO_MIN_DIGITS},${WO_MAX_DIGITS}}`;
+// A run of six or seven digits, not glued to another digit or a decimal point,
+// so the dialog header "5160.0 Minute" (and OCR's "51 60 n Minute") never matches.
+const WO_IN_LINE = new RegExp(`(?<![\\d.])\\d${WO_LEN}(?![\\d.])`, 'g');
 // "1. 902732", "- 902732", "• 902732" — a vision model's list formatting.
 const LIST_MARKER = /^\s*(?:\d{1,2}[.)]\s+|[-*•]\s*)/;
-const ONLY_DIGITS = new RegExp(`^\\d{${WO_DIGITS}}$`);
+const ONLY_DIGITS = new RegExp(`^\\d${WO_LEN}$`);
 
-/** The six-digit numbers in the reader's text, top to bottom, de-duplicated. */
+/** The work-order numbers in the reader's text, top to bottom, de-duplicated. */
 export function numbersIn(text){
   const out = [], seen = new Set();
   const push = n => { if(!seen.has(n)){ seen.add(n); out.push(n); } };

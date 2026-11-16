@@ -5,10 +5,10 @@
 // ~1280 px it lost the leading 9 off tall list photos ("07955", "106276",
 // ")06362") that the vision model read correctly, parking good orders as unsure.
 import { readFile } from 'node:fs/promises';
-import { numbersIn, WO_DIGITS } from './extract.mjs';
+import { numbersIn, WO_DIGITS_TEXT } from './extract.mjs';
 
 const VLM_PROMPT = 'This photo shows a handheld device screen listing work order numbers. '
-  + `List every ${WO_DIGITS}-digit work order number visible, top to bottom, one per line. `
+  + `List every ${WO_DIGITS_TEXT} work order number visible, top to bottom, one per line. `
   + 'Output only the numbers.';
 
 /** The vision model's text for one image, or null. keep_alive holds the model in

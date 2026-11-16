@@ -2439,7 +2439,7 @@ first use by `ensureTab`; every column pinned to text.
 |-------|------|-------|
 | `id` | string | spine-generated (`newId`) |
 | `hNumber` | string | the installer the orders are for — the match key |
-| `workOrderId` | string | as read from the photo (six digits) |
+| `workOrderId` | string | as read from the photo (six or seven digits — the handheld passed 999999 in Nov 2026) |
 | `source` | string | `telegram` |
 | `receivedAt` | string | Toronto-local stamp of the queue |
 | `claimedAt` | string | stamp of the read that folded it into `Worklist`; blank = waiting; `cancelled <stamp>` = removed before any phone downloaded it |

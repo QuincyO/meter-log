@@ -22,7 +22,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WEB_APP_URL, SHARED_TOKEN } from '../../js/config.js';
 import { readPhoto } from './ocr.mjs';
-import { newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack } from './extract.mjs';
+import { newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack, WO_DIGITS_TEXT } from './extract.mjs';
 import { ownerOf, isOwner, isAllowed, parseUserId, allowUser, revokeUser, listUsers } from './access.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -340,7 +340,7 @@ async function handleText(chat, user, text){
     return say(chat, `Removed ${n}. ${batchStatus(user, batch)}`, batchButtons(user, batch));
   }
   const r = addTyped(batch, text);
-  if(!r.found) return say(chat, `I only understand 6-digit work-order numbers and the commands below.\n\n${helpFor(user)}`);
+  if(!r.found) return say(chat, `I only understand ${WO_DIGITS_TEXT} work-order numbers and the commands below.\n\n${helpFor(user)}`);
   return say(chat, `Added ${r.added}. ${batchStatus(user, batch)}`, batchButtons(user, batch));
 }
 

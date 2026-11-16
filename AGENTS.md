@@ -238,6 +238,12 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   (`07955`, `106276`, `)06362`) while the model read all 30 numbers right. The agreement
   rule parked good orders as "unsure", and the user had to retype them. The check on a
   model misread is now the user reading the list before ✅ Send.
+  **A work order is six OR seven digits** (`WO_MIN_DIGITS`/`WO_MAX_DIGITS` in
+  `extract.mjs`). The handheld passed 999999 in November 2026 (1022668, …). Exactly-six
+  parsing turned every photo into "0 read" while the model was reading all the rows
+  (2026-11-16). When the bot says "0 read", check Ollama's `server.log` before blaming the
+  model: output tokens on `/api/generate` mean the model read the numbers and
+  `numbersIn` rejected them.
   **Who can use it is decided in Telegram, by the owner** (`tools/wo-bot/access.mjs`):
   `ownerUserId` in the config (else the first `allowedUserIds` entry), plus the config
   list, plus `state.local.json` `allowed`. A stranger's first message sends the owner an
