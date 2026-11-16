@@ -836,9 +836,13 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   carries an address index built from the same extract: a street dictionary, a
   locality dictionary, and house-number points sorted by (street, number).
   `geocodeAddress` is wired into `geocodeOne` as **provider −1, ahead of Nominatim,
-  Google and ORS** — free, instant, radio off. A miss is not an error: it falls
-  through to the network providers exactly as before, so a thin OSM area still
-  geocodes when there's signal. Load-bearing details:
+  Google and ORS** — free, instant, radio off. On the phone's Optimize **tap** it
+  is the *only* provider (`opts.offlineGeocode`, owner's decision 2026-11-16): a
+  miss parks the order, and the toast calls it "not on the offline map" and points
+  at fixing the address or holding Optimize. Everywhere else (the hold, the
+  planner, the Settings home pin) a miss is not an error: it falls through to the
+  network providers, so a thin OSM area still geocodes when there's signal.
+  Load-bearing details:
   - **`normalizeStreet` runs on both sides** — the builder normalizes OSM's
     `addr:street` before storing it, the phone normalizes what the installer typed.
     They must agree or the phone silently fails to match addresses it actually has.

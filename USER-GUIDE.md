@@ -229,6 +229,10 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   dead ends and bridges and gives you no way of knowing it did.
 - **A tap is the everyday press, and it is free.** With the map downloaded it
   measures real roads with no signal at all — no data, no cost, works on the water.
+  It finds addresses on the downloaded map too, and **only** there: an address the
+  map doesn't know is set aside as **not on the offline map** rather than looked up
+  online. Fix the address (add the town, check the spelling), or hold Optimize once
+  to look it up online — after that it has its pin and taps keep it.
 - **Holding it for two seconds** looks the road distances up over the internet
   instead of using your downloaded map. That is the one to use when the offline map
   routes you somewhere odd — it doesn't know about no-left-turns and one-way streets
@@ -616,7 +620,7 @@ The app is built for zero bars — the honest rule is: **keep logging, ignore th
 - A **↻** means the office published a newer or bigger version of a district you already have — download it again to pick it up.
 - You can keep **more than one** district on the phone. Optimize works out which one covers the day you're routing and uses it, so there's nothing to switch when you move between areas.
 - **Drop** deletes the district you're using. Routes fall back to straight-line estimates until you download one again.
-- Holding **🧭 Optimize route** deliberately **ignores** your downloaded map and looks the roads up online instead — that's the second opinion for when the offline map sends you a strange way round. Everything else uses the map on the phone.
+- Holding **🧭 Optimize route** deliberately **ignores** your downloaded map and looks the roads (and any address the map couldn't find) up online instead — that's the second opinion for when the offline map sends you a strange way round. Everything else uses the map on the phone.
 - A district the office removes stays on your phone and keeps working; it just won't be in the list to download any more.
 
 ---

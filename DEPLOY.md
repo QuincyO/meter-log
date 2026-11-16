@@ -461,7 +461,9 @@ straight lines. It backs up **both** lookups:
   (local Nominatim, planner only, if configured →) Google →
   **ORS** → park. A `REQUEST_DENIED`/over-quota Google key (or a plain miss)
   retries the address on ORS before parking it. A pack that doesn't know the
-  street simply falls through to the rest of the ladder.
+  street falls through to the rest of the ladder — **except on the phone's
+  Optimize tap**, which is fully offline and parks the order instead; on the
+  phone only the hold geocodes online.
 - **Road matrix:** **offline district pack (phone, when one covers the run)** →
   Google Routes (phone) / local OSRM (planner) → **ORS** →
   straight-line. ORS's hosted matrix is one free call, capped at ~3,500

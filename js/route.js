@@ -130,7 +130,7 @@ function medianCenter(items){
 // silently pick a town; the card shows the choices instead (worklist.js).
 // The ", ON, Canada" text bias stays: the crew ranges province-wide, and the
 // circle (not the text) is what pins the region.
-async function geocodeAll(items, onProgress, center, geoUrl){
+async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false){
   let done = 0;
   for(const item of items){
     const c = coordsOf(item);
@@ -145,7 +145,8 @@ async function geocodeAll(items, onProgress, center, geoUrl){
         geoFail: false, geoAmbig: undefined, updatedAt: stamp() }));
     }
     if(!c || stale){
-      const hit = await geocodeOne(item.address, center, geoUrl, geoProvenance, onProgress);
+      const hit = await geocodeOne(item.address, center, geoUrl, geoProvenance, onProgress,
+        { offlineOnly });
       if(hit && !hit.ambig){
         item.lat = hit.lat; item.lng = hit.lng; item.geoSource = hit.source || '';
         item.geoFail = false; item.geoAmbig = undefined;
@@ -205,7 +206,12 @@ function providerEvent(onProgress, activity, provider, status){
   onProgress && onProgress({ phase:'provider', activity, provider, status });
 }
 
-export async function geocodeOne(address, center, geoUrl, stats=null, onProgress=null){
+// opts.offlineOnly: the district's address index and nothing else — a miss is a
+// miss and the order parks. The phone's Optimize TAP passes it: a tap is fully
+// offline (owner's decision, 2026-11-16), and an index miss that fell through to
+// Google and ORS on every tap is how a day's quota on both went in one afternoon.
+// The hold, the planner and the Settings home pin leave it off.
+export async function geocodeOne(address, center, geoUrl, stats=null, onProgress=null, opts={}){
   const text = String(address || '').trim();
   if(!text) return null;
   const tryProvider = async (provider, lookup) => {
@@ -227,6 +233,7 @@ export async function geocodeOne(address, center, geoUrl, stats=null, onProgress
   // still geocodes when there's signal.
   const offline = await tryProvider('offline', () => offlineGeocode(text, center));
   if(offline) return offline;
+  if(opts && opts.offlineOnly) return null;
   // Provider 0 (planner only): a self-hosted Nominatim, tried FIRST when its URL
   // is passed, so a normal planning run makes no external geocoding call.
   if(geoUrl){
@@ -1662,8 +1669,12 @@ export function travelLookup(measure){
 // ladder. Nothing sets it on the planner (opts.osrmUrl already excludes the
 // graph); it is the PHONE's two-second hold on 🧭 Optimize — the deliberate
 // second opinion, because the pack carries no turn restrictions and Google does.
-// So the phone's two presses are: tap = {straightLine:true} (graph, else
-// crow-flies) and hold = {noLocalGraph:true} (Google → ORS → straight-line).
+// So the phone's two presses are: tap = {straightLine:true, offlineGeocode:true}
+// (graph, else crow-flies; addresses from the district index only) and
+// hold = {noLocalGraph:true} (Google → ORS → straight-line).
+// opts.offlineGeocode: geocode from the district's address index only — an
+// address it can't place parks instead of going to Google/ORS (geocodeOne's
+// opts.offlineOnly). The tap is fully offline; see geocodeOne.
 // opts.startFromCurrent: request a fresh phone fix as a one-run route start.
 // With home it fixes both ends; without home the route end remains open. A
 // missing/denied fix falls back to the legacy anchor and sets startFallback.
@@ -1724,7 +1735,7 @@ export async function optimizeRoute(pendingItems, onProgress, home, opts = {}){
   let gate = gps || med || home || null;
   if(gps && med && haversine(gps, med) > GEO_RADIUS_KM * 1000) gate = med;
 
-  await geocodeAll(pendingItems, onProgress, gate, opts.geocodeUrl);
+  await geocodeAll(pendingItems, onProgress, gate, opts.geocodeUrl, !!opts.offlineGeocode);
 
   // Post-geocodeAll invariant: every pending item is either located (coords,
   // no flags) or parked with exactly one of geoFail/geoAmbig set (geocodeAll

@@ -655,13 +655,15 @@ export async function autoSync(){
 
 // The installer's saved home pin (Settings). A home saved offline (or whose
 // geocode failed then) carries text but no coords — retry the lookup here
-// while we're online, and persist so the retry is one-time.
-async function homePin(){
+// while we're online, and persist so the retry is one-time. useNetwork=false (a
+// TAP) asks the district's address index only — a tap is fully offline.
+async function homePin(useNetwork = true){
   const lat = Number(store.get('homeLat')), lng = Number(store.get('homeLng'));
   if(isFinite(lat) && isFinite(lng) && (lat || lng)) return { lat, lng };
   const addr = (store.get('homeAddress') || '').trim();
   if(!addr) return null;
-  const hit = await geocodeOne(addr, null);   // home is never radius-gated
+  const hit = await geocodeOne(addr, null, null, null, null,   // home is never radius-gated
+    { offlineOnly: !useNetwork });
   if(hit && !hit.ambig){
     store.set('homeLat', String(hit.lat)); store.set('homeLng', String(hit.lng));
     store.set('homeLabel', hit.label || addr);
@@ -815,13 +817,14 @@ async function estimateTravel(items, all){
   return estimateTravelFromCoords(items, start, home);
 }
 
-async function crewStartPin(){
+async function crewStartPin(useNetwork = true){
   const addr = (store.get('crewStartAddress') || '').trim();
   if(!addr){ store.set('crewStartFor', ''); return null; }
   const lat = Number(store.get('crewStartLat')), lng = Number(store.get('crewStartLng'));
   if(isFinite(lat) && isFinite(lng) && (lat || lng) && store.get('crewStartFor') === addr)
     return { lat, lng };
-  const hit = await geocodeOne(addr, null);   // crew start is never radius-gated
+  const hit = await geocodeOne(addr, null, null, null, null,   // crew start is never radius-gated
+    { offlineOnly: !useNetwork });
   if(hit && !hit.ambig){
     store.set('crewStartLat', String(hit.lat)); store.set('crewStartLng', String(hit.lng));
     store.set('crewStartFor', addr);
@@ -905,8 +908,10 @@ async function optimizeRouteHandler(useNetwork){
     // unlocked, which both models read as "the full target". This is the ONE place
     // the install count may size a day; every passive path holds the day as is.
     const day1Count = dayLocked() ? await lockedDay1Size(target) : null;
-    const home = await homePin();
-    const crewStart = await crewStartPin();   // ETA-only anchor + drive-out to draw
+    // A tap is fully offline — addresses included (owner's decision, 2026-11-16).
+    // An address the district can't place parks; the HOLD is the online lookup.
+    const home = await homePin(useNetwork);
+    const crewStart = await crewStartPin(useNetwork);   // ETA-only anchor + drive-out to draw
     // compareVariants is asked for on BOTH presses and costs nothing on the one
     // that can't use it: route.js only consults the flag inside `if(onRoad)`, so
     // a tap with no pack still does exactly one solve and this can never be the
@@ -918,7 +923,7 @@ async function optimizeRouteHandler(useNetwork){
     // router no longer takes it.
     const dwell = dwellShape();
     const base = await optimizeRoute(pending, updateRouteProgress, home, {
-      straightLine: !useNetwork, noLocalGraph: useNetwork,
+      straightLine: !useNetwork, noLocalGraph: useNetwork, offlineGeocode: !useNetwork,
       startFromCurrent, start: crewStart, compareVariants: true,
       // A stop locked to Day 1 slot 1 is where the route starts: Day 1 grows from it.
       leadId: typeof routeConstraints.routeLeadId === 'function'
@@ -1129,7 +1134,8 @@ async function optimizeRouteHandler(useNetwork){
     const extra = lockedNote + ` · ${fmtKm(totalM)}`
       + (days > 1 ? ` · ${days} days of ${effective}` : '')
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
-      + (failed > 0 ? ` · ${failed} parked (fix address)` : '')
+      + (failed > 0 ? (useNetwork ? ` · ${failed} parked (fix address)`
+        : ` · ${failed} not on the offline map (fix address, or hold Optimize to look up online)`) : '')
       + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
       + (note ? ` · ${short(note)}` : '');

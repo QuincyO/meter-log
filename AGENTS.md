@@ -850,7 +850,7 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 - **The phone measures its own roads now — and the press picks the ladder.**
   There are three entry points into `optimizeRoute` and each has its own order:
   **phone tap** = road graph → straight-line (free, offline, never a network
-  matrix); **phone hold** (2s) = Google Routes → ORS → straight-line, with the
+  matrix, and its addresses come from the pack's index only); **phone hold** (2s) = Google Routes → ORS → straight-line, with the
   road graph **skipped outright** (`opts.noLocalGraph`); **planner** = local OSRM
   → ORS → straight-line (`opts.osrmUrl`, never Google). `js/roadgraph.js` is a
   pure, DOM-free router over a downloaded district pack and returns the **same
@@ -871,8 +871,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   (5) **the hold is refused offline** (`optimizeRouteHandler` in `js/worklist.js`)
   — it skips the pack by definition, so with no signal it can measure nothing at
   all. The toast has to point at the tap that would have worked. The pack also carries an **address
-  index** (v2), wired into `geocodeOne` as provider −1 ahead of Nominatim/Google/ORS;
-  a miss falls through to them, so it is an accelerator and never a hard dependency.
+  index** (v2), wired into `geocodeOne` as provider −1 ahead of Nominatim/Google/ORS.
+  **On a TAP it is the only geocoder** (`opts.offlineGeocode` → `geocodeOne`'s
+  `offlineOnly`; `homePin`/`crewStartPin` take the press too): a miss parks the order
+  rather than falling through. Owner's decision, 2026-11-16, after taps that fell
+  through on index misses had spent both the Google (300/day cap) and ORS daily
+  geocoding quotas and the toast blamed the Google key. On the hold, the planner and
+  the Settings home pin a miss still falls through, so there it is an accelerator.
+  `tests/route-offline-geocode.test.mjs`.
   **`normalizeStreet` must behave identically on both sides** — the builder normalizes
   OSM's `addr:street`, the phone normalizes what was typed — and its positional rule
   is load-bearing: a suffix expands anywhere *except* the first word, so "Concession
