@@ -22,7 +22,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WEB_APP_URL, SHARED_TOKEN } from '../../js/config.js';
 import { readPhoto } from './ocr.mjs';
-import { newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack, WO_DIGITS_TEXT } from './extract.mjs';
+import { newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack, splitMessage, WO_DIGITS_TEXT } from './extract.mjs';
 import { ownerOf, isOwner, isAllowed, parseUserId, allowUser, revokeUser, listUsers } from './access.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,7 +77,16 @@ async function tg(method, params = {}, timeoutMs = 30000){
   if(!j.ok) throw new Error(`${method}: ${j.description || r.status}`);
   return j.result;
 }
-const say = (chat, text, extra = {}) => tg('sendMessage', { chat_id: chat, text, ...extra });
+// A long reply (the orders a photo Send did not find, /list of a big batch) goes
+// out as several messages — Telegram refuses one over 4096 characters. Buttons
+// ride on the last part, under the end of the list they act on.
+async function say(chat, text, extra = {}){
+  const parts = splitMessage(text);
+  let r;
+  for(const [i, part] of parts.entries())
+    r = await tg('sendMessage', { chat_id: chat, text: part, ...(i === parts.length - 1 ? extra : {}) });
+  return r;
+}
 
 async function spineGet(action, params = {}){
   const q = new URLSearchParams({ token: SHARED_TOKEN, action, ...params });

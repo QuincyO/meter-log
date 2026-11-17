@@ -279,6 +279,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   add and paste, which let a done number back in for a revisit: a person typing a
   number means it, a photo of the whole list does not. Done rows are swept nightly, so
   the order is queued again the next morning if it is still on the handheld.
+  **Every reply goes through `say`, which splits at Telegram's 4096-character limit**
+  (`splitMessage`, buttons on the last part). A long missing-orders list once made ✅
+  Send answer "message is too long", and the 🗑 button never came (2026-11-17). Don't
+  call `tg('sendMessage')` directly with text that can grow.
   Setup is DEPLOY.md §"Photo work-order bot"; tests are `tests/worklist-inbox.test.mjs`,
   `tests/wo-bot-extract.test.mjs` and `tests/wo-bot-access.test.mjs`.
 - **Analytics splits boat from land by DATE + installer, not by the `workType` tag.**

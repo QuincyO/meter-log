@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { numbersIn, newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack }
+import { numbersIn, newBatch, addPhoto, addTyped, removeFrom, sendOrder, missingText, keepBack, splitMessage }
   from '../tools/wo-bot/extract.mjs';
 
 // What Windows OCR actually returned for the reference photo of the handheld's
@@ -134,4 +134,22 @@ test('/keep holds orders back from a removal', () => {
   const items = [{ id: 'a', workOrderId: '902111' }, { id: 'b', workOrderId: '902222' }, { id: 'c', workOrderId: '903333' }];
   assert.equal(keepBack(items, '/keep 902222 999999 903333'), 2);
   assert.deepEqual(items, [{ id: 'a', workOrderId: '902111' }]);
+});
+
+test('a reply over the Telegram 4096 limit splits on line breaks, nothing lost', () => {
+  // 2026-11-17: ✅ Send listed ~60 missing orders with addresses in one message
+  // and Telegram answered "message is too long", so the 🗑 button never came.
+  const lines = Array.from({ length: 80 }, (_, i) => `${1022600 + i} — ${i} Some Long Street Name, Charlottetown · appt 2026-11-18 09:00`);
+  const text = 'Head:\n' + lines.join('\n');
+  assert.ok(text.length > 4096);
+  const parts = splitMessage(text);
+  assert.ok(parts.length > 1);
+  for(const p of parts) assert.ok(p.length <= 4096 && p.length > 0);
+  assert.equal(parts.join('\n'), text);
+  assert.deepEqual(splitMessage('short'), ['short']);
+});
+
+test('a single line longer than the limit is cut, not dropped', () => {
+  const parts = splitMessage('x'.repeat(9000));
+  assert.deepEqual(parts.map(p => p.length), [4096, 4096, 808]);
 });

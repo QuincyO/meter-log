@@ -114,3 +114,25 @@ export function keepBack(items, text){
   }
   return kept;
 }
+
+/** Telegram refuses a message over 4096 characters ("message is too long").
+ *  No parse_mode is used, so JS string length (UTF-16 units) is what Telegram
+ *  counts. Splits on line breaks so a list stays one order per line; a single
+ *  line over the limit is cut. Joining the parts with '\n' gives the text back. */
+export const TG_MAX_TEXT = 4096;
+export function splitMessage(text, limit = TG_MAX_TEXT){
+  const parts = [];
+  let cur = null;
+  for(let line of String(text).split('\n')){
+    while(line.length > limit){
+      if(cur !== null){ parts.push(cur); cur = null; }
+      parts.push(line.slice(0, limit));
+      line = line.slice(limit);
+    }
+    if(cur === null) cur = line;
+    else if(cur.length + 1 + line.length <= limit) cur += '\n' + line;
+    else { parts.push(cur); cur = line; }
+  }
+  if(cur !== null) parts.push(cur);
+  return parts;
+}
