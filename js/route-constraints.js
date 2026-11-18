@@ -508,3 +508,91 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   }
   return { orderedIds:finalIds, dayOf, scheduleById };
 }
+
+// ---- The day's end time and the flat-out number ----------------------------------
+// Pure read-outs for the route map. Nothing here sizes a day: the meters/day target
+// alone does that, and scheduleRouteConstraints never calls these.
+
+// The first-arrival clock an installer usually keeps: their usual first LOG less the
+// time that first job takes, since a log lands after the work. The 05:00 to 14:00
+// bound is on the measurement itself, so a stray log at 3am or 5pm cannot drag the
+// plan around; anything blank or outside it is the caller's fallback.
+export function usualStartClock(usualFirstLogMin, onSiteMin, fallback){
+  const log = (usualFirstLogMin === '' || usualFirstLogMin == null) ? NaN : Number(usualFirstLogMin);
+  if(!isFinite(log) || log < 300 || log > 840) return fallback;
+  const job = Number(onSiteMin);
+  return clock(log - (isFinite(job) ? Math.round(job) : 0));
+}
+
+function finiteOrZero(v){
+  if(v === '' || v == null) return 0;
+  const n = Number(v);
+  return isFinite(n) ? n : 0;
+}
+
+// Minutes of breaks that fall in a span that starts at `startMin` and would otherwise
+// end at `endMin`. Walked in clock order because each counted break pushes the end
+// out, which can pull the next one in; a break before the start (already past) or at
+// or after the running end (the day is over first) is skipped.
+function breakMinutesInSpan(breaks, startMin, endMin){
+  const list = (Array.isArray(breaks) ? breaks : [])
+    .map(b => ({ at: timeMin(b && b.at), min: finiteOrZero(b && b.min) }))
+    .filter(b => b.at != null)
+    .sort((a, b) => a.at - b.at);
+  let total = 0;
+  list.forEach(b => { if(b.at >= startMin && b.at < endMin + total) total += b.min; });
+  return total;
+}
+
+// o = { fallbackOnSiteMin, delayPerStopMin, breaks, startedMin }. `startedMin` (today's
+// first log) replaces only the reported start; the break rule still reads the earliest
+// ETA, because those are the stops still to do. Null when no stop has an ETA.
+export function dayEndEstimate(items, o = {}){
+  let first = null, workEnd = null, stops = 0;
+  const fallback = Number(o.fallbackOnSiteMin);
+  (items || []).forEach(x => {
+    if(!x) return;
+    const eta = timeMin(x.scheduledEta);
+    if(eta == null) return;
+    stops++;
+    const onSite = Number(x.scheduledOnSiteMin);
+    const depart = eta + ((isFinite(onSite) && onSite > 0) ? onSite
+      : (isFinite(fallback) && fallback > 0 ? fallback : 0));
+    if(first == null || eta < first) first = eta;
+    if(workEnd == null || depart > workEnd) workEnd = depart;
+  });
+  if(first == null) return null;
+  const delayMin = Math.round(finiteOrZero(o.delayPerStopMin) * stops);
+  const breakMin = breakMinutesInSpan(o.breaks, first, workEnd + delayMin);
+  const hasStarted = o.startedMin !== '' && o.startedMin != null && isFinite(Number(o.startedMin));
+  const startMin = hasStarted ? Number(o.startedMin) : first;
+  return { startMin, workEndMin: workEnd, breakMin, delayMin, endMin: workEnd + delayMin + breakMin };
+}
+
+// How many stops a day could hold between `o.startMin` and `o.endMin`. The work per
+// stop is what the optimized days already show (span of work over stops, delays and
+// breaks left out); days with fewer than 2 ETAs say nothing about it. o = { startMin,
+// endMin, delayPerStopMin, breaks }.
+export function flatOutPerDay(days, o = {}){
+  let work = 0, stops = 0;
+  (days || []).forEach(items => {
+    const e = dayEndEstimate(items, {});
+    const n = (items || []).filter(x => x && timeMin(x.scheduledEta) != null).length;
+    if(!e || n < 2) return;
+    work += e.workEndMin - e.startMin;
+    stops += n;
+  });
+  if(!stops) return null;
+  const workPerStopMin = work / stops;
+  if(!(workPerStopMin > 0)) return null;
+  const start = Number(o.startMin), end = Number(o.endMin);
+  if(!isFinite(start) || !isFinite(end)) return null;
+  const perStop = workPerStopMin + finiteOrZero(o.delayPerStopMin);
+  const fits = n => {
+    const span = start + n * perStop;
+    return span + breakMinutesInSpan(o.breaks, start, span) <= end;
+  };
+  let perDay = 0;
+  while(perDay < 500 && fits(perDay + 1)) perDay++;
+  return { perDay, workPerStopMin };
+}
