@@ -17,7 +17,8 @@ Decisions the owner made (2026-11-18):
 1. **Start time is per installer, with a fixed fallback.** Each installer's own usual first-stop time, from **land work only**. Anyone without enough land days gets **09:30**.
 2. **The start time moves every ETA**, not only the end time. And **once the first order of the day is logged, that time is the day's start.**
 3. **The end time on a day card counts work, breaks and usual delays.**
-4. **Breaks are 60 minutes: two 15-minute breaks and one 30-minute lunch.**
+4. **Breaks are 60 minutes a day in total** (two 15-minute breaks and a 30-minute lunch). **They are not at set times** (owner, 2026-11-18): the installer takes them whenever and usually does not log them, so the 60 is assumed to be somewhere in the day. A logged break counts toward it.
+8. **The usual start is a rolling 30 days and moves constantly.** It is recalculated when the installer closes out their day (`endOfDay` already calls `refreshInstallerMetrics`, where Task 1 put it).
 5. **The flat-out number assumes the last meter is done by 15:30**, and factors the usual start, the breaks and the usual delays.
 6. **Every installer sees their own figures**: their own usual start, end times and flat-out number, never a crew average.
 7. **Build it subagent-driven.**
@@ -31,7 +32,8 @@ Calls made while planning. These are the planner's, not the owner's. Change any 
 | The sheet stores the first **log** time. The phone subtracts one on-site time to get the first **arrival**. | A log is written when the job is finished. An ETA is an arrival. |
 | The morning start is an **arrival** clock: the drive out is not added on top. A "start from here" run and every re-time after a logged stop stay **departure** clocks from now. | The measured start already contains the morning drive. A run from where the truck is standing really does leave now. |
 | An appointment before the usual start **pulls that day's start earlier**. | Otherwise a 08:30 appointment is shown as an hour late on a day the crew would simply start early. |
-| Breaks sit at **10:00 (15 min), 12:00 (30 min), 14:00 (15 min)** and count only when they fall inside the day. | A route re-planned at 14:30 has one break left, not three. A day that ends at 11:00 has one. |
+| "30 days" is the installer's last **30 land working days** with 5 or more logs, not 30 calendar days. | It matches the existing 30-workday pace figure, and 30 calendar days would be about 21 days of data. |
+| For a day already under way, the breaks still to come are the smaller of (60 less any logged break or lunch) and (60 × the share of that day's stops still to do). | The owner's rule is that the 60 is "somewhere in the day". Spread evenly, half a day left means half the breaks left, and a logged lunch is no longer a guess. A day not yet started gets the full 60. |
 | Delays are **per stop** and are measured from the **stop times**: the time between the first and last meter that is not ordinary stop-to-stop work, **less the 60 break minutes**. The owner confirmed this on 2026-11-18. | Breaks are not logged as downtime, so they show up as unlogged pauses and have to be taken out. Logged downtime cannot be used directly: on the 2026-10-14 export one installer logs about 142 min a day, of which about 125 are **before the first meter** and about 12 between meters. The usual start already carries those morning delays, so adding the full average would count the morning twice. |
 | Downtime rows are not read at all for this. | Logging is a habit. One installer logs 41 min a day between meters and another logs none, and the second has about 157 min of pauses a day. The stop times show both the same way. A long drive can land in the figure; that is accepted. |
 | Stop ETAs stay **work only**. Breaks and delays are added to the **day's end**, and the card says so. | Putting them inside the scheduler changes appointment placement. That is a separate decision. |
@@ -48,7 +50,7 @@ Non-goals: changing how many orders a day holds, changing the Optimize solve, br
 - **`InstallerMetrics` columns are appended at the end, in all three mode groups** (unprefixed, `boat*`, `land*`), and are added to the projection in `installerMetricsRead`. A field left out of the projection never reaches the phone.
 - **Sheet values are plain numbers.** A time of day is stored as minutes after midnight (`587`), never `'09:47'`: Sheets turns a time string into a 1899 date. The new columns must not be in `INSTALLER_METRICS_DATE_HEADERS`.
 - **Land only on the phone and the planner:** read with `workType:'land'`, as `refreshAvgDay` already does.
-- Constants, exact values: fallback start `'09:30'`; breaks `[{at:'10:00',min:15},{at:'12:00',min:30},{at:'14:00',min:15}]`; flat-out cut-off `'15:30'`; window 30 days; minimum 10 days; minimum 5 logs a day.
+- Constants, exact values: fallback start `'09:30'`; breaks `60` minutes a day in total (`ROUTE_BREAK_MIN`, amended by Task 3b; no set times); flat-out cut-off `'15:30'`; window 30 days; minimum 10 days; minimum 5 logs a day.
 - Each task's commit carries its `changelog/YYYY-MM-DD.md` section and `CHANGELOG.md` row, and updates `AGENTS.md`, `ARCHITECTURE.md` and `USER-GUIDE.md` where the task changes what they describe. Run `node --test "tests/*.test.mjs"` before every push. Commit to `main` and push (a push deploys).
 - Follow `VERIFY.md` for anything driven in a browser. Never write to the production Sheet.
 
@@ -315,3 +317,50 @@ Exact copy:
 - [ ] **Step 4: Run** `node --test "tests/*.test.mjs"`. Expected: all pass.
 - [ ] **Step 5: Verify in headless Edge** behind the admin login with the spine stubbed (`VERIFY.md` §4): load a fixture worklist for an installer whose stub carries `usualFirstLogMin: 547`, Optimize against a stubbed OSRM table, and read the first ETA of Day 2. It must equal what the phone shows for the same list.
 - [ ] **Step 6: Docs and commit.** `ARCHITECTURE.md` §"Route timing has two sheet-backed references" is rewritten for the one clock. If `ROUTE_DEPART_TIME` now has no reader that schedules anything, say so in `config.js`'s comment rather than deleting it: `optimizeRoute`'s `departMin` still names it. Changelog section. Commit and push.
+
+### Task 3b: Breaks are a daily total, not set times (amends Task 3)
+
+Added 2026-11-18 after the owner's correction: breaks are 60 minutes a day taken whenever, not three set times.
+
+**Files:**
+- Modify: `js/route-constraints.js` (the Task 3 functions), `js/config.js`
+- Test: `tests/route-day-end.test.mjs`
+
+**Interfaces (these replace Task 3's):**
+- `js/config.js`: `ROUTE_BREAK_MIN = 60` replaces `ROUTE_BREAKS`, which is removed.
+- `breakMinutesLeft(totalMin, loggedMin, doneStops, leftStops) -> number` — `min(max(0, totalMin − loggedMin), totalMin × leftStops / (doneStops + leftStops))`, rounded to a whole minute. 0 when `leftStops` is 0. Blank or non-finite inputs count as 0.
+- `dayEndEstimate(items, o)` with `o = { fallbackOnSiteMin, delayPerStopMin, breakMin, startedMin }`: `endMin = workEndMin + delayMin + breakMin`. `breakMin` is a number the caller supplies (blank is 0). The clock walk and `o.breaks` are removed.
+- `flatOutPerDay(days, o)` with `o = { startMin, endMin, delayPerStopMin, breakMin, fallbackOnSiteMin }`: `perDay = floor((endMin − startMin − breakMin) / (workPerStopMin + delayPerStopMin))`, never below 0. `fallbackOnSiteMin` is passed to each day's span so a stop with no `scheduledOnSiteMin` is not counted as zero work.
+
+- [ ] **Step 1: Rewrite the tests that pinned the clock walk, and add:**
+
+```js
+test('a full day adds its whole break allowance, whenever the day starts', () => {
+  // The same 25-stop day as before: work ends 14:50, delays 50, breaks 60 → 16:40.
+  assert.equal(dayEndEstimate(fullDay(), { delayPerStopMin: 2, breakMin: 60 }).endMin, 1000);
+  // A day whose first stop is at 10:09 is no different: the 60 is somewhere in the day.
+  assert.equal(dayEndEstimate(lateStartDay(), { breakMin: 60 }).breakMin, 60);
+});
+test('no break allowance given, none added', () => { /* breakMin omitted → e.breakMin 0 */ });
+test('a day not started has all its breaks left', () => { assert.equal(breakMinutesLeft(60, 0, 0, 25), 60); });
+test('half the stops left is half the breaks left', () => { assert.equal(breakMinutesLeft(60, 0, 10, 10), 30); });
+test('a logged lunch is taken off what is left', () => {
+  assert.equal(breakMinutesLeft(60, 30, 2, 18), 30);    // 54 by share, 30 by what is unlogged
+  assert.equal(breakMinutesLeft(60, 75, 2, 18), 0);     // logged more than the allowance
+});
+test('nothing left to do, no breaks left', () => { assert.equal(breakMinutesLeft(60, 0, 20, 0), 0); });
+test('flat out takes the whole allowance off the window', () => {
+  // 09:30 → 15:30 is 360, less 60 = 300, over (12 + 3) = 20.
+  assert.equal(flatOutPerDay(days, { startMin: 570, endMin: 930, delayPerStopMin: 3, breakMin: 60 }).perDay, 20);
+  // A 10:09 start loses only its 39 minutes: 321 − 60 = 261, over 15 = 17.
+  assert.equal(flatOutPerDay(days, { startMin: 609, endMin: 930, delayPerStopMin: 3, breakMin: 60 }).perDay, 17);
+});
+test('a stop with no on-site time on it uses the fallback, in the flat-out figure too', () => { /* fallbackOnSiteMin: 10 changes workPerStopMin */ });
+```
+
+- [ ] **Step 2: Run** `node --test tests/route-day-end.test.mjs`. Expected: the new tests FAIL.
+- [ ] **Step 3: Implement.** Remove `ROUTE_BREAKS`, `breakMinutesInSpan` and the 500-stop search loop. Add `ROUTE_BREAK_MIN` and `breakMinutesLeft`. Extend the guard test's name list with `ROUTE_BREAK_MIN`, `breakMinutesLeft`, `usualStartClock` and `ROUTE_USUAL_START`.
+- [ ] **Step 4: Run** `node --test "tests/*.test.mjs"`. Expected: all pass, and no file under `js/` or `tests/` still mentions `ROUTE_BREAKS`.
+- [ ] **Step 5: Commit** with the changelog section corrected to say breaks are a daily total.
+
+**Task 5 changes that follow from this:** `opts.dayPlan()` also supplies the break minutes for each day: `ROUTE_BREAK_MIN` for every day except a Day 1 planned for today, which gets `breakMinutesLeft(60, break and lunch minutes logged today, stops logged today, Day 1 stops still pending)`. The logged minutes are today's `dayCache` downtime rows whose category is in `BREAK_CATS` (`js/compute/categories.js`). The card copy is unchanged: `· 60 min breaks ·`, or the smaller number left. `ROUTE_BREAKS` in Task 5's text reads `ROUTE_BREAK_MIN`.
