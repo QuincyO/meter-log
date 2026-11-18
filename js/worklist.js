@@ -43,6 +43,10 @@ import {
 import * as addressText from './worklist-address-fill.js';
 import { bulkAddPlan, dedupePlan, normalizeWo } from './worklist-dedup.js';
 import { ROUTE_DAY_END, ROUTE_DEPART_TIME } from './config.js';
+// Namespace import for the same reason as routeConstraints below: ROUTE_USUAL_START is
+// newer than the two names above, and a phone can run this file against an older
+// cached config.js. Every read of it carries the literal as a fallback.
+import * as conf from './config.js';
 import { addWorkdays, currentRoutePlacement, scheduleRouteConstraints, dayDurationMin, MIN_ONSITE_MIN, NOMINAL_TRAVEL_MIN } from './route-constraints.js';
 import { dwellLookup } from './route-dwell.js';
 // Namespace import on purpose: routeLeadId is newer than this file's other
@@ -246,11 +250,21 @@ function pullVal(v){
   const n = Math.round(Number(v));
   return isFinite(n) ? Math.max(0, Math.min(100, n)) : 70;
 }
+// The pace box, read live. Its own function so dwellShape can read it without going
+// through planShape, which now reaches dwellShape (via usualStart) and would recurse.
+function paceVal(){
+  return Math.max(1, Math.round(Number($('wlPace').value) || 30));
+}
+// `firstStopTime` is the time the crew ARRIVES at a day's first stop
+// (`firstStopArrival`), so the scheduler adds no drive out to it. It used to be the
+// 08:15 muster departure plus the drive, and real crews reach their first stop
+// between 09:30 and 10:00, so every morning ETA on the phone was an hour or more early.
 function planShape(){
   return {
     routeStartDate:planDay(),
-    firstStopTime:ROUTE_DEPART_TIME,
-    paceMin:Math.max(1, Math.round(Number($('wlPace').value) || 30)),
+    firstStopTime:usualStart(),
+    firstStopArrival:true,
+    paceMin:paceVal(),
     paceSource:store.get('wlPaceSource') || 'fallback',
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('wlStraightDistanceSource') || '',
@@ -264,24 +278,71 @@ function planShape(){
   };
 }
 
+// When this installer usually reaches the first stop: their measured usual first
+// LOG (installerMetrics, stored by refreshAvgDay) less one on-site time, since a log
+// lands after the work. Blank or implausible falls back to ROUTE_USUAL_START. Both
+// new names are reached through their namespaces with a fallback, so a phone holding
+// an older cached route-constraints.js or config.js still plans on 09:30.
+// Never called from inside dwellShape: planShape calls this, and this calls dwellShape.
+export function usualStart(){
+  const fallback = conf.ROUTE_USUAL_START || '09:30';
+  if(typeof routeConstraints.usualStartClock !== 'function') return fallback;
+  return routeConstraints.usualStartClock(readNum('wlUsualFirstLogMin'), dwellShape().base, fallback);
+}
+// The measured delay per stop, in minutes; 0 when there is no measurement.
+export function delayPerStop(){
+  return readNum('wlDelayPerStopMin') || 0;
+}
+
+// Today's first logged stop, as 'HH:MM' or ''. Kept in memory (refreshed from the
+// dayCache by refreshTodayFirstLog) because day1DepartTime is synchronous and runs
+// inside every render. Kept WITH its date, so a page left open overnight cannot read
+// yesterday's first log as today's.
+let firstLogToday = { date:'', clock:'' };
+export function todayFirstLog(){
+  return firstLogToday.date === localDate() ? firstLogToday.clock : '';
+}
+// Installs and UTIs only: both are a stop the crew drove to and worked, which is
+// what says the day has really begun. The storage-first dayCache holds a stop the
+// moment it is logged (applyOptimisticCache), so this is right offline too.
+export async function refreshTodayFirstLog(){
+  const c = cfg();
+  const today = localDate();
+  if(!c.name){ firstLogToday = { date:today, clock:'' }; return; }
+  try{
+    const cached = await idb.get('dayCache', `${c.name}|${today}`);
+    let first = '';
+    ((cached && cached.stops) || []).forEach(s => {
+      if(!(s.status === 'INSTALLED' || s.status === 'UTI')) return;
+      const t = clockOf(s.timestamp);
+      if(hhmmMin(t) != null && (!first || hhmmMin(t) < hhmmMin(first))) first = t;
+    });
+    firstLogToday = { date:today, clock:first };
+  } catch { /* keep the last answer */ }
+}
+
 // The clock DAY 1 departs on, as `scheduleRouteConstraints`' `day1FirstStopTime`
-// — blank means "use ROUTE_DEPART_TIME like every other day", which is what every
-// run that isn't happening right now wants.
+// — blank means "arrive at the first stop on usualStart() like every other day",
+// which is what every run that isn't happening right now wants.
 //
 // The rule is about the ANCHOR, not the hour: the muster point is a *morning*
 // anchor, so a route staged there is the morning's route however late it is
-// pressed, and it keeps 08:15. A route staged where the crew is actually standing
-// — the Optimize "Start from here" choice, and every rolling re-schedule after a
-// logged stop — is happening NOW, and pricing it from 08:15 makes every ETA on it
-// a morning ETA. Only ever forward: a run before 08:15 keeps the constant rather
-// than promising a 06:40 start nobody is driving.
+// pressed. A route staged where the crew is actually standing — the Optimize
+// "Start from here" choice, and every rolling re-schedule after a logged stop — is
+// happening NOW, and pricing it from the usual start makes every ETA on it a
+// morning ETA. It goes live in two cases (the owner's rule):
+//   - a stop has been logged today: from then on the clock is real, however early
+//     that first log was — a crew working at 08:50 is not waiting for 09:30;
+//   - now is past the usual start: the morning's plan has run out of time.
+// Before either, the usual start stands rather than promising a 06:40 start
+// nobody is driving.
 //
 // Days 2+ are untouched by construction (route-constraints.js firstMinFor), and
 // nothing here reaches day SIZING — see the ETAs-only note over there.
 function day1DepartTime(fromCurrent){
   if(!fromCurrent || planDay() !== localDate()) return '';
   const now = clockOf(stamp());
-  return hhmmMin(now) > hhmmMin(ROUTE_DEPART_TIME) ? now : '';
+  return (todayFirstLog() || hhmmMin(now) > hhmmMin(usualStart())) ? now : '';
 }
 
 // Which saved route is live. The office picks one and it rides down with the
@@ -290,8 +351,11 @@ function day1DepartTime(fromCurrent){
 function activeVariant(){
   return store.get('wlRouteVariant') === 'straight' ? 'straight' : 'road';
 }
+// Every plan push (⇪ Upload, the post-log sync, the Download's savePlan) sends this
+// answer, so `firstStopArrival` is dropped here: it describes how this phone's
+// scheduler reads `firstStopTime`, not a WorklistPlans column.
 function savePlanLocal(){
-  const p = planShape();
+  const { firstStopArrival, ...p } = planShape();
   store.set('wlPaceMin', String(p.paceMin));
   return p;
 }
@@ -1651,9 +1715,10 @@ function hoursText(mins){
   return `~${h}h${m ? ' ' + m + 'm' : ''}`;
 }
 // The day divider's duration. Read back from the day's OWN schedule
-// (`dayDurationMin`) so it tells the same story as the ETA badges under it: the
-// drive out, this route's real road time between stops, and each stop's measured
-// on-site minutes. It carried `count × avgLogMin + 60` for every day — the
+// (`dayDurationMin`) so it tells the same story as the ETA badges under it: this
+// route's real road time between stops and each stop's measured on-site minutes,
+// plus the drive out only on a Day 1 running from where the crew stands. It carried
+// `count × avgLogMin + 60` for every day — the
 // installer's historical log-to-log cadence plus an hour for lunch, which ignored
 // both the distance printed beside it and the dwell model, so a tight day and a
 // scattered one of the same length read identically.
@@ -1670,16 +1735,29 @@ function hoursText(mins){
 // happened. The planner's equivalent (js/pages/planner.js) already said this.
 const DAY_KM_TIP = 'Distance is the driving between this day’s stops — not the drive '
   + 'out to the first one, and not the drive home.';
+// The earliest ETA among a day's stops ('HH:MM'), or '' when none has one.
+function dayFirstEta(dayItems){
+  let first = '';
+  (dayItems || []).forEach(x => {
+    const t = String((x && x.scheduledEta) || '');
+    if(hhmmMin(t) != null && (!first || hhmmMin(t) < hhmmMin(first))) first = t;
+  });
+  return first;
+}
 // `day` is the divider's day number. Day 1 must be measured from the same clock
 // its ETAs were built on (day1DepartTime) — read an afternoon's remaining route
-// off an 08:15 start and the header announces ~8h over what the badges under it
-// clearly show as four. Days 2+ take the constant, as they always did.
+// off a morning start and the header announces ~8h over what the badges under it
+// clearly show as four. That clock is a DEPARTURE, so the drive out is inside it.
+// Every other day runs on the arrival clock, and is measured from its own first
+// ETA: an early appointment pulls such a day before `firstStopTime`, and measuring
+// from the clock would understate it by the size of the pull.
 function wlDayEta(dayItems, count, day){
   const shape = planShape();
-  const start = (day === 1 && day1DepartTime(true)) || shape.firstStopTime;
+  const fromNow = (day === 1 && day1DepartTime(true)) || '';
+  const start = fromNow || dayFirstEta(dayItems) || shape.firstStopTime;
   const mins = dayDurationMin(dayItems, start, dwellShape().base);
   if(mins != null) return { text:` · ${hoursText(mins)}`,
-    title:`${DAY_KM_TIP} Time is this day's route: the drive out, the driving between stops and the time on site — no lunch or breaks.` };
+    title:`${DAY_KM_TIP} Time is this day's route: ${fromNow ? 'the drive out, ' : ''}the driving between stops and the time on site — no lunch or breaks.` };
   if(!wlAvgLogMin || !count) return { text:'', title:DAY_KM_TIP };
   return { text:` · ${hoursText(count * wlAvgLogMin + 60)}`,   // + lunch + break
     title:`${DAY_KM_TIP} Time is your average per meter plus an hour for lunch and breaks — optimize the route for a timed estimate.` };
@@ -1716,6 +1794,11 @@ async function refreshAvgDay(){
       // a truck; a blank value simply falls back to the pace guess.
       storeNum('wlOnSiteMin', m.onSiteMin);
       storeNum('wlExtraMeterMin', m.extraMeterMin);
+      // The usual start and the delay per stop ride the same read, persisted for the
+      // same offline reason. An older deployed spine omits both fields; storeNum
+      // turns undefined into '', so the phone falls back to 09:30 and no delay.
+      storeNum('wlUsualFirstLogMin', m.usualFirstLogMin);
+      storeNum('wlDelayPerStopMin', m.delayPerStopMin);
       store.set('wlOnSiteSource', String(m.onSiteSource || ''));
       paintOnSiteHint();
     }
@@ -1757,9 +1840,11 @@ function siteFactors(){
 // A tuning-screen override wins over the measurement, and is kept in its OWN key so
 // setting one never destroys the measured value underneath it — clearing the field
 // has to be able to hand the installer their measurement back.
+// The pace comes from paceVal, never planShape(): planShape reaches this function
+// through usualStart, so calling back into it would recurse.
 export function dwellShape(){
   return dwellLookup({
-    paceMin: planShape().paceMin,
+    paceMin: paceVal(),
     onSiteMin: readNum('wlOnSiteOverride') != null ? readNum('wlOnSiteOverride') : readNum('wlOnSiteMin'),
     extraMeterMin: readNum('wlExtraMeterMin'),
     siteFactors: siteFactors(),
@@ -2612,6 +2697,10 @@ async function adoptPlannerDay1(plan, opts){
 // gone with the inference they drove: which orders are today is the toggle's answer,
 // not something to work out from who called and whether the target moved.
 async function applyTodayAnchor(opts){
+  // Today's first log decides whether Day 1 runs from now (day1DepartTime). This
+  // function runs after every logged stop (markWorklistDone, planAdvance), so
+  // reading it here is what makes the first log of the day switch the clock over.
+  await refreshTodayFirstLog();
   // The day being planned, which is usually but NOT always today — an evening plan
   // is for tomorrow. Everything below keys on it: the lock's date, the anchor's, and
   // the route's start date via planShape(). Keying on localDate() instead would lock

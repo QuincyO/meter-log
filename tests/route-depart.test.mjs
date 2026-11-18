@@ -17,14 +17,17 @@ test('the phone worklist no longer renders the route-start / first-stop inputs',
   assert.doesNotMatch(indexHtml, /id="wlRouteTime"/);
 });
 
-test('the phone plan anchors first-stop time to the departure constant', () => {
-  assert.match(worklistJs, /import\s*\{[^}]*\bROUTE_DEPART_TIME\b[^}]*\}\s*from\s*'\.\/config\.js'/);
-  assert.match(worklistJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
+// The phone moved off the 08:15 departure onto each installer's usual first-stop
+// ARRIVAL (tests/worklist-usual-start.test.mjs pins the details). The desktop
+// planner below stays on the constant until it is moved separately.
+test('the phone plan anchors first-stop time to the usual start, as an arrival', () => {
+  assert.match(worklistJs, /firstStopTime:\s*usualStart\(\),\s*\n\s*firstStopArrival:\s*true/);
+  assert.doesNotMatch(worklistJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
   assert.doesNotMatch(worklistJs, /\$\('wlRouteDate'\)/);
   assert.doesNotMatch(worklistJs, /\$\('wlRouteTime'\)/);
 });
 
-// 08:15 is where the day STARTS, not where every re-solve of it starts. A route
+// The usual start is where the day STARTS, not where every re-solve of it starts. A route
 // re-optimized at 11:40 from where the crew is standing has to depart at 11:40, or
 // every ETA on it is a morning ETA — reported from the field as "it always begins
 // from 8:15 and never takes into account what time it is now".
@@ -33,8 +36,9 @@ test('the day-1 clock follows the crew, and only when it is the crew standing th
   // the constant; "start from here" and every rolling in-day re-schedule do not.
   assert.match(worklistJs, /function day1DepartTime\(fromCurrent\)/);
   assert.match(worklistJs, /if\(!fromCurrent \|\| planDay\(\) !== localDate\(\)\) return ''/);
-  // Only ever forward — a run before 08:15 keeps the constant.
-  assert.match(worklistJs, /hhmmMin\(now\) > hhmmMin\(ROUTE_DEPART_TIME\) \? now : ''/);
+  // Only ever forward — before the usual start, and with nothing logged yet today,
+  // Day 1 keeps the usual start. After the first log the clock is real however early.
+  assert.match(worklistJs, /\(todayFirstLog\(\) \|\| hhmmMin\(now\) > hhmmMin\(usualStart\(\)\)\) \? now : ''/);
   // Optimize passes the START-LOCATION answer, never a bare true.
   assert.match(worklistJs, /day1FirstStopTime:\s*day1DepartTime\(startFromCurrent\)/);
   // The re-schedule after every logged stop is by definition where the crew is.

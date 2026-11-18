@@ -1485,16 +1485,19 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   two callers disagreeing about the active pack would throw the decode away every
   tick. The ETA path measures without adopting.
 - **Day 1 departs on the clock the crew is actually on** (`opts.day1FirstStopTime`).
-  `ROUTE_DEPART_TIME` (08:15) is where the *day* starts, not where every re-solve of
-  it starts — `scheduleRouteConstraints` applied one `firstStopTime` to every day, so
+  The day's start clock — on the phone the installer's usual first-stop ARRIVAL
+  (`usualStart()`, `firstStopArrival`, 09:30 by default); on the desktop planner still
+  `ROUTE_DEPART_TIME` (08:15) as a departure — is where the *day* starts, not where
+  every re-solve of it starts — `scheduleRouteConstraints` applied one `firstStopTime` to every day, so
   a route re-optimized at 11:40 arrived everywhere at breakfast and `placeAppointments`
   searched an afternoon against a morning clock. `firstMinFor(day)` overrides day 0
   alone; days 2+ keep the constant, and omitting it is byte-identical to before.
   `js/worklist.js day1DepartTime` decides when it applies, and **the rule is about the
-  anchor, not the hour**: an Optimize staged at the muster point keeps 08:15 (that
-  press means "the day as planned from the depot"), while "Start from here" and every
-  rolling re-schedule (`applyTodayAnchor` after each logged stop, the variant flip, the
-  drag) use the current time. **ETAs only** — nothing in day sizing reads it, or the
+  anchor, not the hour**: an Optimize staged at the muster point keeps the day's start
+  clock (that press means "the day as planned from the depot"), while "Start from
+  here" and every rolling re-schedule (`applyTodayAnchor` after each logged stop, the
+  variant flip, the drag) use the current time once a stop has been logged today or
+  the usual start has passed. **ETAs only** — nothing in day sizing reads it, or the
   finish-by clock is back under a new name. `applyTodayAnchor`'s write guard compares
   `scheduledEta` too, since a moving clock re-times a stop that has not moved.
 - **The day divider's length is read back from the schedule, not modelled twice.**

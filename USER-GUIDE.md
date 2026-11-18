@@ -243,8 +243,13 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   district — but it needs signal every time, so download the map anyway. The message
   before the run always tells you which one you're about to get.
 
-- **Route starts** is the first calendar date, **First stop at** is stop 1's ETA,
-  and **Pace (min/stop)** spaces the later ETAs. These schedule the route after
+- **Each day's first ETA is when you usually reach your first stop.** The app
+  takes your usual first log of the day from your last 30 workdays and subtracts
+  the time that first job takes. Until it has enough of your history it uses
+  **09:30**. An appointment earlier than that moves its own day earlier, so you
+  arrive 20 minutes before it. Once you've logged your first stop today, or once
+  that usual time has passed, today's ETAs run from the time it is now instead.
+- **Pace (min/stop)** spaces the later ETAs. These schedule the route after
   its driving order is chosen; they do not tell it where you are. Pace uses your
   latest 30 land workdays when available and remains editable — it's kept as you
   type it, and **clearing the box puts your measured pace back**.
@@ -325,10 +330,12 @@ alongside the meter count (**Day 1 · 2026-07-27 · 24 meters · 138 km · ~7h 1
 and the line under the buttons gives the whole route's total. The distance covers
 the drive out and between stops; it doesn't add the drive home at the end.
 
-The time beside it is that day's route: the drive out, the driving between the
-stops, and your own measured time on site at each one. It's the same arithmetic
-as the **ETA** on the cards, so the day's length and the last ETA always agree —
-start at 08:15, finish the last meter at 15:25, and the divider says ~7h 10m.
+The time beside it is that day's route: from the first stop's ETA, the driving
+between the stops, and your own measured time on site at each one. It's the same
+arithmetic as the **ETA** on the cards, so the day's length and the last ETA
+always agree — reach the first stop at 09:30, finish the last meter at 16:40, and
+the divider says ~7h 10m. When today's route is running from where you are now,
+the drive to the next stop is counted in it too.
 It counts no lunch and no breaks, so allow for those on top. Until a route has
 been worked out there are no ETAs to add up, and the divider falls back to your
 average time per meter plus an hour for lunch and a break.
