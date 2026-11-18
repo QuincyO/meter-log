@@ -497,3 +497,49 @@ test('the pull works with a travel lookup and adds no drive out', () => {
   assert.equal(r.scheduleById.appt.eta, '08:10');
   assert.equal(r.scheduleById.appt.lateMin, 0);
 });
+
+// ---- a pulled day puts its appointment first ----
+// The pull to (appointment - 20) exists to reach that appointment. With a short dwell
+// slot 2 is ALSO on time with no wait, and the latest-slot tie-break used to hand
+// the pulled 08:10 to an ordinary stop (seen in the Edge drive, 2026-11-18).
+const shortDwell = dwellLookup({ paceMin:30, onSiteMin:8 });
+const shortLegs = { fromStart:() => 25, between:() => 5 };
+
+test('a pulled day puts the appointment that pulled it in slot 1', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' }), item('b')];
+  const r = scheduleRouteConstraints(items, ['a','appt','b'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, travel:shortLegs, dwell:shortDwell }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '08:10');
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+  assert.equal(r.scheduleById.appt.waitMin, 0);
+});
+
+test('an order locked to slot 1 on a pulled day keeps it, and nothing throws', () => {
+  const items = [item('lk', { lockedDate:'2026-07-24', lockedSlot:1 }), item('a'),
+    item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' })];
+  const r = scheduleRouteConstraints(items, ['a','appt','lk'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, travel:shortLegs, dwell:shortDwell }));
+  assert.equal(r.scheduleById.lk.slot, 1);
+  assert.equal(r.scheduleById.lk.eta, '08:10');
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});
+
+test('two early appointments: the earliest takes slot 1, the other is placed and on time', () => {
+  const items = [item('a'), item('b'),
+    item('ap2', { appointmentDate:'2026-07-24', appointmentTime:'08:50' }),
+    item('ap1', { appointmentDate:'2026-07-24', appointmentTime:'08:30' })];
+  const r = scheduleRouteConstraints(items, ['a','b','ap2','ap1'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, travel:shortLegs, dwell:shortDwell }));
+  assert.equal(r.scheduleById.ap1.slot, 1);
+  assert.equal(r.scheduleById.ap1.eta, '08:10');
+  assert.equal(r.scheduleById.ap2.lateMin, 0);
+});
+
+test('without the flag the same day keeps the old latest-slot choice', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' }), item('b')];
+  const r = scheduleRouteConstraints(items, ['a','appt','b'],
+    opts({ firstStopTime:'08:00', travel:{ fromStart:() => 0, between:() => 5 }, dwell:shortDwell }));
+  assert.equal(r.scheduleById.appt.slot, 3);   // 08:00, 08:13, 08:26: all on time, latest wins
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});

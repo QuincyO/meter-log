@@ -1488,8 +1488,8 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   The day's start clock — on the phone the installer's usual first-stop ARRIVAL
   (`usualStart()`, `firstStopArrival`, 09:30 by default); on the desktop planner still
   `ROUTE_DEPART_TIME` (08:15) as a departure — is where the *day* starts, not where
-  every re-solve of it starts — `scheduleRouteConstraints` applied one `firstStopTime` to every day, so
-  a route re-optimized at 11:40 arrived everywhere at breakfast and `placeAppointments`
+  every re-solve of it starts — `scheduleRouteConstraints` applied one
+  `firstStopTime` to every day, so a route re-optimized at 11:40 arrived everywhere at breakfast and `placeAppointments`
   searched an afternoon against a morning clock. `firstMinFor(day)` overrides day 0
   alone; days 2+ keep the constant, and omitting it is byte-identical to before.
   `js/worklist.js day1DepartTime` decides when it applies, and **the rule is about the

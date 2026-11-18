@@ -246,11 +246,12 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - **Each day's first ETA is when you usually reach your first stop.** The app
   takes your usual first log of the day from your last 30 workdays and subtracts
   the time that first job takes. Until it has enough of your history it uses
-  **09:30**. An appointment earlier than that moves its own day earlier, so you
-  arrive 20 minutes before it. Once you've logged your first stop today, or once
-  that usual time has passed, today's ETAs run from the time it is now instead.
-- **Pace (min/stop)** spaces the later ETAs. These schedule the route after
-  its driving order is chosen; they do not tell it where you are. Pace uses your
+  **09:30**. An appointment earlier than that moves its own day earlier and is
+  that day's first stop, so you arrive 20 minutes before it. Once you've logged
+  your first stop today, or once that usual time has passed, today's ETAs run from
+  the time it is now instead.
+- **Pace (min/stop)** spaces the later ETAs. It times the route after its
+  driving order is chosen; it does not tell it where you are. Pace uses your
   latest 30 land workdays when available and remains editable — it's kept as you
   type it, and **clearing the box puts your measured pace back**.
 - **Time on site** is the other half of each ETA: an arrival time is the stop before

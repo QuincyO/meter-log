@@ -341,18 +341,28 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const arrivalDay = day => arrival && !(day === 0 && rawDay1First != null);
   // An arrival-anchored day whose earliest appointment is before the clock starts
   // when that appointment's window opens (20 minutes before it, simulateDay's rule),
-  // so an early appointment pulls THAT day earlier instead of arriving late. ETAs only: never read for day sizing.
-  const dayClock = day => {
-    if(!arrivalDay(day)) return firstMinFor(day);
-    let earliest = null;
+  // so an early appointment pulls THAT day earlier instead of arriving late. ETAs
+  // only: never read for day sizing.
+  // `pullingAppt` is that appointment, or null when the day is not pulled. Only an
+  // appointment BEFORE the clock pulls it: one at or after the clock is already
+  // inside its window when the crew arrives on the clock. Ties on time go to the
+  // label, the same order placeAppointments walks them in.
+  const pullingAppt = day => {
+    if(!arrivalDay(day)) return null;
+    let best = null, bestMin = null;
     (constrainedByDay[day] || []).forEach(x => {
       const t = x.appointmentDate ? timeMin(x.appointmentTime) : null;
-      if(t != null && (earliest == null || t < earliest)) earliest = t;
+      if(t == null || t >= firstMin) return;
+      if(best == null || t < bestMin || (t === bestMin && label(x).localeCompare(label(best)) < 0)){
+        best = x; bestMin = t;
+      }
     });
-    // Only an appointment BEFORE the clock pulls it. One at or after the clock is
-    // already inside its window when the crew arrives on the clock, so the day is
-    // not started earlier for it.
-    return (earliest != null && earliest < firstMin) ? earliest - 20 : firstMin;
+    return best;
+  };
+  const dayClock = day => {
+    if(!arrivalDay(day)) return firstMinFor(day);
+    const pull = pullingAppt(day);
+    return pull ? timeMin(pull.appointmentTime) - 20 : firstMin;
   };
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');
@@ -412,9 +422,20 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   }
   while(remaining){ const add = Math.min(remaining, target); counts.push(add); remaining -= add; }
 
-  // Each day's locks (slot → id) and timed appointments, validated.
+  // Each day's locks (slot → id) and timed appointments, validated. Both paths below
+  // read a day's constraints from here and its clock from dayClock, so the
+  // appointment search and the final walk always see the same day.
+  //
+  // A PULLED day fixes the appointment that pulled it to slot 1. The pull exists to
+  // reach that appointment; left to the search, a short dwell makes a later slot on
+  // time too, the zero-wait tie goes to the later slot, and an ordinary stop took the
+  // pulled clock while the appointment came second. Not when another order is
+  // locked to slot 1 (the lock wins and the search runs as before), and not when the
+  // appointment is itself locked (its own slot stands). A second appointment that day
+  // is still placed by the search. Slots only: no count changes, so no day sizing.
   function dayConstraints(day, date){
-    const fixed = {}, appts = [];
+    const fixed = {};
+    let appts = [];
     for(const item of (constrainedByDay[day] || [])){
       if(item.lockedDate){
         const slot = Number(item.lockedSlot);
@@ -423,6 +444,11 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
         fixed[slot] = item.id;
       }
       if(item.appointmentDate) appts.push(item);
+    }
+    const pull = pullingAppt(day);
+    if(pull && !pull.lockedDate && !fixed[1] && counts[day] >= 1){
+      fixed[1] = pull.id;
+      appts = appts.filter(x => x !== pull);
     }
     return { fixed, appts };
   }
@@ -449,7 +475,10 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       const dayPool = (day === 0 && day1Count != null) ? pool.slice(0, nFree) : pool;
       // The lead (a LOCK in Day 1 slot 1) was already grown from by the solver
       // (route.js solveVariant's lead pin), so the stretch after it keeps the solver's order.
-      const keepAfter = day === 0 ? (fixed[1] || null) : null;
+      // Only a real LOCK is the lead: a pulled appointment fixed to slot 1 was never
+      // grown from, so the route carries on from it like any other anchor.
+      const lead = fixed[1] && byId[fixed[1]] && byId[fixed[1]].lockedDate ? fixed[1] : null;
+      const keepAfter = day === 0 ? lead : null;
       const fill = anchors => fillDay(counts[day], anchors, dayPool, reflow, keepAfter);
       const anchors = placeAppointments(date, counts[day], fixed, appts, byId,
         dayClock(day), pace, travel, dwell, null, fill, day + 1, arrivalDay(day)).anchors;
@@ -475,16 +504,8 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const anchorsByDay = {};
   let freeCursor = 0;
   for(let day = 0; day < counts.length; day++){
-    const date = addWorkdays(startDate, day), fixed = {}, appts = [];
-    for(const item of (constrainedByDay[day] || [])){
-      if(item.lockedDate){
-        const slot = Number(item.lockedSlot);
-        if(slot < 1 || slot > counts[day]) throw new Error(`${label(item)} is locked beyond the available slots on ${date}`);
-        if(fixed[slot]) throw new Error(`${label(byId[fixed[slot]])} and ${label(item)} are both locked to ${date} slot ${slot}`);
-        fixed[slot] = item.id;
-      }
-      if(item.appointmentDate) appts.push(item);
-    }
+    const date = addWorkdays(startDate, day);
+    const { fixed, appts } = dayConstraints(day, date);
     const freeForDay = freeAll.slice(freeCursor,
       freeCursor + Math.max(0, counts[day] - (constrainedByDay[day] || []).length));
     freeCursor += freeForDay.length;

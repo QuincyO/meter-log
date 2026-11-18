@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { anchorFiller, optimizeRoute } from '../js/route.js';
 import { scheduleRouteConstraints } from '../js/route-constraints.js';
+import { dwellLookup } from '../js/route-dwell.js';
 
 // Planar metres. C = the cluster the crew is working (route order: c1..c15, as
 // the solver left it). N = six orders a block from A, the appointment across town.
@@ -166,4 +167,20 @@ test('reflow with an arrival clock: first stop on the clock, an early appointmen
   assert.equal(s.scheduleById[d2[0]].eta, '09:30');   // a day without the appointment arrives on the clock
   const plain = run(items(), ROUTE, { reflow:true, firstStopTime:'09:30', firstStopArrival:true });
   assert.equal(plain.scheduleById[plain.orderedIds[0]].eta, '09:30');
+});
+
+test('reflow: a pulled day puts the appointment that pulled it in slot 1', () => {
+  // A short dwell makes slot 2 on time too, which is where the latest-slot tie-break
+  // used to give the pulled clock to a cluster stop instead of the appointment.
+  const list = items({ A:{ appointmentDate:START, appointmentTime:'08:00' } });
+  const s = run(list, ROUTE, { reflow:true, firstStopTime:'09:30', firstStopArrival:true,
+    dwell:dwellLookup({ paceMin:30, onSiteMin:8 }) });
+  assert.equal(day1(s)[0], 'A');
+  assert.equal(s.scheduleById.A.slot, 1);
+  assert.equal(s.scheduleById.A.eta, '07:40');
+  assert.equal(s.scheduleById.A.lateMin, 0);
+  assert.equal(s.scheduleById.A.waitMin, 0);
+  // It is an anchor, not the lead: the route carries on from it to the stops near it.
+  assert.ok(NEAR.includes(day1(s)[1]), 'after A comes ' + day1(s)[1]);
+  assertPermutation(s, ROUTE);
 });

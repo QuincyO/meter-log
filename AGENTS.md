@@ -451,7 +451,14 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   arrival-anchored day starts 20 minutes before its earliest appointment only when
   that appointment is BEFORE the clock (otherwise the clock is unchanged: arriving on
   it is already inside the window), so an early appointment pulls only its own day
-  earlier instead of arriving late. The
+  earlier instead of arriving late, **and that appointment takes the day's first
+  slot** (`pullingAppt`, fixed to slot 1 in `dayConstraints`, which both the normal
+  and the reflow path use). Left to the search, a short dwell made slot 2 on time
+  too, the zero-wait tie went to the later slot, and an ordinary stop took the pulled
+  08:10 while the 08:30 appointment came second. An order LOCKED to slot 1 wins and
+  the search runs as before; a second appointment that day is still searched; on the
+  reflow path only a real lock is the slot-1 `keepAfter` lead, so the route carries
+  on from a pulled appointment. The
   same clock and flag go to `placeAppointments` and `simulateDay` so the search and
   the final walk price one day. ETAs only: `counts[]`/`capFor` never read any of it.
 - **Never schedule a late arrival, and never model the day twice.** Two rules that
