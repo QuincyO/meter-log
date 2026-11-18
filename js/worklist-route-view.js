@@ -4,6 +4,10 @@
 import { $, esc, toast } from './dom.js';
 import * as addressText from './worklist-address-fill.js';
 import { coordsOf, decodePolyline, haversine, isParked, offlineRoutePaths } from './route.js';
+// Reached through the namespace for names newer than the list above: a phone can
+// hold an older cached route.js until somebody presses ⟳ Force update, and a missing
+// NAMED import there is a link error that takes the whole route map with it.
+import * as routeLib from './route.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 import { siteKey } from './route-dwell.js';
@@ -253,6 +257,46 @@ function dayColor(day){
   return colors[(Math.max(1, Number(day) || 1) - 1) % colors.length];
 }
 
+// ── the All tab ──────────────────────────────────────────────────────────────
+// Every pending order's pin on one map, so a wrong pin shows without opening the
+// day it happens to be on. Field request, 2026-11-18: nine addresses had landed on
+// one point, and it only showed on Day 5's tab. Read-only on purpose — no route
+// line, no reorder. The order is edited on a day's own tab.
+
+/** The All tab's key. Never a day key, which are `day:N` and `other`. */
+export const ALL_ROUTES = 'all';
+/** A pin holding orders from more than one day, and an order with no day yet. */
+const MIXED_DAY_COLOR = '#334155';
+const NO_DAY_COLOR = '#64748B';
+
+/** Every pending order that has a pin, as `{ item, position, parked, point, day }`.
+ *  `position` is the stop's number on its own day's tab. `total` counts the
+ *  pending orders, pinned or not, and `missing` the ones with no pin. */
+export function overviewMarkers(items){
+  const markers = [];
+  let missing = 0, parked = 0, total = 0;
+  for(const group of groupPendingRoutes(items)){
+    const model = buildRouteMapModel(group.items);
+    missing += model.missing; parked += model.parked; total += group.items.length;
+    for(const m of model.markers) markers.push({ ...m, day:group.day });
+  }
+  return { markers, missing, parked, total };
+}
+
+/** What an All-tab pin looks like. One order shows its day number in that day's
+ *  colour. Several on one spot show the count — coloured by day when they share
+ *  one, dark when they don't. */
+export function overviewPinFace(stops){
+  const days = [...new Set(stops.map(s => s.day == null ? null : Number(s.day)))];
+  const color = days.length > 1 ? MIXED_DAY_COLOR
+    : days[0] == null ? NO_DAY_COLOR : dayColor(days[0]);
+  if(stops.length > 1)
+    return { className:'wl-route-pin split count', html:`<span>×${stops.length}</span>`, size:38, color };
+  const { parked, day } = stops[0];
+  return { className:'wl-route-pin' + (parked ? ' parked' : ''),
+    html:`<span>${parked ? '!' : day == null ? '•' : Number(day)}</span>`, size:30, color };
+}
+
 export function initWorklistRouteView(opts){
   let map = null;
   let layer = null;
@@ -337,6 +381,16 @@ export function initWorklistRouteView(opts){
   function renderDays(groups){
     daysEl.innerHTML = '';
     const variant = (opts.routeVariant && opts.routeVariant()) || 'road';
+    // With one group that group's own tab already shows every order.
+    if(groups.length > 1){
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'wl-route-day' + (selected === ALL_ROUTES ? ' on' : '');
+      all.setAttribute('aria-pressed', selected === ALL_ROUTES ? 'true' : 'false');
+      all.textContent = `All · ${groups.reduce((n, g) => n + g.items.length, 0)}`;
+      all.onclick = async () => { selected = ALL_ROUTES; needsFit = true; await render(); };
+      daysEl.appendChild(all);
+    }
     for(const group of groups){
       const b = document.createElement('button');
       b.type = 'button';
@@ -471,7 +525,7 @@ export function initWorklistRouteView(opts){
     const rows = keepScroll ? pinRows() : null;
     const top = rows ? rows.scrollTop : 0;
     pinPopup.options.offset = globalThis.L.point(0, 7 - size / 2);
-    pinPopup.setLatLng(pin.point).setContent(pinList(pin, group));
+    pinPopup.setLatLng(pin.point).setContent(group ? pinList(pin, group) : overviewPinList(pin));
     if(!map.hasLayer(pinPopup)) pinPopup.openOn(map);
     const next = pinRows();
     if(next) next.scrollTop = top;
@@ -490,6 +544,113 @@ export function initWorklistRouteView(opts){
       toast(e.message || 'Could not move that stop');
       await refresh();
     } finally { moving = false; }
+  }
+
+  // A pin's list on the All tab: which orders are here and which day each is on.
+  // No move buttons — a pin here can hold orders from several days.
+  function overviewPinList(pin){
+    const root = document.createElement('div');
+    root.className = 'wl-route-pop';
+    const spots = new Set(pin.stops.map(s => String(s.item.address || '').trim().toLowerCase()));
+    if(pin.stops.length > 1){
+      const head = document.createElement('div');
+      head.className = 'wl-route-pop-head';
+      head.innerHTML = `<strong>${pin.stops.length} orders on this pin</strong>`
+        + (spots.size > 1 ? '<div>⚠ Different addresses — at most one of them is really here.</div>' : '');
+      root.appendChild(head);
+    }
+    const rows = document.createElement('div');
+    rows.className = 'wl-route-pop-rows';
+    for(const { item, position, parked, day } of pin.stops){
+      const row = document.createElement('div');
+      row.className = 'wl-route-pop-row';
+      const meta = [day == null ? 'No day yet' : `Day ${day} · stop ${position}`,
+        (showTimes() && item.scheduledEta) ? etaText(item) : ''].filter(Boolean).join(' · ');
+      row.innerHTML = `<div class="wl-route-pop-main">
+          <strong>${parked ? '⚠ Parked — ' : ''}${item.workOrderId ? `WO ${esc(item.workOrderId)}` : '(no WO#)'}</strong>
+          <div>${esc(addressLabel(item) || 'No address')}</div>
+          <div class="wl-route-meta">${meta}</div>
+        </div>`;
+      rows.appendChild(row);
+    }
+    root.appendChild(rows);
+    return root;
+  }
+
+  // The All tab's map: every pending pin, no line. The same redraw rules as
+  // renderMap — the newest run wins, the one shared popup, the opt-in fit.
+  function renderOverviewMap(){
+    updateOfflineNote();
+    if(!ensureMap()){
+      mapEl.innerHTML = '<div class="wl-route-map-empty">Map unavailable.</div>';
+      return;
+    }
+    ++mapRun;                       // a day's render still waiting on road paths stops
+    const L = globalThis.L;
+    layer.clearLayers();
+    const bounds = [];
+    let listOpen = false;
+    groupRoutePins(overviewMarkers(snapshot).markers).forEach(pin => {
+      bounds.push(...pin.stops.map(s => s.point));
+      const face = overviewPinFace(pin.stops);
+      const half = face.size / 2;
+      const marker = L.marker(pin.point, { icon:L.divIcon({
+        className:face.className, html:face.html,
+        iconSize:[face.size, face.size], iconAnchor:[half, half],
+      }) }).addTo(layer);
+      const ids = pin.stops.map(s => String(s.item.id));
+      const open = () => { openPinId = ids[0]; showPinList(pin, null, face.size, false); };
+      marker.on('click', open);
+      marker.on('keypress', e => { if(e.originalEvent.key === 'Enter') open(); });
+      if(ids.includes(openPinId)){
+        listOpen = true;
+        showPinList(pin, null, face.size, true);
+      }
+      if(!pin.stops[0].parked || pin.stops.length > 1){
+        const el = marker.getElement();
+        if(el) el.style.background = face.color;
+      }
+    });
+    if(!listOpen) map.closePopup(pinPopup);
+    const fit = needsFit;
+    needsFit = false;
+    setTimeout(() => {
+      map.invalidateSize();
+      if(!fit) return;
+      if(bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(.12));
+      else if(bounds.length === 1) map.setView(bounds[0], 15);
+      else map.setView([45.0, -79.3], 7);
+    }, 0);
+  }
+
+  // One row per day under the All map: the colour key for the pins, and the way
+  // into that day's own tab.
+  function dayRow(group){
+    const row = document.createElement('div');
+    row.className = 'wl-route-card';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    const win = showTimes() ? dayWindow(group.items) : '';
+    const pins = group.items.filter(x => coordsOf(x)).length;
+    row.innerHTML = `
+      <span class="wl-route-pos" style="background:${group.day == null ? NO_DAY_COLOR : dayColor(group.day)};color:#fff">${group.day == null ? '•' : group.day}</span>
+      <div class="wl-route-main">
+        <strong>${esc(group.label)} · ${group.items.length} order${group.items.length === 1 ? '' : 's'}</strong>
+        <div class="wl-route-meta">${[win, pins === group.items.length ? '' : `${group.items.length - pins} without a pin`, 'tap to open'].filter(Boolean).join(' · ')}</div>
+      </div>`;
+    const go = async () => { selected = group.key; needsFit = true; await render(); };
+    row.onclick = go;
+    row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } };
+    return row;
+  }
+
+  // Orders on screen that share an exact pin with a DIFFERENT address. At most one
+  // of them is right, and this count is the thing the 2026-11-18 report was missing:
+  // the map looked plausible and nothing said nine addresses were on one point.
+  function sharedPinCount(shown){
+    if(typeof routeLib.sharedPinIds !== 'function') return 0;
+    const ids = routeLib.sharedPinIds(snapshot.filter(isPending));
+    return shown.filter(x => ids.has(x.id)).length;
   }
 
   // This phone's "started from here" point, for the group on screen. Day 1 only:
@@ -698,26 +859,37 @@ export function initWorklistRouteView(opts){
 
   async function render(){
     const groups = groupPendingRoutes(snapshot);
-    if(!groups.some(g => g.key === selected)) selected = defaultRouteGroup(groups);
-    const group = groups.find(g => g.key === selected) || null;
+    const all = selected === ALL_ROUTES && groups.length > 1;
+    if(!all && !groups.some(g => g.key === selected)) selected = defaultRouteGroup(groups);
+    const group = all ? null : (groups.find(g => g.key === selected) || null);
     renderWeights();
     renderDays(groups);
+    // The line under "Your route" is markup with no id of its own, so it is found
+    // by shape and left alone when an older index.html has something else there.
+    const hint = screen.querySelector('.wl-route-head p');
+    if(hint) hint.textContent = all
+      ? 'Every order still to do. Tap a pin to see what is there.'
+      : 'Drag the stops below to change their order.';
     listEl.innerHTML = '';
-    (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
-    if(!group){
+    if(all) groups.forEach(g => listEl.appendChild(dayRow(g)));
+    else (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
+    if(!all && !group){
       listEl.innerHTML = '<p class="muted">No pending orders. Add or download orders from the worklist.</p>';
     }
-    const mapModel = buildRouteMapModel(group ? group.items : []);
+    const shown = all ? groups.flatMap(g => g.items) : (group ? group.items : []);
+    const mapModel = buildRouteMapModel(shown);
     const missing = mapModel.missing;
     const parked = mapModel.parked;
+    const shared = sharedPinCount(shown);
     const parts = [];
     if(missing) parts.push(`${missing} without a pin`);
     if(parked) parts.push(`${parked} parked`);
+    if(shared) parts.push(`${shared} sharing a pin with a different address`);
     noticeEl.classList.toggle('hide', !parts.length);
     fixEl.classList.toggle('hide', !parts.length);
     noticeEl.textContent = parts.length
       ? `${parts.join(' · ')} — fix addresses or Optimize from the worklist.` : '';
-    await renderMap(group);
+    if(all) renderOverviewMap(); else await renderMap(group);
   }
 
   async function refresh(){

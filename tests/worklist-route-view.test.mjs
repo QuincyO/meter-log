@@ -15,6 +15,9 @@ import {
   pinFace,
   reorderWithinPin,
   liveStartFix,
+  ALL_ROUTES,
+  overviewMarkers,
+  overviewPinFace,
 } from '../js/worklist-route-view.js';
 import { decodePolyline, encodePolyline } from '../js/route.js';
 import { VARIANT_FIELDS } from '../js/route-variants.js';
@@ -440,4 +443,60 @@ test('logging a stop retires the start fix', () => {
 test('no saved fix, or a malformed one, means no override', () => {
   assert.equal(liveStartFix(null, '2026-11-05', 13), null);
   assert.equal(liveStartFix({ date:'2026-11-05', left:13 }, '2026-11-05', 13), null);
+});
+
+// ── the All tab: every pending order's pin on one map ────────────────────────
+// Field request, 2026-11-18: nine addresses had landed on one pin, and the only
+// map was one day at a time, so nothing showed it until that day was opened.
+const pinned = (id, day, lat, lng, extra = {}) =>
+  ({ id, day, wlStatus:'pending', address:`${id} Elm St`, lat, lng, ...extra });
+
+test('the overview holds every pending order with a pin, whatever its day', () => {
+  const o = overviewMarkers([
+    pinned('a', 1, 45.40, -75.60), pinned('b', 1, 45.41, -75.61),
+    pinned('c', 2, 45.50, -75.70),
+    pinned('d', '', 45.60, -75.80),                              // no day yet
+    { id:'e', day:2, wlStatus:'pending', address:'9 Oak St' },    // no pin
+    pinned('f', 1, 45.70, -75.90, { wlStatus:'done' }),          // finished
+    pinned('g', 2, 45.80, -75.95, { ignored:true }),             // set aside
+  ]);
+  assert.deepEqual(o.markers.map(m => m.item.id), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(o.markers.map(m => m.day), [1, 1, 2, null]);
+  // The stop's number within its own day, as that day's tab shows it.
+  assert.deepEqual(o.markers.map(m => m.position), [1, 2, 1, 1]);
+  assert.equal(o.missing, 1);
+  assert.equal(o.total, 5);
+});
+
+test('a parked order is on the overview and counted', () => {
+  const o = overviewMarkers([pinned('a', 1, 45.4, -75.6), pinned('b', 1, 45.5, -75.7, { geoFail:true })]);
+  assert.equal(o.parked, 1);
+  assert.equal(o.markers[1].parked, true);
+});
+
+test('an overview pin shows its day number, in the colour of that day', () => {
+  const day1 = overviewPinFace([{ day:1, parked:false }]);
+  const day2 = overviewPinFace([{ day:2, parked:false }]);
+  assert.match(day1.html, />1</);
+  assert.match(day2.html, />2</);
+  assert.notEqual(day1.color, day2.color);
+  assert.equal(day1.size, 30);
+  // No day yet: still a pin, with no number to mislead.
+  assert.doesNotMatch(overviewPinFace([{ day:null, parked:false }]).html, /\d/);
+  assert.match(overviewPinFace([{ day:1, parked:true }]).className, /parked/);
+});
+
+test('several orders on one overview pin show the count', () => {
+  const same = overviewPinFace([{ day:3 }, { day:3 }]);
+  assert.match(same.html, /×2/);
+  assert.equal(same.color, overviewPinFace([{ day:3 }]).color, 'one day keeps its colour');
+  const mixed = overviewPinFace([{ day:1 }, { day:2 }, { day:2 }]);
+  assert.match(mixed.html, /×3/);
+  assert.notEqual(mixed.color, overviewPinFace([{ day:1 }]).color);
+  assert.notEqual(mixed.color, overviewPinFace([{ day:2 }]).color);
+});
+
+test('the All tab has a key no day can take', () => {
+  const keys = groupPendingRoutes([pinned('a', 1, 1, 1), pinned('b', '', 2, 2)]).map(g => g.key);
+  assert.ok(!keys.includes(ALL_ROUTES));
 });

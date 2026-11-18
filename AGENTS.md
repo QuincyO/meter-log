@@ -1015,6 +1015,18 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   (2) pin lists use one shared `L.popup`. Markers are rebuilt on every redraw, and
   `bindPopup` on them put two lists on screen when a close and a reopen overlapped.
   See ARCHITECTURE.md §"Route variants".
+  **The All tab is the same screen, read-only** (`ALL_ROUTES`, `renderOverviewMap`):
+  every pending pin, labelled with its day and coloured by it, no route line, no
+  reorder. It is offered only when there is more than one group, and it follows both
+  rules above. Three things to keep: (1) it uses **no new markup and no new CSS** —
+  the tab is a `.wl-route-day` button built in JS, the day rows are `.wl-route-card`s
+  and the pin colours are inline — so it works against an older `index.html` and
+  stylesheet; (2) `sharedPinIds` is reached through `import * as routeLib` with a
+  `typeof` check, because a missing named import from an older cached `route.js`
+  would take the whole route map down; (3) the yellow note counts orders **sharing a
+  pin with a different address** on every tab, not just All. That count is the
+  direct signal for the 2026-11-18 report, where nine addresses sat on one point and
+  the map looked fine.
 - **A "start from here" GPS fix must never go in `homeLegGeometry*`.** That field syncs to
   the `Worklist` tab, and the `worklist` read is deliberately not admin-gated, so drawing
   the fix into it would publish where the installer stood. The map's start comes from the

@@ -471,6 +471,7 @@ Optimize again and both come back.
 
 Tap **View route map** to check the selected day's route before or during the shift. The map uses the pins already saved on your worklist, so it opens immediately and does not spend route or geocoding quota.
 
+- **All** (the first button, when the route has more than one day) puts every order still to do on one map, so you can see where your work is and catch a pin in the wrong place before you drive to it. Each pin shows its day number in that day's colour, and there is no route line. Tap a pin to see the orders on it. A pin marked like **×4** holds several orders: if they are different addresses the list says so, and the yellow note under the map counts them. The rows under the map are the colour key — tap one to open that day.
 - Use the **Day** buttons above the map to inspect each remaining planned day. Orders without a day appear under **Other**; a one-day unassigned list is simply **Route**.
 - Numbered pins and the line match the compact order list below the map. Drag the **⠿** handle (or focus it and press the up/down arrow keys) to change the visiting order within that day. The change saves on this phone immediately — use **⇪ Upload list** later if another device needs the new order.
 - **Stops at the same address share one pin.** The circle splits into a section for each stop, and each section shows that stop's number in the route, like **1 | 2**. An address with 5 or more stops shows the count instead, like **×8**. Next-door houses keep their own pins.
