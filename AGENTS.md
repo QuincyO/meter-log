@@ -317,8 +317,9 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   conflict** — the UTI-then-revisit is the crew's most ordinary day, and without
   the carve-out every one of them would block the log. Nothing is lost: two real
   installs on one order still surface via the New J# rule or the WO#-keyed flag;
-  (3) **`$('logStop').onclick` must stay synchronous.** The plan-mode WO#
-  clipboard copy depends on being inside the user gesture, so the duplicate check
+  (3) **`$('logStop').onclick` must stay synchronous.** The WO# clipboard copy
+  (plan mode, and every UTI — see §"Daily-log PDF" ▸ the UTI note) depends on
+  being inside the user gesture, so the duplicate check
   reads a preloaded `recentJStops` index rather than `await`ing
   `loadRecentDays(7)` in the handler. An `await` before `enqueue` breaks the copy
   silently.
@@ -1184,8 +1185,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
 on purpose; that number lives in a system this app never sees, so the installer types it
 on paste), `Installed`, `UTI`, `TR`, `EER`, one per line. `js/compute/tally.js
 tallyBlock` is the shape; `EER` is the subset of UTIs whose reason is
-`utiReasons.js EER_UTI_REASON` ('Electrical Repair') and is deliberately **also** counted
-on the UTI line, and `TR` is the day's timed appointments, which live only on the worklist
+`utiReasons.js EER_UTI_REASON` ('Emergency Electrical Repair') and is deliberately **also**
+counted on the UTI line. **Plain 'Electrical Repair' is an ordinary UTI and not an EER** —
+it was the EER reason until 2026-11-18, when the owner split the two, so a stop logged
+under it before then no longer counts. `TR` is the day's timed appointments, which live only on the worklist
 orders (`worklist.js todayAppointmentCount`), never on a logged stop — so a hand-typed
 order that was never on the list can't be counted, and `edit.html` reprints get no tally.
 **The copy must fire synchronously at the top of the handler**, like the plan-mode WO#
@@ -1194,6 +1197,25 @@ jsPDF's lazy load, and a `writeText` down there is refused on iOS. That is why t
 come from a preloaded `tallyCache` rather than a read at tap time, and why the End-of-day
 sheet also carries a **📋 Copy tally** button — an implicit copy can always be refused,
 and the crew wants it again after the paste anyway.
+
+**A logged UTI copies twice: the WO#, then the note for the supervisor**
+(`utiReasons.js utiNoteText` — `Work order: 1022668` / `No Access - gate locked`, the
+second line being the reason plus the stop's Note). It fires on every UTI, plan mode or
+not; an install still copies the WO# alone and only in plan mode. The note is what ends up
+on the clipboard, and the WO# sits one entry back in the keyboard's clipboard history
+(Gboard keeps it an hour) for the meter-install app. Four things to keep:
+(1) **the WO# is the synchronous write and the note is chained after it** — if the second
+write is refused, the clipboard holds the WO#, which is exactly the old behaviour;
+(2) **the gap between them is deliberate** (`capture.js UTI_NOTE_COPY_GAP_MS`) — two writes
+a few milliseconds apart can reach the keyboard as one clipboard change, and the WO# never
+enters the history. It is the one value here that was not measured on a phone; raise it if
+the WO# goes missing, and keep it short, because a page that has lost focus to the next
+app is refused the write;
+(3) **"Work order" is two words** — `Workorder:` is one word and a colon, which is a URI
+scheme, and that is the iPhone percent-encoding bug the tally's date line exists for;
+(4) **`utiNoteText` is reached through `import * as utiLib` + `typeof`**, never a named
+import — the skew rule, on the handler that logs a stop.
+Pinned by `tests/uti-note-copy.test.mjs`.
 
 ## Security note
 

@@ -99,6 +99,8 @@ Every stop follows the same rhythm: pick the status, fill the fields, check the 
 
 - Pick the **Reason** from the dropdown — it starts blank on purpose, and the app won't log until you choose one (No Access, Denied Access, Could Not Locate, Key Required, Unsafe Conditions, and so on; **Other** asks for a short note).
 - Add the **Old J#** if you can see the meter.
+- **Electrical Repair** and **Emergency Electrical Repair** are two different reasons. Pick the emergency one only for an emergency repair — it is the one counted as **EER** on the end-of-day tally.
+- When you log a UTI the app copies two things, one after the other: the **work order number**, then a short **note for your supervisor** — `Work order: 1022668` on the first line and the reason on the second, followed by whatever you typed in the stop's Note (`No Access - gate locked`). The note is what pastes. The number is one step back in your keyboard's clipboard history (Gboard keeps it for an hour), ready for the install app. Wait for the "UTI note copied" message before switching apps — leave sooner and only the number is copied.
 
 ### OTHER — "we were here"
 
@@ -595,7 +597,7 @@ Every time a daily log is generated — draft or Finish day — the day's number
 
 The date line is there for two reasons: it says which day the numbers are for, and it stops iPhones garbling the paste. Without it the block began `Dispatched:`, which iOS reads as a web link rather than text — Messages then pasted `Dispatched:%0AInstalled%3A%2017…` instead of the tally. If you ever see a paste full of `%` codes like that, the date line has gone missing.
 
-**Dispatched is left blank on purpose** — the app never sees that number, so type it in after you paste. **TR** counts the timed appointments on your worklist for the day (an appointment you couldn't get to still counts; a work order you typed in by hand that was never on the list can't be). **EER** counts the UTIs whose reason was **Electrical Repair** — those are still counted on the UTI line too, so the two overlap.
+**Dispatched is left blank on purpose** — the app never sees that number, so type it in after you paste. **TR** counts the timed appointments on your worklist for the day (an appointment you couldn't get to still counts; a work order you typed in by hand that was never on the list can't be). **EER** counts the UTIs whose reason was **Emergency Electrical Repair** — those are still counted on the UTI line too, so the two overlap. A plain **Electrical Repair** is an ordinary UTI and is not an EER.
 
 If the paste comes up empty (some phones only allow a copy you asked for), tap **📋 Copy tally** at the bottom of the End of day screen — it copies the same block, and it's there any time you want it again.
 

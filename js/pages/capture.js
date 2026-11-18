@@ -29,6 +29,10 @@ import {
 import { geocodeOne } from '../route.js';
 import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPack, deletePack } from '../roadpack.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
+// utiNoteText is newer than the two names above, so it is reached through a
+// namespace import + `typeof` check (same skew rule as daycacheMod): against an
+// older utiReasons.js the UTI copy falls back to the WO#-only one.
+import * as utiLib from '../utiReasons.js';
 import { jConflicts, normalizeJ, J_LABEL } from '../jdup.js';
 import { normalizeJScan } from '../jnumber.js';
 import { DAY_START_DEFAULT, DAY_END_DEFAULT } from '../config.js';
@@ -567,6 +571,12 @@ async function fetchAddress(lat, lng, force){
 $('refreshLoc').onclick = () => getLocation(true);
 
 // ── log a stop ────────────────────────────────────────────────────────────
+// How long after the WO# copy a UTI's note is copied (see the copy below). Long
+// enough for the keyboard to record the WO# as its own clipboard entry, short
+// enough to land before the installer has switched apps — a page that has lost
+// focus is refused the write. If the WO# is missing from the keyboard's history
+// on a real phone, this is the number to raise.
+const UTI_NOTE_COPY_GAP_MS = 600;
 $('logStop').onclick = () => {
   const c = cfg();
   if(!c.name){ openSheet('settingsSheet'); toast('Add your name first'); return; }
@@ -640,8 +650,28 @@ $('logStop').onclick = () => {
   // re-typing → no typos). Fired synchronously inside the tap handler so the
   // Clipboard API keeps its user-gesture; failures (denied/offline context)
   // are swallowed so a log never blocks on the copy.
+  //
+  // A UTI copies TWICE, plan mode or not: the WO# first, then the note the
+  // installer sends their supervisor (utiNoteText). The note ends up on the
+  // clipboard and the WO# sits one entry back in the keyboard's clipboard
+  // history, ready for the meter-install app. The order and the gap both matter:
+  // the WO# write is the synchronous one (it is the copy that must survive if
+  // the second is refused, which leaves exactly the old behaviour), and two
+  // writes a few milliseconds apart can reach the keyboard as a single change,
+  // so the WO# would never enter the history.
   let woCopied = false;
-  if(planActive() && base.workOrderId && navigator.clipboard?.writeText){
+  const canCopy = !!(base.workOrderId && navigator.clipboard?.writeText);
+  const utiNote = (canCopy && outStatus==='UTI' && typeof utiLib.utiNoteText === 'function')
+    ? utiLib.utiNoteText(base) : '';
+  if(utiNote){
+    woCopied = true;
+    navigator.clipboard.writeText(base.workOrderId)
+      .catch(() => {})
+      .then(() => new Promise(done => setTimeout(done, UTI_NOTE_COPY_GAP_MS)))
+      .then(() => navigator.clipboard.writeText(utiNote))
+      .then(() => toast('UTI note copied 📋 · WO# copied just before it'))
+      .catch(() => {});
+  } else if(canCopy && planActive()){
     woCopied = true;
     navigator.clipboard.writeText(base.workOrderId).catch(() => {});
   }
@@ -1602,8 +1632,8 @@ let eodData = { stops:[], downtime:[] };   // stash for weather + PDF
 // ── the day's clipboard tally ───────────────────────────────────────────────
 // Every daily-log PDF also puts the hand-off numbers on the clipboard, ready to
 // paste into the report the office wants: Dispatched (blank, filled in by hand),
-// Installed, UTI, TR (the day's timed appointments), EER (the electrical-repair
-// UTIs — a subset of UTI, counted on both lines). Shape lives in compute/tally.js.
+// Installed, UTI, TR (the day's timed appointments), EER (the emergency
+// electrical-repair UTIs — a subset of UTI, counted on both lines). Shape lives in compute/tally.js.
 //
 // The whole design is dictated by ONE constraint: `navigator.clipboard.writeText`
 // needs the user gesture, and both PDF buttons sit behind several awaits (up to a

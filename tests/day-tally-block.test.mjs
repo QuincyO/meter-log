@@ -72,6 +72,20 @@ test('an electrical-repair UTI counts on BOTH the UTI and EER lines', () => {
   assert.match(out, /^EER: 1$/m);
 });
 
+test('a plain Electrical Repair is a UTI and NOT an EER', () => {
+  // The two are different jobs. 'Electrical Repair' was the EER reason until
+  // 2026-11-18; only the emergency pick counts on the EER line now.
+  assert.equal(EER_UTI_REASON, 'Emergency Electrical Repair');
+  assert.ok(UTI_REASONS.includes('Electrical Repair'), 'the plain reason is still pickable');
+  const out = tallyBlock([
+    stop('UTI', 'Electrical Repair'),
+    stop('UTI', 'Electrical Repair'),
+    stop('UTI', 'Emergency Electrical Repair'),
+  ], 0);
+  assert.match(out, /^UTI: 3$/m);
+  assert.match(out, /^EER: 1$/m);
+});
+
 test('only a UTI with that exact reason is an EER', () => {
   const out = tallyBlock([
     stop('INSTALLED', EER_UTI_REASON),            // an install carrying a stale reason

@@ -517,7 +517,7 @@ value}` per matching (stop, field) pair.
    `loadRecentDays(7)`, which is exactly the agreed scope and reads only
    IndexedDB, so the check fires **with no signal**. It is **preloaded into
    `recentJStops` rather than awaited inside the handler**: `$('logStop').onclick`
-   must stay synchronous or the plan-mode WO# clipboard copy loses its user
+   must stay synchronous or the WO# clipboard copy (plan mode, and every UTI) loses its user
    gesture. "Log it anyway" acks the entry's `jSignature` (status-free: WO# +
    New J# + Old J#) and re-enters the same handler, so it is scoped to the exact
    question asked — editing a J#, filling from the plan, or logging the stop

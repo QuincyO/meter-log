@@ -42,8 +42,9 @@ export function countDay(stops, downtime){
 //    sees, so the installer types it in on paste — a made-up zero would read as a
 //    real count.
 //  • `EER` is a SUBSET of `UTI`, not a sibling: a UTI whose reason is the
-//    electrical-repair pick is counted on both lines. Subtracting it would make
-//    the UTI line disagree with the PDF's own UTI total.
+//    EMERGENCY electrical-repair pick is counted on both lines. Subtracting it
+//    would make the UTI line disagree with the PDF's own UTI total. A plain
+//    'Electrical Repair' is an ordinary UTI and never an EER.
 //  • `TR` (the day's timed appointments) is passed in, because it lives on the
 //    worklist orders rather than on the logged stops — see worklist.js
 //    todayAppointmentCount().
