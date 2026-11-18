@@ -75,3 +75,40 @@ test('onSiteSource uses the documented vocabulary', () => {
     assert.ok(body[0].includes(v), `applyOnSiteMetrics never produces ${v}`);
   }
 });
+
+const SHAPE_FIELDS = ['usualFirstLogMin', 'delayPerStopMin'];
+
+test('the day-shape fields exist in all three work-mode column groups', () => {
+  const headers = metricsHeaders();
+  for(const f of SHAPE_FIELDS){
+    const cap = f[0].toUpperCase() + f.slice(1);
+    for(const col of [f, 'boat' + cap, 'land' + cap]){
+      assert.ok(headers.includes(col), `InstallerMetrics is missing the ${col} column`);
+    }
+  }
+});
+
+test('the six day-shape columns are the last six, and none is a date column', () => {
+  const headers = metricsHeaders();
+  assert.deepEqual(headers.slice(-6), ['usualFirstLogMin', 'boatUsualFirstLogMin',
+    'landUsualFirstLogMin', 'delayPerStopMin', 'boatDelayPerStopMin', 'landDelayPerStopMin']);
+  const dates = code.match(/const INSTALLER_METRICS_DATE_HEADERS = (\[[^\]]*\])/);
+  assert.ok(dates, 'INSTALLER_METRICS_DATE_HEADERS not found');
+  for(const col of headers.slice(-6)){
+    assert.ok(!dates[1].includes(`'${col}'`), `${col} must not be date-formatted`);
+  }
+});
+
+test('installerMetricsRead projects the day-shape fields down to their canonical names', () => {
+  const body = code.match(/function installerMetricsRead\([\s\S]*?\n\}/);
+  assert.ok(body, 'installerMetricsRead not found');
+  for(const f of SHAPE_FIELDS){
+    assert.ok(body[0].includes(`'${f}'`), `installerMetricsRead does not project ${f}`);
+  }
+});
+
+test('refreshInstallerMetrics fills the day-shape block on every write', () => {
+  const body = code.match(/function refreshInstallerMetrics\([\s\S]*?\n\}/);
+  assert.ok(body && /applyDayShapeMetrics\(row, nm\)/.test(body[0]),
+    'refreshInstallerMetrics must call applyDayShapeMetrics');
+});

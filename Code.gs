@@ -233,7 +233,12 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
   .concat(['onSiteMin','boatOnSiteMin','landOnSiteMin',
            'extraMeterMin','boatExtraMeterMin','landExtraMeterMin',
            'travelMinPerKm','boatTravelMinPerKm','landTravelMinPerKm',
-           'onSiteSource','boatOnSiteSource','landOnSiteSource']);
+           'onSiteSource','boatOnSiteSource','landOnSiteSource'])
+  // The day shape behind the phone's ETAs (installerDayShape): when the crew usually
+  // starts and what each stop costs beyond travel and breaks. Appended last, in all
+  // three mode groups, for the same reason as the blocks above.
+  .concat(['usualFirstLogMin','boatUsualFirstLogMin','landUsualFirstLogMin',
+           'delayPerStopMin','boatDelayPerStopMin','landDelayPerStopMin']);
 
 // The only InstallerMetrics columns that hold a real date/time. Everything else is a
 // plain number (or a short text tag), and must never carry a date format — see the
@@ -2995,6 +3000,7 @@ function refreshInstallerMetrics(hNumber, name) {
   row.boatRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'boat', 30);
   row.landRecent30AvgLogMin = installerRecentAvgLogMin(nm, 'land', 30);
   applyOnSiteMetrics(row, nm);   // the measured dwell model behind route ETAs
+  applyDayShapeMetrics(row, nm); // the usual first log and delay per stop
   upsertByHeader('InstallerMetrics', 'hNumber', h, row);
 }
 
@@ -3356,6 +3362,65 @@ function dwellSamples(name, workType, workdays) {
   return out;
 }
 
+// Break minutes taken out of a day's overhead before the rest is called delay: the
+// three planned breaks (15 + 30 + 15) are not the crew being held up.
+const DAY_BREAK_MIN = 60;
+const DAY_SHAPE_MIN_DAYS = 10;   // fewer qualifying days is no evidence
+const DAY_SHAPE_MIN_LOGS = 5;    // a day thinner than this is not a route day
+
+/** One installer's day shape for a work mode, read off Stops:
+ *    { usualFirstLogMin, delayPerStopMin, days }
+ *  usualFirstLogMin is the median first log, in minutes after midnight (a plain
+ *  number, never 'HH:mm', so the sheet cell stays numeric). delayPerStopMin is what
+ *  each stop costs beyond stop-to-stop work and DAY_BREAK_MIN: per day, the span
+ *  minus (stops - 1) at that day's own median gap, less the breaks, spread over the
+ *  stops. Both are '' below DAY_SHAPE_MIN_DAYS qualifying days, which the phone
+ *  reads as "no evidence, use the fallback start". `workdays` keeps only the most
+ *  recent qualifying days, as dwellSamples does. */
+function installerDayShape(name, workType, workdays) {
+  const nm = String(name == null ? '' : name).trim();
+  const mode = workType || 'all';
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const keep = Math.max(0, Math.floor(Number(workdays) || 0));
+
+  const byDate = {};
+  rows('Stops').forEach(function (r) {
+    const who = String(r.installer == null ? '' : r.installer).trim();
+    if (!who || !sameName(who, nm)) return;
+    if (mode !== 'all' && normWorkType(r.workType) !== mode) return;
+    if (!printable[String(r.status || '').trim().toUpperCase()]) return;
+    const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
+    if (!d || sec == null) return;
+    (byDate[d] = byDate[d] || []).push(sec);
+  });
+
+  let dates = Object.keys(byDate).filter(function (d) {
+    return byDate[d].length >= DAY_SHAPE_MIN_LOGS;
+  }).sort();
+  if (keep) dates = dates.slice(-keep);
+
+  const firsts = [], delays = [];
+  dates.forEach(function (d) {
+    const secs = byDate[d].sort(function (a, b) { return a - b; });
+    const n = secs.length;
+    const gaps = [];
+    for (let i = 1; i < n; i++) gaps.push((secs[i] - secs[i - 1]) / 60);
+    const spanMin = (secs[n - 1] - secs[0]) / 60;
+    const overhead = spanMin - (n - 1) * dwellMedian(gaps);
+    firsts.push(Math.floor(secs[0] / 60));
+    delays.push(Math.max(0, overhead - DAY_BREAK_MIN) / n);
+  });
+
+  if (dates.length < DAY_SHAPE_MIN_DAYS) {
+    return { usualFirstLogMin: '', delayPerStopMin: '', days: dates.length };
+  }
+  return {
+    usualFirstLogMin: Math.round(dwellMedian(firsts)),
+    delayPerStopMin: Math.round(dwellMedian(delays) * 10) / 10,
+    days: dates.length
+  };
+}
+
 /** One installer's measured dwell model for a work mode:
  *    { onSiteMin, travelMinPerKm, extraMeterMin, samples }
  *  Any field is '' when there is not enough evidence for it, which the phone reads
@@ -3537,6 +3602,17 @@ function applyOnSiteMetrics(row, nm) {
   });
 }
 
+/** Fill one InstallerMetrics row's day-shape columns for all three work modes. */
+function applyDayShapeMetrics(row, nm) {
+  [['', 'all'], ['boat', 'boat'], ['land', 'land']].forEach(function (pair) {
+    const prefix = pair[0];
+    const col = function (k) { return prefix ? prefix + k[0].toUpperCase() + k.slice(1) : k; };
+    const shape = installerDayShape(nm, pair[1], 30);
+    row[col('usualFirstLogMin')] = shape.usualFirstLogMin;
+    row[col('delayPerStopMin')]  = shape.delayPerStopMin;
+  });
+}
+
 /** InstallerMetrics rows — the installerMetrics GET. Optionally filtered by
  *  H number. workType 'boat'|'land' projects that mode's prefixed columns down
  *  to canonical field names (so a reader always sees `avgPerDay`, `avgLogMin`,
@@ -3557,7 +3633,8 @@ function installerMetricsRead(hNumber, workType) {
       // The dwell block projects the same way. Easy to forget when adding a column
       // here: the phone reads THROUGH this projection, so a field left out of it
       // simply never reaches the route model and the guess silently stays in use.
-      ['onSiteMin','extraMeterMin','travelMinPerKm','onSiteSource'].forEach(k => {
+      ['onSiteMin','extraMeterMin','travelMinPerKm','onSiteSource',
+       'usualFirstLogMin','delayPerStopMin'].forEach(k => {
         o[k] = r[wt + k[0].toUpperCase() + k.slice(1)];
       });
       return o;

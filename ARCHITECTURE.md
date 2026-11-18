@@ -1539,6 +1539,17 @@ so Quincy's 08-06 counts as land there until that Tracker row is retagged and
 
 ### On-site time (dwell)
 
+**The day shape (`installerDayShape`).** Two more `InstallerMetrics` numbers, ×3 modes,
+measured from `Stops` beside the dwell fit: `usualFirstLogMin` (the median first log,
+minutes after midnight, a plain number) and `delayPerStopMin`. A day qualifies with 5 or
+more INSTALLED/UTI/VISITED/UNACCOUNTED rows in the work mode; the most recent 30
+qualifying days are read, and fewer than 10 means both are blank. Per day,
+overhead = (last log - first log) - (n - 1) x that day's median gap, and
+`delayPerStopMin` is the median of `max(0, overhead - 60) / n`. The 60 is
+`DAY_BREAK_MIN`: the delay is **net of the break minutes**, so the planned breaks are
+not counted as the crew being held up. Nothing reads these yet; they are stored for the
+ETA work that follows.
+
 The other half of every ETA, and until it was measured it was one flat number for
 every stop on every route: `onSiteMinutes(pace)` = the 30-day `recent30AvgLogMin`
 minus a **hardcoded** `NOMINAL_TRAVEL_MIN = 10`, floored at 8. The subtraction is
