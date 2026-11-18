@@ -60,8 +60,9 @@ export const DAY_END_DEFAULT   = '16:00';
 // The estimated end time on the route map is built from these three. They never
 // size a day: the meters/day target alone decides how many stops a day holds.
 // ROUTE_USUAL_START is the first-arrival clock used until an installer has enough
-// measured days; ROUTE_BREAKS are the standing pauses ('at' is 'HH:MM'); and
+// measured days; ROUTE_BREAK_MIN is the day's whole break allowance in minutes, taken whenever and
+// mostly not logged, so it is a total and never set times; and
 // ROUTE_FLAT_OUT_END is the cut-off the "flat out" stop count is measured against.
 export const ROUTE_USUAL_START = '09:30';
-export const ROUTE_BREAKS = [{ at:'10:00', min:15 }, { at:'12:00', min:30 }, { at:'14:00', min:15 }];
+export const ROUTE_BREAK_MIN = 60;
 export const ROUTE_FLAT_OUT_END = '15:30';

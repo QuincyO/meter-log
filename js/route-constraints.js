@@ -551,23 +551,22 @@ function finiteOrZero(v){
   return isFinite(n) ? n : 0;
 }
 
-// Minutes of breaks that fall in a span that starts at `startMin` and would otherwise
-// end at `endMin`. Walked in clock order because each counted break pushes the end
-// out, which can pull the next one in; a break before the start (already past) or at
-// or after the running end (the day is over first) is skipped.
-function breakMinutesInSpan(breaks, startMin, endMin){
-  const list = (Array.isArray(breaks) ? breaks : [])
-    .map(b => ({ at: timeMin(b && b.at), min: finiteOrZero(b && b.min) }))
-    .filter(b => b.at != null)
-    .sort((a, b) => a.at - b.at);
-  let total = 0;
-  list.forEach(b => { if(b.at >= startMin && b.at < endMin + total) total += b.min; });
-  return total;
+// Break minutes still to come in a day that has already begun. Breaks are a daily total
+// taken whenever, and mostly not logged, so two estimates compete and the smaller wins:
+// the share of the allowance that belongs to the stops still to do, and what the
+// allowance has left after the breaks that WERE logged. A day not started has all of it.
+export function breakMinutesLeft(totalMin, loggedMin, doneStops, leftStops){
+  const total = finiteOrZero(totalMin), logged = finiteOrZero(loggedMin);
+  const done = finiteOrZero(doneStops), left = finiteOrZero(leftStops);
+  if(!(left > 0) || !(total > 0)) return 0;
+  const byShare = total * left / (done + left);
+  return Math.round(Math.min(Math.max(0, total - logged), byShare));
 }
 
-// o = { fallbackOnSiteMin, delayPerStopMin, breaks, startedMin }. `startedMin` (today's
-// first log) replaces only the reported start; the break rule still reads the earliest
-// ETA, because those are the stops still to do. Null when no stop has an ETA.
+// o = { fallbackOnSiteMin, delayPerStopMin, breakMin, startedMin }. `breakMin` is the
+// caller's number (a blank is 0): breaks are a daily total taken whenever, so they are
+// added whole rather than placed on the clock. `startedMin` (today's first log) replaces
+// only the reported start. Null when no stop has an ETA.
 export function dayEndEstimate(items, o = {}){
   let first = null, workEnd = null, stops = 0;
   const fallback = Number(o.fallbackOnSiteMin);
@@ -584,7 +583,7 @@ export function dayEndEstimate(items, o = {}){
   });
   if(first == null) return null;
   const delayMin = Math.round(finiteOrZero(o.delayPerStopMin) * stops);
-  const breakMin = breakMinutesInSpan(o.breaks, first, workEnd + delayMin);
+  const breakMin = Math.max(0, finiteOrZero(o.breakMin));
   const hasStarted = o.startedMin !== '' && o.startedMin != null && isFinite(Number(o.startedMin));
   const startMin = hasStarted ? Number(o.startedMin) : first;
   return { startMin, workEndMin: workEnd, breakMin, delayMin, endMin: workEnd + delayMin + breakMin };
@@ -593,11 +592,11 @@ export function dayEndEstimate(items, o = {}){
 // How many stops a day could hold between `o.startMin` and `o.endMin`. The work per
 // stop is what the optimized days already show (span of work over stops, delays and
 // breaks left out); days with fewer than 2 ETAs say nothing about it. o = { startMin,
-// endMin, delayPerStopMin, breaks }.
+// endMin, delayPerStopMin, breakMin, fallbackOnSiteMin }.
 export function flatOutPerDay(days, o = {}){
   let work = 0, stops = 0;
   (days || []).forEach(items => {
-    const e = dayEndEstimate(items, {});
+    const e = dayEndEstimate(items, { fallbackOnSiteMin: o.fallbackOnSiteMin });
     const n = (items || []).filter(x => x && timeMin(x.scheduledEta) != null).length;
     if(!e || n < 2) return;
     work += e.workEndMin - e.startMin;
@@ -609,11 +608,6 @@ export function flatOutPerDay(days, o = {}){
   const start = Number(o.startMin), end = Number(o.endMin);
   if(!isFinite(start) || !isFinite(end)) return null;
   const perStop = workPerStopMin + finiteOrZero(o.delayPerStopMin);
-  const fits = n => {
-    const span = start + n * perStop;
-    return span + breakMinutesInSpan(o.breaks, start, span) <= end;
-  };
-  let perDay = 0;
-  while(perDay < 500 && fits(perDay + 1)) perDay++;
-  return { perDay, workPerStopMin };
+  const room = end - start - Math.max(0, finiteOrZero(o.breakMin));
+  return { perDay: Math.max(0, Math.floor(room / perStop)), workPerStopMin };
 }
