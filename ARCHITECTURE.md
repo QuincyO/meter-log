@@ -852,11 +852,42 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     so "N Main St" and "North Main Street" collide.
   - **Missing house numbers interpolate** between the bracketing neighbours. OSM
     rarely has every civic number, and "between 410 and 460" puts the pin on the
-    right stretch of a 12 km concession rather than at one end of it.
-  - **One hit per locality, never auto-picked.** The same street name recurs across
-    a district, so `geocodeAddress` returns a hit per town and route.js's existing
-    `pickBest` raises the "⚠ pick a town" ambiguity — the same protection the online
-    providers get.
+    right stretch of a 12 km concession rather than at one end of it. The estimate
+    is then moved onto the road **of that name** when one is within 250 m
+    (`onNamedRoad`, the v3 road names through `snap`'s segment filter), so an
+    estimated pin sits on its street. An exact match is the house and is never moved.
+  - **A road is not a locality.** The locality tag is the *municipality*, and one
+    rural road runs through two or three of them, or along a boundary with a
+    different township on each side. `roadsOf` joins two localities into one road
+    when points with **neighbouring numbers** sit within 500 m of each other: the
+    numbering runs straight on, so it is one road. Two towns that each have a Main
+    Street never join. Points with no locality stay their own road and are never a
+    bridge — that one bucket holds every untagged street of the name in the district.
+  - **Which roads are candidates**, in order: (1) a town typed on the address — after
+    a comma, or just on the end — keeps only the roads through that town, and a town
+    the map doesn't know is ignored (the crew types the community, OSM stores the
+    municipality); (2) a road whose known numbers **bracket** the typed one beats any
+    road where it falls past the end, which is a candidate only when nothing better
+    exists; (3) an exact match sorts first. A bracket wider than 5 km only counts
+    when a road of that name runs where the estimate landed — otherwise it is two
+    different roads and the midpoint is a field (`'loose'`).
+  - **A number past the last one known carries on along the road** (`pastTheEnd`):
+    same heading, same metres-per-number as the last stretch, then stood on the named
+    road. It is refused — and the pin stays on the last known point — when the pack
+    has no road names, the reach is over 5 km, or no road of that name is there,
+    which is how "the road has ended" reads.
+  - **A real tie is settled by distance, on the district index only.** With a crew
+    position, `pickBest(..., {nearest:true})` takes the nearest candidate without
+    asking when it is at least twice as close as the runner-up (owner's rule,
+    2026-11-18); a closer call raises "⚠ pick a town" with the nearest first. The
+    online providers never get this — their list is in relevance order.
+  - **Two different addresses on one exact pin are looked up again** each Optimize
+    (`sharedPinIds` → `repinShared`), against the district index only. A clean single
+    answer moves the pin; anything else leaves the order untouched.
+  Measured on the published district against 6,127 addresses that are in the map,
+  crew 5 km away: before, 55% pinned and 45% asked "pick a town"; after, 98.7%
+  pinned right, 1.2% asked, 0.08% pinned to the wrong town (a same-numbered street
+  in the next city that was nearer the crew). At 15 km: 95.4% / 4.1% / 0.5%.
   - A roads-only pack (no address file at build time) is perfectly valid and simply
     has no offline geocoding.
 - **District building from the planner (`tools/roadpack-server.mjs`).** Drawing a

@@ -132,6 +132,7 @@ function medianCenter(items){
 // circle (not the text) is what pins the region.
 async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false){
   let done = 0;
+  const shared = sharedPinIds(items);
   for(const item of items){
     const c = coordsOf(item);
     const stale = !!(c && center && haversine(c, center) > GEO_RADIUS_KM * 1000);
@@ -163,9 +164,29 @@ async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false
         geoSource: item.geoSource,
         updatedAt: stamp() }));
       await sleep(GEOCODE_MS);
-    } else geoProvenance.cached++;
+    } else {
+      geoProvenance.cached++;
+      if(shared.has(item.id)) await repinShared(item, c, center);
+    }
     onProgress && onProgress({ phase:'geocode', done: ++done, total: items.length });
   }
+}
+
+// A stored pin that another address also sits on (sharedPinIds) is asked about
+// again, and ONLY of the district index: it is free and local, so a tap stays
+// offline and no quota is spent second-guessing a pin. This is what repairs a
+// list pinned before 2026-11-18, when every number past the end of a town's
+// range landed on that town's last address point — otherwise the fix would
+// reach new orders only, and the bad pins would have to be retyped one by one.
+// Only a clean single answer moves the pin. A miss or a "pick a town" leaves
+// the order exactly as it was: it was routable a moment ago and must stay so.
+async function repinShared(item, c, center){
+  const hit = await offlineGeocode(item.address, center);
+  if(!hit || hit.ambig || haversine(hit, c) < 1) return;
+  item.lat = hit.lat; item.lng = hit.lng; item.geoSource = 'offline';
+  const stored = (await idb.get('worklist', item.id)) || item;
+  await idb.put('worklist', Object.assign({}, stored, {
+    lat: hit.lat, lng: hit.lng, geoSource: 'offline', updatedAt: stamp() }));
 }
 
 // One address → {lat, lng, label} — plus an `ambig` candidate list when it
@@ -253,9 +274,21 @@ export async function geocodeOne(address, center, geoUrl, stats=null, onProgress
 // hard-gate to GEO_RADIUS_KM around center, then detect ambiguity (the same
 // address in distinct places — different `place` AND > AMBIG_KM apart, so
 // same-town rivals like an address point vs its street centroid don't count).
-// Surfaced, never auto-picked. Shared by all providers so the gate/ambiguity
-// behavior can't drift between them.
-function pickBest(hits, center){
+// Surfaced, never auto-picked — with one exception, opts.nearest, which only the
+// district index passes (offlineGeocode). Shared by all providers so the gate
+// can't drift between them.
+//
+// opts.nearest — the owner's rule, 2026-11-18: "the town closest to me is likely
+// the right address". With a center, the candidates are ranked by distance from
+// it, and the nearest is taken WITHOUT asking when it is clearly the nearest —
+// NEAREST_MARGIN times closer than the runner-up. A close call still asks, with
+// the nearest listed first. The online providers do not get this: their list is
+// in relevance order, and a nearer partial match must not silently beat the
+// exact one. The district index's candidates are already equals (geocodeAddress
+// has dropped every road the number doesn't fit), so distance is all that is
+// left to tell them apart.
+const NEAREST_MARGIN = 2;
+export function pickBest(hits, center, opts = {}){
   const inCircle = (hits || []).filter(h =>
     h && isFinite(h.lat) && isFinite(h.lng) &&
     !(center && haversine(h, center) > GEO_RADIUS_KM * 1000));
@@ -270,9 +303,38 @@ function pickBest(hits, center){
       seen[hh.place] = 1;
       cands.push({ label: hh.label, lat: hh.lat, lng: hh.lng });
     }
-    return { lat: best.lat, lng: best.lng, label: best.label, ambig: cands.slice(0, 3) };
+    if(opts.nearest && center){
+      const far = c => haversine(c, center);
+      cands.sort((a, b) => far(a) - far(b));
+      if(far(cands[0]) * NEAREST_MARGIN <= far(cands[1]))
+        return { lat: cands[0].lat, lng: cands[0].lng, label: cands[0].label };
+    }
+    return { lat: cands[0].lat, lng: cands[0].lng, label: cands[0].label, ambig: cands.slice(0, 3) };
   }
   return { lat: best.lat, lng: best.lng, label: best.label };
+}
+
+// Orders that share one EXACT pin with an order at a different address. At most
+// one of them can be right, so geocodeAll asks the district index about each
+// again. The comparison is the number-and-street part only: "12 Elm St" and
+// "12 Elm St, Glencoe" are one address, and two meters at one address belong on
+// one pin.
+export function sharedPinIds(items){
+  const spot = a => String(a || '').split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
+  const byPin = new Map();
+  for(const item of items || []){
+    const c = coordsOf(item);
+    if(!c) continue;
+    const key = c.lat + ',' + c.lng;
+    if(!byPin.has(key)) byPin.set(key, []);
+    byPin.get(key).push(item);
+  }
+  const ids = new Set();
+  for(const group of byPin.values()){
+    if(new Set(group.map(x => spot(x.address))).size < 2) continue;
+    for(const x of group) ids.add(x.id);
+  }
+  return ids;
 }
 
 // Provider −1 — the offline district pack (js/roadgraph.js `geocodeAddress`).
@@ -287,7 +349,7 @@ async function offlineGeocode(text, center){
     // there isn't one, which is the no-coords path `loadGraph` falls back on.
     const graph = await loadGraph(center ? [center] : null);
     if(!graph || !hasAddresses(graph)) return null;
-    return pickBest(geocodeAddress(graph, text), center);
+    return pickBest(geocodeAddress(graph, text), center, { nearest:true });
   } catch(e){
     console.warn('offline geocode failed:', e);
     return null;

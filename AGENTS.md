@@ -884,6 +884,43 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   geocoding quotas and the toast blamed the Google key. On the hold, the planner and
   the Settings home pin a miss still falls through, so there it is an accelerator.
   `tests/route-offline-geocode.test.mjs`.
+  **A locality tag is a municipality, not a road** (field report 2026-11-18). The index
+  used to place a number once per locality and clamp it to that locality's last point
+  when its numbers stopped short. Falconbridge Dr runs 3701–6580 in Southwest Middlesex
+  and 6581–9152 in Strathroy-Caradoc, so 8583 came back twice, the tap asked "pick a
+  town", and the town picked put nine different addresses on one point 10 km from
+  where they are. Five rules in `geocodeAddress` now, and each one is there because
+  the one before it is not enough:
+  (1) **localities with neighbouring numbers within 500 m are one road** (`roadsOf`).
+  Never join through the untagged bucket: it holds every untagged street of that name
+  in the district, and one bridge through it merges them all;
+  (2) **a road whose numbers bracket the typed one beats a road where it falls past
+  the end.** The second is a candidate only when there is nothing better;
+  (3) **a town typed on the address narrows which road, never where on it.** The app
+  writes `…, Town` onto the order when a town is picked, so the lookup has to read
+  its own label, and that label can name the wrong half of a boundary road. Rule (1)
+  is what makes this safe. A town the map doesn't know is ignored: the crew types
+  Glencoe, OSM stores Southwest Middlesex;
+  (4) **only an estimate is moved onto the named road.** An exact match is the house.
+  A number past the last one known carries on along the road (`pastTheEnd`) and is
+  refused when no road of that name is there. Without it every number past the end
+  shares one pin;
+  (5) **a bracket wider than 5 km needs a road of that name under the estimate.** Don't
+  make it a plain distance cap: one sparse rural road and two different roads with
+  one town tag look the same by distance, and the first is the case interpolation
+  exists for.
+  **On the district index a real tie goes to the nearest town**, when it is at least
+  twice as close to the crew as the next one (`pickBest`'s `opts.nearest`, owner's
+  rule 2026-11-18). This replaces "never auto-picked" for the tap only. Don't pass it
+  for Google or ORS: their list is in relevance order, and a nearer partial match
+  would beat the exact one. It does pin the wrong town sometimes, about 1 lookup in
+  1,200 with the crew 5 km out and 1 in 190 at 15 km, measured on the published
+  district, against asking on 45% of lookups before.
+  **Two different addresses on one exact pin are looked up again every Optimize**
+  (`sharedPinIds` → `repinShared`). That is what repaired the lists pinned before the
+  fix. It asks the district index only, and anything but a clean single answer leaves
+  the order alone: it was routable a moment ago. `tests/roadgraph.test.mjs`,
+  `tests/route-nearest-town.test.mjs`.
   **`normalizeStreet` must behave identically on both sides** — the builder normalizes
   OSM's `addr:street`, the phone normalizes what was typed — and its positional rule
   is load-bearing: a suffix expands anywhere *except* the first word, so "Concession

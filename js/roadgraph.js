@@ -422,66 +422,206 @@ export function roadName(g, seg){
   return g.roadNames[g.segName[seg]] || '';
 }
 
-// Place a house number among one street's points, which are sorted by number.
-// Exact match wins; otherwise INTERPOLATE between the neighbours that bracket
-// it, which is what makes rural roads usable — OSM rarely has every civic
-// number, but "between 410 and 460" puts the pin on the right stretch of road
-// rather than at the wrong end of a 12 km concession.
+// ── address lookup ───────────────────────────────────────────────────────────
+// Tuning for the rules below. Metres throughout.
+const ROAD_JOIN_M   = 500;    // neighbouring civic numbers this close, in two towns, are one road
+const ADDR_SNAP_M   = 250;    // an ESTIMATED pin moves onto its named road when one is this near
+const EXTRAP_BASE_M = 300;    // shortest stretch trusted to give a numbering rate and a heading
+const EXTRAP_MAX_M  = 5000;   // never guess further than this past the last known number
+const JOIN_LOOKAHEAD = 4;     // how many numbers on to look for the neighbouring town's point
+const BRACKET_MAX_M = 5000;   // neighbours further apart than this must be shown to be one road
+
+// Place a house number among one road's points, which are sorted by number.
+// Returns { lat, lng, near, kind, gap }:
+//   'exact'   — the number is in the map; the pin is the address point itself.
+//   'between' — INTERPOLATED between the neighbours that bracket it, which is
+//               what makes rural roads usable: OSM rarely has every civic
+//               number, but "between 410 and 460" puts the pin on the right
+//               stretch of road rather than at the wrong end of a 12 km concession.
+//   'beyond'  — past the lowest or highest number known here; the pin is that
+//               end point and `gap` is how many numbers past it. The caller
+//               decides whether this road is a candidate at all (see
+//               geocodeAddress) and tries to carry the pin on along the road.
+//   'street'  — no number typed → the street itself.
+// (geocodeAddress adds a fifth, 'loose', for a 'between' it cannot believe.)
+// `near` is the index of the known point the pin leans on.
 function placeOnStreet(g, lo, hi, want){
   if(hi <= lo) return null;
-  if(!want){
-    const mid = (lo + hi - 1) >> 1;                 // no number typed → the street itself
-    return { lat: g.addrLat[mid] / COORD_SCALE, lng: g.addrLng[mid] / COORD_SCALE, exact:false };
-  }
+  const at = (i, kind, gap = 0) => ({
+    lat: g.addrLat[i] / COORD_SCALE, lng: g.addrLng[i] / COORD_SCALE, near: i, kind, gap });
+  if(!want) return at((lo + hi - 1) >> 1, 'street');
   let a = lo, b = hi - 1;
   while(a <= b){
     const m = (a + b) >> 1;
-    if(g.addrNum[m] === want)
-      return { lat: g.addrLat[m] / COORD_SCALE, lng: g.addrLng[m] / COORD_SCALE, exact:true };
+    if(g.addrNum[m] === want) return at(m, 'exact');
     if(g.addrNum[m] < want) a = m + 1; else b = m - 1;
   }
   // a is now the first index above `want`; b the last below it.
   const below = b >= lo ? b : -1, above = a < hi ? a : -1;
   if(below < 0 && above < 0) return null;
-  if(below < 0) return { lat: g.addrLat[above] / COORD_SCALE, lng: g.addrLng[above] / COORD_SCALE, exact:false };
-  if(above < 0) return { lat: g.addrLat[below] / COORD_SCALE, lng: g.addrLng[below] / COORD_SCALE, exact:false };
+  if(below < 0) return at(above, 'beyond', g.addrNum[above] - want);
+  if(above < 0) return at(below, 'beyond', want - g.addrNum[below]);
   const span = g.addrNum[above] - g.addrNum[below];
   const t = span > 0 ? (want - g.addrNum[below]) / span : 0.5;
   return {
     lat: (g.addrLat[below] + (g.addrLat[above] - g.addrLat[below]) * t) / COORD_SCALE,
     lng: (g.addrLng[below] + (g.addrLng[above] - g.addrLng[below]) * t) / COORD_SCALE,
-    exact: false,
+    near: t < 0.5 ? below : above, kind: 'between', gap: 0,
+    spanM: metresBetween(g.addrLat[below] / COORD_SCALE, g.addrLng[below] / COORD_SCALE,
+      g.addrLat[above] / COORD_SCALE, g.addrLng[above] / COORD_SCALE),
   };
+}
+
+// "8583 Falconbridge Dr, Southwest Middlesex" → { num, name, town, sid }.
+// The town is optional and arrives two ways: after a comma (which is also the
+// exact text a town pick writes back onto the order, so the lookup has to read
+// its own label), or just typed on the end. With no comma, words are peeled off
+// the end until what is left is a street this district knows — never down to a
+// single word, or "King Rd" would match a street called "King".
+function parseAddress(g, address){
+  const { num, street } = splitAddress(address);
+  const comma = street.indexOf(',');
+  let name = (comma < 0 ? street : street.slice(0, comma)).trim();
+  let town = comma < 0 ? '' : street.slice(comma + 1);
+  let sid = g.streetIndex.get(normalizeStreet(name));
+  if(sid === undefined && comma < 0){
+    const words = name.split(/\s+/);
+    for(let k = words.length - 1; k >= 2; k--){
+      const head = words.slice(0, k).join(' ');
+      const s = g.streetIndex.get(normalizeStreet(head));
+      if(s !== undefined){ sid = s; name = head; town = words.slice(k).join(' '); break; }
+    }
+  }
+  return { num, name, town, sid };
+}
+
+// Whole-word town comparison, either way round: "Strathroy-Caradoc" matches
+// "Township of Strathroy-Caradoc", while a stray "on" matches nothing.
+const townWords = s => ' ' + String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+function sameTown(a, b){
+  const x = townWords(a), y = townWords(b);
+  return x.length > 2 && y.length > 2 && (x.includes(y) || y.includes(x));
+}
+
+// Split one street name's points into the physical ROADS they lie on, each a
+// list of indices still sorted by number.
+//
+// A locality is one road, as it always was. But the locality tag is the
+// MUNICIPALITY, and one rural road routinely runs through two or three of them
+// — or along a boundary, with a different township on each side. Keeping those
+// apart is the bug of 2026-11-18: 8583 Falconbridge Dr came back once per
+// municipality, the wrong one clamped to its last number, and picking it put
+// nine addresses on one point. So two localities are joined when points with
+// NEIGHBOURING numbers sit within ROAD_JOIN_M of each other: the numbering runs
+// straight on, so it is the same road. Two towns that each have a Main Street
+// never join — their number 10s are kilometres apart.
+// Points with no locality are left as their own road and never used as a
+// bridge: that one bucket can hold every untagged "Main Street" in the district.
+function roadsOf(g, lo, hi){
+  const parent = new Map();
+  const find = p => { while(parent.get(p) !== p) p = parent.get(p); return p; };
+  for(let i = lo; i < hi; i++) parent.set(g.addrPlace[i], g.addrPlace[i]);
+  if(parent.size > 1){
+    for(let i = lo; i < hi; i++){
+      const p = g.addrPlace[i];
+      if(!g.placeNames[p]) continue;
+      for(let j = i + 1; j < hi && j <= i + JOIN_LOOKAHEAD; j++){
+        const q = g.addrPlace[j];
+        if(q === p || !g.placeNames[q] || find(p) === find(q)) continue;
+        if(metresBetween(g.addrLat[i] / COORD_SCALE, g.addrLng[i] / COORD_SCALE,
+            g.addrLat[j] / COORD_SCALE, g.addrLng[j] / COORD_SCALE) <= ROAD_JOIN_M)
+          parent.set(find(q), find(p));
+      }
+    }
+  }
+  const roads = new Map();
+  for(let i = lo; i < hi; i++){
+    const r = find(g.addrPlace[i]);
+    if(!roads.has(r)) roads.set(r, []);
+    roads.get(r).push(i);
+  }
+  return [...roads.values()];
+}
+
+// The road-name ids (v3) that normalize to this address-index street, or null.
+// The two tables are separate — one is OSM's addr:street, the other the way's
+// own name — and normalizeStreet is what lets them be compared at all.
+function roadNameIds(g, key){
+  if(!hasRoadNames(g) || !g.segName) return null;
+  if(!g.roadNameIndex){
+    if(!g.roadNames) g.roadNames = decodeStrings(g.roadBlob, g.roadText, g.roadNameCount);
+    g.roadNameIndex = new Map();
+    g.roadNames.forEach((raw, id) => {
+      const k = normalizeStreet(raw);
+      if(!k) return;
+      if(!g.roadNameIndex.has(k)) g.roadNameIndex.set(k, new Set());
+      g.roadNameIndex.get(k).add(id);
+    });
+  }
+  return g.roadNameIndex.get(key) || null;
+}
+
+// The nearest point on the road OF THAT NAME, or null when it isn't within
+// ADDR_SNAP_M. An estimated pin belongs on its street; the nearest road of any
+// name is as likely to be the side road it happens to sit beside.
+function onNamedRoad(g, pt, ids){
+  if(!ids) return null;
+  const s = snap(g, pt, ADDR_SNAP_M, seg => ids.has(g.segName[seg]));
+  return s ? { lat: s.lat, lng: s.lng } : null;
+}
+
+// A number past the last one known on this road: carry on in the direction the
+// numbering was heading, at the rate it was climbing, and stand the result on
+// the named road. Without this every number past the end shares the end point —
+// six different Inadale Dr addresses on one pin, 2026-11-18.
+// Null means "don't guess" and the caller keeps the end point: no road names in
+// the pack, no stretch long enough to read a rate from, a reach past
+// EXTRAP_MAX_M, or — the check that matters — no road of that name where the
+// number would be, i.e. the road has ended.
+function pastTheEnd(g, view, n, hit, ids){
+  if(!ids) return null;
+  const e = hit.near, step = e === 0 ? 1 : -1;
+  const eLat = view.addrLat[e] / COORD_SCALE, eLng = view.addrLng[e] / COORD_SCALE;
+  for(let j = e + step; j >= 0 && j < n; j += step){
+    const numbers = Math.abs(view.addrNum[e] - view.addrNum[j]);
+    if(!numbers) continue;
+    const jLat = view.addrLat[j] / COORD_SCALE, jLng = view.addrLng[j] / COORD_SCALE;
+    const metres = metresBetween(jLat, jLng, eLat, eLng);
+    if(metres < EXTRAP_BASE_M) continue;
+    const reach = hit.gap * metres / numbers;
+    if(reach > EXTRAP_MAX_M) return null;
+    const k = reach / metres;
+    return onNamedRoad(g, { lat: eLat + (eLat - jLat) * k, lng: eLng + (eLng - jLng) * k }, ids);
+  }
+  return null;
 }
 
 // "123 Main St" → hits in pickBest()'s shape: [{lat, lng, label, place}].
 //
-// One hit PER LOCALITY, deliberately. The same street name recurs across a
-// district, and returning them all is what lets route.js's existing pickBest
-// raise the "⚠ pick a town" ambiguity instead of silently choosing — the same
-// protection GEO_RADIUS_KM gives the online providers.
+// One hit PER ROAD that could hold the number. The same street name recurs
+// across a district, and returning them all is what lets route.js's pickBest
+// settle or raise the "⚠ pick a town" ambiguity instead of silently choosing —
+// the same protection GEO_RADIUS_KM gives the online providers. Three rules
+// decide which roads are candidates, in this order:
+//   1. a typed town keeps only the roads that run through it (a town the map
+//      doesn't know is ignored rather than failing the lookup — the crew types
+//      the community, OSM stores the municipality);
+//   2. a road whose known numbers bracket the typed one beats any road where it
+//      falls past the end — that road is only a candidate when nothing better
+//      exists, and then only the one(s) whose numbering comes closest;
+//   3. an exact civic match sorts ahead of an estimate.
 export function geocodeAddress(g, address){
   if(!hasAddresses(g)) return [];
-  const { num, street } = splitAddress(address);
-  const key = normalizeStreet(street);
-  if(!key) return [];
-  const sid = g.streetIndex.get(key);
+  const { num, name, town, sid } = parseAddress(g, address);
   if(sid === undefined) return [];
   const lo = g.streetOff[sid], hi = g.streetOff[sid + 1];
   if(hi <= lo) return [];
 
   const want = houseNumber(num);
-  // Group this street's points by locality, preserving the sorted-by-number
-  // order inside each group so placeOnStreet can still binary-search.
-  const groups = new Map();
-  for(let i = lo; i < hi; i++){
-    const p = g.addrPlace[i];
-    if(!groups.has(p)) groups.set(p, []);
-    groups.get(p).push(i);
-  }
-  const hits = [];
-  for(const [placeId, idx] of groups){
-    // Re-project the group into a contiguous view placeOnStreet can bisect.
+  const ids = roadNameIds(g, g.streetNames[sid]);
+  let cands = [];
+  for(const idx of roadsOf(g, lo, hi)){
+    // Re-project the road into a contiguous view placeOnStreet can bisect.
     const view = {
       addrNum: idx.map(i => g.addrNum[i]),
       addrLat: idx.map(i => g.addrLat[i]),
@@ -489,17 +629,46 @@ export function geocodeAddress(g, address){
     };
     const hit = placeOnStreet(view, 0, idx.length, want);
     if(!hit) continue;
-    const town = g.placeNames[placeId] || '';
-    hits.push({
-      lat: hit.lat, lng: hit.lng,
-      label: [address, town].filter(Boolean).join(', '),
-      place: town || `street:${sid}`,
-      exact: hit.exact,
+    // Only an ESTIMATE is moved: an exact match is the house itself.
+    const moved = hit.kind === 'beyond' ? pastTheEnd(g, view, idx.length, hit, ids)
+      : hit.kind === 'between' ? onNamedRoad(g, hit, ids) : null;
+    // Neighbours a long way apart are either the two ends of one sparse rural
+    // road — the case interpolation exists for — or two different roads that
+    // share a name and a town tag (or no tag: the untagged bucket holds every
+    // such street in the district), and then halfway between them is a field.
+    // The road names tell the two apart: if no road of that name runs where the
+    // estimate landed, it is 'loose' — the nearer neighbour, ranked with a
+    // number off the end. A pack without road names can't check, and keeps the
+    // estimate as it always did.
+    if(hit.kind === 'between' && hit.spanM > BRACKET_MAX_M && hasRoadNames(g) && !moved){
+      hit.kind = 'loose';
+      hit.gap = Math.abs(want - view.addrNum[hit.near]);
+      hit.lat = view.addrLat[hit.near] / COORD_SCALE;
+      hit.lng = view.addrLng[hit.near] / COORD_SCALE;
+    }
+    cands.push({
+      lat: (moved || hit).lat, lng: (moved || hit).lng, kind: hit.kind, gap: hit.gap,
+      town: g.placeNames[g.addrPlace[idx[hit.near]]] || '',
+      towns: [...new Set(idx.map(i => g.placeNames[g.addrPlace[i]] || ''))],
     });
   }
-  // An exact civic match outranks an interpolated guess.
-  hits.sort((a, b) => (b.exact ? 1 : 0) - (a.exact ? 1 : 0));
-  return hits;
+  if(String(town).trim()){
+    const named = cands.filter(c => c.towns.some(t => sameTown(t, town)));
+    if(named.length) cands = named;
+  }
+  const inRange = cands.filter(c => c.kind !== 'beyond' && c.kind !== 'loose');
+  if(inRange.length) cands = inRange;
+  else if(cands.length){
+    const nearest = Math.min(...cands.map(c => c.gap));
+    cands = cands.filter(c => c.gap <= nearest * 2 + 10);
+  }
+  const typed = [num, name].filter(Boolean).join(' ');
+  return cands.map(c => ({
+    lat: c.lat, lng: c.lng,
+    label: [typed, c.town].filter(Boolean).join(', '),
+    place: c.town || `street:${sid}`,
+    exact: c.kind === 'exact',
+  })).sort((a, b) => (b.exact ? 1 : 0) - (a.exact ? 1 : 0));
 }
 
 // ── geometry ─────────────────────────────────────────────────────────────────
@@ -541,7 +710,9 @@ function projectOnto(pLat, pLng, aLat, aLng, bLat, bLng, cosLat){
 // segment — that split is what lets routing start and end PART WAY along a
 // road without mutating the graph (see dijkstra() below). Null when nothing is
 // within SNAP_RADIUS_M, which the caller must treat as off-network.
-export function snap(g, coord, radiusM = SNAP_RADIUS_M){
+// `accept(seg)` narrows the search to some segments only — the address lookup
+// passes the ones carrying a given road name.
+export function snap(g, coord, radiusM = SNAP_RADIUS_M, accept = null){
   if(!g || !coord || !Number.isFinite(coord.lat) || !Number.isFinite(coord.lng)) return null;
   const { grid } = g;
   const cosLat = Math.cos(coord.lat * D2R);
@@ -564,6 +735,7 @@ export function snap(g, coord, radiusM = SNAP_RADIUS_M){
           const seg = grid.cellSeg[i];
           if(tried.has(seg)) continue;
           tried.add(seg);
+          if(accept && !accept(seg)) continue;
           const pts = segmentPoints(g, seg);
           let run = 0;
           for(let k = 0; k + 1 < pts.length; k++){

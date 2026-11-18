@@ -362,6 +362,119 @@ test('the same street in two towns returns both, so the caller can flag it', () 
   assert.ok(Math.abs(hits[0].lat - hits[1].lat) > 0.05);
 });
 
+// One road that crosses a municipal line, modelled on the field report of
+// 2026-11-18 (Falconbridge Dr): civic numbers run on unbroken, 100-300 tagged
+// Southtown and 301-400 tagged Northtown, and the road itself carries on 400 m
+// past the last address point. Points sit ~22 m north of the centreline.
+function boundaryGraph(){
+  const pt = (place, num, lng) => ({ street:0, place, num, lat:44.0002, lng });
+  return decodePack(toArrayBuffer(encodePack({
+    bbox: { minLat: 43.99, minLng: -78.01, maxLat: 44.06, maxLng: -77.88 },
+    nodes: NODES,
+    segments: [
+      { ...seg(0, 1, STEP_LNG_M), nameId: 1 },
+      { ...seg(1, 2, STEP_LNG_M), nameId: 1 },
+      { ...seg(1, 4, STEP_LAT_M), nameId: 2 },
+    ],
+    roadNames: ['', 'Line Road', 'Cross Street'],
+    streets: ['line road'], places: ['Southtown', 'Northtown'],
+    addresses: [
+      pt(0, 100, -78.0000), pt(0, 200, -77.9950), pt(0, 300, -77.9900),
+      pt(1, 301, -77.9899), pt(1, 400, -77.9850),
+    ],
+  })));
+}
+
+test('a town whose numbers stop short of the typed one is not a candidate', () => {
+  const g = boundaryGraph();
+  // 350 lies between Northtown's 301 and 400. Southtown's numbers end at 300,
+  // and it used to come back anyway, clamped to its last point — which both
+  // raised a "pick a town" prompt that had one right answer and put every
+  // higher number on that single point when Southtown was picked.
+  const hits = geocodeAddress(g, '350 Line Rd');
+  assert.equal(hits.length, 1, JSON.stringify(hits));
+  assert.equal(hits[0].place, 'Northtown');
+  assert.ok(near(hits[0].lng, -77.9875, 2e-4), `interpolated to ${hits[0].lng}`);
+});
+
+test('an estimated pin sits on the named road, not beside it', () => {
+  const g = boundaryGraph();
+  const hit = geocodeAddress(g, '350 Line Rd')[0];
+  assert.ok(near(hit.lat, 44.0000, 2e-5), `lat ${hit.lat} should be the centreline`);
+  // A real address point is the house itself and stays where it is.
+  const exact = geocodeAddress(g, '200 Line Rd')[0];
+  assert.equal(exact.exact, true);
+  assert.ok(near(exact.lat, 44.0002, 1e-6));
+});
+
+test('a town on the end of the address is read, and cannot pull the pin off the number', () => {
+  const g = boundaryGraph();
+  // "…, Southtown" is the exact text a town pick writes back onto the order, so
+  // the geocoder has to be able to read its own label. Southtown and Northtown
+  // are one road here: the town narrows WHICH road, the number places the pin.
+  const a = geocodeAddress(g, '320 Line Rd, Southtown');
+  const b = geocodeAddress(g, '380 Line Rd, Southtown');
+  assert.equal(a.length, 1); assert.equal(b.length, 1);
+  assert.ok(a[0].lng > -77.9899 && a[0].lng < b[0].lng && b[0].lng < -77.9850,
+    `320 → ${a[0].lng}, 380 → ${b[0].lng}`);
+  // Typed without the comma, and a town the map has never heard of.
+  assert.equal(geocodeAddress(g, '350 Line Rd Southtown').length, 1);
+  assert.ok(near(geocodeAddress(g, '350 Line Rd, Elsewhere')[0].lng, -77.9875, 2e-4));
+});
+
+test('numbers past the last known one run on along the road, each to its own pin', () => {
+  const g = boundaryGraph();
+  // 301→400 covers ~392 m, so ~4 m a number: 450 is ~200 m past 400 and 470
+  // ~280 m. Both used to land on the 400 point.
+  const a = geocodeAddress(g, '450 Line Rd')[0];
+  const b = geocodeAddress(g, '470 Line Rd')[0];
+  assert.ok(near(a.lng, -77.9825, 3e-4), `450 → ${a.lng}`);
+  assert.ok(near(b.lng, -77.9815, 3e-4), `470 → ${b.lng}`);
+  assert.ok(near(a.lat, 44.0000, 2e-5) && near(b.lat, 44.0000, 2e-5), 'on the centreline');
+  // Past the end of the road itself there is nothing to stand on: fall back to
+  // the last known point rather than a pin in a field.
+  const far = geocodeAddress(g, '900 Line Rd')[0];
+  assert.ok(near(far.lng, -77.9850, 1e-6), `900 → ${far.lng}`);
+});
+
+test('a typed town chooses between two separate streets of the same name', () => {
+  const g = addressGraph();
+  // No number 50 on either Main Street: still a genuine tie, still both.
+  assert.equal(geocodeAddress(g, '50 Main St').length, 2);
+  const hits = geocodeAddress(g, '50 Main St, Hillside');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].place, 'Hillside');
+  assert.ok(near(hits[0].lat, 44.0900, 1e-5));
+});
+
+test('an estimate stretched between two far-apart points is not a candidate', () => {
+  // Two separate "Mill Road"s that share one town tag, 20 km apart: 10-30 on
+  // one, 70-90 on the other. Number 50 is "between" 30 and 70 only on paper —
+  // halfway is a field 10 km from either road.
+  const pt = (place, num, lat) => ({ street:0, place, num, lat, lng:-78.0000 });
+  const g = decodePack(toArrayBuffer(encodePack({
+    bbox: { minLat: 43.9, minLng: -78.1, maxLat: 44.3, maxLng: -77.8 },
+    // The road names are what expose it: Mill Road exists by the first pair
+    // and nowhere near the halfway point.
+    nodes: NODES, segments: [{ ...seg(0, 3, STEP_LAT_M), nameId: 1 }],
+    roadNames: ['', 'Mill Road'],
+    streets: ['mill road'], places: ['Bigcounty', 'Smalltown'],
+    addresses: [
+      pt(0, 10, 44.0000), pt(0, 30, 44.0010), pt(0, 70, 44.1800), pt(0, 90, 44.1810),
+      pt(1, 40, 44.2500), pt(1, 60, 44.2510),
+    ],
+  })));
+  // Smalltown really does bracket 50, so it is the only candidate left.
+  const hits = geocodeAddress(g, '50 Mill Rd');
+  assert.equal(hits.length, 1, JSON.stringify(hits));
+  assert.equal(hits[0].place, 'Smalltown');
+  // With nothing better on offer the far-apart pair still answers, at the
+  // nearer of its two points rather than between them.
+  const lone = geocodeAddress(g, '45 Mill Rd, Bigcounty');
+  assert.equal(lone.length, 1);
+  assert.ok(near(lone[0].lat, 44.0010, 1e-5), `45 → ${lone[0].lat}`);
+});
+
 test('an unknown street misses cleanly so the network providers still run', () => {
   const g = addressGraph();
   assert.deepEqual(geocodeAddress(g, '5 Nowhere Lane'), []);
