@@ -19,6 +19,8 @@ Decisions the owner made (2026-11-18):
 3. **The end time on a day card counts work, breaks and usual delays.**
 4. **Breaks are 60 minutes: two 15-minute breaks and one 30-minute lunch.**
 5. **The flat-out number assumes the last meter is done by 15:30**, and factors the usual start, the breaks and the usual delays.
+6. **Every installer sees their own figures**: their own usual start, end times and flat-out number, never a crew average.
+7. **Build it subagent-driven.**
 
 Calls made while planning. These are the planner's, not the owner's. Change any of them before Task 1 starts.
 
@@ -30,8 +32,8 @@ Calls made while planning. These are the planner's, not the owner's. Change any 
 | The morning start is an **arrival** clock: the drive out is not added on top. A "start from here" run and every re-time after a logged stop stay **departure** clocks from now. | The measured start already contains the morning drive. A run from where the truck is standing really does leave now. |
 | An appointment before the usual start **pulls that day's start earlier**. | Otherwise a 08:30 appointment is shown as an hour late on a day the crew would simply start early. |
 | Breaks sit at **10:00 (15 min), 12:00 (30 min), 14:00 (15 min)** and count only when they fall inside the day. | A route re-planned at 14:30 has one break left, not three. A day that ends at 11:00 has one. |
-| Delays are **per stop**, and the stored figure is **net of the 60 break minutes**. | Measured on the export, the crew's logged gap delays already contain their breaks: one installer logs 137 min a day of gap delays, and that installer's whole day has only about 123 min that is not stop-to-stop work. Adding 60 on top would count the breaks twice. |
-| The delay is measured from the **stop times themselves**, not from Downtime rows. | Gap allocation is a habit. One installer allocates 130 min a day and another allocates none, on days that look the same. |
+| Delays are **per stop** and are measured from the **stop times**: the time between the first and last meter that is not ordinary stop-to-stop work, **less the 60 break minutes**. The owner confirmed this on 2026-11-18. | Breaks are not logged as downtime, so they show up as unlogged pauses and have to be taken out. Logged downtime cannot be used directly: on the 2026-10-14 export one installer logs about 142 min a day, of which about 125 are **before the first meter** and about 12 between meters. The usual start already carries those morning delays, so adding the full average would count the morning twice. |
+| Downtime rows are not read at all for this. | Logging is a habit. One installer logs 41 min a day between meters and another logs none, and the second has about 157 min of pauses a day. The stop times show both the same way. A long drive can land in the figure; that is accepted. |
 | Stop ETAs stay **work only**. Breaks and delays are added to the **day's end**, and the card says so. | Putting them inside the scheduler changes appointment placement. That is a separate decision. |
 | The day buttons above the map keep their first-to-last ETA window. Only the day **cards** get the end time. | The buttons are already too wide for the screen. |
 
