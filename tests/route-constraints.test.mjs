@@ -410,3 +410,72 @@ test('locking after a manual reorder uses the current slot, not an old ETA slot'
   ];
   assert.deepEqual(currentRoutePlacement(items, 'b', 24), { day:1, slot:3 });
 });
+
+// ---- arrival clock (opts.firstStopArrival) ----
+const arrivalTravel = { fromStart: () => 25, between: () => 10 };
+
+test('an arrival clock puts the first stop on it, with no drive out added', () => {
+  const r = scheduleRouteConstraints([item('a'), item('b')], ['a','b'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, travel:arrivalTravel }));
+  assert.equal(r.scheduleById.a.eta, '09:30');
+});
+
+test('without the flag the drive out is still added', () => {
+  const r = scheduleRouteConstraints([item('a'), item('b')], ['a','b'],
+    opts({ firstStopTime:'09:30', travel:arrivalTravel }));
+  assert.equal(r.scheduleById.a.eta, '09:55');
+});
+
+test('a from-here Day 1 is still a departure, even with the flag', () => {
+  const ids = ['a','b','c'];
+  const r = scheduleRouteConstraints(ids.map(x => item(x)), ids,
+    opts({ firstStopTime:'09:30', firstStopArrival:true, day1FirstStopTime:'11:40',
+      target:2, travel:arrivalTravel }));
+  assert.equal(r.scheduleById.a.eta, '12:05'); // 11:40 + 25 min drive
+  assert.equal(r.dayOf.c, 2);
+  assert.equal(r.scheduleById.c.eta, '09:30'); // Day 2 is an arrival
+});
+
+test('an appointment before the usual start pulls that day earlier and is not late', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' }), item('b')];
+  const r = scheduleRouteConstraints(items, ['a','appt','b'], opts({ firstStopTime:'09:30', firstStopArrival:true }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '08:10');
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});
+
+test('the early start is for that day only', () => {
+  const items = [item('a'), item('b'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' }), item('c')];
+  const r = scheduleRouteConstraints(items, ['a','b','appt','c'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, target:2 }));
+  assert.equal(r.scheduleById.appt.eta, '08:10');
+  const dayTwo = r.orderedIds.filter(id => r.dayOf[id] === 2);
+  assert.ok(dayTwo.length > 0);
+  assert.equal(r.scheduleById[dayTwo[0]].eta, '09:30');
+});
+
+test('an appointment later than the usual start does not move the clock', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'11:00' })];
+  const r = scheduleRouteConstraints(items, ['a','appt'], opts({ firstStopTime:'09:30', firstStopArrival:true }));
+  assert.equal(r.scheduleById[r.orderedIds[0]].eta, '09:30');
+});
+
+test('without the flag an early appointment does not move the clock', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' })];
+  const r = scheduleRouteConstraints(items, ['a','appt'], opts({ firstStopTime:'09:30' }));
+  assert.equal(r.scheduleById.appt.lateMin, 60);
+});
+
+test('the arrival clock changes no day size', () => {
+  const ids = ['a','b','c','d','e','f','g','h','i'];
+  const items = ids.map(x => item(x));
+  items[4] = item('e', { appointmentDate:'2026-07-27', appointmentTime:'08:30' });
+  const off = scheduleRouteConstraints(items, ids, opts({ firstStopTime:'09:30', target:4, travel:arrivalTravel }));
+  const on = scheduleRouteConstraints(items, ids, opts({ firstStopTime:'09:30', target:4, firstStopArrival:true, travel:arrivalTravel }));
+  assert.deepEqual(on.orderedIds, off.orderedIds);
+  assert.deepEqual(on.dayOf, off.dayOf);
+  ids.forEach(id => {
+    assert.equal(on.scheduleById[id].date, off.scheduleById[id].date);
+    assert.equal(on.scheduleById[id].slot, off.scheduleById[id].slot);
+  });
+});

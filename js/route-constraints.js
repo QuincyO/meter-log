@@ -58,8 +58,10 @@ export function addWorkdays(start, offset){
 // could disagree by an hour with nothing on screen explaining which to believe.
 //
 // Three things worth keeping:
-//   - the span starts at `firstStopTime`, the DEPARTURE clock simulateDay starts
-//     from, so the drive out from the muster point is inside the number;
+//   - the span starts at `firstStopTime`. Under a departure clock (the default)
+//     that is when the crew leaves the muster point, so the drive out is inside the
+//     number; under an arrival clock (`firstStopArrival`) it is when the crew reaches
+//     the first stop, so the drive out is NOT inside it;
 //   - the last departure is taken as a MAX rather than "the last element", so a
 //     caller that hands the day over in any order still gets the right answer;
 //   - a stop with no saved `scheduledOnSiteMin` falls back to the run's dwell
@@ -143,7 +145,10 @@ export function currentRoutePlacement(items, itemId, target){
 // at all — an unparseable appointment time. It used to carry the late arrivals too,
 // and every caller treated a non-empty `errors` as fatal, which is how one
 // unreachable appointment took an entire 24-stop route down with it.
-function simulateDay(slotIds, byId, firstMin, pace, travel, dwell, dayNo){
+// `arrive` (optional) makes `firstMin` the time the crew ARRIVES at the first stop
+// rather than the time it leaves the muster point, so no drive out is added. An
+// installer's measured usual first log already contains that drive.
+function simulateDay(slotIds, byId, firstMin, pace, travel, dwell, dayNo, arrive){
   const schedule = {}, errors = [];
   const flatOnSite = onSiteMinutes(pace);
   // The route's typical dwell, used for the between-leg fallback only. Taking it
@@ -158,7 +163,9 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell, dayNo){
   slotIds.forEach((id, i) => {
     const item = byId[id];
     let raw;
-    if(travel){
+    if(travel && arrive && i === 0){
+      raw = firstMin;
+    } else if(travel){
       const move = (i === 0) ? travel.fromStart(id, dayNo) : travel.between(prevId, id);
       raw = departClock + (move == null ? (i === 0 ? 0 : moveFallback) : move);
     } else {
@@ -207,7 +214,7 @@ function simulateDay(slotIds, byId, firstMin, pace, travel, dwell, dayNo){
 // `fillSlots` (optional) replaces the free-list padding below with the caller's own
 // day assembly — the reflow path's fillDay — so the search prices exactly the day the
 // final simulation will walk once the route carries on from each anchor.
-function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds, fillSlots, dayNo){
+function placeAppointments(date, count, fixed, appointments, byId, firstMin, pace, travel, dwell, freeIds, fillSlots, dayNo, arrive){
   if(!appointments.length) return { anchors:{...fixed} };
   const ordered = appointments.slice().sort((a,b) =>
     String(a.appointmentTime).localeCompare(String(b.appointmentTime)) || label(a).localeCompare(label(b)));
@@ -229,7 +236,7 @@ function placeAppointments(date, count, fixed, appointments, byId, firstMin, pac
         for(let k = 0; k < count; k++)
           if(!slots[k]) slots[k] = (freeIds && freeIds[f] != null) ? freeIds[f++] : `__free_${k}`;
       }
-      const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell, dayNo);
+      const sim = simulateDay(slots, byId, firstMin, pace, travel, dwell, dayNo, arrive);
       if(sim.errors.length) return;
       const vector = ordered.map(x => Number(Object.keys(chosen).find(k => chosen[k] === x.id)));
       if(sim.lateMin > 0){
@@ -324,6 +331,23 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   const rawDay1First = opts.day1FirstStopTime == null || opts.day1FirstStopTime === ''
     ? null : timeMin(opts.day1FirstStopTime);
   const firstMinFor = day => (day === 0 && rawDay1First != null) ? rawDay1First : firstMin;
+  // Opt-in: `firstStopTime` is the time the crew ARRIVES at a day's first stop, so no
+  // drive out is added. `day1FirstStopTime` stays a departure from where the crew
+  // stands, so Day 1 running on it is not arrival-anchored.
+  const arrival = opts.firstStopArrival === true;
+  const arrivalDay = day => arrival && !(day === 0 && rawDay1First != null);
+  // An arrival-anchored day starts no later than its earliest appointment's window
+  // opens (20 minutes before it, simulateDay's rule), so an early appointment pulls
+  // THAT day earlier instead of arriving late. ETAs only: never read for day sizing.
+  const dayClock = day => {
+    if(!arrivalDay(day)) return firstMinFor(day);
+    let earliest = null;
+    (constrainedByDay[day] || []).forEach(x => {
+      const t = x.appointmentDate ? timeMin(x.appointmentTime) : null;
+      if(t != null && (earliest == null || t < earliest)) earliest = t;
+    });
+    return earliest == null ? firstMin : Math.min(firstMin, earliest - 20);
+  };
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');
   const target = Math.max(1, Math.floor(Number(opts.target) || 1));
@@ -422,11 +446,11 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       const keepAfter = day === 0 ? (fixed[1] || null) : null;
       const fill = anchors => fillDay(counts[day], anchors, dayPool, reflow, keepAfter);
       const anchors = placeAppointments(date, counts[day], fixed, appts, byId,
-        firstMinFor(day), pace, travel, dwell, null, fill, day + 1).anchors;
+        dayClock(day), pace, travel, dwell, null, fill, day + 1, arrivalDay(day)).anchors;
       const ids = fill(anchors);
       const used = new Set(ids);
       pool = pool.filter(id => !used.has(id));
-      const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell, day + 1);
+      const sim = simulateDay(ids, byId, dayClock(day), pace, travel, dwell, day + 1, arrivalDay(day));
       if(sim.errors.length) throw new Error(sim.errors.join('; '));
       ids.forEach(id => {
         finalIds.push(id); dayOf[id] = day + 1;
@@ -459,7 +483,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       freeCursor + Math.max(0, counts[day] - (constrainedByDay[day] || []).length));
     freeCursor += freeForDay.length;
     anchorsByDay[day] = placeAppointments(date, counts[day], fixed, appts, byId,
-      firstMinFor(day), pace, travel, dwell, freeForDay, null, day + 1).anchors;
+      dayClock(day), pace, travel, dwell, freeForDay, null, day + 1, arrivalDay(day)).anchors;
   }
 
   const anchorIds = new Set(); Object.values(anchorsByDay).forEach(a => Object.values(a).forEach(id => anchorIds.add(id)));
@@ -469,7 +493,7 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   for(let day = 0; day < counts.length; day++){
     const date = addWorkdays(startDate, day), ids = [];
     for(let slot = 1; slot <= counts[day]; slot++) ids.push(anchorsByDay[day][slot] || free[freeAt++]);
-    const sim = simulateDay(ids, byId, firstMinFor(day), pace, travel, dwell, day + 1);
+    const sim = simulateDay(ids, byId, dayClock(day), pace, travel, dwell, day + 1, arrivalDay(day));
     if(sim.errors.length) throw new Error(sim.errors.join('; '));
     ids.forEach(id => {
       finalIds.push(id); dayOf[id] = day + 1;

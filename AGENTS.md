@@ -442,6 +442,16 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   **before** the items are read — an `allSorted()` from before the sweep is stale.
   A missed *appointment* (dated in the past) is deliberately still an error: it is a
   customer promise, not a routing hint, so it is surfaced rather than silently dropped.
+- **`firstStopArrival` changes what `firstStopTime` means, and nothing else.**
+  `scheduleRouteConstraints` takes an opt-in `opts.firstStopArrival`. Off (the
+  default) `firstStopTime` is the clock the crew DEPARTS on and `travel.fromStart` is
+  added; on, it is the time the crew ARRIVES at a day's first stop and no drive out is
+  added (a measured usual first log already contains it). `day1FirstStopTime` stays a
+  departure either way, so Day 1 running on it is not arrival-anchored. An
+  arrival-anchored day starts at `min(clock, earliest appointment that day − 20)`, so
+  an early appointment pulls only its own day earlier instead of arriving late. The
+  same clock and flag go to `placeAppointments` and `simulateDay` so the search and
+  the final walk price one day. ETAs only: `counts[]`/`capFor` never read any of it.
 - **Never schedule a late arrival, and never model the day twice.** Two rules that
   shipped together because one caused the other.
   (1) **The crew's rule is "never late, only early"** — a 30–45 minute wait in a
