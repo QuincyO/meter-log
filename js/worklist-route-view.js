@@ -8,6 +8,9 @@ import { coordsOf, decodePolyline, haversine, isParked, offlineRoutePaths } from
 // hold an older cached route.js until somebody presses ⟳ Force update, and a missing
 // NAMED import there is a link error that takes the whole route map with it.
 import * as routeLib from './route.js';
+// The day-end and flat-out read-outs, by namespace for the same reason: a phone with
+// an older cached route-constraints.js keeps the old first-to-last window instead.
+import * as sched from './route-constraints.js';
 import { VARIANT_FIELDS, dayHomeMeters, fmtKm, isPending, liveDayMeters, variantMatchesLive } from './route-variants.js';
 import { createDragAutoScroll } from './drag-autoscroll.js';
 import { siteKey } from './route-dwell.js';
@@ -295,6 +298,67 @@ export function overviewPinFace(stops){
   const { parked, day } = stops[0];
   return { className:'wl-route-pin' + (parked ? ' parked' : ''),
     html:`<span>${parked ? '!' : day == null ? '•' : Number(day)}</span>`, size:30, color };
+}
+
+// ── the day's end time and the flat-out number ──────────────────────────────
+// Display only. Neither number feeds the target, day sizing or the Optimize solve:
+// the meters/day target alone sizes a day. `plan` is opts.dayPlan() — the installer's
+// own usual start, delay per stop and break allowance — and carries the constants, so
+// this module never reads config.js.
+
+function planMin(text){
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(text || ''));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function planClock(min){
+  const n = Math.max(0, Math.round(min));
+  return String(Math.floor(n / 60) % 24).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+}
+
+/** A day row's time line: `09:45 → ends about 15:55 · 60 min breaks · 50 min delays`,
+ *  or '' when there is nothing to say (no plan, no ETAs, an older cached scheduler).
+ *  Only Day 1 of a plan for today has begun, so only it takes the breaks still to
+ *  come and, once a stop is logged, the real start. */
+export function dayEndText(group, plan){
+  if(!plan || !group || typeof sched.dayEndEstimate !== 'function') return '';
+  const today = group.day === 1 && Boolean(plan.planIsToday);
+  const started = today ? planMin(plan.todayFirstLog) : null;
+  const e = sched.dayEndEstimate(group.items, {
+    fallbackOnSiteMin: plan.fallbackOnSiteMin,
+    delayPerStopMin: plan.delayPerStopMin,
+    breakMin: today ? plan.day1BreakMin : plan.breakMin,
+    startedMin: started == null ? undefined : started,
+  });
+  if(!e) return '';
+  return [
+    `${started == null ? '' : 'started '}${planClock(e.startMin)} → ends about ${planClock(e.endMin)}`,
+    e.breakMin > 0 ? `${Math.round(e.breakMin)} min breaks` : '',
+    e.delayMin > 0 ? `${e.delayMin} min delays` : '',
+  ].filter(Boolean).join(' · ');
+}
+
+/** The All tab's flat-out line: how many a day could hold from the usual start to
+ *  the cut-off, at the work per stop the optimized days show, with the full break
+ *  allowance and the delays. '' when there is no optimized day to measure, no plan,
+ *  or no room. `target` is the meters/day target, quoted for comparison only. */
+export function flatOutText(groups, plan, target){
+  if(!plan || typeof sched.flatOutPerDay !== 'function') return '';
+  // A missing clock must not reach flatOutPerDay as null: Number(null) is midnight.
+  const startMin = planMin(plan.usualStart), endMin = planMin(plan.flatOutEnd);
+  if(startMin == null || endMin == null) return '';
+  const list = groups || [];
+  const r = sched.flatOutPerDay(list.map(g => g.items), {
+    startMin, endMin,
+    delayPerStopMin: plan.delayPerStopMin,
+    breakMin: plan.breakMin,
+    fallbackOnSiteMin: plan.fallbackOnSiteMin,
+  });
+  if(!r || !(r.perDay > 0)) return '';
+  const total = list.reduce((n, g) => n + (g.items || []).length, 0);
+  const days = Math.ceil(total / r.perDay);
+  const goal = Math.floor(Number(target));
+  return `Flat out: about ${r.perDay} a day by ${plan.flatOutEnd} — all ${total} in ${days} day${days === 1 ? '' : 's'}.`
+    + (goal > 0 ? ` Planned at ${goal} a day.` : '');
 }
 
 export function initWorklistRouteView(opts){
@@ -623,14 +687,26 @@ export function initWorklistRouteView(opts){
     }, 0);
   }
 
+  // The day plan for this render, or null on a caller that does not pass one —
+  // then the rows keep the first-to-last window and no flat-out line shows.
+  // Takes Day 1's pending count because the breaks still to come on a day already
+  // begun are shared out over the stops left, and this snapshot is what is on screen.
+  function currentDayPlan(groups){
+    if(typeof opts.dayPlan !== 'function') return null;
+    const day1 = groups.find(g => g.day === 1);
+    return opts.dayPlan(day1 ? day1.items.length : 0) || null;
+  }
+
   // One row per day under the All map: the colour key for the pins, and the way
-  // into that day's own tab.
-  function dayRow(group){
+  // into that day's own tab. Leads with when the day should end, the route's own
+  // work plus breaks plus this installer's usual delay per stop; the arrival window
+  // is the fallback when that cannot be worked out.
+  function dayRow(group, plan){
     const row = document.createElement('div');
     row.className = 'wl-route-card';
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const win = showTimes() ? dayWindow(group.items) : '';
+    const win = showTimes() ? (dayEndText(group, plan) || dayWindow(group.items)) : '';
     const pins = group.items.filter(x => coordsOf(x)).length;
     row.innerHTML = `
       <span class="wl-route-pos" style="background:${group.day == null ? NO_DAY_COLOR : dayColor(group.day)};color:#fff">${group.day == null ? '•' : group.day}</span>
@@ -871,8 +947,18 @@ export function initWorklistRouteView(opts){
       ? 'Every order still to do. Tap a pin to see what is there.'
       : 'Drag the stops below to change their order.';
     listEl.innerHTML = '';
-    if(all) groups.forEach(g => listEl.appendChild(dayRow(g)));
-    else (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
+    if(all){
+      const plan = currentDayPlan(groups);
+      groups.forEach(g => listEl.appendChild(dayRow(g, plan)));
+      const w = (opts.weights && opts.weights()) || {};
+      const flat = flatOutText(groups, plan, w.target);
+      if(flat){
+        const p = document.createElement('p');
+        p.className = 'muted';
+        p.textContent = flat;
+        listEl.appendChild(p);
+      }
+    } else (group ? group.items : []).forEach((item, index) => listEl.appendChild(routeCard(item, index)));
     if(!all && !group){
       listEl.innerHTML = '<p class="muted">No pending orders. Add or download orders from the worklist.</p>';
     }

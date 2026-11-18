@@ -1069,7 +1069,16 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   would take the whole route map down; (3) the yellow note counts orders **sharing a
   pin with a different address** on every tab, not just All. That count is the
   direct signal for the 2026-11-18 report, where nine addresses sat on one point and
-  the map looked fine.
+  the map looked fine. (4) Each day row's end time and the flat-out line under the rows
+  (`dayEndText`, `flatOutText`, fed by `opts.dayPlan` from `worklist.js`) are **display
+  only; never a sizing input**: nothing from them reaches the target, `counts[]`/`capFor`
+  or the Optimize solve. The view reaches `dayEndEstimate`/`flatOutPerDay` through
+  `import * as sched` with a `typeof` check and never imports `config.js` (the constants
+  ride in the plan). Without `opts.dayPlan` or those functions the rows keep the
+  first-to-last ETA window and the line is hidden. Breaks are a 60-minute daily total;
+  only Day 1 of a plan for today gets `breakMinutesLeft`, from the logged breaks and
+  stops `refreshTodayFirstLog` keeps off its one `dayCache` read, and Day 1's pending
+  count, which the view passes as `dayPlan`'s argument.
 - **A "start from here" GPS fix must never go in `homeLegGeometry*`.** That field syncs to
   the `Worklist` tab, and the `worklist` read is deliberately not admin-gated, so drawing
   the fix into it would publish where the installer stood. The map's start comes from the

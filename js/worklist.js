@@ -21,6 +21,7 @@ import { installedPacks } from './roadpack.js';
 import { lastFix } from './drive-recorder.js';
 import { cacheRecentDays } from './daycache.js';
 import { PRINTABLE, countDay } from './compute/tally.js';
+import { BREAK_CATS } from './compute/categories.js';
 import { computeGapsLocal } from './compute/gaps.js';
 import { observedOnSiteMin } from './compute/cadence.js';
 import { projectDayReal } from './compute/estimate.js';
@@ -298,7 +299,9 @@ export function delayPerStop(){
 // dayCache by refreshTodayFirstLog) because day1DepartTime is synchronous and runs
 // inside every render. Kept WITH its date, so a page left open overnight cannot read
 // yesterday's first log as today's.
-let firstLogToday = { date:'', clock:'' };
+// The same read also keeps today's stops done and break minutes logged, for the
+// route map's Day 1 end time (dayPlan) — one dayCache read rather than two.
+let firstLogToday = { date:'', clock:'', done:0, breakMin:0 };
 export function todayFirstLog(){
   return firstLogToday.date === localDate() ? firstLogToday.clock : '';
 }
@@ -308,17 +311,49 @@ export function todayFirstLog(){
 export async function refreshTodayFirstLog(){
   const c = cfg();
   const today = localDate();
-  if(!c.name){ firstLogToday = { date:today, clock:'' }; return; }
+  if(!c.name){ firstLogToday = { date:today, clock:'', done:0, breakMin:0 }; return; }
   try{
     const cached = await idb.get('dayCache', `${c.name}|${today}`);
-    let first = '';
+    let first = '', done = 0;
     ((cached && cached.stops) || []).forEach(s => {
       if(!(s.status === 'INSTALLED' || s.status === 'UTI')) return;
+      done++;
       const t = clockOf(s.timestamp);
       if(hhmmMin(t) != null && (!first || hhmmMin(t) < hhmmMin(first))) first = t;
     });
-    firstLogToday = { date:today, clock:first };
+    const breakMin = ((cached && cached.downtime) || [])
+      .filter(d => BREAK_CATS.indexOf(d.category) >= 0)
+      .reduce((n, d) => n + (Number(d.minutes) || 0), 0);
+    firstLogToday = { date:today, clock:first, done, breakMin };
   } catch { /* keep the last answer */ }
+}
+
+// What the route map's All tab needs to say when each day ends and how many a day
+// could hold flat out. Display only: none of it reaches the target, day sizing or
+// the Optimize solve. Sync, so it reads the in-memory first-log record above.
+// `day1Left` is Day 1's pending count, from the snapshot the route map is drawing.
+// Breaks are a daily total taken whenever (owner, 2026-11-18): every day gets the
+// whole allowance except a Day 1 that is today, which gets what breakMinutesLeft
+// says is still to come. Both new names have a literal fallback for a phone holding
+// an older cached config.js or route-constraints.js.
+function dayPlan(day1Left){
+  const breakMin = typeof conf.ROUTE_BREAK_MIN === 'number' ? conf.ROUTE_BREAK_MIN : 60;
+  const planIsToday = planDay() === localDate();
+  let day1BreakMin = breakMin;
+  if(planIsToday && typeof routeConstraints.breakMinutesLeft === 'function'){
+    const logged = firstLogToday.date === localDate() ? firstLogToday : { done:0, breakMin:0 };
+    day1BreakMin = routeConstraints.breakMinutesLeft(breakMin, logged.breakMin, logged.done, day1Left);
+  }
+  return {
+    usualStart: usualStart(),
+    delayPerStopMin: delayPerStop(),
+    fallbackOnSiteMin: dwellShape().base,
+    breakMin,
+    day1BreakMin,
+    todayFirstLog: todayFirstLog(),
+    planIsToday,
+    flatOutEnd: conf.ROUTE_FLAT_OUT_END || '15:30',
+  };
 }
 
 // The clock DAY 1 departs on, as `scheduleRouteConstraints`' `day1FirstStopTime`
@@ -3177,6 +3212,8 @@ export function initWorklist(opts){
     planIssue: () => store.get('wlPlanIssue') || '',
     planDay,
     savedStartFix,
+    // The All tab's day end times and flat-out line. Display only.
+    dayPlan,
     persistOrder: async ordered => {
       const current = (await idb.all('worklist')) || [];
       const byId = new Map(current.map(x => [String(x.id), x]));

@@ -18,6 +18,8 @@ import {
   ALL_ROUTES,
   overviewMarkers,
   overviewPinFace,
+  dayEndText,
+  flatOutText,
 } from '../js/worklist-route-view.js';
 import { decodePolyline, encodePolyline } from '../js/route.js';
 import { VARIANT_FIELDS } from '../js/route-variants.js';
@@ -499,4 +501,106 @@ test('several orders on one overview pin show the count', () => {
 test('the All tab has a key no day can take', () => {
   const keys = groupPendingRoutes([pinned('a', 1, 1, 1), pinned('b', '', 2, 2)]).map(g => g.key);
   assert.ok(!keys.includes(ALL_ROUTES));
+});
+
+// ── the All tab's day end time and flat-out line ────────────────────────────
+// Literal strings on purpose: this is copy the crew reads, and a drift in an arrow
+// or a unit is a regression even when the arithmetic is right.
+
+const etaStop = (id, eta, onSite) => ({ id, wlStatus:'pending', scheduledEta:eta,
+  ...(onSite == null ? {} : { scheduledOnSiteMin:onSite }) });
+const dayPlan = over => ({ usualStart:'09:30', delayPerStopMin:10, fallbackOnSiteMin:15,
+  breakMin:60, day1BreakMin:60, todayFirstLog:'', planIsToday:false, flatOutEnd:'15:30', ...over });
+// Five stops, the last leaving at 14:05 (13:50 + 15 on site).
+const fullDay = day => ({ key:`day:${day}`, label:`Day ${day}`, day, items:[
+  etaStop('a', '09:45', 15), etaStop('b', '11:00', 15), etaStop('c', '12:00', 15),
+  etaStop('d', '13:00', 15), etaStop('e', '13:50', 15)] });
+
+test('a day not started ends after its work, its breaks and its delays', () => {
+  // 14:05 + 60 break + 5 × 10 delay = 15:55
+  assert.equal(dayEndText(fullDay(2), dayPlan()),
+    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+});
+
+test('a day with no measured delay leaves the delays out', () => {
+  assert.equal(dayEndText(fullDay(2), dayPlan({ delayPerStopMin:0 })),
+    '09:45 → ends about 15:05 · 60 min breaks');
+});
+
+test('a stop without its own on-site time uses the fallback', () => {
+  const g = fullDay(2);
+  g.items[4] = etaStop('e', '13:50');            // fallback 15, same as the others
+  assert.equal(dayEndText(g, dayPlan()),
+    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+});
+
+test('Day 1 today, once a stop is logged, says when the day started and the breaks left', () => {
+  const g = { key:'day:1', label:'Day 1', day:1, items:[
+    etaStop('a', '10:00', 15), etaStop('b', '11:00', 15), etaStop('c', '12:00', 15),
+    etaStop('d', '13:00', 15), etaStop('e', '14:00', 15)] };
+  // 14:15 + 25 break + 5 × 6 delay = 15:10
+  assert.equal(dayEndText(g, dayPlan({ planIsToday:true, todayFirstLog:'08:50',
+    day1BreakMin:25, delayPerStopMin:6 })),
+    'started 08:50 → ends about 15:10 · 25 min breaks · 30 min delays');
+});
+
+test('an evening Day 1 with its breaks used up and no log shows neither', () => {
+  const g = { key:'day:1', label:'Day 1', day:1, items:[
+    etaStop('a', '17:14', 15), etaStop('b', '17:40', 15), etaStop('c', '18:05', 15)] };
+  const plan = dayPlan({ planIsToday:true, day1BreakMin:0, delayPerStopMin:2 });
+  assert.equal(dayEndText(g, plan), '17:14 → ends about 18:26 · 6 min delays');
+  // Same evening with a stop logged this morning: now it has started.
+  assert.equal(dayEndText(g, { ...plan, todayFirstLog:'08:50' }),
+    'started 08:50 → ends about 18:26 · 6 min delays');
+});
+
+test('only Day 1 of a plan for today takes the started clock and the breaks left', () => {
+  const today = dayPlan({ planIsToday:true, todayFirstLog:'08:50', day1BreakMin:25 });
+  // Day 2 is a fresh day tomorrow: the full allowance, no "started".
+  assert.equal(dayEndText(fullDay(2), today),
+    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+  // Day 1 of a plan for tomorrow has not started either.
+  assert.equal(dayEndText(fullDay(1), { ...today, planIsToday:false }),
+    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+});
+
+test('a day with no ETAs, or no plan, has no end time to show', () => {
+  const g = { key:'day:3', label:'Day 3', day:3, items:[{ id:'x', wlStatus:'pending' }] };
+  assert.equal(dayEndText(g, dayPlan()), '');
+  assert.equal(dayEndText(fullDay(2), undefined), '');
+  assert.equal(dayEndText(fullDay(2), null), '');
+});
+
+// 113 orders over five optimized days, every stop 12 minutes of work. With 1.5
+// minutes of delay a stop, 09:30 to 15:30 less 60 of breaks holds 300 / 13.5 = 22.
+function optimizedDays(sizes){
+  let n = 0;
+  return sizes.map((size, d) => ({ key:`day:${d + 1}`, label:`Day ${d + 1}`, day:d + 1,
+    items:Array.from({ length:size }, (_, k) => {
+      const m = 570 + 12 * k;
+      const eta = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+      return etaStop(`s${n++}`, eta, 12);
+    }) }));
+}
+
+test('the flat-out line counts a day by 15:30 and the days the list would take', () => {
+  const groups = optimizedDays([25, 25, 25, 25, 13]);
+  assert.equal(flatOutText(groups, dayPlan({ delayPerStopMin:1.5 }), 25),
+    'Flat out: about 22 a day by 15:30 — all 113 in 6 days. Planned at 25 a day.');
+});
+
+test('a list that fits in one flat-out day says "1 day"', () => {
+  const groups = optimizedDays([10]);
+  assert.equal(flatOutText(groups, dayPlan({ delayPerStopMin:1.5 }), 25),
+    'Flat out: about 22 a day by 15:30 — all 10 in 1 day. Planned at 25 a day.');
+});
+
+test('the flat-out line is hidden with no ETAs, no plan, or no room', () => {
+  const never = [{ key:'other', label:'Route', day:null,
+    items:[{ id:'a', wlStatus:'pending' }, { id:'b', wlStatus:'pending' }] }];
+  assert.equal(flatOutText(never, dayPlan(), 25), '');
+  const groups = optimizedDays([25, 13]);
+  assert.equal(flatOutText(groups, undefined, 25), '');
+  // A cut-off that leaves no room after the breaks is 0 a day: say nothing.
+  assert.equal(flatOutText(groups, dayPlan({ flatOutEnd:'10:00' }), 25), '');
 });
