@@ -479,3 +479,21 @@ test('the arrival clock changes no day size', () => {
     assert.equal(on.scheduleById[id].slot, off.scheduleById[id].slot);
   });
 });
+
+test('an appointment at or after the arrival clock does not pull the day earlier', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'09:40' }), item('b')];
+  const r = scheduleRouteConstraints(items, ['a','appt','b'], opts({ firstStopTime:'09:30', firstStopArrival:true }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '09:30');
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+  assert.equal(r.scheduleById.appt.waitMin, 0);
+});
+
+test('the pull works with a travel lookup and adds no drive out', () => {
+  const items = [item('a'), item('appt', { appointmentDate:'2026-07-24', appointmentTime:'08:30' }), item('b')];
+  const r = scheduleRouteConstraints(items, ['a','appt','b'],
+    opts({ firstStopTime:'09:30', firstStopArrival:true, travel:arrivalTravel }));
+  assert.equal(r.scheduleById.appt.slot, 1);
+  assert.equal(r.scheduleById.appt.eta, '08:10');
+  assert.equal(r.scheduleById.appt.lateMin, 0);
+});

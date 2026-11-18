@@ -61,7 +61,10 @@ export function addWorkdays(start, offset){
 //   - the span starts at `firstStopTime`. Under a departure clock (the default)
 //     that is when the crew leaves the muster point, so the drive out is inside the
 //     number; under an arrival clock (`firstStopArrival`) it is when the crew reaches
-//     the first stop, so the drive out is NOT inside it;
+//     the first stop, so the drive out is NOT inside it. A day pulled earlier by an
+//     early appointment has its first ETA BEFORE `firstStopTime`, so a caller on an
+//     arrival clock must pass that day's own first ETA as the start, or the span is
+//     understated by the size of the pull;
 //   - the last departure is taken as a MAX rather than "the last element", so a
 //     caller that hands the day over in any order still gets the right answer;
 //   - a stop with no saved `scheduledOnSiteMin` falls back to the run's dwell
@@ -336,9 +339,9 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   // stands, so Day 1 running on it is not arrival-anchored.
   const arrival = opts.firstStopArrival === true;
   const arrivalDay = day => arrival && !(day === 0 && rawDay1First != null);
-  // An arrival-anchored day starts no later than its earliest appointment's window
-  // opens (20 minutes before it, simulateDay's rule), so an early appointment pulls
-  // THAT day earlier instead of arriving late. ETAs only: never read for day sizing.
+  // An arrival-anchored day whose earliest appointment is before the clock starts
+  // when that appointment's window opens (20 minutes before it, simulateDay's rule),
+  // so an early appointment pulls THAT day earlier instead of arriving late. ETAs only: never read for day sizing.
   const dayClock = day => {
     if(!arrivalDay(day)) return firstMinFor(day);
     let earliest = null;
@@ -346,7 +349,10 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
       const t = x.appointmentDate ? timeMin(x.appointmentTime) : null;
       if(t != null && (earliest == null || t < earliest)) earliest = t;
     });
-    return earliest == null ? firstMin : Math.min(firstMin, earliest - 20);
+    // Only an appointment BEFORE the clock pulls it. One at or after the clock is
+    // already inside its window when the crew arrives on the clock, so the day is
+    // not started earlier for it.
+    return (earliest != null && earliest < firstMin) ? earliest - 20 : firstMin;
   };
   const pace = Math.round(Number(opts.paceMin) || 0);
   if(pace < 1) throw new Error('Pace must be at least 1 minute per stop');

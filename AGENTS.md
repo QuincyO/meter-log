@@ -448,8 +448,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   added; on, it is the time the crew ARRIVES at a day's first stop and no drive out is
   added (a measured usual first log already contains it). `day1FirstStopTime` stays a
   departure either way, so Day 1 running on it is not arrival-anchored. An
-  arrival-anchored day starts at `min(clock, earliest appointment that day − 20)`, so
-  an early appointment pulls only its own day earlier instead of arriving late. The
+  arrival-anchored day starts 20 minutes before its earliest appointment only when
+  that appointment is BEFORE the clock (otherwise the clock is unchanged: arriving on
+  it is already inside the window), so an early appointment pulls only its own day
+  earlier instead of arriving late. The
   same clock and flag go to `placeAppointments` and `simulateDay` so the search and
   the final walk price one day. ETAs only: `counts[]`/`capFor` never read any of it.
 - **Never schedule a late arrival, and never model the day twice.** Two rules that

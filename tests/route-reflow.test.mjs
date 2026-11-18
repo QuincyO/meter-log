@@ -156,3 +156,14 @@ test('pipeline: optimizeRoute measure → anchorFiller → scheduler carries on 
     assertPermutation(s, ids);
   } finally { globalThis.fetch = before; }
 });
+
+test('reflow with an arrival clock: first stop on the clock, an early appointment pulls its day', () => {
+  const list = items({ A:{ appointmentDate:START, appointmentTime:'08:00' } });
+  const s = run(list, ROUTE, { reflow:true, firstStopTime:'09:30', firstStopArrival:true });
+  const d1 = day1(s), d2 = s.orderedIds.filter(id => s.dayOf[id] === 2);
+  assert.equal(s.scheduleById.A.lateMin, 0);
+  assert.equal(s.scheduleById[d1[0]].eta, '07:40');   // 08:00 window opens 07:40; no 5-min drive out added
+  assert.equal(s.scheduleById[d2[0]].eta, '09:30');   // a day without the appointment arrives on the clock
+  const plain = run(items(), ROUTE, { reflow:true, firstStopTime:'09:30', firstStopArrival:true });
+  assert.equal(plain.scheduleById[plain.orderedIds[0]].eta, '09:30');
+});
