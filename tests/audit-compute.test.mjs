@@ -4,7 +4,7 @@
 // figures must never be committed (GitHub Pages publishes the whole tree).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AUDIT, pct, mean, kindOf, prepareAudit }
+import { AUDIT, pct, mean, kindOf, prepareAudit, periodStats, dayDetail, driveStats }
   from '../js/compute/audit.js';
 
 const WHO = 'Pat Example';
@@ -292,4 +292,199 @@ test('pct takes the value at floor(n × p)', () => {
   assert.equal(pct([], .5), null);
   assert.equal(mean([1, 2, 6]), 3);
   assert.equal(mean([]), null);
+});
+
+// ── periodStats ──────────────────────────────────────────────────────────────
+
+const ALL = { from: '', to: '' };
+// Nine logs: eight six minutes apart from 09:00, then one `gap` minutes after 09:42.
+const dayWithGap = (date, gap) => {
+  const t = 582 + gap, s = Math.round((t % 1) * 60);
+  return stopsOn(date, [...every('09:00', 8), `${pad(Math.floor(t / 60))}:${pad(Math.floor(t % 60))}:${pad(s)}`]);
+};
+function noNaN(v, path = 'stats'){
+  if(typeof v === 'number') assert.ok(!Number.isNaN(v), `${path} is NaN`);
+  else if(v && typeof v === 'object') for(const k of Object.keys(v)) noNaN(v[k], `${path}.${k}`);
+}
+
+test('the average-day bar adds up to the average day', () => {
+  const dates = weekdays(12);
+  const stops = dates.flatMap((d, i) => i % 3 ? stopsOn(d, every('09:00', 9)) : dayWithGap(d, 78));
+  const downtime = [
+    gapRow(dates[0], 'DISPATCH', 40, 'gap 07:30–08:10'),
+    gapRow(dates[0], 'WAREHOUSE', 20, 'gap 08:10–08:30'),
+    gapRow(dates[0], 'TRUCK_ISSUES', 30, 'gap 09:42–11:00'),
+  ];
+  const days = [{ date: dates[1], returned: '17:00' }, { date: dates[2], returned: '16:00' }];
+  const p = periodStats(prep(stops, downtime, days), ALL);
+  const sum = p.bar.segments.reduce((s, x) => s + x.minutes, 0);
+  assert.ok(Math.abs(sum - (p.bar.endMin - p.bar.startMin)) < 1e-6);
+  assert.deepEqual(p.bar.segments.map(s => s.key),
+    ['delayBefore', 'driveToFirst', 'beforeUnlogged', 'work', 'pauseUnlogged', 'pauseLogged', 'closeout']);
+  const seg = Object.fromEntries(p.bar.segments.map(s => [s.key, s.minutes]));
+  assert.equal(p.bar.startMin, 450);
+  assert.equal(p.bar.firstMin, 540);
+  assert.equal(p.bar.endMin, 960 + 60 / 12);
+  assert.ok(Math.abs(seg.delayBefore - 20 / 12) < 1e-9);
+  assert.ok(Math.abs(seg.driveToFirst - 40 / 12) < 1e-9);
+  assert.ok(Math.abs(seg.pauseLogged - 30 / 12) < 1e-9);
+  assert.ok(Math.abs(seg.pauseUnlogged - (4 * 72 - 30) / 12) < 1e-9);
+  noNaN(p);
+});
+
+test('statistics skip short days and the day list keeps them', () => {
+  const p = periodStats(prep([...history(10), ...stopsOn(D, ['09:00', '12:00', '15:00'])]), ALL);
+  assert.deepEqual([p.days, p.fullDays, p.orders], [11, 10, 93]);
+  assert.equal(p.daily.length, 11);
+  assert.deepEqual([p.daily[10].date, p.daily[10].qualifies, p.daily[10].flags], [D, false, 2]);
+  assert.equal(p.pause.median, 0);
+  assert.equal(p.pause.flags, 0);
+  assert.equal(p.output.ordersBest, 9);
+  assert.equal(p.headline.ordersAvg, 9);
+  assert.equal(p.output.perOrder, (10 * 48 + 360) / (10 * 8 + 2));   // every day, short ones included
+});
+
+test('the range limits the days and leaves the usual times alone', () => {
+  const model = prep([...history(15), ...stopsOn(D, every('10:00', 6, 30), { km: 0.7 })]);
+  const week = periodStats(model, { from: '2026-09-08', to: '2026-09-12' });
+  assert.deepEqual(week.daily.map(d => d.date), ['2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']);
+  assert.deepEqual([week.days, week.orders, week.from, week.to], [4, 36, '2026-09-08', '2026-09-12']);
+  assert.deepEqual(week.usual, periodStats(model, ALL).usual);
+  assert.equal(week.gapsCount, model.gapsCount);
+  assert.deepEqual(week.usual[2], { label: '0.5 to 1 km', median: 30, count: 5 });
+  assert.equal(week.nextDoorShare, 120 / 125);
+  assert.equal(periodStats(model, { from: '2026-09-21', to: '' }).days, 2);     // open-ended: Sep 21 and the November day
+});
+
+test('the histogram bins on [lo, hi)', () => {
+  const dates = weekdays(5);
+  const p = periodStats(prep([0, 20.9, 21, 66, 156].flatMap((gap, i) =>
+    gap ? dayWithGap(dates[i], gap) : stopsOn(dates[i], every('09:00', 9)))), ALL);
+  assert.deepEqual(p.daily.map(d => Math.round(d.pauseUn * 10) / 10), [0, 14.9, 15, 60, 150]);
+  assert.deepEqual(p.pause.bins.map(b => b.days), [2, 1, 0, 0, 1, 0, 0, 0, 0, 1]);
+  assert.deepEqual([p.pause.bins[0].lo, p.pause.bins[0].hi, p.pause.bins[9].hi], [0, 15, Infinity]);
+  assert.deepEqual([p.pause.under60, p.pause.over90, p.pause.flags, p.pause.flagDays], [3, 1, 2, 2]);
+  assert.equal(p.pause.median, 15);
+  assert.equal(p.pause.longestMedian, 60);          // of the days that had a pause
+  assert.equal(p.pause.longestAtMedian, 582);
+  assert.equal(p.pause.perDay, 4 / 5);
+});
+
+test('category totals cover short days and leave out travel and breaks', () => {
+  const [first] = weekdays(1);
+  const p = periodStats(prep([...history(10), ...stopsOn(D, ['10:00', '10:06', '10:12'])], [
+    gapRow(first, 'DISPATCH', 30, 'gap 07:30–08:00'),
+    gapRow(first, 'WAREHOUSE', 10, 'gap 09:10–09:20'),
+    gapRow(D, 'WAREHOUSE', 40, 'gap 08:00–08:40'),
+    gapRow(D, 'BREAK', 15, ''),
+    gapRow(D, 'MISC_TRAVEL', 20, 'gap 10:00–10:06'),
+  ]), ALL);
+  assert.deepEqual(p.categories.map(c => [c.category, c.label, c.minutes, c.days, c.before, c.between]),
+    [['WAREHOUSE', 'Warehouse', 50, 2, 40, 10], ['DISPATCH', 'Dispatch', 30, 1, 30, 0]]);
+  assert.deepEqual(p.categories.map(c => [c.share, c.beforeShare, c.betweenShare]),
+    [[50 / 80, 0.8, 0.2], [30 / 80, 1, 0]]);
+  assert.equal(p.headline.loggedBeforeShare, 70 / 80);
+  assert.equal(p.loggedPerDay.total, 40 / 10);        // per-day figures use the full days only
+  assert.equal(p.loggedPerDay.dispatchBefore, 3);
+  assert.equal(p.loggedPerDay.otherBefore, 0);
+  assert.equal(p.headline.loggedAvg, 4);
+});
+
+test('months are reported from the full days in each', () => {
+  const p = periodStats(prep([...history(30), ...stopsOn('2026-10-31', ['09:00', '09:06'])]), ALL);
+  assert.deepEqual(p.months.map(m => [m.month, m.days, m.ordersAvg, m.firstAvg, m.lastAvg, m.perOrder, m.pauseMedian, m.loggedAvg]),
+    [['2026-09', 22, 9, 540, 588, 6, 0, 0], ['2026-10', 8, 9, 540, 588, 6, 0, 0]]);
+});
+
+test('a range with no qualifying day has null statistics and a correct day list', () => {
+  const [a, b] = weekdays(2);
+  const model = prep([...stopsOn(a, ['09:00', '09:30']), ...stopsOn(b, ['10:00', '10:30', '11:00'])]);
+  const p = periodStats(model, ALL);
+  assert.deepEqual([p.days, p.fullDays, p.orders], [2, 0, 5]);
+  assert.equal(p.headline.pauseMedian, null);
+  assert.equal(p.headline.ordersAvg, null);
+  assert.equal(p.bar, null);
+  assert.equal(p.pause.median, null);
+  assert.equal(p.output.firstAvg, null);
+  assert.deepEqual(p.months, []);
+  assert.deepEqual(p.daily.map(d => [d.date, d.n]), [[a, 2], [b, 3]]);
+  noNaN(p);
+  const backwards = periodStats(model, { from: '2026-10-01', to: '2026-09-01' });
+  assert.equal(backwards.days, 0);
+  assert.deepEqual(backwards.daily, []);
+  noNaN(backwards);
+});
+
+test('an empty model gives empty statistics', () => {
+  const p = periodStats(prep([]), ALL);
+  assert.deepEqual([p.days, p.fullDays, p.orders, p.bar, p.nextDoorShare], [0, 0, 0, null, null]);
+  assert.deepEqual([p.daily, p.categories, p.months], [[], [], []]);
+  assert.equal(p.usual.length, 7);
+  assert.deepEqual(p.usual[0], { label: 'Next door (under 60 m)', median: null, count: 0 });
+  noNaN(p);
+});
+
+// ── dayDetail ────────────────────────────────────────────────────────────────
+
+test('the 30-day baseline is the 30 qualifying days before the day', () => {
+  const dates = weekdays(40);
+  const stops = dates.flatMap((d, i) => stopsOn(d, every(i < 5 ? '10:00' : '09:00', 9)));
+  // a short day in the middle must not use up one of the thirty
+  const model = prep([...stops, ...stopsOn('2026-10-17', ['09:00', '09:06'])]);
+  const d36 = dayDetail(model, dates[35]);
+  assert.deepEqual([d36.baselines.last30.days, d36.baselines.last30.firstAvg], [30, 540]);   // days 6 to 35
+  assert.deepEqual([d36.baselines.all.days, d36.baselines.all.firstAvg], [40, 547.5]);
+  assert.deepEqual([d36.prevDate, d36.nextDate], [dates[34], dates[36]]);
+  assert.equal(d36.day.date, dates[35]);
+  const d5 = dayDetail(model, dates[4]);
+  assert.deepEqual([d5.baselines.last30.days, d5.baselines.last30.firstAvg], [4, 600]);
+  const d1 = dayDetail(model, dates[0]);
+  assert.deepEqual(d1.baselines.last30,
+    { days: 0, ordersAvg: null, firstAvg: null, lastAvg: null, loggedBeforeAvg: null,
+      loggedBetweenAvg: null, pauseMedian: null, longestMedian: null });
+  assert.equal(d1.prevDate, null);
+  assert.equal(dayDetail(model, dates[39]).nextDate, null);
+  // the short day is still a neighbour to step to
+  assert.equal(dayDetail(model, '2026-10-19').prevDate, '2026-10-17');
+});
+
+test('a baseline reports averages for the day shape and medians for the pauses', () => {
+  const dates = weekdays(3);
+  const model = prep([...stopsOn(dates[0], every('09:00', 9)), ...dayWithGap(dates[1], 36), ...dayWithGap(dates[2], 66),
+    ...stopsOn(D, every('09:00', 9))],
+    [gapRow(dates[0], 'DISPATCH', 30, 'gap 07:30–08:00'), gapRow(dates[1], 'OTHER', 12, 'gap 09:06–09:12')]);
+  const b = dayDetail(model, D).baselines.last30;
+  assert.deepEqual([b.days, b.ordersAvg, b.firstAvg, b.loggedBeforeAvg, b.loggedBetweenAvg], [3, 9, 540, 10, 4]);
+  assert.equal(b.lastAvg, (588 + 618 + 648) / 3);
+  assert.equal(b.pauseMedian, 30);          // 0, 30, 60
+  assert.equal(b.longestMedian, 60);        // of the two days that had one: 30, 60
+});
+
+test('a one-log day opens with no gaps', () => {
+  const d = dayDetail(prep([...history(10), ...stopsOn(D, ['11:15'])]), D);
+  assert.deepEqual(d.day.gaps, []);
+  assert.equal(d.day.pauseUnMin, 0);
+  assert.equal(d.day.spanMin, 0);
+  assert.deepEqual([d.day.n, d.day.qualifies, d.day.firstMin, d.day.lastMin], [1, false, 675, 675]);
+  assert.equal(d.baselines.last30.days, 10);
+});
+
+test('dayDetail is null for a date with no logs', () => {
+  const model = prep([...history(3), ...stopsOn('2026-07-01', ['10:00', '10:10'])]);
+  assert.equal(dayDetail(model, '2026-12-25'), null);
+  assert.equal(dayDetail(model, '2026-07-01'), null);      // a boat day, in a land audit
+  assert.equal(dayDetail(model, ''), null);
+});
+
+// ── driveStats ───────────────────────────────────────────────────────────────
+
+test('driveStats totals the legs', () => {
+  const legs = [
+    { distanceM: 30000, driveMin: 40, maxSpeed: 25, gaps: [{}] },
+    { distanceM: 10000, driveMin: 20, maxSpeed: 20, gaps: [] },
+  ];
+  assert.deepEqual(driveStats(legs), { legs: 2, km: 40, driveMin: 60, avgKmh: 40, topKmh: 90, gaps: 1 });
+  assert.equal(driveStats([]), null);
+  assert.equal(driveStats(null), null);
+  assert.equal(driveStats([{ distanceM: 0, driveMin: 0, maxSpeed: 0 }]).avgKmh, null);
 });

@@ -211,3 +211,160 @@ export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
   return { installer, mode, days, usual, usualAny, kindCounts, gapsCount: allGaps.length,
     orders, status, unpinned, skippedOtherMode };
 }
+
+// ── Period statistics ────────────────────────────────────────────────────────
+const sum = (list, f) => list.reduce((s, x) => s + f(x), 0);
+const col = (list, f) => list.map(f);
+
+// The figures a comparison column shows, over a list of qualifying days. Averages
+// for the shape of the day and the logged delay, medians for the pause figures:
+// the same statistic the rest of the page uses for each measure.
+function summarize(list){
+  return {
+    days: list.length,
+    ordersAvg: mean(col(list, d => d.n)),
+    firstAvg: mean(col(list, d => d.firstMin)),
+    lastAvg: mean(col(list, d => d.lastMin)),
+    loggedBeforeAvg: mean(col(list, d => d.log.before)),
+    loggedBetweenAvg: mean(col(list, d => d.log.between)),
+    pauseMedian: pct(col(list, d => d.pauseUnMin), .5),
+    longestMedian: pct(col(list, d => d.longestMin).filter(v => v > 0), .5),
+  };
+}
+
+/** Everything the period view shows, for the days from `from` to `to` (each
+ *  'yyyy-MM-dd', or '' for open-ended). Per-day statistics use only the days with
+ *  8+ orders; the day list, the order counts and the category totals use them all.
+ *  The usual times are prep's, over every day in the mode, whatever the range. */
+export function periodStats(prep, { from = '', to = '' } = {}){
+  const inRange = prep.days.filter(d => (!from || d.date >= from) && (!to || d.date <= to));
+  const full = inRange.filter(d => d.qualifies);
+  const U = col(full, d => d.pauseUnMin), A = col(full, d => d.pauseAllMin);
+  const N = col(full, d => d.n), F = col(full, d => d.firstMin), L = col(full, d => d.lastMin);
+
+  const status = { installed: 0, uti: 0, other: 0 };
+  let unpinned = 0;
+  for(const d of inRange) for(const l of d.logs){
+    status[l.status === 'INSTALLED' ? 'installed' : l.status === 'UTI' ? 'uti' : 'other']++;
+    if(!l.pin) unpinned++;
+  }
+  const orders = sum(inRange, d => d.n);
+
+  // Logged delays by category, over every day in range. Break, lunch and travel
+  // rows never reach a day's `delays`, so they are not here either.
+  const cats = new Map();
+  for(const d of inRange) for(const x of d.delays){
+    const c = cats.get(x.category) || { category: x.category, label: x.label, minutes: 0,
+      before: 0, between: 0, after: 0, untimed: 0, dates: new Set() };
+    c.minutes += x.minutes; c[x.where] += x.minutes; c.dates.add(d.date);
+    cats.set(x.category, c);
+  }
+  const catTotal = sum([...cats.values()], c => c.minutes);
+  const categories = [...cats.values()].sort((a, b) => b.minutes - a.minutes).map(c => ({
+    category: c.category, label: c.label, minutes: c.minutes, share: c.minutes / catTotal,
+    days: c.dates.size, before: c.before, between: c.between, after: c.after, untimed: c.untimed,
+    beforeShare: c.before / c.minutes, betweenShare: c.between / c.minutes }));
+
+  const byMonth = new Map();
+  for(const d of full){
+    const m = d.date.slice(0, 7);
+    if(!byMonth.has(m)) byMonth.set(m, []);
+    byMonth.get(m).push(d);
+  }
+  const perOrder = list => { const steps = sum(list, d => Math.max(0, d.n - 1)); return steps ? sum(list, d => d.spanMin) / steps : null; };
+  const months = [...byMonth.keys()].sort().map(m => {
+    const list = byMonth.get(m);
+    return { month: m, days: list.length, ordersAvg: mean(col(list, d => d.n)),
+      firstAvg: mean(col(list, d => d.firstMin)), lastAvg: mean(col(list, d => d.lastMin)),
+      perOrder: perOrder(list), pauseMedian: pct(col(list, d => d.pauseUnMin), .5),
+      loggedAvg: mean(col(list, d => d.log.total)) };
+  });
+
+  const loggedAvg = mean(col(full, d => d.log.total));
+  const ordersAvg = mean(N), ordersBest = N.length ? Math.max(...N) : null;
+  // Averages, so the parts add up to the day. A day's "before the first meter, not
+  // logged" can be negative (more delay logged before the first meter than there
+  // was time); the average is floored at zero for drawing.
+  const bar = !full.length ? null : {
+    startMin: mean(col(full, d => d.startMin)), endMin: mean(col(full, d => d.endMin)),
+    firstMin: mean(F), lastMin: mean(L),
+    segments: [
+      { key: 'delayBefore', minutes: mean(col(full, d => d.log.otherBefore)) },
+      { key: 'driveToFirst', minutes: mean(col(full, d => d.log.dispatchBefore)) },
+      { key: 'beforeUnlogged', minutes: Math.max(0, mean(col(full, d => d.beforeUnloggedMin))) },
+      { key: 'work', minutes: mean(col(full, d => d.workMin)) },
+      { key: 'pauseUnlogged', minutes: mean(U) },
+      { key: 'pauseLogged', minutes: mean(col(full, d => d.pauseLoggedMin)) },
+      { key: 'closeout', minutes: mean(col(full, d => d.closeoutMin)) },
+    ] };
+  const pinnedGaps = prep.kindCounts.reduce((a, b) => a + b, 0);
+
+  return {
+    from, to, mode: prep.mode, orders, days: inRange.length, fullDays: full.length,
+    status, unpinned, gapsCount: prep.gapsCount,
+    nextDoorShare: pinnedGaps ? prep.kindCounts[0] / pinnedGaps : null,
+    headline: { orders, days: inRange.length, ordersAvg, ordersBest,
+      pauseMedian: pct(U, .5), loggedAvg,
+      loggedBeforeShare: catTotal ? sum(categories, c => c.before) / catTotal : null },
+    bar,
+    pause: {
+      median: pct(U, .5), avg: mean(U), p25: pct(U, .25), p75: pct(U, .75), p10: pct(U, .1), p90: pct(U, .9),
+      perDay: mean(col(full, d => d.pauses)),
+      longestMedian: pct(col(full, d => d.longestMin).filter(v => v > 0), .5),
+      longestAtMedian: pct(full.filter(d => d.longestAtMin != null).map(d => d.longestAtMin), .5),
+      allMedian: pct(A, .5), allAvg: mean(A),
+      bins: AUDIT.PAUSE_BINS.map(([lo, hi]) => ({ lo, hi, days: U.filter(u => u >= lo && u < hi).length })),
+      under60: U.filter(u => u < AUDIT.BREAK_ALLOWANCE_MIN).length, over90: U.filter(u => u >= 90).length,
+      flags: sum(full, d => d.flags), flagDays: full.filter(d => d.flags > 0).length },
+    months, categories,
+    loggedPerDay: {
+      dispatchBefore: mean(col(full, d => d.log.dispatchBefore)),
+      otherBefore: mean(col(full, d => d.log.otherBefore)),
+      before: mean(col(full, d => d.log.before)), between: mean(col(full, d => d.log.between)),
+      after: mean(col(full, d => d.log.after)), untimed: mean(col(full, d => d.log.untimed)),
+      total: loggedAvg },
+    output: {
+      ordersAvg, ordersMedian: pct(N, .5), ordersP10: pct(N, .1), ordersP90: pct(N, .9), ordersBest,
+      firstAvg: mean(F), firstMedian: pct(F, .5), firstP25: pct(F, .25), firstP75: pct(F, .75),
+      lastAvg: mean(L), lastMedian: pct(L, .5),
+      spanAvg: mean(col(full, d => d.spanMin)), workAvg: mean(col(full, d => d.workMin)),
+      perOrder: perOrder(inRange) },      // every day in range, as the report it replaces had it
+    usual: AUDIT.KIND_LABELS.map((label, k) => ({ label, median: prep.usual[k], count: prep.kindCounts[k] })),
+    daily: inRange.map(d => ({ date: d.date, n: d.n, qualifies: d.qualifies, firstMin: d.firstMin,
+      lastMin: d.lastMin, loggedBefore: d.log.before, loggedBetween: d.log.between,
+      pauseUn: d.pauseUnMin, longest: d.longestMin, longestAt: d.longestAtMin, flags: d.flags,
+      pastEnd: d.pastEnd, closed: d.closed })),
+  };
+}
+
+// ── One day ──────────────────────────────────────────────────────────────────
+/** One day with its neighbours and the two baselines it is compared with: the up
+ *  to 30 most recent qualifying days strictly before it, and every qualifying day.
+ *  Null when the date has no logs in the mode. */
+export function dayDetail(prep, date){
+  const i = prep.days.findIndex(d => d.date === date);
+  if(i < 0) return null;
+  const full = prep.days.filter(d => d.qualifies);
+  return {
+    day: prep.days[i],
+    prevDate: i > 0 ? prep.days[i - 1].date : null,
+    nextDate: i + 1 < prep.days.length ? prep.days[i + 1].date : null,
+    baselines: {
+      last30: summarize(full.filter(d => d.date < date).slice(-AUDIT.BASELINE_DAYS)),
+      all: summarize(full),
+    },
+  };
+}
+
+// ── The day's drive log (office view only) ───────────────────────────────────
+/** Totals over the rows of the `driveTracks` read for one day; null with no legs.
+ *  distanceM is metres, driveMin minutes, maxSpeed metres per second. */
+export function driveStats(legs){
+  if(!legs || !legs.length) return null;
+  const km = sum(legs, l => Number(l.distanceM) || 0) / 1000;
+  const driveMin = sum(legs, l => Number(l.driveMin) || 0);
+  return { legs: legs.length, km, driveMin,
+    avgKmh: driveMin > 0 ? km / (driveMin / 60) : null,
+    topKmh: Math.max(...legs.map(l => Number(l.maxSpeed) || 0)) * 3.6,
+    gaps: sum(legs, l => Array.isArray(l.gaps) ? l.gaps.length : 0) };
+}
