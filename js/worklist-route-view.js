@@ -340,8 +340,11 @@ export function dayEndText(group, plan){
     startedMin: started == null ? undefined : started,
   });
   if(!e) return null;
+  // A measured allowance is the installer's own pause time between meters, breaks
+  // included, so it is named as both. An older worklist.js sends no breakMeasured.
+  const breaks = plan.breakMeasured ? 'breaks and pauses' : 'breaks';
   const parts = [
-    e.breakMin > 0 ? `${Math.round(e.breakMin)} min of breaks` : '',
+    e.breakMin > 0 ? `${Math.round(e.breakMin)} min of ${breaks}` : '',
     e.delayMin > 0 ? `${e.delayMin} min of delays` : '',
   ].filter(Boolean);
   return {

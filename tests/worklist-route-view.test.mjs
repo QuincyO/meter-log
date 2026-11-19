@@ -532,6 +532,38 @@ test('a day with neither breaks nor delays has no "includes" line', () => {
     { times:'09:45 → about 14:05', includes:'' });
 });
 
+// The installer's MEASURED pause time (installerMetrics pauseMinPerDay) replaces the
+// fixed 60 when there is one. It is breaks and every other unlogged pause between
+// meters, so the card names it as both.
+test('a measured allowance is named as breaks and pauses', () => {
+  // 14:05 + 70 + 5 × 1.6 = 15:23
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ breakMin:70, breakMeasured:true, delayPerStopMin:1.6 })),
+    { times:'09:45 → about 15:23', includes:'includes 70 min of breaks and pauses and 8 min of delays' });
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ breakMin:70, breakMeasured:true, delayPerStopMin:0 })),
+    { times:'09:45 → about 15:15', includes:'includes 70 min of breaks and pauses' });
+});
+
+test('Day 1 today names what is left of a measured allowance the same way', () => {
+  const plan = dayPlan({ breakMin:70, day1BreakMin:35, breakMeasured:true, planIsToday:true, delayPerStopMin:0 });
+  assert.deepEqual(dayEndText(fullDay(1), plan),
+    { times:'09:45 → about 14:40', includes:'includes 35 min of breaks and pauses' });
+});
+
+test('without a measurement the card says breaks, as before', () => {
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ breakMeasured:false, delayPerStopMin:1.6 })),
+    { times:'09:45 → about 15:13', includes:'includes 60 min of breaks and 8 min of delays' });
+  // An older worklist.js hands no breakMeasured at all.
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ delayPerStopMin:0 })),
+    { times:'09:45 → about 15:05', includes:'includes 60 min of breaks' });
+});
+
+test('the flat-out line takes the measured allowance', () => {
+  // 09:30 to 15:30 less 70 is 290; 290 / 13.5 = 21.
+  assert.equal(flatOutText(optimizedDays([25, 25, 25, 25, 13]), dayPlan({ delayPerStopMin:1.5,
+    breakMin:70, breakMeasured:true }), 25),
+    'Flat out: about 21 a day by 15:30 — all 113 in 6 days. Planned at 25 a day.');
+});
+
 test('an evening Day 1 that runs past midnight starts in the evening and ends after midnight', () => {
   // 25 stops from 19:30, every 13 minutes, 13 on site: the last arrives 00:42.
   const items = Array.from({ length:25 }, (_, k) => {

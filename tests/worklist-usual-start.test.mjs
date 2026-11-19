@@ -84,6 +84,48 @@ test('dwellShape no longer reaches planShape, so usualStart cannot recurse', () 
   assert.match(sourceOf('planShape'), /paceMin:\s*paceVal\(\)/);
 });
 
+// ── the measured pause time as the break allowance ─────────────────────────
+// installerMetrics pauseMinPerDay replaces the fixed ROUTE_BREAK_MIN on the route
+// map's day cards and flat-out line. Display only: it must never reach planShape.
+
+test('the metrics read stores the measured pause time', () => {
+  assert.match(sourceOf('refreshAvgDay'), /storeNum\('wlPauseMinPerDay', m\.pauseMinPerDay\)/);
+});
+
+// breakAllowance and the reads under it are pure over the store, so they run here
+// from their own source text with the store and config handed in.
+const strip = s => s.replace(/(^|\n)export /, '$1');
+const allowance = (stored, conf = { ROUTE_BREAK_MIN:60 }) => new Function('store', 'conf',
+  `${strip(sourceOf('readNum'))}\n${strip(sourceOf('measuredPause'))}\n${strip(sourceOf('breakAllowance'))}
+  return breakAllowance();`)({ get: k => (k === 'wlPauseMinPerDay' ? stored : null) }, conf);
+
+test('the break allowance is the measured pause between 15 and 240, else the fallback', () => {
+  assert.equal(allowance('70'), 70);
+  assert.equal(allowance('15'), 15);
+  assert.equal(allowance('240'), 240);
+  // Blank, 0, absurdly small or absurdly large never reaches a card.
+  for(const v of ['', null, undefined, '0', '5', '900', 'abc', '-70']) assert.equal(allowance(v), 60, String(v));
+  // The fallback comes through the config namespace, with the literal behind it.
+  assert.equal(allowance('', { ROUTE_BREAK_MIN:45 }), 45);
+  assert.equal(allowance('', {}), 60);
+  assert.match(sourceOf('breakAllowance'), /conf\.ROUTE_BREAK_MIN \|\| 60/);
+  assert.match(js, /export function breakAllowance\(\)/);
+});
+
+test('the day plan uses the allowance for every day and for Day 1\'s total, and says when it was measured', () => {
+  const src = sourceOf('dayPlan');
+  assert.match(src, /const breakMin = breakAllowance\(\);/);
+  assert.match(src, /routeConstraints\.breakMinutesLeft\(breakMin, /);
+  assert.match(src, /breakMeasured: measuredPause\(\) != null,/);
+  assert.doesNotMatch(src, /ROUTE_BREAK_MIN/);
+});
+
+test('the measured pause never reaches the route solve', () => {
+  // The meters/day target alone sizes a day; the pause is display only.
+  for(const fn of ['planShape', 'dwellShape', 'applyTodayAnchor', 'optimizeRouteHandler'])
+    assert.doesNotMatch(sourceOf(fn), /breakAllowance|measuredPause|wlPauseMinPerDay|dayPlan\(/, fn);
+});
+
 test('the delay per stop reads back as a number, 0 when blank', () => {
   assert.match(sourceOf('delayPerStop'), /return readNum\('wlDelayPerStopMin'\) \|\| 0;/);
   assert.match(js, /export function delayPerStop\(\)/);

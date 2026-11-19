@@ -1561,9 +1561,11 @@ the mode (`installerOnSiteFit`, with `installerOnSiteFromTracks` overriding
 `onSiteMin`): every log after the first costs `extraMeterMin` when it is within
 `DWELL_SAME_SITE_M` of the log before, else `onSiteMin + travelMinPerKm x km`
 (crow-flies); a log or a previous log with no pin costs `onSiteMin`. Per day,
-`max(0, span - model work - 60) / n`, and `delayPerStopMin` is the median of those,
-blank when there is no on-site fit. The 60 is `DAY_BREAK_MIN`: the delay is **net of
-the break minutes**, so the planned breaks are not counted as the crew being held up.
+`max(0, span - model work - pause) / n`, and `delayPerStopMin` is the median of those,
+blank when there is no on-site fit. The pause is the installer's own `pauseMinPerDay`
+(below), or `DAY_BREAK_MIN` (60) when that is blank: the delay is **net of the pause
+time**, so the breaks are not counted as the crew being held up, and the phone, which
+adds the same pause to the day, does not count it twice.
 (It was measured against `(n - 1) x` the day's median gap, which is mostly quick
 next-door stops, and read 1.5 minutes a stop for the owner: 37 minutes on a 25-stop
 day his history does not contain. On the 2026-10-14 export the new measure gives 0
@@ -1576,6 +1578,38 @@ on the row, so the backfill does not measure the model twice. Both are read now:
 spread more than 12 hours (an evening re-plan of Day 1 crossing midnight), and
 `flatOutPerDay` takes the median day's work per stop rather than a pooled total, so
 one odd day cannot move the figure.
+
+**The measured pause time (`pauseMinPerDay`).** A third day-shape number, ×3 modes,
+appended after `delayPerStopMin` and blank on the same terms: the time between meters
+that is neither ordinary work nor a logged delay, breaks included. Over the same days
+(`dayShapePause`, on the logs `installerDayShape` already holds):
+
+1. Each log after the first is a gap, with the crow-flies distance from the log
+   before (none when either pin is missing).
+2. Its **kind** is its distance bin, upper bounds in km `PAUSE_KIND_KM` =
+   `0.06, 0.5, 1, 2, 5, 10, Infinity` (the first is `DWELL_SAME_SITE_M`).
+3. A kind's **usual time** is its median gap across the window. An unpinned gap, or
+   one of a kind with fewer than 5 gaps, uses the median of every gap. A median on
+   purpose: long gaps cannot pull it up, so the breaks being measured do not leak into
+   "usual".
+4. An overrun of `PAUSE_OVER_MIN` (10) or more over the usual time is pause; a smaller
+   one is ordinary variation and counts as nothing.
+5. Less the minutes logged as a delay against that gap (never below 0), from the
+   gap-keyed `Downtime` rows keyed the way `dwellSamples` keys them, except that
+   `BREAK`, `LUNCH` and `MISC_TRAVEL` are **not** taken off (a logged break is still
+   break time, and this number is the break allowance), and the rows are **not**
+   mode-filtered: `saveTravel` writes them with a blank `workType`, which reads as
+   boat, so a filter would drop every one from a land day and the logged delays would
+   silently stop coming off.
+6. Summed per day; `pauseMinPerDay` is the median day, rounded.
+
+The owner's figure matches the independent analysis of his history it was specified
+from (about 70 minutes a day). The phone reads it as the route map's break
+allowance (`worklist.js breakAllowance()`, used only between 15 and 240, else
+`ROUTE_BREAK_MIN`'s 60), and the day cards name it "breaks and pauses" when it is the
+measured figure. Display only: it never reaches day sizing or the Optimize solve. It
+reaches the sheet once the spine is redeployed and `backfillInstallerMetrics()` runs,
+or at each installer's next end-of-day close.
 
 The other half of every ETA, and until it was measured it was one flat number for
 every stop on every route: `onSiteMinutes(pace)` = the 30-day `recent30AvgLogMin`

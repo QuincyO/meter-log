@@ -112,7 +112,8 @@ test('nothing optimized, nothing to say', () => {
 });
 
 test('nothing that sizes a day reads the day-end or flat-out helpers', () => {
-  const names = ['flatOutPerDay', 'dayEndEstimate', 'breakMinutesLeft', 'usualStartClock', 'ROUTE_FLAT_OUT_END', 'ROUTE_BREAK_MIN', 'ROUTE_USUAL_START'];
+  const names = ['flatOutPerDay', 'dayEndEstimate', 'breakMinutesLeft', 'usualStartClock', 'ROUTE_FLAT_OUT_END', 'ROUTE_BREAK_MIN', 'ROUTE_USUAL_START',
+    'breakAllowance', 'pauseMinPerDay', 'wlPauseMinPerDay', 'breakMeasured'];
   const whole = f => readFileSync(new URL('../js/' + f, import.meta.url), 'utf8');
   for(const f of ['route.js', 'route-today.js']){
     for(const n of names) assert.equal(whole(f).includes(n), false, `${f} mentions ${n}`);

@@ -88,15 +88,40 @@ test('the day-shape fields exist in all three work-mode column groups', () => {
   }
 });
 
-test('the six day-shape columns are the last six, and none is a date column', () => {
+test('the six day-shape columns come just before the pause block, and none is a date column', () => {
   const headers = metricsHeaders();
-  assert.deepEqual(headers.slice(-6), ['usualFirstLogMin', 'boatUsualFirstLogMin',
+  assert.deepEqual(headers.slice(-9, -3), ['usualFirstLogMin', 'boatUsualFirstLogMin',
     'landUsualFirstLogMin', 'delayPerStopMin', 'boatDelayPerStopMin', 'landDelayPerStopMin']);
   const dates = code.match(/const INSTALLER_METRICS_DATE_HEADERS = (\[[^\]]*\])/);
   assert.ok(dates, 'INSTALLER_METRICS_DATE_HEADERS not found');
-  for(const col of headers.slice(-6)){
+  for(const col of headers.slice(-9, -3)){
     assert.ok(!dates[1].includes(`'${col}'`), `${col} must not be date-formatted`);
   }
+});
+
+// The measured pause time (installerDayShape): the phone's break allowance on the
+// day cards and flat-out line. Appended after the day-shape block for the same
+// reason as every block above.
+test('the three pause columns are the last three, and none is a date column', () => {
+  const headers = metricsHeaders();
+  assert.deepEqual(headers.slice(-3), ['pauseMinPerDay', 'boatPauseMinPerDay', 'landPauseMinPerDay']);
+  const dates = code.match(/const INSTALLER_METRICS_DATE_HEADERS = (\[[^\]]*\])/);
+  assert.ok(dates, 'INSTALLER_METRICS_DATE_HEADERS not found');
+  for(const col of headers.slice(-3)){
+    assert.ok(!dates[1].includes(`'${col}'`), `${col} must not be date-formatted`);
+  }
+});
+
+test('installerMetricsRead projects the pause down to its canonical name', () => {
+  const body = code.match(/function installerMetricsRead\([\s\S]*?\n\}/);
+  assert.ok(body, 'installerMetricsRead not found');
+  assert.ok(body[0].includes(`'pauseMinPerDay'`), 'installerMetricsRead does not project pauseMinPerDay');
+});
+
+test('applyDayShapeMetrics fills the pause columns', () => {
+  const body = code.match(/function applyDayShapeMetrics\([\s\S]*?\n\}/);
+  assert.ok(body, 'applyDayShapeMetrics not found');
+  assert.match(body[0], /row\[col\('pauseMinPerDay'\)\]\s*=\s*shape\.pauseMinPerDay;/);
 });
 
 test('installerMetricsRead projects the day-shape fields down to their canonical names', () => {

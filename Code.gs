@@ -238,7 +238,12 @@ const INSTALLER_METRICS_HEADERS = ['hNumber','name','firstDay','lastDay']
   // starts and what each stop costs beyond travel and breaks. Appended last, in all
   // three mode groups, for the same reason as the blocks above.
   .concat(['usualFirstLogMin','boatUsualFirstLogMin','landUsualFirstLogMin',
-           'delayPerStopMin','boatDelayPerStopMin','landDelayPerStopMin']);
+           'delayPerStopMin','boatDelayPerStopMin','landDelayPerStopMin'])
+  // The installer's measured pause time a day (installerDayShape): the time between
+  // meters that is neither ordinary work nor a logged delay, breaks included. The
+  // phone's day cards use it as the break allowance in place of a fixed 60. Appended
+  // last for the same reason as the blocks above.
+  .concat(['pauseMinPerDay','boatPauseMinPerDay','landPauseMinPerDay']);
 
 // The only InstallerMetrics columns that hold a real date/time. Everything else is a
 // plain number (or a short text tag), and must never carry a date format — see the
@@ -3362,22 +3367,40 @@ function dwellSamples(name, workType, workdays) {
   return out;
 }
 
-// Break minutes taken out of a day's overhead before the rest is called delay: the
-// three planned breaks (15 + 30 + 15) are not the crew being held up.
+// Break minutes taken out of a day's overhead before the rest is called delay, when
+// the installer has no measured pause time: the three planned breaks (15 + 30 + 15)
+// are not the crew being held up.
 const DAY_BREAK_MIN = 60;
 const DAY_SHAPE_MIN_DAYS = 10;   // fewer qualifying days is no evidence
 const DAY_SHAPE_MIN_LOGS = 5;    // a day thinner than this is not a route day
 
+// The measured pause time (installerDayShape's pauseMinPerDay). Each gap between
+// logs is measured against the usual time for its KIND, the median gap at that
+// crow-flies distance, and only an overrun of PAUSE_OVER_MIN or more is a pause: a
+// smaller one is the ordinary spread of the job. The kinds' upper bounds are in km,
+// and the first is DWELL_SAME_SITE_M, so "next door" means what it means everywhere
+// else in the dwell model.
+const PAUSE_OVER_MIN = 10;
+const PAUSE_KIND_KM = [DWELL_SAME_SITE_M / 1000, 0.5, 1, 2, 5, 10, Infinity];
+const PAUSE_MIN_KIND_GAPS = 5;   // a kind thinner than this is measured against every gap
+// Gap allocations that are NOT taken off a pause. A logged break or lunch is still
+// break time, and this number is the break allowance. MISC_TRAVEL is travel, not a
+// hold-up (legacy TRAVEL_TIME is already no deduction at all, per isGapDeduction).
+const PAUSE_KEEP_CATS = { BREAK: 1, LUNCH: 1, MISC_TRAVEL: 1 };
+
 /** One installer's day shape for a work mode, read off Stops:
- *    { usualFirstLogMin, delayPerStopMin, days }
+ *    { usualFirstLogMin, delayPerStopMin, pauseMinPerDay, days }
  *  usualFirstLogMin is the median first log, in minutes after midnight (a plain
- *  number, never 'HH:mm', so the sheet cell stays numeric). delayPerStopMin is what
- *  each stop costs beyond the work the ETA model prices and DAY_BREAK_MIN: per day,
- *  the span less that modelled work and the breaks, spread over the stops. Both are
- *  '' below DAY_SHAPE_MIN_DAYS qualifying days, which the phone reads as "no
- *  evidence, use the fallback start"; delayPerStopMin is also '' with no on-site fit,
- *  since there is then no model to measure it against. `workdays` keeps only the most
- *  recent qualifying days, as dwellSamples does.
+ *  number, never 'HH:mm', so the sheet cell stays numeric). pauseMinPerDay is the
+ *  median day's pause time (dayShapePause). delayPerStopMin is what each stop costs
+ *  beyond the work the ETA model prices and that pause time (DAY_BREAK_MIN when it
+ *  is blank): per day, the span less that modelled work and the pause, spread over
+ *  the stops. Measuring the delay against the same pause the phone adds is what keeps
+ *  the phone from counting the pause twice. All three are '' below DAY_SHAPE_MIN_DAYS
+ *  qualifying days, which the phone reads as "no evidence, use the fallback";
+ *  delayPerStopMin is also '' with no on-site fit, since there is then no model to
+ *  measure it against. `workdays` keeps only the most recent qualifying days, as
+ *  dwellSamples does.
  *
  *  It used to be measured against the day's MEDIAN gap, which is mostly quick
  *  next-door stops, so it understated the work and overstated the delay: 1.5 minutes
@@ -3409,8 +3432,11 @@ function installerDayShape(name, workType, workdays, model) {
   if (keep) dates = dates.slice(-keep);
 
   if (dates.length < DAY_SHAPE_MIN_DAYS) {
-    return { usualFirstLogMin: '', delayPerStopMin: '', days: dates.length };
+    return { usualFirstLogMin: '', delayPerStopMin: '', pauseMinPerDay: '', days: dates.length };
   }
+
+  const pause = dayShapePause(nm, byDate, dates);
+  const breakMin = pause === '' ? DAY_BREAK_MIN : pause;
 
   if (!model) {
     const fit = installerOnSiteFit(nm, mode, 30);
@@ -3444,14 +3470,79 @@ function installerDayShape(name, workType, workdays, model) {
       work += (m < DWELL_SAME_SITE_M && extra != null) ? extra : onSite + rate * m / 1000;
     }
     const spanMin = (logs[n - 1].sec - logs[0].sec) / 60;
-    delays.push(Math.max(0, spanMin - work - DAY_BREAK_MIN) / n);
+    delays.push(Math.max(0, spanMin - work - breakMin) / n);
   });
 
   return {
     usualFirstLogMin: Math.round(dwellMedian(firsts)),
     delayPerStopMin: delays.length ? Math.round(dwellMedian(delays) * 10) / 10 : '',
+    pauseMinPerDay: pause,
     days: dates.length
   };
+}
+
+/** The median day's pause time over `dates`, in whole minutes, or '' with no gaps:
+ *  the time between meters that is neither ordinary work nor a logged delay, breaks
+ *  included. `byDate` is installerDayShape's own logs ({ sec, lat, lng } per date),
+ *  so Stops is not read a second time.
+ *  Each log after the first is a gap of some KIND (its PAUSE_KIND_KM distance bin;
+ *  none when either pin is missing). A kind's usual time is its median gap across the
+ *  window; an unpinned gap, or one of a kind with fewer than PAUSE_MIN_KIND_GAPS, is
+ *  measured against the median of every gap. A median on purpose: the long gaps
+ *  cannot pull it up, so the breaks being measured do not leak into "usual". An
+ *  overrun of PAUSE_OVER_MIN or more is pause time, less any delay the crew logged
+ *  against that same gap (never below 0); the day's pauses are summed. */
+function dayShapePause(nm, byDate, dates) {
+  // The crew's end-of-day allocations, keyed on the gap's clock window the way
+  // dwellSamples keys them. NOT filtered by work mode, unlike dwellSamples: saveTravel
+  // writes these rows with a blank workType, which reads as boat, so a mode filter
+  // would drop every one of them from a land day. The key already names one of this
+  // installer's gaps in this mode (date and both log minutes), which is filter enough.
+  const ded = {};
+  rows('Downtime').forEach(function (r) {
+    const cat = String(r.category || '').trim().toUpperCase();
+    if (!isGapDeduction(cat) || PAUSE_KEEP_CATS[cat]) return;
+    if (!sameName(r.installer, nm)) return;
+    const m = gapNoteTimes(r.note), d = dateOf(r.timestamp);
+    if (!m || !d) return;
+    const k = d + '|' + hhmmToMinutes(m[1]) + '|' + hhmmToMinutes(m[2]);
+    ded[k] = (ded[k] || 0) + (Number(r.minutes) || 0);
+  });
+
+  const gaps = [];
+  dates.forEach(function (d) {
+    const logs = byDate[d].sort(function (a, b) { return a.sec - b.sec; });
+    for (let i = 1; i < logs.length; i++) {
+      const prev = logs[i - 1], cur = logs[i];
+      let kind = -1;
+      if (prev.lat != null && prev.lng != null && cur.lat != null && cur.lng != null) {
+        const km = haversine(prev.lat, prev.lng, cur.lat, cur.lng) / 1000;
+        kind = PAUSE_KIND_KM.findIndex(function (b) { return km < b; });
+      }
+      gaps.push({
+        date: d, min: (cur.sec - prev.sec) / 60, kind: kind,
+        // FLOOR, as in dwellSamples: the gap note is written from HH:mm clock times.
+        key: d + '|' + Math.floor(prev.sec / 60) + '|' + Math.floor(cur.sec / 60)
+      });
+    }
+  });
+  if (!gaps.length) return '';
+
+  const usualAll = dwellMedian(gaps.map(function (g) { return g.min; }));
+  const usual = PAUSE_KIND_KM.map(function (_, i) {
+    const list = gaps.filter(function (g) { return g.kind === i; })
+      .map(function (g) { return g.min; });
+    return list.length >= PAUSE_MIN_KIND_GAPS ? dwellMedian(list) : usualAll;
+  });
+
+  const perDay = {};
+  dates.forEach(function (d) { perDay[d] = 0; });
+  gaps.forEach(function (g) {
+    const over = g.min - (g.kind < 0 ? usualAll : usual[g.kind]);
+    if (over < PAUSE_OVER_MIN) return;
+    perDay[g.date] += Math.max(0, over - (ded[g.key] || 0));
+  });
+  return Math.round(dwellMedian(dates.map(function (d) { return perDay[d]; })));
 }
 
 /** One installer's measured dwell model for a work mode:
@@ -3650,6 +3741,7 @@ function applyDayShapeMetrics(row, nm) {
     const shape = installerDayShape(nm, pair[1], 30, model);
     row[col('usualFirstLogMin')] = shape.usualFirstLogMin;
     row[col('delayPerStopMin')]  = shape.delayPerStopMin;
+    row[col('pauseMinPerDay')]   = shape.pauseMinPerDay;
   });
 }
 
@@ -3674,7 +3766,7 @@ function installerMetricsRead(hNumber, workType) {
       // here: the phone reads THROUGH this projection, so a field left out of it
       // simply never reaches the route model and the guess silently stays in use.
       ['onSiteMin','extraMeterMin','travelMinPerKm','onSiteSource',
-       'usualFirstLogMin','delayPerStopMin'].forEach(k => {
+       'usualFirstLogMin','delayPerStopMin','pauseMinPerDay'].forEach(k => {
         o[k] = r[wt + k[0].toUpperCase() + k.slice(1)];
       });
       return o;

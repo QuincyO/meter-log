@@ -295,6 +295,20 @@ export function usualStart(){
 export function delayPerStop(){
   return readNum('wlDelayPerStopMin') || 0;
 }
+// The installer's measured pause time a day (installerMetrics pauseMinPerDay: the
+// time between meters that is neither ordinary work nor a logged delay, breaks
+// included), or null. Outside 15 to 240 minutes it is a broken measurement rather
+// than a day, and an absurd value must not reach a card.
+function measuredPause(){
+  const m = readNum('wlPauseMinPerDay');
+  return m != null && m >= 15 && m <= 240 ? m : null;
+}
+// The day's break allowance for the route map's day cards and flat-out line: the
+// measured pause time, else the fixed ROUTE_BREAK_MIN. Display only, like dayPlan.
+export function breakAllowance(){
+  const m = measuredPause();
+  return m != null ? m : (conf.ROUTE_BREAK_MIN || 60);
+}
 
 // Today's first logged stop, as 'HH:MM' or ''. Kept in memory (refreshed from the
 // dayCache by refreshTodayFirstLog) because day1DepartTime is synchronous and runs
@@ -337,8 +351,12 @@ export async function refreshTodayFirstLog(){
 // whole allowance except a Day 1 that is today, which gets what breakMinutesLeft
 // says is still to come. Both new names have a literal fallback for a phone holding
 // an older cached config.js or route-constraints.js.
+// The allowance is the installer's own measured pause time when there is one
+// (owner, 2026-11-18), and `breakMeasured` says so, so the card can call it breaks
+// and pauses rather than breaks. No re-time follows a new value: it moves no ETA, and
+// the route view reads this at every render.
 function dayPlan(day1Left){
-  const breakMin = typeof conf.ROUTE_BREAK_MIN === 'number' ? conf.ROUTE_BREAK_MIN : 60;
+  const breakMin = breakAllowance();
   const planIsToday = planDay() === localDate();
   let day1BreakMin = breakMin;
   if(planIsToday && typeof routeConstraints.breakMinutesLeft === 'function'){
@@ -351,6 +369,7 @@ function dayPlan(day1Left){
     fallbackOnSiteMin: dwellShape().base,
     breakMin,
     day1BreakMin,
+    breakMeasured: measuredPause() != null,
     todayFirstLog: todayFirstLog(),
     planIsToday,
     flatOutEnd: conf.ROUTE_FLAT_OUT_END || '15:30',
@@ -1886,6 +1905,9 @@ async function refreshAvgDay(){
       // turns undefined into '', so the phone falls back to 09:30 and no delay.
       storeNum('wlUsualFirstLogMin', m.usualFirstLogMin);
       storeNum('wlDelayPerStopMin', m.delayPerStopMin);
+      // The measured pause time a day, the route map's break allowance (breakAllowance).
+      // Blank from an older spine or a thin history, which keeps the fixed 60.
+      storeNum('wlPauseMinPerDay', m.pauseMinPerDay);
       store.set('wlOnSiteSource', String(m.onSiteSource || ''));
       paintOnSiteHint();
     }
