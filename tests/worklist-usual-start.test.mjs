@@ -112,6 +112,20 @@ test('the break allowance is the measured pause between 15 and 240, else the fal
   assert.match(js, /export function breakAllowance\(\)/);
 });
 
+// The spine nets the delay per stop against the measured pause only inside the window
+// the phone uses it in. If the two drift, an installer in the gap gets 60 minutes of
+// breaks on the card PLUS a delay that already holds those minutes.
+test('the spine and the phone use the measured pause inside the same window', () => {
+  const gs = readFileSync(new URL('../Code.gs', import.meta.url), 'utf8');
+  const lo = gs.match(/^const PAUSE_USABLE_MIN = (\d+);/m), hi = gs.match(/^const PAUSE_USABLE_MAX = (\d+);/m);
+  assert.ok(lo && hi, 'PAUSE_USABLE_MIN / PAUSE_USABLE_MAX not found in Code.gs');
+  const phone = sourceOf('measuredPause').match(/m >= (\d+) && m <= (\d+)/);
+  assert.ok(phone, 'the window in measuredPause not found');
+  assert.deepEqual([Number(phone[1]), Number(phone[2])], [Number(lo[1]), Number(hi[1])]);
+  // ...and the spine actually uses its window for the delay.
+  assert.match(gs, /const breakMin = \(pause !== '' && pause >= PAUSE_USABLE_MIN && pause <= PAUSE_USABLE_MAX\) \? pause : DAY_BREAK_MIN;/);
+});
+
 test('the day plan uses the allowance for every day and for Day 1\'s total, and says when it was measured', () => {
   const src = sourceOf('dayPlan');
   assert.match(src, /const breakMin = breakAllowance\(\);/);

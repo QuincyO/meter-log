@@ -3387,6 +3387,12 @@ const PAUSE_MIN_KIND_GAPS = 5;   // a kind thinner than this is measured against
 // break time, and this number is the break allowance. MISC_TRAVEL is travel, not a
 // hold-up (legacy TRAVEL_TIME is already no deduction at all, per isGapDeduction).
 const PAUSE_KEEP_CATS = { BREAK: 1, LUNCH: 1, MISC_TRAVEL: 1 };
+// The window a measured pause is USED in, mirroring measuredPause in js/worklist.js:
+// outside it the phone adds the fixed 60, so the delay must be netted against 60 too,
+// or the card counts those minutes twice. tests/worklist-usual-start.test.mjs fails if
+// the two drift. The stored pauseMinPerDay is what was measured, whatever the window.
+const PAUSE_USABLE_MIN = 15;
+const PAUSE_USABLE_MAX = 240;
 
 /** One installer's day shape for a work mode, read off Stops:
  *    { usualFirstLogMin, delayPerStopMin, pauseMinPerDay, days }
@@ -3394,7 +3400,8 @@ const PAUSE_KEEP_CATS = { BREAK: 1, LUNCH: 1, MISC_TRAVEL: 1 };
  *  number, never 'HH:mm', so the sheet cell stays numeric). pauseMinPerDay is the
  *  median day's pause time (dayShapePause). delayPerStopMin is what each stop costs
  *  beyond the work the ETA model prices and that pause time (DAY_BREAK_MIN when it
- *  is blank): per day, the span less that modelled work and the pause, spread over
+ *  is blank or outside PAUSE_USABLE_MIN..MAX, as on the phone): per day, the span
+ *  less that modelled work and the pause, spread over
  *  the stops. Measuring the delay against the same pause the phone adds is what keeps
  *  the phone from counting the pause twice. All three are '' below DAY_SHAPE_MIN_DAYS
  *  qualifying days, which the phone reads as "no evidence, use the fallback";
@@ -3436,7 +3443,7 @@ function installerDayShape(name, workType, workdays, model) {
   }
 
   const pause = dayShapePause(nm, byDate, dates);
-  const breakMin = pause === '' ? DAY_BREAK_MIN : pause;
+  const breakMin = (pause !== '' && pause >= PAUSE_USABLE_MIN && pause <= PAUSE_USABLE_MAX) ? pause : DAY_BREAK_MIN;
 
   if (!model) {
     const fit = installerOnSiteFit(nm, mode, 30);

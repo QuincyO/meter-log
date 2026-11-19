@@ -1563,7 +1563,9 @@ the mode (`installerOnSiteFit`, with `installerOnSiteFromTracks` overriding
 (crow-flies); a log or a previous log with no pin costs `onSiteMin`. Per day,
 `max(0, span - model work - pause) / n`, and `delayPerStopMin` is the median of those,
 blank when there is no on-site fit. The pause is the installer's own `pauseMinPerDay`
-(below), or `DAY_BREAK_MIN` (60) when that is blank: the delay is **net of the pause
+(below) when it is inside `PAUSE_USABLE_MIN`..`PAUSE_USABLE_MAX` (15 to 240, the same
+window `measuredPause` uses on the phone, pinned by a parity test), else `DAY_BREAK_MIN`
+(60): the delay is **net of the pause
 time**, so the breaks are not counted as the crew being held up, and the phone, which
 adds the same pause to the day, does not count it twice.
 (It was measured against `(n - 1) x` the day's median gap, which is mostly quick

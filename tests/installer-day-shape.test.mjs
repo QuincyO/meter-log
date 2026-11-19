@@ -98,11 +98,13 @@ test('only the most recent 30 days are read', () => {
 // The fixtures are built so the fit has an exact answer: every pinned far gap is
 // 10 + 2 × km minutes, along one meridian so the haversine distance is the step,
 // and every 30 m gap is 5 minutes. So onSiteMin 10, travelMinPerKm 2, extraMeterMin
-// 5. The unexplained time sits on an unpinned log, which the fit never sees. It is
-// kept under the pause threshold here (the unpinned gap is measured against the
-// median of all gaps, 12, and stays less than 10 over it), so the measured pause is
-// 0 and every unexplained minute is delay; the pause tests further down cover the
-// other side.
+// 5. The unexplained time sits on an unpinned log, which the fit never sees, and is
+// kept under the pause threshold (the unpinned gap is measured against the median of
+// all gaps, 12, and stays less than 10 over it), so all of it is delay. The pause
+// sits on one next-door hop a day, `pause` minutes over its usual 5: the model prices
+// that hop at the extra-meter 5 and the pause measure takes the rest, so it nets out
+// exactly. The delay is netted against the measured pause only inside the window the
+// phone uses it in (15 to 240), else against the fixed 60.
 
 const R = 6371000;
 const north = (lat, metres) => lat + (metres / R) * 180 / Math.PI;
@@ -127,36 +129,57 @@ function hopDay(date, hops, workType = 'land'){
 const hopDays = (count, hops) => weekdays(count, '2026-09-29').flatMap(d => hopDay(d, hops));
 
 // 15 logs. Work: eight far hops (4 × 12 + 4 × 14 = 104), four next-door hops
-// (4 × 5 = 20), the unpinned log and the one after it (10 + 10 = 20): 144.
-const mixed = extra => [FAR1, FAR2, NEAR, FAR1, FAR2, NEAR, ...bare(extra), FAR1, FAR2, NEAR, FAR1, FAR2, NEAR];
+// (4 × 5 = 20), the unpinned log and the one after it (10 + 10 = 20): 144. The span
+// is 144 + extra + pause. The median of all gaps stays 12, so the unpinned 10 + extra
+// is no pause while extra < 12; next door usually takes 5 (36 of its 48 gaps).
+const mixed = (extra, pause = 40) => [FAR1, FAR2, NEAR, FAR1, FAR2, NEAR, ...bare(extra),
+  FAR1, FAR2, NEAR, FAR1, FAR2, { m: 30, min: 5 + pause }];
 
 test('the fixtures give the fit its exact answer', () => {
   const fit = spine({ Stops: hopDays(12, mixed(60)) }).installerOnSiteFit('Pat Example', 'land', 30);
   assert.deepEqual([fit.onSiteMin, fit.travelMinPerKm, fit.extraMeterMin], [10, 2, 5]);
 });
 
-test('a day whose span is exactly model work and no pause has no delay', () => {
-  // Span 104 + 20 + 10 + 10 = 144 = the model work, and no gap is 10 or more over
-  // its usual time, so the pause is 0 and nothing is left over.
+test('a day whose span is exactly model work plus its measured pause has no delay', () => {
+  // Span 144 + 0 + 40 = 184; pause 40; 184 − 144 − 40 = 0.
   const r = shape(hopDays(12, mixed(0)));
-  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0, 0]);
+  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0, 40]);
 });
 
 test('nine unexplained minutes over 15 logs, under the pause threshold, is 0.6 a stop', () => {
-  // The unpinned gap is 19, 7 over the median of all gaps (12), so no pause.
-  // Span 144 + 9 = 153; 153 − 144 − 0 = 9; 9 / 15 = 0.6.
+  // The unpinned gap is 19, 7 over the median of all gaps (12), so not a pause.
+  // Span 144 + 9 + 40 = 193; 193 − 144 − 40 = 9; 9 / 15 = 0.6.
   const r = shape(hopDays(12, mixed(9)));
-  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0.6, 0]);
+  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0.6, 40]);
+});
+
+// The phone ignores a stored pause outside 15 to 240 and adds 60 instead
+// (measuredPause in js/worklist.js), so the delay must be netted against that same
+// 60, or the card would add 60 on top of a delay that already holds those minutes.
+test('a measured pause under 15 is stored, but the delay is netted against 60', () => {
+  // No long hop: the pause is 0. Span 144 + 9 = 153; 153 − 144 − 60 < 0, so 0.
+  // Netted against the pause of 0 it would be 9 / 15 = 0.6.
+  const r = shape(hopDays(12, mixed(9, 0)));
+  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0, 0]);
+});
+
+test('a measured pause over 240 is stored, but the delay is netted against 60', () => {
+  // A 305-minute hop next door: the pause is 300. Span 144 + 0 + 300 = 444;
+  // (444 − 144 − 60) / 15 = 16. Netted against the 300 it would be 0.
+  const r = shape(hopDays(12, mixed(0, 300)));
+  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [16, 300]);
 });
 
 test('next-door stops are priced at the extra-meter time, not as a fresh site', () => {
-  // 15 logs, eight of them next door. Work: far 12 + 14 + 12 + 14 = 52, next door
-  // 8 × 5 = 40, the unpinned pair 10 + 10 = 20: 112. Span 52 + 40 + 14 + 10 = 116.
-  // The median of all gaps is 5 (eight of the fourteen), so the unpinned 14 is 9 over
-  // and the 10 after it 5 over: no pause. 116 − 112 − 0 = 4, over 15 = 0.27 → 0.3.
-  // Priced as fresh sites (10.06 each) the work would be 152.5 and the delay 0.
-  const hops = [FAR1, NEAR, NEAR, NEAR, FAR2, NEAR, NEAR, NEAR, ...bare(4), FAR1, NEAR, NEAR, FAR2];
-  assert.equal(shape(hopDays(12, hops)).delayPerStopMin, 0.3);
+  // 15 logs, eight of them next door, one of those 45 (40 over the usual 5: the
+  // pause). Work: far 12 + 14 + 12 + 14 = 52, next door 8 × 5 = 40, the unpinned pair
+  // 10 + 10 = 20: 112. Span 52 + 7 × 5 + 45 + 14 + 10 = 156. The median of all gaps is
+  // 7.5, so the unpinned 14 and the 10 after it are no pause. 156 − 112 − 40 = 4, over
+  // 15 = 0.27 → 0.3. Priced as fresh sites (10.06 each) the work would be 152.5 and
+  // the delay 0.
+  const hops = [FAR1, NEAR, NEAR, NEAR, FAR2, NEAR, NEAR, { m: 30, min: 45 }, ...bare(4), FAR1, NEAR, NEAR, FAR2];
+  const r = shape(hopDays(12, hops));
+  assert.deepEqual([r.delayPerStopMin, r.pauseMinPerDay], [0.3, 40]);
 });
 
 test('no on-site fit for the installer and mode is no delay figure', () => {
