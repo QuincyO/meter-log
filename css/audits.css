@@ -144,7 +144,7 @@ body{
 .au-method li{margin-bottom:5px}
 .au-method ol,.au-method ul{padding-left:20px;margin:6px 0 10px;font-size:14px}
 
-.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(calc(100% + 40px));
    background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
    box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:1200;max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0)}

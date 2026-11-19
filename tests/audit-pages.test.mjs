@@ -357,3 +357,12 @@ test('both pages offer Download PDF, and the PDF module asks the spine for nothi
   assert.match(pdf, /js\/vendor\/jspdf\.umd\.min\.js/);
   assert.doesNotMatch(read('js/audit-view.js'), /window\.print\(\)\s*;?\s*\n\s*if\(el\.print\)/);
 });
+
+test('both pages carry Send PDF beside Download PDF, hidden until the script finds it can share', () => {
+  for(const page of ['audits.html', 'my-audit.html']){
+    const html = read(page);
+    // hidden in the markup: a page whose script is older than its markup must not show a dead button
+    assert.match(html, /id="auPrint">Download PDF<\/button>\s*<button type="button" class="btn hide" id="auSend">Send PDF<\/button>/, page);
+    assert.match(html, /id="auPrintDay">Download PDF<\/button>\s*<button type="button" class="btn hide" id="auSendDay">Send PDF<\/button>/, page);
+  }
+});

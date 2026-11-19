@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { prepareAudit, periodStats, dayDetail } from '../js/compute/audit.js';
-import { auditPdfName, pdfText, periodPdfModel, dayPdfModel, drawAuditPdf, buildAuditPdf } from '../js/audit-pdf.js';
+import { auditPdfName, pdfText, periodPdfModel, dayPdfModel, drawAuditPdf, buildAuditPdf, auditPdfShare } from '../js/audit-pdf.js';
 import { encodeTrack } from '../js/drive-track.js';
 
 const { jsPDF } = createRequire(import.meta.url)('../js/vendor/jspdf.umd.min.js');
@@ -149,4 +149,35 @@ test('sheet values of any shape are drawn as text', () => {
   const doc = buildAuditPdf(jsPDF, dayPdfModel({ name: 'N/A <x>', prep, detail: dayDetail(prep, DAY), drive: null, today: TODAY }));
   assert.match(all(doc), /\(a\) \\ <b> ->/);
   assert.ok(pages(doc) >= 1);
+});
+
+// ── Send PDF: the system share sheet ─────────────────────────────────────────
+
+const setNavigator = value => Object.defineProperty(globalThis, 'navigator', { value, configurable: true, writable: true });
+
+test('sending is offered only where the browser can hand a PDF file to another app', () => {
+  setNavigator({});
+  assert.equal(auditPdfShare.can(), false, 'no share sheet at all');
+  setNavigator({ share(){}, canShare: () => false });
+  assert.equal(auditPdfShare.can(), false, 'a share sheet that takes links but not files');
+  setNavigator({ share(){}, canShare(){ throw new TypeError('no'); } });
+  assert.equal(auditPdfShare.can(), false);
+  const asked = [];
+  setNavigator({ share(){}, canShare: d => { asked.push(d); return true; } });
+  assert.equal(auditPdfShare.can(), true);
+  assert.equal(asked[0].files[0].type, 'application/pdf', 'it asks about a PDF, not about sharing in general');
+});
+
+test('the file handed over is the PDF the download makes, named and typed, and nothing goes with it', async () => {
+  globalThis.window = { jspdf: { jsPDF } };
+  const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+  const file = await auditPdfShare.file(model);
+  assert.equal(file.name, 'Audit - Pat Example - 2026-11-02.pdf');
+  assert.equal(file.type, 'application/pdf');
+  assert.equal(Buffer.from(await file.arrayBuffer()).subarray(0, 5).toString('latin1'), '%PDF-');
+  const shared = [];
+  setNavigator({ share: d => { shared.push(d); return Promise.resolve(); } });
+  await auditPdfShare.send(file);
+  assert.deepEqual(Object.keys(shared[0]), ['files'], 'the file alone: a title or text beside it makes some apps drop the file');
+  assert.equal(shared[0].files[0], file);
 });

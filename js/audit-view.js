@@ -24,7 +24,7 @@ import { fmtDate } from './audit-charts.js';
 import { MODE_LABEL, NO_DRIVE_LOG, ROUTE_CAPTION, periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml,
   dayNotesHtml, driveLineHtml } from './audit-render.js';
 import { createRouteMap, offMapHtml } from './audit-map.js';
-import { periodPdfModel, dayPdfModel, downloadAuditPdf } from './audit-pdf.js';
+import { periodPdfModel, dayPdfModel, downloadAuditPdf, auditPdfShare } from './audit-pdf.js';
 
 const MODES = ['land', 'boat', 'all'];
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
@@ -34,13 +34,15 @@ const todayKey = () => { const n = new Date(), p = x => ('0' + x).slice(-2);
 /** installers: string[] | null — the office's picker. fixedInstaller: string | null
  *  — the phone's one name (hides the picker). loadDriveLegs: (installer, date) =>
  *  Promise<object[]>, office only. savePdf: what "Download PDF" hands its model to
- *  (the real download unless a test passes its own). */
+ *  (the real download unless a test passes its own). share: the system share sheet
+ *  behind "Send PDF" ({ can, file, send, save }; js/audit-pdf.js unless a test passes its own). */
 export function initAuditView({ installers = null, fixedInstaller = null, loadDriveLegs = null,
-  savePdf = downloadAuditPdf } = {}){
+  savePdf = downloadAuditPdf, share = auditPdfShare } = {}){
   const el = {
     status: $('status'), statusText: $('statusText'),
     who: $('auWho'), mode: $('auMode'), from: $('auFrom'), to: $('auTo'), all: $('auAll'),
     day: $('auDay'), print: $('auPrint'), printDay: $('auPrintDay'),
+    send: $('auSend'), sendDay: $('auSendDay'),
     periodControls: $('auPeriodControls'), dayControls: $('auDayControls'),
     back: $('auBack'), prev: $('auPrev'), next: $('auNext'), dayTitle: $('auDayTitle'),
     printHead: $('auPrintHead'), note: $('auNote'), period: $('auPeriod'), dayView: $('auDayView'),
@@ -294,16 +296,18 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     const box = $('auDriveOn');
     return { legs, show: !!(box && box.checked) };
   }
+  function pdfModel(){
+    const today = todayKey();
+    return current.kind === 'day'
+      ? dayPdfModel({ name: state.who, prep: current.prep, detail: current.detail, drive: driveForPdf(), today })
+      : periodPdfModel({ name: state.who, prep: current.prep, stats: current.stats, today });
+  }
   async function download(button){
     if(!current){ toast('Nothing to download yet'); return; }
     const label = button.textContent;
     button.disabled = true; button.textContent = 'Building…';
     try {
-      const today = todayKey();
-      const model = current.kind === 'day'
-        ? dayPdfModel({ name: state.who, prep: current.prep, detail: current.detail, drive: driveForPdf(), today })
-        : periodPdfModel({ name: state.who, prep: current.prep, stats: current.stats, today });
-      toast('Saved ' + await savePdf(model));
+      toast('Saved ' + await savePdf(pdfModel()));
     } catch {
       toast('Could not make the PDF');
     } finally {
@@ -312,6 +316,56 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
   }
   if(el.print) el.print.onclick = () => download(el.print);
   if(el.printDay) el.printDay.onclick = () => download(el.printDay);
+
+  // "Send PDF": the same file, handed to the phone's share sheet. The page sends
+  // nothing itself; the person picks the app and the recipient there.
+  //
+  // A browser opens the share sheet only as the direct result of a tap, and building
+  // the first PDF (the library has to load) can outlast what it counts as "direct".
+  // So the built file is KEPT. If the browser refuses for that reason, the person is
+  // asked to tap again, and that second tap shares the kept file at once, with
+  // nothing awaited in between. Refused even then, the file is saved instead.
+  // The kept file is only ever reused for the very view it was built from.
+  let ready = null;                            // { key, file }
+  function pdfKey(){ const d = driveForPdf(); return [current, d && d.legs, d && d.show]; }
+  const sameKey = (a, b) => a.every((x, i) => x === b[i]);
+  async function hand(file, tappedAgain){
+    try {
+      await share.send(file);
+    } catch(e){
+      const why = e && e.name;
+      if(why === 'AbortError') return;         // they closed the share sheet
+      if(why === 'NotAllowedError' && !tappedAgain){ toast('Ready. Tap Send PDF again'); return; }
+      try { share.save(file); toast(`Saved ${file.name} instead`); }
+      catch { toast('Could not send the PDF'); }
+    }
+  }
+  async function send(button){
+    if(!current){ toast('Nothing to send yet'); return; }
+    const key = pdfKey();
+    if(ready && sameKey(ready.key, key)) return hand(ready.file, true);
+    ready = null;
+    const label = button.textContent;
+    button.disabled = true; button.textContent = 'Building…';
+    let file;
+    try {
+      file = await share.file(pdfModel());
+    } catch {
+      toast('Could not make the PDF'); return;
+    } finally {
+      button.disabled = false; button.textContent = label;
+    }
+    ready = { key, file };
+    return hand(file, false);
+  }
+  // Shown only where the browser can hand over a file. The markup ships them hidden,
+  // so a page whose script is older than its markup shows no dead button.
+  const canSend = share.can();
+  for(const button of [el.send, el.sendDay]){
+    if(!button) continue;
+    show(button, canSend);
+    button.onclick = () => send(button);
+  }
   // A closed <details> prints empty. Open method and limits for the printout and
   // put it back afterwards.
   let reopened = [];

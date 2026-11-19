@@ -2086,6 +2086,20 @@ numbers line is always given when the day has legs. And anything that only makes
 a screen (the hint to pick a block, the slot a gap's detail opens in) is left out. Method
 and limits is always included.
 
+### Send PDF
+
+Beside each "Download PDF" is "Send PDF". It builds the same file and hands it to the
+system share sheet (`navigator.share` with the file alone), where the person picks the app
+and the recipient. The app holds no recipient, the spine sends no mail, and nothing is
+uploaded. The button is hidden in the markup and shown only where `navigator.canShare`
+accepts a PDF file.
+
+A share sheet opens only as the direct result of a tap, and the first build can outlast
+that, so the built file is kept for the view it was built from. A refusal asks for a second
+tap, which shares the kept file at once; a second refusal saves the file as a download.
+Closing the share sheet is not an error, and success shows no message because the browser
+cannot know whether anything was sent.
+
 ## Data structures
 
 ### Stop  (one row per work order visited → tab "Stops")

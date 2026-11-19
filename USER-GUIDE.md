@@ -616,6 +616,8 @@ Tap a date in **Day by day** to open that day: a timeline with one block per gap
 
 **Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn as the numbered pins and the line between them on a plain background, without the street map.
 
+**Send PDF** makes the same file and opens your phone's share sheet with it attached, so you can text or email it, to your supervisor for example. Open the day first to send that day, or stay on the period to send the period. You choose the app and the person; the page itself sends nothing, and nothing goes until you send it there. If you see **Ready. Tap Send PDF again**, tap it once more: some phones only open the share sheet on a fresh tap. If the phone cannot share after all, the file is saved instead and you can attach it yourself. The button is not shown in a browser that cannot share a file; use **Download PDF** there.
+
 Logging a delay against the gap it happened in is what takes it out of the unlogged pause time. Do that from **Today's orders** or at **End of day**.
 
 ---
@@ -755,6 +757,7 @@ Land installers each run their own route, so they aren't paired as partners and 
 - **From** and **To** set the period. Left alone, it is all work to date. **All to date** clears them.
 - **Open a day** jumps to one date. So does any date in the Day by day table.
 - **Download PDF** saves the period, or the open day, as a PDF file named for the installer and the dates. Nothing is sent anywhere; the file is made on your computer. In the PDF the route is the numbered pins and the line between them on a plain background, without the street map, and the drive log is drawn only if **Show drive log** is switched on. The browser's own print (Ctrl+P) still prints a clean page if you want paper straight away.
+- **Send PDF** makes the same file and hands it to the share sheet of your computer or phone, so it can go by email or message. You choose where it goes; the page sends nothing itself. It is shown only in a browser that can share a file. Elsewhere, download the PDF and attach it.
 
 The period shows, in order: the headline numbers; **Where an average day goes** (one bar from the 07:30 start to the end of the day); **Unlogged pause time per day** (how many days fell in each range, against the 60-minute break allowance); **By month**; **Logged delays by category**; **Output**, with the usual time between two logs for each distance; **Day by day**; and **Method and limits**, which explains every number and what the data cannot show.
 

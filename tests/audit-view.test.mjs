@@ -19,7 +19,7 @@ function mkEl(id){
 const IDS = ['status', 'statusText', 'auWho', 'auMode', 'auFrom', 'auTo', 'auAll', 'auDay', 'auPrint',
   'auPrintDay', 'auPeriodControls', 'auDayControls', 'auBack', 'auPrev', 'auNext', 'auDayTitle',
   'auPrintHead', 'auNote', 'auPeriod', 'auDayView', 'auDayTop', 'auDayBottom', 'auRouteCard', 'auDrive',
-  'auMap', 'auMapNote', 'toast'];
+  'auMap', 'auMapNote', 'toast', 'auSend', 'auSendDay'];
 
 const pad = n => String(n).padStart(2, '0');
 const dayOf = (date, who, n = 9) => Array.from({ length: n }, (_, i) => ({ id: `${who}-${date}-${i}`,
@@ -32,10 +32,12 @@ const DATA = {
 
 // One fake page. `answer(installer)` decides each audit read: an object to resolve
 // with, 'fail' to reject, or 'hold' to leave it pending until release() is called.
-async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null, savePdf } = {}){
+async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null, savePdf, share } = {}){
   const els = Object.fromEntries(IDS.map(id => [id, mkEl(id)]));
   els.auMode.buttons = ['land', 'boat', 'all'].map(m => { const b = mkEl('mode'); b.dataset.mode = m; return b; });
   els.auDayView.classList.add('hide'); els.auDayControls.classList.add('hide');
+  // as in the markup: Send PDF is hidden until the script finds the browser can share a file
+  for(const id of ['auSend', 'auSendDay']){ els[id].classList.add('hide'); els[id].textContent = 'Send PDF'; }
   const listeners = {}, requests = [], held = [], scrolls = [], prints = [];
   // the drive-log checkbox is drawn by the view; it exists once its markup does
   globalThis.document = { getElementById: id => els[id] || (id === 'auDriveOn' && /id="auDriveOn"/.test(els.auDrive.innerHTML)
@@ -54,7 +56,8 @@ async function boot({ search = '', answer = who => DATA[who], fixedInstaller = n
     return a === 'hold' ? new Promise(res => held.push(() => res(reply))) : Promise.resolve(reply);
   };
   const { initAuditView } = await import('../js/audit-view.js');
-  initAuditView({ installers: fixedInstaller ? null : Object.keys(DATA), fixedInstaller, loadDriveLegs, ...(savePdf ? { savePdf } : {}) });
+  initAuditView({ installers: fixedInstaller ? null : Object.keys(DATA), fixedInstaller, loadDriveLegs, ...(savePdf ? { savePdf } : {}),
+    ...(share ? { share } : {}) });
   const settle = async () => { for(let i = 0; i < 6; i++) await new Promise(r => setTimeout(r, 0)); };
   await settle();
   return { els, requests, scrolls, listeners, prints, settle,
@@ -208,4 +211,116 @@ test('with nothing on screen there is nothing to download, and a failure says so
   assert.equal(saved.length, 1);
   assert.match(p.els.toast.textContent, /Could not make the PDF/);
   assert.equal(p.els.auPrint.disabled, false, 'the button comes back after a failure');
+});
+
+// ── Send PDF ─────────────────────────────────────────────────────────────────
+// A stand-in for the system share sheet. `outcomes` is what each send() does in
+// turn: nothing to succeed, or the name of the error a browser would reject with.
+
+function fakeShare({ can = true, outcomes = [], failBuild = false } = {}){
+  const log = { built: [], sent: [], saved: [] };
+  return { log, can: () => can,
+    file: async model => { log.built.push(model); if(failBuild) throw new Error('no library'); return { name: model.fileName, model }; },
+    send: file => { log.sent.push(file); const o = outcomes.shift();
+      return o ? Promise.reject(Object.assign(new Error(o), { name: o })) : Promise.resolve(); },
+    save: file => { log.saved.push(file); } };
+}
+const DAY_URL = '?who=Pat+Example&day=2026-11-02';
+
+test('Send PDF shows only where the browser can hand a file to another app', async () => {
+  const yes = await boot({ share: fakeShare() });
+  assert.equal(yes.els.auSend.hidden, false);
+  assert.equal(yes.els.auSendDay.hidden, false);
+  const no = await boot({ share: fakeShare({ can: false }) });
+  assert.equal(no.els.auSend.hidden, true);
+  assert.equal(no.els.auSendDay.hidden, true);
+});
+
+test('Send PDF hands what is on screen to the share sheet as a file, and downloads nothing', async () => {
+  const share = fakeShare(), downloads = [];
+  const p = await boot({ search: DAY_URL, share, savePdf: async m => { downloads.push(m); return m.fileName; } });
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.equal(share.log.built.length, 1);
+  assert.equal(share.log.built[0].fileName, 'Audit - Pat Example - 2026-11-02.pdf');
+  assert.ok(share.log.built[0].sections.some(s => s.title === 'Timeline of the day'));
+  assert.equal(share.log.sent.length, 1);
+  assert.equal(share.log.sent[0].name, 'Audit - Pat Example - 2026-11-02.pdf');
+  assert.deepEqual(share.log.saved, []);
+  assert.deepEqual(downloads, []);
+  assert.equal(p.els.toast.textContent, '', 'the share sheet is the feedback; nothing claims it was sent');
+  assert.equal(p.els.auSendDay.disabled, false);
+  assert.equal(p.els.auSendDay.textContent, 'Send PDF');
+  p.els.auBack.onclick(); await p.settle();
+  await p.els.auSend.onclick(); await p.settle();
+  assert.equal(share.log.sent[1].name, 'Audit - Pat Example - 2026-11-02 to 2026-11-03.pdf');
+});
+
+test('a browser that wants a fresh tap gets one: the file is kept and the second tap sends it', async () => {
+  const share = fakeShare({ outcomes: ['NotAllowedError'] });
+  const p = await boot({ search: DAY_URL, share });
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.match(p.els.toast.textContent, /Tap Send PDF again/);
+  assert.deepEqual(share.log.saved, []);
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.equal(share.log.built.length, 1, 'not built a second time');
+  assert.equal(share.log.sent.length, 2);
+  assert.equal(share.log.sent[1], share.log.sent[0]);
+  assert.deepEqual(share.log.saved, []);
+});
+
+test('a kept file is never sent for a different view', async () => {
+  const share = fakeShare({ outcomes: ['NotAllowedError'] });
+  const p = await boot({ search: DAY_URL, share });
+  await p.els.auSendDay.onclick(); await p.settle();
+  await p.typeDay('2026-11-03');
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.equal(share.log.built.length, 2);
+  assert.equal(share.log.sent[1].name, 'Audit - Pat Example - 2026-11-03.pdf');
+
+  // the office's "Show drive log" changes what the PDF draws, so it is a different file too
+  const legs = [{ distanceM: 31400, driveMin: 52, maxSpeed: 23.4, gaps: [], startTime: 0, encoded: '' }];
+  const office = fakeShare();
+  const o = await boot({ search: DAY_URL, loadDriveLegs: async () => legs, share: office });
+  await o.els.auSendDay.onclick(); await o.settle();
+  await o.els.auSendDay.onclick(); await o.settle();
+  assert.equal(office.log.built.length, 1, 'the same view is not rebuilt');
+  const box = document.getElementById('auDriveOn');
+  box.checked = true; box.onchange();
+  await o.els.auSendDay.onclick(); await o.settle();
+  assert.equal(office.log.built.length, 2);
+  assert.equal(routeOf(office.log.built[1]).blocks.find(b => b.t === 'map').legs, legs);
+});
+
+test('closing the share sheet is not an error, and a browser that cannot share after all saves the file instead', async () => {
+  const share = fakeShare({ outcomes: ['AbortError', 'DataError'] });
+  const p = await boot({ search: DAY_URL, share });
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.equal(p.els.toast.textContent, '');
+  assert.deepEqual(share.log.saved, []);
+  await p.els.auSendDay.onclick(); await p.settle();
+  assert.equal(share.log.saved.length, 1);
+  assert.equal(share.log.saved[0], share.log.sent[0]);
+  assert.match(p.els.toast.textContent, /Saved Audit - Pat Example - 2026-11-02\.pdf instead/);
+
+  // refused twice, the second time inside the tap itself: stop asking and save it
+  const twice = fakeShare({ outcomes: ['NotAllowedError', 'NotAllowedError'] });
+  const q = await boot({ search: DAY_URL, share: twice });
+  await q.els.auSendDay.onclick(); await q.settle();
+  await q.els.auSendDay.onclick(); await q.settle();
+  assert.equal(twice.log.saved.length, 1);
+  assert.match(q.els.toast.textContent, /Saved .* instead/);
+});
+
+test('with nothing on screen there is nothing to send, and a PDF that cannot be built says so', async () => {
+  const share = fakeShare({ failBuild: true });
+  const p = await boot({ share });
+  await p.els.auSend.onclick(); await p.settle();
+  assert.deepEqual(share.log.built, []);
+  assert.match(p.els.toast.textContent, /Nothing to send/);
+  await p.pick('Pat Example');
+  await p.els.auSend.onclick(); await p.settle();
+  assert.match(p.els.toast.textContent, /Could not make the PDF/);
+  assert.deepEqual(share.log.sent, []);
+  assert.equal(p.els.auSend.disabled, false);
+  assert.equal(p.els.auSend.textContent, 'Send PDF');
 });

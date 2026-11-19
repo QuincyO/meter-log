@@ -382,14 +382,40 @@ function ensureJsPDF(){
   });
   return loading;
 }
-/** Build the PDF and start its download. Resolves to the file name. */
-export async function downloadAuditPdf(model){
+async function pdfBlob(model){
   await ensureJsPDF();
-  const blob = buildAuditPdf(window.jspdf.jsPDF, model).output('blob');
+  return buildAuditPdf(window.jspdf.jsPDF, model).output('blob');
+}
+function saveBlob(blob, fileName){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = model.fileName;
+  a.href = url; a.download = fileName;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+/** Build the PDF and start its download. Resolves to the file name. */
+export async function downloadAuditPdf(model){
+  saveBlob(await pdfBlob(model), model.fileName);
   return model.fileName;
 }
+
+// ── "Send PDF": the system share sheet ───────────────────────────────────────
+// The page sends nothing itself. It hands the file to the phone's share sheet and
+// the person picks the app (messages, mail) and the recipient there. Four steps,
+// kept apart so js/audit-view.js can decide what a refusal means:
+//   can()   is there a share sheet that takes a PDF file? (many desktop browsers: no)
+//   file()  the same PDF the download makes, as a named File
+//   send()  open the share sheet with it. The FILE ALONE: a title or text beside a
+//           file makes some apps drop the file or attach the text as a second item.
+//   save()  the fallback, an ordinary download of that file
+export const auditPdfShare = {
+  can(){
+    try {
+      return typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
+        && !!navigator.canShare({ files: [new File([''], 'audit.pdf', { type: 'application/pdf' })] });
+    } catch { return false; }
+  },
+  async file(model){ return new File([await pdfBlob(model)], model.fileName, { type: 'application/pdf' }); },
+  send(file){ return navigator.share({ files: [file] }); },
+  save(file){ saveBlob(file, file.name); },
+};
