@@ -1555,14 +1555,27 @@ so Quincy's 08-06 counts as land there until that Tracker row is retagged and
 measured from `Stops` beside the dwell fit: `usualFirstLogMin` (the median first log,
 minutes after midnight, a plain number) and `delayPerStopMin`. A day qualifies with 5 or
 more INSTALLED/UTI/VISITED/UNACCOUNTED rows in the work mode; the most recent 30
-qualifying days are read, and fewer than 10 means both are blank. Per day,
-overhead = (last log - first log) - (n - 1) x that day's median gap, and
-`delayPerStopMin` is the median of `max(0, overhead - 60) / n`. The 60 is
-`DAY_BREAK_MIN`: the delay is **net of the break minutes**, so the planned breaks are
-not counted as the crew being held up. Both are read now: `usualFirstLogMin` sets the
-start clock on the phone and the desktop planner (`usualStart()`, less one on-site
-time), and the route map's All tab adds `delayPerStopMin` to each day's end time and
-uses both for the flat-out line (`dayEndText`, `flatOutText`).
+qualifying days are read, and fewer than 10 means both are blank. The delay is
+measured against **the same model the ETAs use**, the installer's dwell model for
+the mode (`installerOnSiteFit`, with `installerOnSiteFromTracks` overriding
+`onSiteMin`): every log after the first costs `extraMeterMin` when it is within
+`DWELL_SAME_SITE_M` of the log before, else `onSiteMin + travelMinPerKm x km`
+(crow-flies); a log or a previous log with no pin costs `onSiteMin`. Per day,
+`max(0, span - model work - 60) / n`, and `delayPerStopMin` is the median of those,
+blank when there is no on-site fit. The 60 is `DAY_BREAK_MIN`: the delay is **net of
+the break minutes**, so the planned breaks are not counted as the crew being held up.
+(It was measured against `(n - 1) x` the day's median gap, which is mostly quick
+next-door stops, and read 1.5 minutes a stop for the owner: 37 minutes on a 25-stop
+day his history does not contain. On the 2026-10-14 export the new measure gives 0
+and 0.1.) `applyDayShapeMetrics` hands it the model `applyOnSiteMetrics` has just put
+on the row, so the backfill does not measure the model twice. Both are read now:
+`usualFirstLogMin` sets the start clock on the phone and the desktop planner
+(`usualStart()`, less one on-site time), and the route map's All tab adds
+`delayPerStopMin` to each day's end time and uses both for the flat-out line
+(`dayEndText`, `flatOutText`). `dayEndEstimate` un-wraps a day whose 'HH:MM' ETAs
+spread more than 12 hours (an evening re-plan of Day 1 crossing midnight), and
+`flatOutPerDay` takes the median day's work per stop rather than a pooled total, so
+one odd day cannot move the figure.
 
 The other half of every ETA, and until it was measured it was one flat number for
 every stop on every route: `onSiteMinutes(pace)` = the 30-day `recent30AvgLogMin`
@@ -1577,10 +1590,14 @@ caller that forgets it silently gets the old flat number and no error. Three tie
 each falling through to the next, so a run with no measurements schedules identically
 to before the module existed:
 
-1. **A repeat meter** — `siteKey(item.address) === siteKey(prevItem.address)`, same day
-   — takes `extraMeterMin`. Deliberately *not* floored at `MIN_ONSITE_MIN`: the real
-   figure is 11–12 min against a 25–29 min fresh site, and ~11% of all logged gaps are
-   these.
+1. **A repeat meter** — `siteKey(item.address) === siteKey(prevItem.address)`, or both
+   pinned and within `SAME_SITE_M` (60 m) of each other, same day — takes
+   `extraMeterMin`. Deliberately *not* floored at `MIN_ONSITE_MIN`: the real figure is
+   11–12 min against a 25–29 min fresh site, and ~11% of all logged gaps are these.
+   The distance is the spine's `DWELL_SAME_SITE_M`, because that is how
+   `extraMeterMin` is measured; charged by address alone, a next-door house was
+   measured at about 6 minutes and planned at 13 plus the drive, and 57% of the
+   owner's stops are within 60 m of the one before.
 2. **A site with a track record** scales `base` by its factor, clamped to 0.4–2.5.
 3. Everything else takes `base` = the measured `onSiteMin`, else `onSiteMinutes(pace)`.
 

@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { siteKey } from '../js/route-dwell.js';
+import { siteKey, SAME_SITE_M } from '../js/route-dwell.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -82,4 +82,13 @@ test('a label-prefixed address keys on the street, not the label', () => {
   const b = siteKey('Town of, 18 Maple Heights Dr, Huntsville, ON P1H 1R7, Canada');
   assert.notEqual(a, b);
   assert.equal(a, siteKey('14 Maple Heights Dr'));
+});
+
+// extraMeterMin is measured spine-side over consecutive logs within DWELL_SAME_SITE_M
+// of each other, and the phone charges it for a stop within SAME_SITE_M of the one
+// before. Two different distances would price a stop one way and measure it another.
+test('the phone\'s same-site distance is the spine\'s DWELL_SAME_SITE_M', () => {
+  const hit = SRC.match(/^const DWELL_SAME_SITE_M\s*=\s*(\d+(?:\.\d+)?)\s*;/m);
+  assert.ok(hit, 'Code.gs no longer declares const DWELL_SAME_SITE_M — update this test with it');
+  assert.equal(SAME_SITE_M, Number(hit[1]));
 });

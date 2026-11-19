@@ -134,3 +134,50 @@ test('nothing that sizes a day reads the day-end or flat-out helpers', () => {
     for(const n of names) assert.equal(text.includes(n), false, `${fn} mentions ${n}`);
   }
 });
+
+// ── a day whose ETAs cross midnight (field report 2026-11-18) ────────────────
+// In the evening Day 1 is re-planned from "now", so its 'HH:MM' ETAs run 19:30 …
+// 00:42 and wrap. Read as clocks, its earliest was 00:03 and its span 1440 minutes,
+// which dragged the flat-out figure from 17 a day to 10.
+
+const clockAt = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(Math.round(m) % 60).padStart(2, '0');
+// `count` stops from `fromMin`, every `everyMin`, each `onSite` on site.
+const runOf = (count, fromMin, everyMin, onSite) =>
+  Array.from({ length: count }, (_, k) => stop(clockAt(fromMin + Math.round(everyMin * k)), onSite));
+const eveningDay = () => runOf(25, 1170, 13, 13);          // 19:30 … 00:42
+const morningDay = count => runOf(count, 609, 13.3, 13.3);  // 10:09, every 13.3
+
+test('a day whose ETAs run past midnight is un-wrapped, not 24 hours long', () => {
+  const day = eveningDay();
+  assert.equal(day[0].scheduledEta, '19:30');
+  assert.equal(day[24].scheduledEta, '00:42');
+  const e = dayEndEstimate(day, { breakMin: 0 });
+  // The last arrival is 00:42 next day = 1482, plus 13 on site.
+  assert.deepEqual([e.startMin, e.workEndMin, e.endMin], [1170, 1495, 1495]);
+});
+
+test('a normal long day is not un-wrapped', () => {
+  // 08:10 to 16:40 is 8.5 hours, under the 12 that marks a wrap.
+  const e = dayEndEstimate([stop('08:10'), stop('11:30'), stop('16:40')], { breakMin: 0 });
+  assert.deepEqual([e.startMin, e.workEndMin], [490, 1010]);
+});
+
+test('an evening Day 1 crossing midnight leaves the flat-out figure where the morning had it', () => {
+  // 113 orders over five days (25, 25, 25, 25, 13), usual start 10:09, 1.5 delay.
+  // 261 minutes of room (10:09 → 15:30 less 60) over about 13.3 + 1.5 a stop = 17.
+  const o = { startMin: 609, endMin: 930, delayPerStopMin: 1.5, breakMin: 60 };
+  const rest = [morningDay(25), morningDay(25), morningDay(25), morningDay(13)];
+  assert.equal(flatOutPerDay([eveningDay(), ...rest], o).perDay, 17);
+  assert.equal(flatOutPerDay([morningDay(25), ...rest], o).perDay, 17);
+});
+
+test('one wildly long day among five does not move the flat-out figure', () => {
+  const o = { startMin: 570, endMin: 930, delayPerStopMin: 3, breakMin: 60 };
+  const normal = flatOutPerDay([tenStopsOver120(), tenStopsOver120(), tenStopsOver120(),
+    tenStopsOver120(), tenStopsOver120()], o);
+  // Ten stops spread over ten hours: 60 minutes a stop on this one day.
+  const odd = flatOutPerDay([tenStopsOver120(), tenStopsOver120(), tenStopsOver120(),
+    tenStopsOver120(), [stop('08:00'), ...Array(8).fill(stop('12:00')), stop('17:50')]], o);
+  assert.equal(odd.workPerStopMin, 12);
+  assert.deepEqual([odd.perDay, odd.workPerStopMin], [normal.perDay, normal.workPerStopMin]);
+});

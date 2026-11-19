@@ -3372,12 +3372,21 @@ const DAY_SHAPE_MIN_LOGS = 5;    // a day thinner than this is not a route day
  *    { usualFirstLogMin, delayPerStopMin, days }
  *  usualFirstLogMin is the median first log, in minutes after midnight (a plain
  *  number, never 'HH:mm', so the sheet cell stays numeric). delayPerStopMin is what
- *  each stop costs beyond stop-to-stop work and DAY_BREAK_MIN: per day, the span
- *  minus (stops - 1) at that day's own median gap, less the breaks, spread over the
- *  stops. Both are '' below DAY_SHAPE_MIN_DAYS qualifying days, which the phone
- *  reads as "no evidence, use the fallback start". `workdays` keeps only the most
- *  recent qualifying days, as dwellSamples does. */
-function installerDayShape(name, workType, workdays) {
+ *  each stop costs beyond the work the ETA model prices and DAY_BREAK_MIN: per day,
+ *  the span less that modelled work and the breaks, spread over the stops. Both are
+ *  '' below DAY_SHAPE_MIN_DAYS qualifying days, which the phone reads as "no
+ *  evidence, use the fallback start"; delayPerStopMin is also '' with no on-site fit,
+ *  since there is then no model to measure it against. `workdays` keeps only the most
+ *  recent qualifying days, as dwellSamples does.
+ *
+ *  It used to be measured against the day's MEDIAN gap, which is mostly quick
+ *  next-door stops, so it understated the work and overstated the delay: 1.5 minutes
+ *  a stop for the owner, 37 minutes on a 25-stop day his history does not contain.
+ *
+ *  `model` ({ onSiteMin, extraMeterMin, travelMinPerKm }) is the dwell model the
+ *  caller already has; without one it is measured here the way applyOnSiteMetrics
+ *  measures it. */
+function installerDayShape(name, workType, workdays, model) {
   const nm = String(name == null ? '' : name).trim();
   const mode = workType || 'all';
   const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
@@ -3391,7 +3400,7 @@ function installerDayShape(name, workType, workdays) {
     if (!printable[String(r.status || '').trim().toUpperCase()]) return;
     const d = dateOf(r.timestamp), sec = secOfDay(r.timestamp);
     if (!d || sec == null) return;
-    (byDate[d] = byDate[d] || []).push(sec);
+    (byDate[d] = byDate[d] || []).push({ sec: sec, lat: numCoord(r.lat), lng: numCoord(r.lng) });
   });
 
   let dates = Object.keys(byDate).filter(function (d) {
@@ -3399,24 +3408,48 @@ function installerDayShape(name, workType, workdays) {
   }).sort();
   if (keep) dates = dates.slice(-keep);
 
-  const firsts = [], delays = [];
-  dates.forEach(function (d) {
-    const secs = byDate[d].sort(function (a, b) { return a - b; });
-    const n = secs.length;
-    const gaps = [];
-    for (let i = 1; i < n; i++) gaps.push((secs[i] - secs[i - 1]) / 60);
-    const spanMin = (secs[n - 1] - secs[0]) / 60;
-    const overhead = spanMin - (n - 1) * dwellMedian(gaps);
-    firsts.push(Math.floor(secs[0] / 60));
-    delays.push(Math.max(0, overhead - DAY_BREAK_MIN) / n);
-  });
-
   if (dates.length < DAY_SHAPE_MIN_DAYS) {
     return { usualFirstLogMin: '', delayPerStopMin: '', days: dates.length };
   }
+
+  if (!model) {
+    const fit = installerOnSiteFit(nm, mode, 30);
+    const gps = installerOnSiteFromTracks(nm, mode, 30);
+    model = { onSiteMin: gps !== '' ? gps : fit.onSiteMin,
+              extraMeterMin: fit.extraMeterMin, travelMinPerKm: fit.travelMinPerKm };
+  }
+  const blank = function (v) { return v === '' || v == null || !isFinite(Number(v)); };
+  const onSite = blank(model.onSiteMin) ? null : Number(model.onSiteMin);
+  const extra = blank(model.extraMeterMin) ? null : Number(model.extraMeterMin);
+  const rate = blank(model.travelMinPerKm) ? 0 : Number(model.travelMinPerKm);
+
+  // Each log after the first, priced the way the ETAs price it: a log within
+  // DWELL_SAME_SITE_M of the one before is another meter at a site already parked at,
+  // anything else is a fresh site plus the crow-flies drive the fit was measured on.
+  // A log or a previous log with no pin cannot be placed, so it costs the on-site time.
+  const firsts = [], delays = [];
+  dates.forEach(function (d) {
+    const logs = byDate[d].sort(function (a, b) { return a.sec - b.sec; });
+    const n = logs.length;
+    firsts.push(Math.floor(logs[0].sec / 60));
+    if (onSite == null) return;
+    let work = 0;
+    for (let i = 1; i < n; i++) {
+      const prev = logs[i - 1], cur = logs[i];
+      if (prev.lat == null || prev.lng == null || cur.lat == null || cur.lng == null) {
+        work += onSite;
+        continue;
+      }
+      const m = haversine(prev.lat, prev.lng, cur.lat, cur.lng);
+      work += (m < DWELL_SAME_SITE_M && extra != null) ? extra : onSite + rate * m / 1000;
+    }
+    const spanMin = (logs[n - 1].sec - logs[0].sec) / 60;
+    delays.push(Math.max(0, spanMin - work - DAY_BREAK_MIN) / n);
+  });
+
   return {
     usualFirstLogMin: Math.round(dwellMedian(firsts)),
-    delayPerStopMin: Math.round(dwellMedian(delays) * 10) / 10,
+    delayPerStopMin: delays.length ? Math.round(dwellMedian(delays) * 10) / 10 : '',
     days: dates.length
   };
 }
@@ -3602,12 +3635,19 @@ function applyOnSiteMetrics(row, nm) {
   });
 }
 
-/** Fill one InstallerMetrics row's day-shape columns for all three work modes. */
+/** Fill one InstallerMetrics row's day-shape columns for all three work modes.
+ *  The delay is measured against the dwell model applyOnSiteMetrics has just put on
+ *  this row, when it has (its onSiteSource is always filled), so the model is not
+ *  measured over again. */
 function applyDayShapeMetrics(row, nm) {
   [['', 'all'], ['boat', 'boat'], ['land', 'land']].forEach(function (pair) {
     const prefix = pair[0];
     const col = function (k) { return prefix ? prefix + k[0].toUpperCase() + k.slice(1) : k; };
-    const shape = installerDayShape(nm, pair[1], 30);
+    const model = row[col('onSiteSource')] === undefined ? null : {
+      onSiteMin: row[col('onSiteMin')], extraMeterMin: row[col('extraMeterMin')],
+      travelMinPerKm: row[col('travelMinPerKm')]
+    };
+    const shape = installerDayShape(nm, pair[1], 30, model);
     row[col('usualFirstLogMin')] = shape.usualFirstLogMin;
     row[col('delayPerStopMin')]  = shape.delayPerStopMin;
   });

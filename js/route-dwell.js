@@ -70,6 +70,34 @@ export function siteKey(address){
 export const SITE_FACTOR_MIN = 0.4;
 export const SITE_FACTOR_MAX = 2.5;
 
+// A stop this close to the one before is another meter at the site the crew is
+// already parked at, whatever its address says. It is the spine's DWELL_SAME_SITE_M:
+// extraMeterMin is MEASURED as the gap between logs this close together, so pricing
+// it only for an identical address charged every next-door house a full stop.
+// tests/route-dwell-parity.test.mjs holds the two values together.
+export const SAME_SITE_M = 60;
+
+// A pin is two real numbers. Number('') and Number(null) are both 0, so a blank cell
+// must read as no pin, not as 0,0 in the Atlantic, where every other blank sits too.
+function pinOf(item){
+  const lat = item.lat, lng = item.lng;
+  if(lat == null || lat === '' || lng == null || lng === '') return null;
+  const a = Number(lat), b = Number(lng);
+  return (isFinite(a) && isFinite(b)) ? { lat:a, lng:b } : null;
+}
+
+// Crow-flies metres between two pinned items, or null when either has no pin. The
+// spine's haversine, on its sphere, so a distance near the line is judged alike on
+// both sides; route.js is not imported, which keeps this module free of its weight.
+function metresApart(a, b){
+  const p = pinOf(a), q = pinOf(b);
+  if(!p || !q) return null;
+  const rad = d => d * Math.PI / 180;
+  const dLat = rad(q.lat - p.lat), dLng = rad(q.lng - p.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(p.lat)) * Math.cos(rad(q.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 // opts:
 //   paceMin        the installer's pace — the fallback basis, always supplied
 //   onSiteMin      MEASURED on-site minutes (InstallerMetrics), when we have them
@@ -96,6 +124,10 @@ export function dwellLookup(opts = {}){
     if(!item) return base;
     const key = siteKey(item.address);
     if(extra != null && prevItem && key && key === siteKey(prevItem.address)) return extra;
+    if(extra != null && prevItem){
+      const m = metresApart(item, prevItem);
+      if(m != null && m < SAME_SITE_M) return extra;
+    }
     const raw = (factors && key) ? Number(factors[key]) : NaN;
     if(!(isFinite(raw) && raw > 0)) return base;
     const factor = Math.min(SITE_FACTOR_MAX, Math.max(SITE_FACTOR_MIN, raw));

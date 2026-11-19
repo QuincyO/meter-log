@@ -258,8 +258,9 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
   it, plus the drive, plus however long you spend at that stop. The app works your
   on-site time out from your own history — the line under Pace tells you the number
   and where it came from — so you don't set it. Two things make it change from stop
-  to stop: a **second or third meter at an address you're already parked at** is
-  counted as the few minutes it really takes rather than a whole fresh stop, and a
+  to stop: a **second or third meter at an address you're already parked at, or a
+  house within 60 m of the stop before** is counted as the few minutes it really
+  takes rather than a whole fresh stop, and a
   place the crew has repeatedly found slow gets a little longer. Each stop on the
   route view shows its own figure beside the ETA. If it's wrong for the work you're
   actually doing you can set it yourself on the **Route tuning** screen; leave that
@@ -480,7 +481,7 @@ Optimize again and both come back.
 Tap **View route map** to check the selected day's route before or during the shift. The map uses the pins already saved on your worklist, so it opens immediately and does not spend route or geocoding quota.
 
 - **All** (the first button, when the route has more than one day) puts every order still to do on one map, so you can see where your work is and catch a pin in the wrong place before you drive to it. Each pin shows its day number in that day's colour, and there is no route line. Tap a pin to see the orders on it. A pin marked like **×4** holds several orders: if they are different addresses the list says so, and the yellow note under the map counts them. The rows under the map are the colour key — tap one to open that day.
-- **Each day row on All says when that day should end**, like **09:45 → ends about 15:55 · 60 min breaks · 50 min delays**. The first time is when you reach the first stop. The end time counts the route's own driving and on-site time, an hour of breaks a day (taken whenever you like), and your usual delay per stop, measured from your own days. On today's Day 1 the breaks are only the ones still to come, and once you have logged a stop today it says **started 08:50** with your real first log.
+- **Each day row on All says when that day should end.** Under **Day 2 · 25 orders** it reads **10:09 → about 15:40**, and a smaller line under that says what the end time includes, like **includes 60 min of breaks and 12 min of delays**. The **›** on the right means the row opens that day. The first time is when you reach the first stop. The end time counts the route's own driving and on-site time, an hour of breaks a day (taken whenever you like), and your usual delay per stop, measured from your own days. On today's Day 1 the breaks are only the ones still to come, and once you have logged a stop today it says **started 08:50** with your real first log.
 - **Flat out**, under the rows, says how many orders a day could hold if you worked straight through from your usual start to 15:30 with the same breaks and delays, and how many days the whole list would take at that rate, next to your meters/day target. It only shows once the list has been optimized at least once, on your phone or by the office: a list nobody has optimized has times on it, but they follow the order the orders were added in, so a flat-out figure from them would mean nothing. The end time on each day row shows either way, because it describes the days as they are ordered now.
 - The end time and the flat-out number are for reading only. They never change how many orders go on a day: your meters/day target does that.
 - Use the **Day** buttons above the map to inspect each remaining planned day. Orders without a day appear under **Other**; a one-day unassigned list is simply **Route**.

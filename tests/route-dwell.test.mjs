@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   dwellLookup, siteKey, onSiteMinutes,
-  MIN_ONSITE_MIN, SITE_FACTOR_MIN, SITE_FACTOR_MAX
+  MIN_ONSITE_MIN, SITE_FACTOR_MIN, SITE_FACTOR_MAX, SAME_SITE_M
 } from '../js/route-dwell.js';
 
 const at = (address, extra = {}) => ({ id:address, address, ...extra });
@@ -127,4 +127,61 @@ test('average of an empty route is the base, not NaN', () => {
   const d = dwellLookup({ paceMin:30, onSiteMin:20 });
   assert.equal(d.average([]), 20);
   assert.equal(d.average(null), 20);
+});
+
+// ── the house next door (field report 2026-11-18) ────────────────────────────
+// The spine measures extraMeterMin from consecutive logs within DWELL_SAME_SITE_M
+// (60 m) of each other, whatever the address. Charging it only for the SAME address
+// priced every next-door house as a fresh site, and 57% of the owner's stops are
+// within 60 m of the one before. One degree of latitude is 111,195 m on the
+// haversine's sphere, so 30 m north is 30 / 111195 degrees.
+
+const north = m => 45 + m / 111195;
+const pinned = (address, metresNorth) => at(address, { lat:north(metresNorth), lng:-79.3 });
+
+test('the same-site distance is the spine\'s 60 metres', () => {
+  assert.equal(SAME_SITE_M, 60);
+});
+
+test('a stop 30 m from the one before, at a different address, is a quick stop', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  assert.equal(d.forItem(pinned('12 Lake St', 30), pinned('10 Lake St', 0)), 6);
+});
+
+test('a stop 80 m from the one before is a full stop', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  assert.equal(d.forItem(pinned('16 Lake St', 80), pinned('10 Lake St', 0)), 13);
+});
+
+test('with no pin on either stop, only the address can make it a quick stop', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  assert.equal(d.forItem(at('12 Lake St'), at('10 Lake St')), 13);
+  assert.equal(d.forItem(at('12 Lake St'), pinned('10 Lake St', 0)), 13);
+  assert.equal(d.forItem(pinned('12 Lake St', 30), at('10 Lake St')), 13);
+  // Same address, no pins: the repeat meter it always was.
+  assert.equal(d.forItem(at('10 Lake St'), at('10 Lake St')), 6);
+});
+
+test('blank pin cells are no pin, not a point at 0,0', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  assert.equal(d.forItem(at('12 Lake St', { lat:'', lng:'' }), at('10 Lake St', { lat:'', lng:'' })), 13);
+  assert.equal(d.forItem(at('12 Lake St', { lat:null, lng:null }), at('10 Lake St', { lat:null, lng:null })), 13);
+});
+
+test('the first stop of a day is a full stop however close it sits', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  assert.equal(d.forItem(pinned('12 Lake St', 30)), 13);
+  assert.equal(d.forItem(pinned('12 Lake St', 30), null), 13);
+});
+
+test('with no extra-meter time measured, a near stop is a full stop', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13 });
+  assert.equal(d.forItem(pinned('12 Lake St', 30), pinned('10 Lake St', 0)), 13);
+});
+
+test('average prices next-door houses as the schedule will', () => {
+  const d = dwellLookup({ paceMin:30, onSiteMin:13, extraMeterMin:6 });
+  // 13 for the first, 6 for the house 30 m on, 13 for the one 200 m further: 32 over 3.
+  const avg = d.average([pinned('10 Lake St', 0), pinned('12 Lake St', 30), pinned('40 Lake St', 230)]);
+  assert.equal(avg, 32 / 3);
 });

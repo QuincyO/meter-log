@@ -568,13 +568,22 @@ export function breakMinutesLeft(totalMin, loggedMin, doneStops, leftStops){
 // caller's number (a blank is 0): breaks are a daily total taken whenever, so they are
 // added whole rather than placed on the clock. `startedMin` (today's first log) replaces
 // only the reported start. Null when no stop has an ETA.
+//
+// ETAs are 'HH:MM' clocks that wrap at midnight, and an evening re-plan of Day 1 runs
+// 19:30 … 00:42. Read as plain clocks that day started at 00:03 and was 24 hours long.
+// No working day is 12 hours from first arrival to last, so a wider spread means the
+// morning clocks belong to the next calendar day; the minutes returned may then pass
+// 1440, which the caller's formatter wraps for display.
 export function dayEndEstimate(items, o = {}){
   let first = null, workEnd = null, stops = 0;
   const fallback = Number(o.fallbackOnSiteMin);
+  const etas = (items || []).map(x => x ? timeMin(x.scheduledEta) : null).filter(m => m != null);
+  const wraps = etas.length > 1 && Math.max(...etas) - Math.min(...etas) > 720;
   (items || []).forEach(x => {
     if(!x) return;
-    const eta = timeMin(x.scheduledEta);
+    let eta = timeMin(x.scheduledEta);
     if(eta == null) return;
+    if(wraps && eta < 720) eta += 1440;
     stops++;
     const onSite = Number(x.scheduledOnSiteMin);
     const depart = eta + ((isFinite(onSite) && onSite > 0) ? onSite
@@ -594,17 +603,21 @@ export function dayEndEstimate(items, o = {}){
 // stop is what the optimized days already show (span of work over stops, delays and
 // breaks left out); days with fewer than 2 ETAs say nothing about it. o = { startMin,
 // endMin, delayPerStopMin, breakMin, fallbackOnSiteMin }.
+// It is the MEDIAN of each day's work per stop, not one pooled total: pooled, a single
+// odd day (once, an evening Day 1 read as 24 hours long) moved the figure for the whole
+// list, from 17 a day to 10.
 export function flatOutPerDay(days, o = {}){
-  let work = 0, stops = 0;
+  const each = [];
   (days || []).forEach(items => {
     const e = dayEndEstimate(items, { fallbackOnSiteMin: o.fallbackOnSiteMin });
     const n = (items || []).filter(x => x && timeMin(x.scheduledEta) != null).length;
     if(!e || n < 2) return;
-    work += e.workEndMin - e.startMin;
-    stops += n;
+    each.push((e.workEndMin - e.startMin) / n);
   });
-  if(!stops) return null;
-  const workPerStopMin = work / stops;
+  if(!each.length) return null;
+  each.sort((a, b) => a - b);
+  const mid = each.length >> 1;
+  const workPerStopMin = each.length % 2 ? each[mid] : (each[mid - 1] + each[mid]) / 2;
   if(!(workPerStopMin > 0)) return null;
   const start = Number(o.startMin), end = Number(o.endMin);
   if(!isFinite(start) || !isFinite(end)) return null;

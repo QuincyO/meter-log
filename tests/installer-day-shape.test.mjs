@@ -17,7 +17,7 @@ function spine(tables){
     'UrlFetchApp', 'LockService', 'ContentService', 'ScriptApp', 'CacheService', '__T', `
     function rows(n){ return __T[n] || []; }
     ${src}
-    return { installerDayShape };
+    return { installerDayShape, installerOnSiteFit, applyOnSiteMetrics, applyDayShapeMetrics };
   `)(
     { getActiveSpreadsheet: () => ({ getSheetByName: n => (tables[n] ? {} : null) }) },
     { formatDate: NO_APPS_SCRIPT }, {}, {}, {}, {}, {}, {}, {},
@@ -86,13 +86,91 @@ test('only the most recent 30 days are read', () => {
   assert.equal(r.days, 30);
 });
 
-test('the delay per stop is what is left after stop-to-stop work and the 60 break minutes', () => {
-  // Each day: 11 logs, ten gaps (nine of 10 min, one of 100). Span 190, median gap 10,
-  // overhead 190 - 10x10 = 90, less 60 = 30, over 11 logs = 2.7.
-  const r = shape(landDays(12, '09:40', { gaps: [10, 10, 10, 10, 100, 10, 10, 10, 10, 10] }));
-  assert.equal(r.delayPerStopMin, 2.7);
+// ── the delay per stop ──────────────────────────────────────────────────────
+// Measured against the model the ETAs use: every log after the first costs the
+// extra-meter time when it is within DWELL_SAME_SITE_M of the one before, else the
+// on-site time plus the drive at the measured rate; a log or a previous log with no
+// pin costs the on-site time. What the span holds beyond that and the 60 break
+// minutes is delay. (It used to be measured against the day's median gap, which is
+// mostly quick next-door stops: 1.5 minutes a stop for the owner, 37 minutes on a
+// 25-stop day his history does not contain.)
+//
+// The fixtures are built so the fit has an exact answer: every pinned far gap is
+// 10 + 2 × km minutes, along one meridian so the haversine distance is the step,
+// and every 30 m gap is 5 minutes. So onSiteMin 10, travelMinPerKm 2, extraMeterMin
+// 5. The unexplained time sits on an unpinned log, which the fit never sees.
+
+const R = 6371000;
+const north = (lat, metres) => lat + (metres / R) * 180 / Math.PI;
+const FAR1 = { m: 1000, min: 12 }, FAR2 = { m: 2000, min: 14 }, NEAR = { m: 30, min: 5 };
+// An unpinned log `extra` minutes beyond its 10 on site, then a pinned one 10 later.
+const bare = extra => [{ m: null, min: 10 + extra }, { m: 0, min: 10 }];
+
+// One day of land Stops from a list of hops, each { m: metres north (null = no pin), min }.
+function hopDay(date, hops){
+  let mins = 9 * 60, lat = 45;
+  const row = (i, pinned) => ({ id: `${date}-${i}`, installer: 'Pat Example', status: 'INSTALLED',
+    workType: 'land', timestamp: `${date} ${clockOf(mins)}`, address: `${i + 1} First St`,
+    lat: pinned ? String(lat) : '', lng: pinned ? '-79' : '' });
+  const out = [row(0, true)];
+  hops.forEach((h, i) => {
+    mins += h.min;
+    if(h.m != null) lat = north(lat, h.m);
+    out.push(row(i + 1, h.m != null));
+  });
+  return out;
+}
+const hopDays = (count, hops) => weekdays(count, '2026-09-29').flatMap(d => hopDay(d, hops));
+
+// 15 logs. Work: eight far hops (4 × 12 + 4 × 14 = 104), four next-door hops
+// (4 × 5 = 20), the unpinned log and the one after it (10 + 10 = 20): 144.
+const mixed = extra => [FAR1, FAR2, NEAR, FAR1, FAR2, NEAR, ...bare(extra), FAR1, FAR2, NEAR, FAR1, FAR2, NEAR];
+
+test('the fixtures give the fit its exact answer', () => {
+  const fit = spine({ Stops: hopDays(12, mixed(60)) }).installerOnSiteFit('Pat Example', 'land', 30);
+  assert.deepEqual([fit.onSiteMin, fit.travelMinPerKm, fit.extraMeterMin], [10, 2, 5]);
 });
 
-test('a day with less overhead than the breaks has no delay, never a negative one', () => {
-  assert.equal(shape(landDays(12, '09:40')).delayPerStopMin, 0);
+test('a day whose span is exactly model work plus the 60 break minutes has no delay', () => {
+  // Span 104 + 20 + 70 + 10 = 204 = 144 + 60, so nothing is left over.
+  assert.equal(shape(hopDays(12, mixed(60))).delayPerStopMin, 0);
+});
+
+test('45 unexplained minutes over 15 logs is 3.0 a stop', () => {
+  // Span 204 + 45 = 249; 249 − 144 − 60 = 45; 45 / 15 = 3.0.
+  assert.equal(shape(hopDays(12, mixed(105))).delayPerStopMin, 3);
+});
+
+test('next-door stops are priced at the extra-meter time, not as a fresh site', () => {
+  // 15 logs, eight of them next door. Work: far 12 + 14 + 12 + 14 = 52, next door
+  // 8 × 5 = 40, the unpinned pair 10 + 10 = 20: 112. Span 52 + 40 + 100 + 10 = 202.
+  // 202 − 112 − 60 = 30, over 15 = 2.0. Priced as fresh sites (10.06 each) the
+  // work would be 152.5 and the delay 0.
+  const hops = [FAR1, NEAR, NEAR, NEAR, FAR2, NEAR, NEAR, NEAR, ...bare(90), FAR1, NEAR, NEAR, FAR2];
+  assert.equal(shape(hopDays(12, hops)).delayPerStopMin, 2);
+});
+
+test('no on-site fit for the installer and mode is no delay figure', () => {
+  // landDays carries no pins, so there is nothing to fit. The first log still stands.
+  const r = shape(landDays(12, '09:40', { gaps: [10, 10, 10, 10, 100, 10, 10, 10, 10, 10] }));
+  assert.deepEqual([r.delayPerStopMin, r.usualFirstLogMin], ['', 580]);
+});
+
+test('the metrics row reuses the dwell model it was just given', () => {
+  const s = spine({ Stops: hopDays(12, mixed(105)) });
+  const row = {};
+  s.applyOnSiteMetrics(row, 'Pat Example');
+  s.applyDayShapeMetrics(row, 'Pat Example');
+  assert.equal(row.landDelayPerStopMin, 3);
+  // Boat has no logs at all here, so no fit and no figure.
+  assert.equal(row.boatDelayPerStopMin, '');
+  // The row's own model is the one used: a row that says "no fit" gets no figure,
+  // although these Stops would fit one if they were measured again.
+  const noFit = { landOnSiteSource: 'pace', landOnSiteMin: '', landExtraMeterMin: '', landTravelMinPerKm: '' };
+  s.applyDayShapeMetrics(noFit, 'Pat Example');
+  assert.equal(noFit.landDelayPerStopMin, '');
+  // A row that has not been through applyOnSiteMetrics measures the model itself.
+  const bareRow = {};
+  s.applyDayShapeMetrics(bareRow, 'Pat Example');
+  assert.equal(bareRow.landDelayPerStopMin, 3);
 });

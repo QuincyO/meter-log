@@ -518,20 +518,36 @@ const fullDay = day => ({ key:`day:${day}`, label:`Day ${day}`, day, items:[
 
 test('a day not started ends after its work, its breaks and its delays', () => {
   // 14:05 + 60 break + 5 × 10 delay = 15:55
-  assert.equal(dayEndText(fullDay(2), dayPlan()),
-    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan()),
+    { times:'09:45 → about 15:55', includes:'includes 60 min of breaks and 50 min of delays' });
 });
 
 test('a day with no measured delay leaves the delays out', () => {
-  assert.equal(dayEndText(fullDay(2), dayPlan({ delayPerStopMin:0 })),
-    '09:45 → ends about 15:05 · 60 min breaks');
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ delayPerStopMin:0 })),
+    { times:'09:45 → about 15:05', includes:'includes 60 min of breaks' });
+});
+
+test('a day with neither breaks nor delays has no "includes" line', () => {
+  assert.deepEqual(dayEndText(fullDay(2), dayPlan({ delayPerStopMin:0, breakMin:0 })),
+    { times:'09:45 → about 14:05', includes:'' });
+});
+
+test('an evening Day 1 that runs past midnight starts in the evening and ends after midnight', () => {
+  // 25 stops from 19:30, every 13 minutes, 13 on site: the last arrives 00:42.
+  const items = Array.from({ length:25 }, (_, k) => {
+    const m = (1170 + 13 * k) % 1440;
+    return etaStop(`s${k}`, String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'), 13);
+  });
+  const g = { key:'day:1', label:'Day 1', day:1, items };
+  assert.deepEqual(dayEndText(g, dayPlan({ planIsToday:true, day1BreakMin:0, delayPerStopMin:0 })),
+    { times:'19:30 → about 00:55', includes:'' });
 });
 
 test('a stop without its own on-site time uses the fallback', () => {
   const g = fullDay(2);
   g.items[4] = etaStop('e', '13:50');            // fallback 15, same as the others
-  assert.equal(dayEndText(g, dayPlan()),
-    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+  assert.deepEqual(dayEndText(g, dayPlan()),
+    { times:'09:45 → about 15:55', includes:'includes 60 min of breaks and 50 min of delays' });
 });
 
 test('Day 1 today, once a stop is logged, says when the day started and the breaks left', () => {
@@ -539,36 +555,36 @@ test('Day 1 today, once a stop is logged, says when the day started and the brea
     etaStop('a', '10:00', 15), etaStop('b', '11:00', 15), etaStop('c', '12:00', 15),
     etaStop('d', '13:00', 15), etaStop('e', '14:00', 15)] };
   // 14:15 + 25 break + 5 × 6 delay = 15:10
-  assert.equal(dayEndText(g, dayPlan({ planIsToday:true, todayFirstLog:'08:50',
+  assert.deepEqual(dayEndText(g, dayPlan({ planIsToday:true, todayFirstLog:'08:50',
     day1BreakMin:25, delayPerStopMin:6 })),
-    'started 08:50 → ends about 15:10 · 25 min breaks · 30 min delays');
+    { times:'started 08:50 → about 15:10', includes:'includes 25 min of breaks and 30 min of delays' });
 });
 
 test('an evening Day 1 with its breaks used up and no log shows neither', () => {
   const g = { key:'day:1', label:'Day 1', day:1, items:[
     etaStop('a', '17:14', 15), etaStop('b', '17:40', 15), etaStop('c', '18:05', 15)] };
   const plan = dayPlan({ planIsToday:true, day1BreakMin:0, delayPerStopMin:2 });
-  assert.equal(dayEndText(g, plan), '17:14 → ends about 18:26 · 6 min delays');
+  assert.deepEqual(dayEndText(g, plan), { times:'17:14 → about 18:26', includes:'includes 6 min of delays' });
   // Same evening with a stop logged this morning: now it has started.
-  assert.equal(dayEndText(g, { ...plan, todayFirstLog:'08:50' }),
-    'started 08:50 → ends about 18:26 · 6 min delays');
+  assert.deepEqual(dayEndText(g, { ...plan, todayFirstLog:'08:50' }),
+    { times:'started 08:50 → about 18:26', includes:'includes 6 min of delays' });
 });
 
 test('only Day 1 of a plan for today takes the started clock and the breaks left', () => {
   const today = dayPlan({ planIsToday:true, todayFirstLog:'08:50', day1BreakMin:25 });
   // Day 2 is a fresh day tomorrow: the full allowance, no "started".
-  assert.equal(dayEndText(fullDay(2), today),
-    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+  assert.deepEqual(dayEndText(fullDay(2), today),
+    { times:'09:45 → about 15:55', includes:'includes 60 min of breaks and 50 min of delays' });
   // Day 1 of a plan for tomorrow has not started either.
-  assert.equal(dayEndText(fullDay(1), { ...today, planIsToday:false }),
-    '09:45 → ends about 15:55 · 60 min breaks · 50 min delays');
+  assert.deepEqual(dayEndText(fullDay(1), { ...today, planIsToday:false }),
+    { times:'09:45 → about 15:55', includes:'includes 60 min of breaks and 50 min of delays' });
 });
 
 test('a day with no ETAs, or no plan, has no end time to show', () => {
   const g = { key:'day:3', label:'Day 3', day:3, items:[{ id:'x', wlStatus:'pending' }] };
-  assert.equal(dayEndText(g, dayPlan()), '');
-  assert.equal(dayEndText(fullDay(2), undefined), '');
-  assert.equal(dayEndText(fullDay(2), null), '');
+  assert.equal(dayEndText(g, dayPlan()), null);
+  assert.equal(dayEndText(fullDay(2), undefined), null);
+  assert.equal(dayEndText(fullDay(2), null), null);
 });
 
 // 113 orders over five optimized days, every stop 12 minutes of work. With 1.5
@@ -637,8 +653,8 @@ test('the day rows keep their end times on a list never optimized', () => {
   // End times describe the day as it is ordered now, like the ETAs under them.
   // Five stops 12 minutes apart from 09:30, the last leaving 10:30; + 60 + 5 × 10 = 12:20.
   const [day] = optimizedDays([5], { saved:false });
-  assert.equal(dayEndText({ ...day, day:2 }, dayPlan()),
-    '09:30 → ends about 12:20 · 60 min breaks · 50 min delays');
+  assert.deepEqual(dayEndText({ ...day, day:2 }, dayPlan()),
+    { times:'09:30 → about 12:20', includes:'includes 60 min of breaks and 50 min of delays' });
 });
 
 // An older cached route-constraints.js has dayEndEstimate and flatOutPerDay but
@@ -652,7 +668,7 @@ test('the end time and the flat-out line need the scheduler that understands bre
   const body = name => src.slice(src.indexOf(`export function ${name}(`),
     src.indexOf('\n}\n', src.indexOf(`export function ${name}(`)));
   assert.match(body('dayEndText'),
-    /typeof sched\.dayEndEstimate !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return '';/);
+    /typeof sched\.dayEndEstimate !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return null;/);
   assert.match(body('flatOutText'),
     /typeof sched\.flatOutPerDay !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return '';/);
 });

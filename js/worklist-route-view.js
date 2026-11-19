@@ -321,13 +321,16 @@ function planClock(min){
 // breakMinutesLeft shipped in the same change as the break support, so its presence
 // is the version check; without it both read-outs say nothing.
 
-/** A day row's time line: `09:45 → ends about 15:55 · 60 min breaks · 50 min delays`,
- *  or '' when there is nothing to say (no plan, no ETAs, an older cached scheduler).
+/** A day row's times, as the parts the card lays out on two lines:
+ *  `{ times: '09:45 → about 15:55', includes: 'includes 60 min of breaks and 50 min of
+ *  delays' }`, with `includes` '' when there are neither; null when there is nothing
+ *  to say (no plan, no ETAs, an older cached scheduler). It was one run joined by
+ *  ` · `, which wrapped onto two or three bold lines on a phone and was hard to read.
  *  Only Day 1 of a plan for today has begun, so only it takes the breaks still to
  *  come and, once a stop is logged, the real start. */
 export function dayEndText(group, plan){
-  if(!plan || !group) return '';
-  if(typeof sched.dayEndEstimate !== 'function' || typeof sched.breakMinutesLeft !== 'function') return '';
+  if(!plan || !group) return null;
+  if(typeof sched.dayEndEstimate !== 'function' || typeof sched.breakMinutesLeft !== 'function') return null;
   const today = group.day === 1 && Boolean(plan.planIsToday);
   const started = today ? planMin(plan.todayFirstLog) : null;
   const e = sched.dayEndEstimate(group.items, {
@@ -336,12 +339,15 @@ export function dayEndText(group, plan){
     breakMin: today ? plan.day1BreakMin : plan.breakMin,
     startedMin: started == null ? undefined : started,
   });
-  if(!e) return '';
-  return [
-    `${started == null ? '' : 'started '}${planClock(e.startMin)} → ends about ${planClock(e.endMin)}`,
-    e.breakMin > 0 ? `${Math.round(e.breakMin)} min breaks` : '',
-    e.delayMin > 0 ? `${e.delayMin} min delays` : '',
-  ].filter(Boolean).join(' · ');
+  if(!e) return null;
+  const parts = [
+    e.breakMin > 0 ? `${Math.round(e.breakMin)} min of breaks` : '',
+    e.delayMin > 0 ? `${e.delayMin} min of delays` : '',
+  ].filter(Boolean);
+  return {
+    times: `${started == null ? '' : 'started '}${planClock(e.startMin)} → about ${planClock(e.endMin)}`,
+    includes: parts.length ? `includes ${parts.join(' and ')}` : '',
+  };
 }
 
 /** The All tab's flat-out line: how many a day could hold from the usual start to
@@ -718,19 +724,41 @@ export function initWorklistRouteView(opts){
   // into that day's own tab. Leads with when the day should end, the route's own
   // work plus breaks plus this installer's usual delay per stop; the arrival window
   // is the fallback when that cannot be worked out.
+  // Three short lines: the day, its times in plain text a size above the meta line,
+  // and a small muted "includes …" line. Inline styles only, and the meta class the
+  // stylesheet already has: a phone can run this file against an older capture.css,
+  // and a new class would be unstyled there. A › at the right edge says it opens.
   function dayRow(group, plan){
     const row = document.createElement('div');
     row.className = 'wl-route-card';
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const win = showTimes() ? (dayEndText(group, plan) || dayWindow(group.items)) : '';
+    const est = showTimes() ? dayEndText(group, plan) : null;
     const pins = group.items.filter(x => coordsOf(x)).length;
-    row.innerHTML = `
-      <span class="wl-route-pos" style="background:${group.day == null ? NO_DAY_COLOR : dayColor(group.day)};color:#fff">${group.day == null ? '•' : group.day}</span>
-      <div class="wl-route-main">
-        <strong>${esc(group.label)} · ${group.items.length} order${group.items.length === 1 ? '' : 's'}</strong>
-        <div class="wl-route-meta">${[win, pins === group.items.length ? '' : `${group.items.length - pins} without a pin`, 'tap to open'].filter(Boolean).join(' · ')}</div>
-      </div>`;
+    const unpinned = pins === group.items.length ? '' : `${group.items.length - pins} without a pin`;
+    const head = `<strong>${esc(group.label)} · ${group.items.length} order${group.items.length === 1 ? '' : 's'}</strong>`;
+    const pos = `<span class="wl-route-pos" style="background:${group.day == null ? NO_DAY_COLOR : dayColor(group.day)};color:#fff">${group.day == null ? '•' : group.day}</span>`;
+    if(est){
+      const note = [est.includes, unpinned].filter(Boolean).join(' · ');
+      row.innerHTML = `
+        ${pos}
+        <div class="wl-route-main">
+          ${head}
+          <div style="margin-top:3px;font-size:13px">${esc(est.times)}</div>
+          ${note ? `<div class="wl-route-meta" style="font-weight:400">${esc(note)}</div>` : ''}
+        </div>
+        <span aria-hidden="true" style="flex:none;padding:0 2px 0 4px;font-size:22px;line-height:1;color:var(--ink-soft)">›</span>`;
+    } else {
+      // No estimate (no ETAs, no day plan, an older cached scheduler): the card as it
+      // was before the end times, the arrival window and "tap to open".
+      const win = showTimes() ? dayWindow(group.items) : '';
+      row.innerHTML = `
+        ${pos}
+        <div class="wl-route-main">
+          ${head}
+          <div class="wl-route-meta">${[win, unpinned, 'tap to open'].filter(Boolean).join(' · ')}</div>
+        </div>`;
+    }
     const go = async () => { selected = group.key; needsFit = true; await render(); };
     row.onclick = go;
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } };
