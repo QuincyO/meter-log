@@ -158,7 +158,7 @@ function headlineSection(p){
   return { title: 'Headline', blocks: [{ t: 'tiles', items: [
     [n0(p.orders), `orders logged on ${plural(p.days, 'working day', 'working days')}`],
     [n1(h.ordersAvg), `orders a day on average${isNum(h.ordersBest) ? ` (best day ${h.ordersBest})` : ''}`],
-    [mins(h.pauseMedian), 'unlogged pause time between meters on a typical day, breaks included'],
+    [mins(h.pauseMedian), 'unlogged pause time between meters on a typical day, unlogged breaks included'],
     [mins(h.loggedAvg), `delay logged per day${isNum(h.loggedBeforeShare) ? `, ${share(h.loggedBeforeShare)} of all logged delay falls before the first meter` : ''}`],
   ] }] };
 }
@@ -177,6 +177,7 @@ function barSection(p){
 function pauseSection(p){
   const s = p.pause;
   const range = (a, b) => isNum(a) && isNum(b) ? `${fmtMin(a)} to ${fmtMin(b)} min` : '—';
+  const brk = p.breaks || {};
   const rows = [
     ['Typical day (median)', mins(s.median)],
     ['Average', mins(s.avg)],
@@ -191,14 +192,17 @@ function pauseSection(p){
     ['Before logged delays are taken off', isNum(s.allMedian)
       ? `median ${fmtMin(s.allMedian)}, average ${fmtMin(s.allAvg)} min` : '—'],
     [`Long gaps (${AUDIT.FLAG_MIN}+ min of unlogged pause)`, `${s.flags} on ${plural(s.flagDays, 'day', 'days')}`],
+    ['Breaks and lunch logged, per day (average)', isNum(brk.loggedAvg) ? `${fmtMin(brk.loggedAvg)} min, against an allowance of ${AUDIT.BREAK_ALLOWANCE_MIN}` : '—'],
+    ['Days with a break or lunch logged', `${brk.days || 0} of ${p.fullDays}` + (brk.overAllowance ? `, ${brk.overAllowance} over the allowance` : '')],
   ];
   return { title: 'Unlogged pause time per day', blocks: [
     { t: 'two',
       left: [p.fullDays ? { t: 'hist', bins: s.bins, allowance: AUDIT.BREAK_ALLOWANCE_MIN } : { t: 'empty', text: 'No full days to chart.' }],
       right: [{ t: 'pairs', rows }] },
-    { t: 'cap', text: 'Time between meters that is neither the usual time for the stop nor a logged delay. It includes breaks and lunch '
-      + `(the allowance is ${AUDIT.BREAK_ALLOWANCE_MIN} minutes a day), delays that were not logged, and stops that simply took longer than usual. `
-      + 'The data cannot tell these apart.' }] };
+    { t: 'cap', text: 'Time between meters with nothing logged against it: not the usual time for the stop, not a logged delay and not a logged break. '
+      + `It includes any break or lunch that was not logged (the allowance is ${AUDIT.BREAK_ALLOWANCE_MIN} minutes a day), delays that were not logged, `
+      + 'and stops that simply took longer than usual. The data cannot tell these apart. A break that is logged leaves this figure and is compared '
+      + 'with the allowance on its own, so days from before breaks were logged show more here for the same work.' }] };
 }
 
 function monthSection(p){
@@ -291,15 +295,17 @@ export function methodSection(distance = null){
       'A delay is entered against an order and filed under the gap before that order\'s log. It is taken off that gap\'s pause, never below zero. '
         + 'What that gap did not run over is taken off the gap after the same order, because the time is often lost after the log is saved. '
         + 'It goes one gap and no further. Travel, break and lunch entries are not taken off.',
-      'What is left is unlogged pause time. The typical day is the median of the daily totals.',
+      'A break or lunch entered against a gap is placed on it the same way, after the delays: its own gap first, then the gap after the same order. '
+        + 'It is not a delay. It is shown as a logged break and compared with the break allowance.',
+      'What is left is unlogged pause time: nothing was logged against it. The typical day is the median of the daily totals.',
       'Working time is the gaps with each pause cut back to the usual time, so first-to-last-meter time is working time plus all pause time.',
       'A logged delay is placed before the first meter, between meters or after the last meter by the times in its entry. One with no times is "without a time of day".',
       `The shift starts at ${start}. The day ends at the time set at close-out, at ${end} when the day was never closed out, `
         + 'or at the last meter when that is later. "Before the first meter, not logged" is the first meter less the start less the delay logged before it. '
         + '"Close-out and drive home" is the end of the day less the last meter.',
       `Per-day statistics use only days with ${A.MIN_ORDERS} or more orders. Shorter days are listed and can be opened.`,
-      `A single gap is marked as a long gap when its unlogged pause is ${A.FLAG_MIN} minutes or more. That is the time over the usual for the stop, less any delay logged against it, so a ${A.FLAG_MIN}-minute gap is not by itself a long gap.`,
-      `The break allowance is ${A.BREAK_ALLOWANCE_MIN} minutes a day: two 15-minute breaks and a 30-minute lunch.`,
+      `A single gap is marked as a long gap when its unlogged pause is ${A.FLAG_MIN} minutes or more. That is the time over the usual for the stop, less any delay or break logged against it, so a ${A.FLAG_MIN}-minute gap is not by itself a long gap.`,
+      `The break allowance is ${A.BREAK_ALLOWANCE_MIN} minutes a day: two 15-minute breaks and a 30-minute lunch. Breaks and lunch that are logged are compared with it.`,
       'The expected number of orders for a day is worked out from that day\'s own time and route. Take the time from first to last meter, '
         + 'less delay logged against those gaps (no more of a gap than it ran over). Take the share of it that a typical full day spends at the usual pace, '
         + 'which is the same gaps at their usual times divided by that time. Divide by the usual minutes per order on that day\'s route and add the first order. '
@@ -307,7 +313,8 @@ export function methodSection(distance = null){
     ] },
     { t: 'h3', text: 'What the data cannot show' },
     { t: 'list', ordered: false, items: [
-      'It cannot separate a break from an unlogged delay. Both are a gap that ran long with nothing logged against it.',
+      'It cannot separate a break from an unlogged delay. Both are a gap that ran long with nothing logged against it. A break only reads as a break when it was logged, '
+        + 'so a day from before breaks were logged shows more unlogged pause than the same work would now.',
       'The comparison is with the installer\'s own usual pace, not a company standard and not another installer. A stop that took longer because the job was harder counts as a pause.',
       'A log records one moment per order, when the entry is saved. Arrival and departure are not recorded, so the first installation and the drive to it sit before the first log.',
       `The start is the ${start} rule and the end is the time recorded at close-out. Neither was checked against anything.`,
@@ -410,6 +417,7 @@ function compareSection({ day, baselines }){
       row('Last meter (average)', fmtClock, day.lastMin, b30.lastAvg, all.lastAvg),
       row('Delay logged before the first meter (average)', fmtMin, day.log.before, b30.loggedBeforeAvg, all.loggedBeforeAvg),
       row('Delay logged between meters (average)', fmtMin, day.log.between, b30.loggedBetweenAvg, all.loggedBetweenAvg),
+      row('Break and lunch logged (average)', fmtMin, day.log.breaks, b30.breakAvg, all.breakAvg),
       row('Unlogged pause (median)', fmtMin, day.pauseUnMin, b30.pauseMedian, all.pauseMedian),
       ['Longest pause (median)', day.longestMin > 0 ? `${fmtMin(day.longestMin)} at ${fmtClock(day.longestAtMin)}` : '—',
         fmtMin(b30.longestMedian), fmtMin(all.longestMedian)],
@@ -426,23 +434,33 @@ function delaysSection(day){
     : d.where === 'after' ? `${span(d)}, after the last meter`
     // entered on an order, filed under the gap before its log, counted where the time was lost
     : d.carriedTo ? `${span(d)}, counted in the gap after it (${fmtClock(d.carriedTo.fromMin)}–${fmtClock(d.carriedTo.toMin)})` : span(d);
-  const extra = [day.log.breaks ? `${fmtMin(day.log.breaks)} min of breaks or lunch` : '',
-    day.log.travel ? `${fmtMin(day.log.travel)} min of travel` : ''].filter(Boolean);
+  // Breaks and lunch are listed apart: they are not delays, and they are compared
+  // with the allowance. `placed` is how much of what was entered sits on a gap.
+  const placed = day.pauseBreakMin || 0, breaks = day.breaks || [];
   return { title: 'Delays logged this day', blocks: [
     day.delays.length
       ? { t: 'table', head: ['Category', 'Minutes', 'Logged against'], rows: day.delays.map(d =>
           [d.driveToFirst ? 'Dispatch (drive to the first order)' : d.label, fmtMin(d.minutes), against(d)]) }
       : { t: 'empty', text: 'No delay was logged this day.' },
-    ...(extra.length ? [{ t: 'cap', text: `Also entered: ${extra.join(' and ')}. These are not delays and are not taken off any pause.` }] : [])] };
+    ...(breaks.length ? [
+      { t: 'h3', text: 'Breaks and lunch logged' },
+      { t: 'table', head: ['Entry', 'Minutes', 'Logged against'], rows: breaks.map(d => [d.label, fmtMin(d.minutes), against(d)]) },
+      { t: 'cap', text: `${fmtMin(day.log.breaks)} min of breaks or lunch, against an allowance of ${AUDIT.BREAK_ALLOWANCE_MIN} min. `
+        + (placed + 0.5 < day.log.breaks ? `${fmtMin(placed)} min of it sits on a gap that ran long; the rest is on no gap. ` : '')
+        + 'These are not delays: they are shown on the timeline as logged breaks.' }] : []),
+    ...(day.log.travel ? [{ t: 'cap', text: `Also entered: ${fmtMin(day.log.travel)} min of travel. It is not a delay and is not taken off any pause.` }] : [])] };
 }
 
 function readAs(g){
   if(!g.isPause) return 'work';
-  const over = fmtMin(g.over), un = fmtMin(g.unloggedMin), logged = fmtMin(g.over - g.unloggedMin);
+  const over = fmtMin(g.over), brk = g.breakMin || 0, delay = g.over - g.unloggedMin - brk;
   const flag = g.flagged ? 'long gap' : '';
-  if(!(g.unloggedMin > 0)) return `pause ${over}, all logged as a delay`;
-  if(!(g.over - g.unloggedMin > 0)) return { text: `pause ${over}, nothing logged`, flag };
-  return { text: `pause ${over}: ${logged} logged as a delay, ${un} not logged`, flag };
+  // what was logged against it, in words: a delay, a break or lunch, or both
+  const logged = [delay > 0 ? `${fmtMin(delay)} logged as a delay` : '', brk > 0 ? `${fmtMin(brk)} logged as a break or lunch` : ''].filter(Boolean);
+  if(!logged.length) return { text: `pause ${over}, nothing logged`, flag };
+  if(!(g.unloggedMin > 0)) return logged.length === 1
+    ? `pause ${over}, all ${logged[0].replace(/^\S+ /, '')}` : `pause ${over}: ${logged.join(', ')}`;
+  return { text: `pause ${over}: ${logged.join(', ')}, ${fmtMin(g.unloggedMin)} not logged`, flag };
 }
 
 function logsSection(day){
@@ -483,6 +501,7 @@ export function gapDetailHtml(day, i){
       ['Logged against this gap', mins(g.loggedMin)],
       ...(g.carriedOutMin > 0 ? [['Of that, counted in the gap after', mins(g.carriedOutMin)]] : []),
       ...(g.carriedMin > 0 ? [['Logged against the order before, counted here', mins(g.carriedMin)]] : []),
+      ...(g.breakMin > 0 ? [['Logged as a break or lunch, counted here', mins(g.breakMin)]] : []),
       g.isPause ? ['Not logged', { text: mins(g.unloggedMin), flag: g.flagged ? 'long gap' : '' }]
         : ['Read as', `work (under ${AUDIT.PAUSE_OVER_MIN} minutes over)`],
     ] }) + '</div>';

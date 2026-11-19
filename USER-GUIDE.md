@@ -603,9 +603,11 @@ It opens on all your land work to date. **Land / Boat / All** switches the work 
 What the numbers mean:
 
 - **The shift starts at 07:30**, every day, for everyone. The day ends at the time set at close-out, at 16:00 if the day was never closed out, or at your last meter if that is later.
-- **Unlogged pause time, breaks included.** The time from one log to the next is compared with what that kind of stop usually takes you, by how far apart the two pins are. When a gap runs 10 minutes or more over, the extra is a pause. Any delay you logged against that gap is taken off. What is left is the unlogged pause time.
-- It includes breaks and lunch, delays that were not logged, and stops that simply took longer than usual. **The data cannot tell these apart**, and the page does not try to.
-- **The break allowance is 60 minutes a day** (two 15-minute breaks and a 30-minute lunch). The chart marks it with a dashed line.
+- **Unlogged pause time.** The time from one log to the next is compared with what that kind of stop usually takes you, by how far apart the two pins are. When a gap runs 10 minutes or more over, the extra is a pause. Any delay you logged against that gap is taken off, and so is any break or lunch you logged against it. What is left is the unlogged pause time: nothing was logged against it.
+- It includes any break or lunch you did not log, delays that were not logged, and stops that simply took longer than usual. **The data cannot tell these apart**, and the page does not try to.
+- **Logging your breaks and lunch.** Enter a **Break** or **Lunch** on **the order you log right after the break**. That files it under the gap the break was in, and that gap then reads "logged as a break or lunch" (teal on the timeline) and is no longer a long gap. This is the opposite of a delay, which goes on the order the problem belongs to. If you put it on the last order before the break instead, the audit moves what that gap did not use to the gap after, which usually comes to the same thing.
+- **The break allowance is 60 minutes a day** (two 15-minute breaks and a 30-minute lunch). Breaks and lunch you log are compared with it, and the pause chart marks it with a dashed line. A break is never a delay.
+- **Before and after.** Days from before you logged breaks have the breaks inside their unlogged pause time. Days where you log them do not. So the unlogged figure drops once you start, for the same work; compare like with like.
 - **Drive to the first order** is the dispatch time you logged before your first meter. **Before the first meter, not logged** is the rest of the time before your first log. A log is written when a job is finished, so your first installation is inside it.
 - **Close-out and drive home** is the time from your last meter to the end of the day.
 - **Statistics use only days with 8 or more orders.** Shorter days are still listed and can be opened, marked "under 8 orders".

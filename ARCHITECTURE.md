@@ -2119,6 +2119,17 @@ OpenStreetMap tiles the box covers into one canvas and attaches the picture to t
 block. The box is framed in Web Mercator (`mapFrame`) by both the fetch and the drawer so
 they agree. Without signal the box is plain, as it was.
 
+### Breaks and lunch that were logged
+
+`BREAK` and `LUNCH` entries are personal time, never delays. One that names a gap between
+meters is placed on it after the delays (its own gap first, then the gap after the same
+order) as `breakMin`, and shown as a logged break: its own segment on the timeline and the
+average-day bar, its own words in the log list, its own table under the day's delays.
+Unlogged pause time is what remains with nothing logged against it, so a logged break is
+not in it and is not a long gap. Logged breaks are compared with the 60-minute allowance
+separately. Days from before breaks were logged therefore show more unlogged pause than
+later days for the same work, and the page says so (owner's choice, 2026-11-19).
+
 ### A delay counted after its order
 
 A logged delay is entered on an order and filed under the gap before that order's log,

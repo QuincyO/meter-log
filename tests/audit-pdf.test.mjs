@@ -69,7 +69,7 @@ test('the period PDF carries every section of the page, in order', () => {
   const text = all(doc);
   inOrder(text, ['Audit: Pat Example', 'HEADLINE', 'WHERE AN AVERAGE DAY GOES', 'UNLOGGED PAUSE TIME PER DAY', 'BY MONTH',
     'LOGGED DELAYS BY CATEGORY', 'OUTPUT', 'DAY BY DAY', 'METHOD AND LIMITS', 'What the data cannot show']);
-  for(const piece of ['Land work', 'Statistics use the 13 days with 8 or more orders, of 14 days.', 'Unlogged pauses (breaks included)',
+  for(const piece of ['Land work', 'Statistics use the 13 days with 8 or more orders, of 14 days.', 'Unlogged pauses (unlogged breaks included)', 'Break or lunch, logged',
     'Close-out and drive home', 'Before the first meter, not logged', 'first meter 09:00', 'Tue Nov 3', 'under 8 orders',
     '1 long gap', 'Warehouse', 'Next door (under 60 m)', 'made Thu Nov 19, 2026'])
     assert.ok(text.includes(piece), piece);

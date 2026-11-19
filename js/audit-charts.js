@@ -15,7 +15,8 @@ export const SEGMENTS = [   // order is the drawing order
   { key: 'driveToFirst',   label: 'Drive to the first order (dispatch logged before the first meter)',  color: '#2563EB', ink: '#fff' },
   { key: 'beforeUnlogged', label: 'Before the first meter, not logged',                                 color: '#94A3B8', ink: '#13171C' },
   { key: 'work',           label: 'Working',                                                            color: '#1E8E5A', ink: '#fff' },
-  { key: 'pauseUnlogged',  label: 'Unlogged pauses (breaks included)',                                  color: '#D64500', ink: '#fff' },
+  { key: 'pauseUnlogged',  label: 'Unlogged pauses (unlogged breaks included)',                         color: '#D64500', ink: '#fff' },
+  { key: 'pauseBreak',     label: 'Break or lunch, logged',                                             color: '#0E7490', ink: '#fff' },
   { key: 'pauseLogged',    label: 'Pause time logged as a delay',                                       color: '#FCD34D', ink: '#1a1300' },
   { key: 'closeout',       label: 'Close-out and drive home',                                           color: '#64748B', ink: '#fff' },
 ];
@@ -96,7 +97,7 @@ export function pauseHistogramHtml(bins, allowanceMin){
 }
 /** The line under the histogram, on the page and in the PDF. */
 export const histCaption = allowanceMin =>
-  `Minutes of unlogged pause time in the day. The dashed line is the ${fmtMin(allowanceMin)}-minute break allowance.`;
+  `Minutes of unlogged pause time in the day. The dashed line is the ${fmtMin(allowanceMin)}-minute break allowance. A break that was logged is not in this figure.`;
 
 /** One day (a DayRec from prepareAudit) as blocks from its start to its end: the
  *  time before the first meter split three ways, then per gap its work, the part
@@ -125,8 +126,9 @@ export function timelineBlocks(day){
     const from = fmtClock(g.atMin), to = fmtClock(g.atMin + g.min);
     block('work', g.isPause ? g.usual : g.min, g.i, false, `${from}–${to}: ${fmtMin(g.min)} min`);
     if(!g.isPause) continue;
-    block('pauseLogged', g.over - g.unloggedMin, g.i, false,
-      `${from}–${to}: ${fmtMin(g.over - g.unloggedMin)} min logged as a delay`);
+    const brk = g.breakMin || 0, delay = g.over - g.unloggedMin - brk;
+    block('pauseLogged', delay, g.i, false, `${from}–${to}: ${fmtMin(delay)} min logged as a delay`);
+    block('pauseBreak', brk, g.i, false, `${from}–${to}: ${fmtMin(brk)} min logged as a break or lunch`);
     block('pauseUnlogged', g.unloggedMin, g.i, g.flagged,
       `${from}–${to}: ${fmtMin(g.unloggedMin)} min, nothing logged`);
   }

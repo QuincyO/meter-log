@@ -16,8 +16,11 @@
 //   4. A gap 10+ minutes over the usual time for its kind is a pause; the excess is
 //      its length. Logged delays whose note names that gap come off it, and what
 //      that gap did not run over comes off the gap after the same order.
-//   5. What is left is unlogged pause time. It cannot tell a break from an
-//      unlogged delay, and nothing here pretends it can.
+//   5. A break or lunch logged against a gap is placed on it the same way, after
+//      the delays. It is not a delay; it is a logged break.
+//   6. What is left is unlogged pause time: nothing was logged against it. It
+//      cannot tell an unlogged break from an unlogged delay, and nothing here
+//      pretends it can.
 //
 // Easy to get wrong:
 //   • Land or boat comes from the DATE (workTypeOn), never from a row's workType
@@ -124,6 +127,7 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
   // 2. Logged delays, by where in the day they fall. A row on a date with no logs
   //    in the mode has no day to belong to and is skipped.
   const dayLog = new Map(), dayDelays = new Map(), inGap = new Map();
+  const dayBreaks = new Map(), inBreak = new Map();   // breaks and lunch: kept apart from delays, always
   for(const r of src.downtime || []){
     const date = dateOf(r.timestamp), logs = byDay.get(date);
     if(!logs) continue;
@@ -136,9 +140,20 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     const where = !note ? 'untimed'
       : toMin <= Math.floor(first) ? 'before'
       : fromMin >= Math.floor(last) ? 'after' : 'between';
-    if(!dayLog.has(date)){ dayLog.set(date, emptyLog()); dayDelays.set(date, []); }
+    if(!dayLog.has(date)){ dayLog.set(date, emptyLog()); dayDelays.set(date, []); dayBreaks.set(date, []); }
     const log = dayLog.get(date);
-    if(BREAKS[category]){ log.breaks += minutes; continue; }
+    // A break or lunch is personal time, never a delay: it adds to no delay total.
+    // But one entered against a gap between meters is placed on that gap (below),
+    // so the gap reads "break" instead of "nothing logged".
+    if(BREAKS[category]){
+      log.breaks += minutes;
+      if(where === 'between'){
+        const key = date + '|' + fromMin + '|' + toMin;
+        inBreak.set(key, (inBreak.get(key) || 0) + minutes);
+      }
+      dayBreaks.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where, fromMin, toMin });
+      continue;
+    }
     if(TRAVEL[category]){ log.travel += minutes; continue; }
     log[where] += minutes; log.total += minutes;
     const driveToFirst = category === 'DISPATCH' && where === 'before';
@@ -172,7 +187,8 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       const dist = byRoad ? driven : straight;
       if(dist != null) distance[byRoad ? 'road' : 'straight']++;
       gaps.push({ i, atMin: a.min, min: b.min - a.min, km: dist, kmStraight: straight, byRoad, kind: kindOf(dist),
-        loggedMin: inGap.get(date + '|' + Math.floor(a.min) + '|' + Math.floor(b.min)) || 0 });
+        loggedMin: inGap.get(date + '|' + Math.floor(a.min) + '|' + Math.floor(b.min)) || 0,
+        breakLoggedMin: inBreak.get(date + '|' + Math.floor(a.min) + '|' + Math.floor(b.min)) || 0 });
     }
     dayGaps.set(date, gaps);
     allGaps.push(...gaps);
@@ -188,7 +204,7 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
   const days = [];
   for(const [date, logs] of byDay){
     const gaps = dayGaps.get(date);
-    let workMin = 0, pauseAllMin = 0, pauseUnMin = 0, pauses = 0, longestMin = 0, longestAtMin = null, flags = 0;
+    let workMin = 0, pauseAllMin = 0, pauseUnMin = 0, pauseBreakMin = 0, pauses = 0, longestMin = 0, longestAtMin = null, flags = 0;
     // A delay belongs to an ORDER, and the phone files it under the gap BEFORE that
     // order's log (a gap is keyed to its arriving stop: compute/gaps.js). But the time
     // is often lost AFTER the log is saved: log the meter, then the truck will not
@@ -201,7 +217,15 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     //   • One gap and no further, and only into a pause: never below zero.
     //   • loggedMin stays "what was entered against this gap"; carriedMin is the part
     //     of the previous gap's entries counted here, and carriedOutMin its mirror.
-    let carry = 0, prev = null;
+    //
+    // Breaks and lunch (owner's choice, 2026-11-19). A logged break is placed on its
+    // gap by the same two steps, AFTER the delays: its own gap first, then one gap
+    // on. breakMin is the break time counted on this gap. It is not a delay and it
+    // is not unlogged, so unloggedMin, the long-gap flag and every statistic built
+    // on them now mean "nothing was logged against this time at all". A day with
+    // its breaks logged therefore shows less unlogged pause than the same day
+    // without, on purpose; the logged breaks are compared with the allowance instead.
+    let carry = 0, breakCarry = 0, prev = null;
     for(const g of gaps){
       g.usual = g.kind < 0 ? usualAny : usual[g.kind];
       g.over = g.min - g.usual;
@@ -210,11 +234,17 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       g.carriedMin = g.isPause ? Math.min(carry, room - own) : 0;
       g.carriedOutMin = 0;
       if(prev) prev.carriedOutMin = g.carriedMin;
-      carry = g.loggedMin - own; prev = g;
-      g.unloggedMin = g.isPause ? Math.max(0, g.over - g.loggedMin - g.carriedMin) : 0;
+      const left = Math.max(0, room - own - g.carriedMin);          // overrun no delay explains
+      const ownBreak = Math.min(g.breakLoggedMin, left);
+      g.breakCarriedMin = g.isPause ? Math.min(breakCarry, left - ownBreak) : 0;
+      g.breakMin = g.isPause ? ownBreak + g.breakCarriedMin : 0;
+      g.breakCarriedOutMin = 0;
+      if(prev) prev.breakCarriedOutMin = g.breakCarriedMin;
+      carry = g.loggedMin - own; breakCarry = g.breakLoggedMin - ownBreak; prev = g;
+      g.unloggedMin = g.isPause ? Math.max(0, g.over - g.loggedMin - g.carriedMin - g.breakMin) : 0;
       g.flagged = g.unloggedMin >= AUDIT.FLAG_MIN;
       if(!g.isPause){ workMin += g.min; continue; }
-      workMin += g.usual; pauses++; pauseAllMin += g.over; pauseUnMin += g.unloggedMin;
+      workMin += g.usual; pauses++; pauseAllMin += g.over; pauseUnMin += g.unloggedMin; pauseBreakMin += g.breakMin;
       if(g.flagged) flags++;
       if(g.unloggedMin > longestMin){ longestMin = g.unloggedMin; longestAtMin = g.atMin; }
     }
@@ -232,6 +262,18 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
         d.carriedTo = { fromMin: Math.floor(next.atMin), toMin: Math.floor(next.atMin + next.min) };
       }
     }
+    // The day's break and lunch entries, with where each was counted when that is the gap after.
+    const breaks = (dayBreaks.get(date) || []).slice().sort((a, b) =>
+      (a.fromMin == null ? Infinity : a.fromMin) - (b.fromMin == null ? Infinity : b.fromMin));
+    for(const d of breaks){
+      d.carriedTo = null;
+      if(d.where !== 'between') continue;
+      const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
+      if(i >= 0 && gaps[i].breakCarriedOutMin > 0){
+        const next = gaps[i + 1];
+        d.carriedTo = { fromMin: Math.floor(next.atMin), toMin: Math.floor(next.atMin + next.min) };
+      }
+    }
     const firstMin = logs[0].min, lastMin = logs[logs.length - 1].min;
     const startMin = Math.min(AUDIT.SHIFT_START_MIN, firstMin);
     const returned = closeouts.get(date);
@@ -244,8 +286,9 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     days.push({ date, workType: modeOf(date, installer), n: logs.length,
       qualifies: logs.length >= AUDIT.MIN_ORDERS,
       startMin, endMin, endSource, closed, pastEnd, firstMin, lastMin, spanMin: lastMin - firstMin,
-      logs, gaps, workMin, pauseAllMin, pauseUnMin, pauseLoggedMin: pauseAllMin - pauseUnMin,
-      pauses, longestMin, longestAtMin, flags, log, delays,
+      logs, gaps, workMin, pauseAllMin, pauseUnMin, pauseBreakMin,
+      pauseLoggedMin: pauseAllMin - pauseUnMin - pauseBreakMin,      // the part logged as a DELAY
+      pauses, longestMin, longestAtMin, flags, log, delays, breaks,
       beforeUnloggedMin: firstMin - startMin - log.before, closeoutMin: endMin - lastMin });
   }
   days.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -269,6 +312,7 @@ function summarize(list){
     lastAvg: mean(col(list, d => d.lastMin)),
     loggedBeforeAvg: mean(col(list, d => d.log.before)),
     loggedBetweenAvg: mean(col(list, d => d.log.between)),
+    breakAvg: mean(col(list, d => d.log.breaks)),
     pauseMedian: pct(col(list, d => d.pauseUnMin), .5),
     longestMedian: pct(col(list, d => d.longestMin).filter(v => v > 0), .5),
   };
@@ -336,6 +380,7 @@ export function periodStats(prep, { from = '', to = '' } = {}){
       { key: 'beforeUnlogged', minutes: Math.max(0, mean(col(full, d => d.beforeUnloggedMin))) },
       { key: 'work', minutes: mean(col(full, d => d.workMin)) },
       { key: 'pauseUnlogged', minutes: mean(U) },
+      { key: 'pauseBreak', minutes: mean(col(full, d => d.pauseBreakMin)) },
       { key: 'pauseLogged', minutes: mean(col(full, d => d.pauseLoggedMin)) },
       { key: 'closeout', minutes: mean(col(full, d => d.closeoutMin)) },
     ] };
@@ -358,6 +403,13 @@ export function periodStats(prep, { from = '', to = '' } = {}){
       bins: AUDIT.PAUSE_BINS.map(([lo, hi]) => ({ lo, hi, days: U.filter(u => u >= lo && u < hi).length })),
       under60: U.filter(u => u < AUDIT.BREAK_ALLOWANCE_MIN).length, over90: U.filter(u => u >= 90).length,
       flags: sum(full, d => d.flags), flagDays: full.filter(d => d.flags > 0).length },
+    // Breaks and lunch that were logged, beside the allowance they are compared with:
+    // minutes entered a day, minutes of that placed on a gap, the days with any, and
+    // the days that entered more than the allowance.
+    breaks: {
+      loggedAvg: mean(col(full, d => d.log.breaks)), placedAvg: mean(col(full, d => d.pauseBreakMin)),
+      days: full.filter(d => d.log.breaks > 0).length,
+      overAllowance: full.filter(d => d.log.breaks > AUDIT.BREAK_ALLOWANCE_MIN).length },
     months, categories,
     loggedPerDay: {
       dispatchBefore: mean(col(full, d => d.log.dispatchBefore)),

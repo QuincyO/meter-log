@@ -118,7 +118,8 @@ test('labels are the owner\'s words and never say drive back', () => {
   const label = k => SEGMENTS.find(s => s.key === k).label;
   assert.match(label('driveToFirst'), /^Drive to the first order/);
   assert.equal(label('closeout'), 'Close-out and drive home');
-  assert.equal(label('pauseUnlogged'), 'Unlogged pauses (breaks included)');
+  assert.equal(label('pauseUnlogged'), 'Unlogged pauses (unlogged breaks included)');
+  assert.equal(label('pauseBreak'), 'Break or lunch, logged');
   assert.equal(label('beforeUnlogged'), 'Before the first meter, not logged');
   assert.doesNotMatch(JSON.stringify(SEGMENTS), /drive back|return to the yard/i);
 });

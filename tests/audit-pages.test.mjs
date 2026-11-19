@@ -228,8 +228,12 @@ test('dispatch before the first meter is labelled as the drive to the first orde
   assert.match(html, /<td>Tools\/Material<\/td><td class="n">20<\/td><td class="n">10:06–11:06<\/td>/);
   assert.match(html, /<td>Other<\/td><td class="n">10<\/td><td class="n">11:12–11:30, after the last meter<\/td>/);
   assert.match(html, /<td>Cell Signal<\/td><td class="n">5<\/td><td class="n">no time of day<\/td>/);
-  assert.doesNotMatch(html, /<td>Lunch<\/td>/);
-  assert.match(html, /30 min of breaks or lunch/);
+  // lunch is not a delay: it is not in the delays table, and is listed apart under its own heading
+  const delaysTable = html.slice(html.indexOf('Delays logged this day'), html.indexOf('Breaks and lunch logged'));
+  assert.doesNotMatch(delaysTable, /<td>Lunch<\/td>/);
+  assert.match(html, /<h3>Breaks and lunch logged<\/h3>/);
+  assert.match(html, /<td>Lunch<\/td><td class="n">30<\/td>/);
+  assert.match(html, /30 min of breaks or lunch, against an allowance of 60 min\. 0 min of it sits on a gap that ran long; the rest is on no gap\. These are not delays/);
   // dispatch between meters is an ordinary delay
   const mid = dayTopHtml(detailOf(DAY_STOPS, DAY,
     [{ timestamp: `${DAY} 12:00:00`, category: 'DISPATCH', minutes: 15, note: 'gap 10:06–11:06' }]));
@@ -476,4 +480,45 @@ test('without a road map nothing about the wording changes, and a map that reach
   assert.match(notesHtml({ prep: none, stats: periodStats(none, { from: '', to: '' }), name: WHO }),
     /The offline road map on this device \(Far Away\) reaches none of these orders: distances are straight lines\./);
   assert.match(methodHtml(), /with the straight line distance between the two pins/);
+});
+
+// ── breaks and lunch that were logged ────────────────────────────────────────
+
+test('a logged lunch reads as a break on its gap, in the log list, the timeline, the gap detail and the totals', () => {
+  // next door, usual 6: the 10:30–11:30 gap ran 54 over; 30 of it is a logged lunch, 15 a logged delay
+  const stops = stopsOn(DAY, ['10:00', '10:20', '10:30', '11:30', '11:42']);
+  const d = detailOf(stops, DAY, [
+    { timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 30, note: 'gap 10:30–11:30' },
+    { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 15, note: 'gap 10:30–11:30' },
+  ]);
+  assert.match(dayLogsHtml(d.day), /pause 54: 15 logged as a delay, 30 logged as a break or lunch, 9 not logged/);
+  const top = dayTopHtml(d);
+  assert.match(top, /data-seg="pauseBreak"[^>]*title="10:30–11:30: 30 min logged as a break or lunch"/);
+  assert.match(top, /Break or lunch, logged/);
+  assert.match(top, /<td>Break and lunch logged \(average\)<\/td><td class="n">30<\/td><td class="n">0<\/td>/);
+  assert.match(top, /<td>Lunch<\/td><td class="n">30<\/td><td class="n">10:30–11:30<\/td>/);
+  assert.match(top, /30 min of breaks or lunch, against an allowance of 60 min\. These are not delays/);
+  assert.match(gapDetailHtml(d.day, 2), /Logged as a break or lunch, counted here<\/td><td class="n">30 min/);
+  assert.match(gapDetailHtml(d.day, 2), /Not logged<\/td><td class="n">9 min/);
+  // all of a pause logged, one way or both
+  const lunchOnly = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 60, note: 'gap 10:30–11:30' }]);
+  assert.match(dayLogsHtml(lunchOnly.day), /pause 54, all logged as a break or lunch/);
+  const both = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 60, note: 'gap 10:30–11:30' },
+    { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 20, note: 'gap 10:30–11:30' }]);
+  assert.match(dayLogsHtml(both.day), /pause 54: 20 logged as a delay, 34 logged as a break or lunch/);
+  assert.match(dayLogsHtml(detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 60, note: 'gap 10:30–11:30' }]).day),
+    /pause 54, all logged as a delay/);
+});
+
+test('the period sets logged breaks beside the allowance and says what unlogged now means', () => {
+  const lunchDay = stopsOn('2026-09-09', [...every('09:00', 5), ...every('10:00', 4)]);
+  const { prep, stats } = build([...FULL, ...lunchDay], 'land', { from: '', to: '' },
+    [{ timestamp: '2026-09-09 12:00:00', category: 'LUNCH', minutes: 70, note: 'gap 09:24–10:00' }]);
+  const html = periodHtml(stats, prep);
+  assert.match(html, /<td>Breaks and lunch logged, per day \(average\)<\/td><td class="n">10 min, against an allowance of 60<\/td>/);
+  assert.match(html, /<td>Days with a break or lunch logged<\/td><td class="n">1 of 7, 1 over the allowance<\/td>/);
+  assert.match(html, /unlogged pause time between meters on a typical day, unlogged breaks included/);
+  assert.match(html, /A break that is logged leaves this figure and is compared with the allowance on its own/);
+  assert.match(html, /A break or lunch entered against a gap is placed on it the same way, after the delays/);
+  assert.match(html, /A break that was logged is not in this figure\./);
 });

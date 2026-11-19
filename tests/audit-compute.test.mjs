@@ -320,7 +320,7 @@ test('the average-day bar adds up to the average day', () => {
   const sum = p.bar.segments.reduce((s, x) => s + x.minutes, 0);
   assert.ok(Math.abs(sum - (p.bar.endMin - p.bar.startMin)) < 1e-6);
   assert.deepEqual(p.bar.segments.map(s => s.key),
-    ['delayBefore', 'driveToFirst', 'beforeUnlogged', 'work', 'pauseUnlogged', 'pauseLogged', 'closeout']);
+    ['delayBefore', 'driveToFirst', 'beforeUnlogged', 'work', 'pauseUnlogged', 'pauseBreak', 'pauseLogged', 'closeout']);
   const seg = Object.fromEntries(p.bar.segments.map(s => [s.key, s.minutes]));
   assert.equal(p.bar.startMin, 450);
   assert.equal(p.bar.firstMin, 540);
@@ -441,7 +441,7 @@ test('the 30-day baseline is the 30 qualifying days before the day', () => {
   const d1 = dayDetail(model, dates[0]);
   assert.deepEqual(d1.baselines.last30,
     { days: 0, ordersAvg: null, firstAvg: null, lastAvg: null, loggedBeforeAvg: null,
-      loggedBetweenAvg: null, pauseMedian: null, longestMedian: null });
+      loggedBetweenAvg: null, breakAvg: null, pauseMedian: null, longestMedian: null });
   assert.equal(d1.prevDate, null);
   assert.equal(dayDetail(model, dates[39]).nextDate, null);
   // the short day is still a neighbour to step to
@@ -624,8 +624,10 @@ test('a gap\'s own entries count before anything carried into it, and never belo
 test('a delay on the last order has no gap after it, and one before the first meter is not carried', () => {
   const day = carried([gapRow(D, 'TRUCK_ISSUES', 30, 'gap 11:30–11:42'), gapRow(D, 'DISPATCH', 60, 'gap 07:30–08:30'),
     gapRow(D, 'LUNCH', 30, 'gap 10:20–10:30')]);
-  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 0, 0]);
-  assert.deepEqual(day.gaps.map(g => g.unloggedMin), [14, 0, 54, 0]);
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 0, 0], 'no DELAY is carried');
+  // the lunch is a break: it is placed as one, on the gap after the order it was entered on
+  assert.deepEqual(day.gaps.map(g => g.breakMin), [0, 0, 26, 0]);
+  assert.deepEqual(day.gaps.map(g => g.unloggedMin), [14, 0, 28, 0]);
 });
 
 test('the pace counts a carried delay once', () => {
@@ -680,4 +682,60 @@ test('the pace card\'s distance follows the gaps', () => {
   const stops = stopsOn(D, ['10:00', '10:10', '10:20'], { km: 0.3 });
   const p = prepareAudit({ stops, downtime: [], days: [] }, { installer: WHO, mode: 'land', road: { name: 'X', km: () => 2 } });
   assert.equal(dayDetail(p, D).pace.km, 4);
+});
+
+// ── breaks and lunch that were logged ────────────────────────────────────────
+// Owner's choice, 2026-11-19: a logged break shows on its gap as a break. It is not
+// a delay, and it is no longer unlogged: "unlogged pause" is time with nothing
+// logged against it at all. Same day as above: gaps 14, 4, 54 and 6 over.
+
+test('a break logged on the order after it sits on that gap as a break, not a delay and not unlogged', () => {
+  const day = carried([gapRow(D, 'LUNCH', 30, 'gap 10:30–11:30')]);
+  const g = day.gaps[2];
+  assert.deepEqual([g.breakLoggedMin, g.breakMin, g.loggedMin, g.unloggedMin, g.flagged], [30, 30, 0, 24, false]);
+  assert.equal(carried([]).gaps[2].flagged, true, 'the same gap with nothing logged is a long gap');
+  assert.deepEqual([day.pauseBreakMin, day.pauseUnMin, day.pauseLoggedMin, day.pauseAllMin, day.flags], [30, 38, 0, 68, 0]);
+  assert.equal(day.log.breaks, 30);
+  assert.deepEqual([day.log.between, day.log.total], [0, 0], 'a break is not a delay');
+  assert.deepEqual(day.delays, []);
+  assert.deepEqual(day.breaks.map(b => [b.category, b.minutes, b.where, b.fromMin, b.toMin, b.carriedTo]), [['LUNCH', 30, 'between', 630, 690, null]]);
+});
+
+test('a break entered on the last order before it is carried to the gap after, as a delay is', () => {
+  const day = carried([gapRow(D, 'BREAK', 15, 'gap 10:20–10:30')]);        // that gap ran 4 over: 4 used, 11 left
+  assert.deepEqual(day.gaps.map(g => g.breakMin), [0, 0, 11, 0]);
+  assert.deepEqual(day.gaps.map(g => g.unloggedMin), [14, 0, 43, 0]);
+  assert.deepEqual(day.breaks[0].carriedTo, { fromMin: 630, toMin: 690 });
+  assert.equal(day.pauseBreakMin, 11);
+});
+
+test('delays count before breaks on the same gap, and nothing goes below zero', () => {
+  const day = carried([gapRow(D, 'WAREHOUSE', 40, 'gap 10:30–11:30'), gapRow(D, 'LUNCH', 30, 'gap 10:30–11:30')]);
+  assert.deepEqual([day.gaps[2].breakMin, day.gaps[2].unloggedMin], [14, 0]);          // 54 over: 40 delay, room for 14 of the lunch
+  assert.deepEqual([day.pauseLoggedMin, day.pauseBreakMin, day.pauseUnMin], [40, 14, 14]);
+  const both = carried([gapRow(D, 'TRUCK_ISSUES', 45, 'gap 10:20–10:30'), gapRow(D, 'LUNCH', 30, 'gap 10:30–11:30')]);
+  assert.deepEqual([both.gaps[2].carriedMin, both.gaps[2].breakMin, both.gaps[2].unloggedMin], [41, 13, 0], 'a carried delay first, then the break');
+});
+
+test('a break with no gap named, or before the first meter, is entered but sits on no gap', () => {
+  const day = carried([gapRow(D, 'LUNCH', 30, ''), gapRow(D, 'BREAK', 15, 'gap 07:30–07:45')]);
+  assert.equal(day.log.breaks, 45);
+  assert.equal(day.pauseBreakMin, 0);
+  assert.deepEqual(day.gaps.map(g => g.breakMin), [0, 0, 0, 0]);
+  assert.deepEqual(day.breaks.map(b => b.where).sort(), ['before', 'untimed']);
+});
+
+test('the period reports logged breaks beside the allowance, and the average day still adds up', () => {
+  // nine full days with no break logged and one with a 30-minute lunch on a 36-minute gap
+  const lunchDay = stopsOn(D, [...every('09:00', 5, 6), ...every('10:00', 4, 6)]);
+  const p = prep([...history(9), ...lunchDay], [gapRow(D, 'LUNCH', 30, 'gap 09:24–10:00'), gapRow(D, 'BREAK', 40, '')]);
+  const stats = periodStats(p, { from: '', to: '' });
+  assert.deepEqual(stats.breaks, { loggedAvg: 7, placedAvg: 3, days: 1, overAllowance: 1 });   // 70 entered, 30 on its gap, over 10 days
+  assert.deepEqual(stats.bar.segments.map(s => s.key),
+    ['delayBefore', 'driveToFirst', 'beforeUnlogged', 'work', 'pauseUnlogged', 'pauseBreak', 'pauseLogged', 'closeout']);
+  assert.equal(stats.bar.segments.find(s => s.key === 'pauseBreak').minutes, 3);
+  const total = stats.bar.segments.reduce((s, x) => s + x.minutes, 0);
+  assert.ok(Math.abs(total - (stats.bar.endMin - stats.bar.startMin)) < 1e-6, 'the bar is the whole day');
+  assert.equal(dayDetail(p, D).baselines.all.breakAvg, 7);
+  assert.equal(stats.pause.flags, 0);
 });
