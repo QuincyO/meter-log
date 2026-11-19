@@ -13,7 +13,8 @@
 //   • A figure that rests on no days prints as a dash. Never invent one.
 import { esc, attr } from './dom.js';
 import { AUDIT } from './compute/audit.js';
-import { fmtClock, fmtMin, fmtDate, dayBarHtml, pauseHistogramHtml, legendHtml } from './audit-charts.js';
+import { fmtClock, fmtMin, fmtDur, fmtDate, dayBarHtml, pauseHistogramHtml, timelineHtml, legendHtml }
+  from './audit-charts.js';
 
 const isNum = v => typeof v === 'number' && isFinite(v);
 const n0 = v => isNum(v) ? Math.round(v).toLocaleString('en-CA') : '—';
@@ -223,4 +224,114 @@ export function periodHtml(p, prep){
   if(!p || !p.days) return '';
   return headlineCard(p) + barCard(p) + pauseCard(p) + monthCard(p) + categoryCard(p)
     + outputCard(p, prep) + dailyCard(p) + `<section class="card au-card">${methodHtml()}</section>`;
+}
+
+// ── One day ──────────────────────────────────────────────────────────────────
+const STATUS_LABEL = { INSTALLED: 'Installed', UTI: 'UTI', VISITED: 'Visited', UNACCOUNTED: 'Unaccounted' };
+const metres = km => !isNum(km) ? 'not known (no pin)' : km < 1 ? Math.round(km * 1000) + ' m' : n1(km) + ' km';
+const logName = (day, i) => `#${i + 1} ${esc(day.logs[i].workOrderId || 'no order number')}`;
+
+/** The lines above a day: late, never closed out, left out of the statistics. */
+export function dayNotesHtml(day){
+  const out = [], end = fmtClock(AUDIT.DEFAULT_END_MIN);
+  if(!day.qualifies) out.push(`Left out of the statistics (under ${AUDIT.MIN_ORDERS} orders).`);
+  if(day.pastEnd && day.closed) out.push('Worked past the set end time: the day runs to the last meter.');
+  if(!day.closed) out.push(day.pastEnd
+    ? `Not closed out, and the last meter was after ${end}: the day runs to the last meter.`
+    : `Not closed out: ${end} is assumed.`);
+  return out.map(t => `<p class="au-note">${t}</p>`).join('');
+}
+
+function compareCard({ day, baselines }){
+  const b30 = baselines.last30, all = baselines.all;
+  const row = (label, f, a, b, c) => tr([esc(label), f(a), f(b), f(c)]);
+  const count = v => isNum(v) ? (Number.isInteger(v) ? String(v) : n1(v)) : '—';
+  return card('This day, and how it compares', table(
+    ['', 'This day', `30 worked days before (${plural(b30.days, 'day', 'days')})`, `All to date (${plural(all.days, 'day', 'days')})`], [
+      row('Orders (average)', count, day.n, b30.ordersAvg, all.ordersAvg),
+      row('First meter (average)', fmtClock, day.firstMin, b30.firstAvg, all.firstAvg),
+      row('Last meter (average)', fmtClock, day.lastMin, b30.lastAvg, all.lastAvg),
+      row('Delay logged before the first meter (average)', fmtMin, day.log.before, b30.loggedBeforeAvg, all.loggedBeforeAvg),
+      row('Delay logged between meters (average)', fmtMin, day.log.between, b30.loggedBetweenAvg, all.loggedBetweenAvg),
+      row('Unlogged pause (median)', fmtMin, day.pauseUnMin, b30.pauseMedian, all.pauseMedian),
+      tr(['Longest pause (median)', day.longestMin > 0 ? `${fmtMin(day.longestMin)} at ${fmtClock(day.longestAtMin)}` : '—',
+        fmtMin(b30.longestMedian), fmtMin(all.longestMedian)]),
+    ])
+    + cap(`Minutes, and clock times. The two right-hand columns are over days with ${AUDIT.MIN_ORDERS} or more orders: `
+      + 'the worked days just before this one, and all work to date in this work mode. '
+      + 'Each of those uses the figure named in its row. The first column is simply this day.'));
+}
+
+function delaysCard(day){
+  const span = d => `${fmtClock(d.fromMin)}–${fmtClock(d.toMin)}`;
+  const against = d => d.where === 'untimed' ? 'no time of day'
+    : d.where === 'before' ? `${span(d)}, before the first meter`
+    : d.where === 'after' ? `${span(d)}, after the last meter` : span(d);
+  const extra = [day.log.breaks ? `${fmtMin(day.log.breaks)} min of breaks or lunch` : '',
+    day.log.travel ? `${fmtMin(day.log.travel)} min of travel` : ''].filter(Boolean);
+  return card('Delays logged this day', (day.delays.length
+    ? table(['Category', 'Minutes', 'Logged against'], day.delays.map(d =>
+        tr([esc(d.driveToFirst ? 'Dispatch (drive to the first order)' : d.label), fmtMin(d.minutes), esc(against(d))])))
+    : '<p class="au-empty">No delay was logged this day.</p>')
+    + (extra.length ? cap(`Also entered: ${extra.join(' and ')}. These are not delays and are not taken off any pause.`) : ''));
+}
+
+/** The top of the day view: timeline, comparison, delays. The gap detail opens
+ *  inside #auGapDetail. `detail` = dayDetail()'s result. */
+export function dayTopHtml(detail){
+  const day = detail.day;
+  return card('Timeline of the day', timelineHtml(day) + legendHtml()
+    + (day.gaps.length ? '<p class="au-cap au-noprint">One block per gap between logs. Pick a block, or a row in the list at the bottom, for its two orders, the distance, the usual time and what was logged against it.</p>' : '')
+    + '<div id="auGapDetail"></div>')
+    + compareCard(detail) + delaysCard(day);
+}
+
+function readAs(g){
+  if(!g.isPause) return 'work';
+  const over = fmtMin(g.over), un = fmtMin(g.unloggedMin), logged = fmtMin(g.over - g.unloggedMin);
+  const flag = g.flagged ? ' <span class="au-flag">long gap</span>' : '';
+  if(!(g.unloggedMin > 0)) return `pause ${over}, all logged as a delay`;
+  if(!(g.over - g.unloggedMin > 0)) return `pause ${over}, nothing logged${flag}`;
+  return `pause ${over}: ${logged} logged as a delay, ${un} not logged${flag}`;
+}
+
+/** Every log of the day, in order, each with the gap before it and how it was read. */
+export function dayLogsHtml(day){
+  const rows = day.logs.map((l, i) => {
+    const g = i ? day.gaps[i - 1] : null;
+    const cells = [i + 1, esc(l.clock), esc(l.workOrderId || '—') + (l.pin ? '' : ' <span class="au-tag">no pin</span>'),
+      esc(STATUS_LABEL[l.status] || l.status), g ? fmtMin(g.min) : '—', g ? n1(g.usual) : '—', g ? readAs(g) : 'first meter'];
+    return `<tr class="au-logrow"${g ? ` data-gap="${g.i}"` : ''}>`
+      + cells.map((c, k) => `<td${k > 3 && k < 6 ? ' class="n"' : ''}>${c}</td>`).join('') + '</tr>';
+  });
+  return card('Every log, in order', '<div class="au-scroll"><table class="au-table au-logs"><thead><tr>'
+    + ['#', 'Time', 'Order', 'Status'].map(h => `<th>${h}</th>`).join('')
+    + '<th class="n">Gap</th><th class="n">Usual</th><th>Read as</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>'
+    + cap(`Gap is the minutes since the log before. Usual is the usual time for that distance. A gap ${AUDIT.PAUSE_OVER_MIN} minutes or more over the usual time is read as a pause.`));
+}
+
+/** What opens when a gap is picked. '' when the day has no such gap. */
+export function gapDetailHtml(day, i){
+  const g = day.gaps[i];
+  if(!g) return '';
+  const a = day.logs[i], b = day.logs[i + 1];
+  const kind = g.kind < 0 ? 'every gap (a pin is missing)' : AUDIT.KIND_LABELS[g.kind];
+  const place = l => `${esc(l.clock)}${l.address ? ', ' + esc(l.address) : ''}`;
+  return `<div class="au-gap"><b>${logName(day, i)}</b> (${place(a)}) to <b>${logName(day, i + 1)}</b> (${place(b)})`
+    + pairs([
+      pair('Time between the two logs', mins(g.min)),
+      pair('Straight-line distance', metres(g.km)),
+      pair(`Usual time for ${kind}`, n1(g.usual) + ' min'),
+      pair('Over the usual time', g.over > 0 ? mins(g.over) : 'none'),
+      ...(g.isPause ? [pair('Logged against this gap', mins(g.loggedMin)),
+        pair('Not logged', mins(g.unloggedMin) + (g.flagged ? ' <span class="au-flag">long gap</span>' : ''))]
+        : [pair('Read as', `work (under ${AUDIT.PAUSE_OVER_MIN} minutes over)`)]),
+    ]) + '</div>';
+}
+
+/** The one line of drive-log numbers; '' with no legs. `s` = driveStats()'s result. */
+export function driveLineHtml(s){
+  if(!s) return '';
+  return `Top ${fmtMin(s.topKmh)} km/h · average ${fmtMin(s.avgKmh)} km/h · ${n1(s.km)} km · `
+    + `${fmtDur(s.driveMin)} driving · ${plural(s.legs, 'leg', 'legs')}`;
 }

@@ -19,9 +19,11 @@
 // must cost that one control, not the page.
 import { $, esc, toast } from './dom.js';
 import { apiGet } from './api.js';
-import { prepareAudit, periodStats } from './compute/audit.js';
+import { prepareAudit, periodStats, dayDetail, driveStats } from './compute/audit.js';
 import { fmtDate } from './audit-charts.js';
-import { periodHtml, notesHtml } from './audit-render.js';
+import { periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml, dayNotesHtml, driveLineHtml }
+  from './audit-render.js';
+import { createRouteMap, offMapHtml } from './audit-map.js';
 
 const MODES = ['land', 'boat', 'all'];
 const MODE_LABEL = { land: 'Land work', boat: 'Boat work', all: 'Land and boat work' };
@@ -40,6 +42,8 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     periodControls: $('auPeriodControls'), dayControls: $('auDayControls'),
     back: $('auBack'), prev: $('auPrev'), next: $('auNext'), dayTitle: $('auDayTitle'),
     printHead: $('auPrintHead'), note: $('auNote'), period: $('auPeriod'), dayView: $('auDayView'),
+    dayTop: $('auDayTop'), dayBottom: $('auDayBottom'), routeCard: $('auRouteCard'),
+    drive: $('auDrive'), map: $('auMap'), mapNote: $('auMapNote'),
   };
   const show = (node, on) => { if(node) node.classList.toggle('hide', !on); };
   const html = (node, markup) => { if(node) node.innerHTML = markup; };
@@ -125,9 +129,74 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     printHead(a ? `${fmtDate(a)} to ${fmtDate(b)}` : 'no logs');
   }
 
-  function renderDay(){
+  // ── one day ────────────────────────────────────────────────────────────────
+  let routeMap = null;         // made on the first day opened, then reused
+  let shownDay = null;         // the DayRec on screen, for the gap detail
+  const driveLegs = new Map(); // installer|date → the day's legs (office only)
+
+  function openGap(i){
+    const box = $('auGapDetail');
+    if(!box || !shownDay) return;
+    box.innerHTML = gapDetailHtml(shownDay, i);
+    for(const b of document.querySelectorAll('.au-timeline .au-blk.sel, .au-logrow.on')) b.classList.remove('sel', 'on');
+    for(const b of document.querySelectorAll(`.au-timeline .au-blk[data-gap="${i}"]`)) b.classList.add('sel');
+    for(const r of document.querySelectorAll(`.au-logrow[data-gap="${i}"]`)) r.classList.add('on');
+  }
+
+  // The day's drive log. Only the office page passes a loader: the read behind it
+  // needs the office password, so on the phone none of this is drawn.
+  async function renderDrive(who, date, my){
+    if(!el.drive) return;
+    if(loadDriveLegs){
+      const key = who + '|' + date;
+      html(el.drive, '<p class="au-cap">Looking for a drive log…</p>');
+      let legs;
+      try {
+        if(!driveLegs.has(key)) driveLegs.set(key, await loadDriveLegs(who, date));
+        legs = driveLegs.get(key);
+      } catch {
+        if(my === seq) html(el.drive, '<p class="au-cap">Could not load the drive log.</p>');
+        return;
+      }
+      if(my !== seq) return;
+      if(!legs.length){ html(el.drive, '<p class="au-cap">No drive log was recorded this day.</p>'); return; }
+      html(el.drive, '<label class="au-check"><input type="checkbox" id="auDriveOn"> Show drive log</label>'
+        + `<span class="au-cap">${esc(driveLineHtml(driveStats(legs)))}</span>`);
+      const box = $('auDriveOn');
+      if(box) box.onchange = () => { if(routeMap) routeMap.setDriveLegs(box.checked ? legs : null); };
+    } else {
+      html(el.drive, '');
+    }
+  }
+
+  function renderDay(prep, my){
+    const detail = dayDetail(prep, state.day);
     if(el.dayTitle) el.dayTitle.textContent = fmtDate(state.day);
-    html(el.note, '');
+    // Step to the nearest worked day either side, even from a day with no logs.
+    const before = prep.days.filter(d => d.date < state.day), after = prep.days.filter(d => d.date > state.day);
+    const prev = before.length ? before[before.length - 1].date : '', next = after.length ? after[0].date : '';
+    if(el.prev){ el.prev.disabled = !prev; el.prev.onclick = () => { if(prev) go({ day: prev }); }; }
+    if(el.next){ el.next.disabled = !next; el.next.onclick = () => { if(next) go({ day: next }); }; }
+    printHead(fmtDate(state.day));
+    if(!detail){
+      shownDay = null;
+      show(el.dayView, false);
+      html(el.note, (prep.mode !== 'land' ? '<p class="au-note warn">The pause figures were checked against land work only.</p>' : '')
+        + `<p class="au-note">No logs on ${esc(fmtDate(state.day))} for ${esc(state.who)} in this view.</p>`);
+      return;
+    }
+    const day = shownDay = detail.day;
+    html(el.note, (prep.mode !== 'land' ? '<p class="au-note warn">The pause figures were checked against land work only.</p>' : '')
+      + dayNotesHtml(day));
+    html(el.dayTop, dayTopHtml(detail));
+    html(el.dayBottom, dayLogsHtml(day));
+    html(el.mapNote, offMapHtml(day)
+      + '<p class="au-cap">Pins are numbered in the order the orders were logged and joined in that order with straight lines. It is the order worked, not the roads driven.</p>');
+    if(el.map){
+      if(!routeMap) routeMap = createRouteMap(el.map);
+      routeMap.show(day);
+    }
+    renderDrive(state.who, state.day, my);
   }
 
   let seq = 0;
@@ -156,7 +225,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     if(my !== seq) return;       // a newer pick overtook this one
     const prep = prepFor(state.who, state.mode, raw);
     syncControls(prep);
-    if(state.day) renderDay(prep); else renderPeriod(prep);
+    if(state.day) renderDay(prep, my); else renderPeriod(prep);
     setStatus('', 'Loaded');
   }
 
@@ -183,6 +252,13 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     const b = e.target.closest('button[data-day]');
     if(b) go({ day: b.dataset.day });
   };
+  // A timeline block or a row of the log list opens that gap's detail in place.
+  const pickGap = e => {
+    const t = e.target.closest('[data-gap]');
+    if(t) openGap(Number(t.dataset.gap));
+  };
+  if(el.dayTop) el.dayTop.onclick = pickGap;
+  if(el.dayBottom) el.dayBottom.onclick = pickGap;
   const print = () => window.print();
   if(el.print) el.print.onclick = print;
   if(el.printDay) el.printDay.onclick = print;

@@ -76,6 +76,10 @@ body{
              padding:5px 8px 5px 0;vertical-align:bottom;font-size:12px}
 .au-table td{border-bottom:1px solid var(--line);padding:5px 8px 5px 0;vertical-align:top}
 .au-table th.n,.au-table td.n{text-align:right;font-variant-numeric:tabular-nums;padding:5px 0 5px 8px;white-space:nowrap}
+/* a long column head may wrap, so a narrow screen keeps the row labels readable */
+.au-table th.n{white-space:normal}
+/* a text column that follows a number column needs air between them */
+.au-table td.n + td:not(.n),.au-table th.n + th:not(.n){padding-left:18px}
 .au-pairs td:first-child{white-space:pre-wrap}
 .au-days td.n{white-space:nowrap}
 .au-table tr.on td{background:#FFF8E8}
@@ -120,6 +124,16 @@ body{
 .au-hl{font-size:10.5px;color:var(--ink-soft);height:16px;white-space:nowrap}
 .au-hcap{font-size:12px;color:var(--ink-soft);margin-top:4px}
 
+/* ── the day view ───────────────────────────────────────────────────────── */
+.au-map{height:420px;border-radius:10px;border:1px solid var(--line);position:relative;z-index:0}
+.au-pin{background:none;border:0}
+.au-gap{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+        font-size:14px;background:#FAFBFC}
+.au-gap .au-pairs{margin-top:6px}
+.au-check{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:14px;margin:0 12px 8px 0}
+.au-check input{width:18px;height:18px}
+#auDrive .au-cap{display:inline-block;margin:0 0 8px}
+
 /* ── method and limits ──────────────────────────────────────────────────── */
 .au-method summary{cursor:pointer;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
                    color:var(--ink-soft);font-weight:800}
@@ -142,6 +156,7 @@ body{
   .au-hl{font-size:9px}
   .au-push{margin-left:0}
   .au-tick{font-size:11px}
+  .au-map{height:320px}
 }
 
 /* ── print ──────────────────────────────────────────────────────────────── */
@@ -149,16 +164,23 @@ body{
   @page{margin:0.55in}
   body{background:#fff;max-width:none;padding:0;font-size:11pt;
        -webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .bar,.au-controls,.toast,.au-noprint{display:none !important}
+  /* #adminLogout is the office gate's floating Log out button (js/admin-auth.js) */
+  .bar,.au-controls,.toast,.au-noprint,#adminLogout{display:none !important}
   .au-printhead{display:block;font-size:15pt;font-weight:800;margin:0 0 8pt;
                 border-bottom:1.5px solid #000;padding-bottom:6pt}
   .au-printhead small{display:block;font-size:10pt;font-weight:400;color:#444;margin-top:2pt}
   .card{box-shadow:none;border:0;border-top:1px solid #999;border-radius:0;padding:8pt 0;margin:0}
-  .au-card{break-inside:avoid}
-  .au-card:has(.au-days),.au-card:has(.au-method),.au-card:has(.au-logs){break-inside:auto}
+  /* Keep a chart or a small block whole, and a heading with what follows it. A whole
+     card is allowed to break: holding each card together left half-empty pages. */
+  .au-stackwrap,.au-tiles,.au-two,.au-hist,.au-gap,.au-map,.au-pairs,.au-key{break-inside:avoid}
+  .au-card h2,.au-card h3,.au-method summary{break-after:avoid}
   .au-table tr{break-inside:avoid}
+  .au-table thead{display:table-header-group}
   .au-scroll{overflow:visible}
   .au-daybtn{color:#000;text-decoration:none}
+  .au-map{height:4.4in}
+  .au-map .leaflet-control-zoom{display:none}
+  .au-table tr.on td{background:none}
   .au-method > :not(summary){display:block}
   details.au-method:not([open]) > :not(summary){display:block}
   .au-method summary{list-style:none}
