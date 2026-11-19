@@ -163,7 +163,7 @@ test('Download PDF hands over what is on screen: the period, then the day', asyn
   await p.openDay('2026-11-02');
   await p.els.auPrintDay.onclick(); await p.settle();
   assert.equal(saved[1].fileName, 'Audit - Pat Example - 2026-11-02.pdf');
-  assert.deepEqual(saved[1].sections.map(s => s.title), ['Timeline of the day', 'This day, and how it compares',
+  assert.deepEqual(saved[1].sections.map(s => s.title), ['Timeline of the day', 'Pace on this route', 'This day, and how it compares',
     'Delays logged this day', 'Route worked', 'Every log, in order', 'Method and limits']);
   assert.deepEqual(p.prints, [], 'the print dialog is never opened');
   assert.equal(p.els.auPrintDay.disabled, false);

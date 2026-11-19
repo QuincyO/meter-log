@@ -614,6 +614,13 @@ What the numbers mean:
 
 Tap a date in **Day by day** to open that day: a timeline with one block per gap between your logs, the day beside your 30 worked days before it and all your work to date, the delays you logged, a map of your orders numbered in the order you logged them, and every log in order. Tap a block or a row for that gap's details. **‹** and **›** step to the day before and after, and **← Back to the period** returns.
 
+**Pace on this route**, the second card of a day, answers "how on pace was I?" It gives the number of orders you logged beside the number **expected** for that day. Expected is your own usual pace applied to that day: the time between your first and last meter (less any delay you logged against a gap in between), the share of that time you usually spend at your working pace, and how far apart that day's orders were. A day with the orders spread out, or a short day, expects fewer orders; a tight route or a long day expects more. So a low number on a spread-out day can still read as **Level**, and so can a high number on a tight one.
+
+- It is a yardstick, not a measurement. The card says how close it has been on your own full days (it reads "half land within" a number of orders). A day that close to expected is an ordinary day.
+- It does not judge when your first and last meters were. Those are in the next card.
+- It cannot see orders you were never given, and a job that took longer at a stop counts against the pace like any other long gap. A delay only counts in your favour if you logged it against its gap.
+- The small print under the table shows the arithmetic with that day's numbers, so anyone you send it to can follow it.
+
 **Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn as the numbered pins and the line between them on a plain background, without the street map.
 
 **Send PDF** makes the same file and opens your phone's share sheet with it attached, so you can text or email it, to your supervisor for example. Open the day first to send that day, or stay on the period to send the period. You choose the app and the person; the page itself sends nothing, and nothing goes until you send it there. If you see **Ready. Tap Send PDF again**, tap it once more: some phones only open the share sheet on a fresh tap. If the phone cannot share after all, the file is saved instead and you can attach it yourself. The button is not shown in a browser that cannot share a file; use **Download PDF** there.
@@ -761,7 +768,7 @@ Land installers each run their own route, so they aren't paired as partners and 
 
 The period shows, in order: the headline numbers; **Where an average day goes** (one bar from the 07:30 start to the end of the day); **Unlogged pause time per day** (how many days fell in each range, against the 60-minute break allowance); **By month**; **Logged delays by category**; **Output**, with the usual time between two logs for each distance; **Day by day**; and **Method and limits**, which explains every number and what the data cannot show.
 
-A single day shows its timeline, the day beside the installer's 30 worked days before it and all their work to date, the delays logged that day, the route worked on a map, and every log in order. When a drive log was recorded that day, **Show drive log** lays it over the map and gives the top speed, average speed, distance, driving time and number of legs. Speeds are shown as numbers only; nothing flags them.
+A single day shows its timeline, **Pace on this route** (the orders logged beside the number expected for that day's time and route at the installer's own usual pace; the My audit section above explains it and its limits), the day beside the installer's 30 worked days before it and all their work to date, the delays logged that day, the route worked on a map, and every log in order. When a drive log was recorded that day, **Show drive log** lays it over the map and gives the top speed, average speed, distance, driving time and number of legs. Speeds are shown as numbers only; nothing flags them.
 
 The rules are the same for every installer: the shift starts at 07:30, statistics use days with 8 or more orders, a long gap is one with 45 minutes or more of unlogged pause, and the break allowance is 60 minutes a day. See **My audit** above for what each number means.
 

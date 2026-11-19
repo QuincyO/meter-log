@@ -279,6 +279,10 @@ export function methodSection(){
       `Per-day statistics use only days with ${A.MIN_ORDERS} or more orders. Shorter days are listed and can be opened.`,
       `A single gap is marked as a long gap when its unlogged pause is ${A.FLAG_MIN} minutes or more. That is the time over the usual for the stop, less any delay logged against it, so a ${A.FLAG_MIN}-minute gap is not by itself a long gap.`,
       `The break allowance is ${A.BREAK_ALLOWANCE_MIN} minutes a day: two 15-minute breaks and a 30-minute lunch.`,
+      'The expected number of orders for a day is worked out from that day\'s own time and route. Take the time from first to last meter, '
+        + 'less delay logged against those gaps (no more of a gap than it ran over). Take the share of it that a typical full day spends at the usual pace, '
+        + 'which is the same gaps at their usual times divided by that time. Divide by the usual minutes per order on that day\'s route and add the first order. '
+        + `The typical full day is the median of the days with ${A.MIN_ORDERS} or more orders. Orders further apart, or a shorter day, expect fewer orders.`,
     ] },
     { t: 'h3', text: 'What the data cannot show' },
     { t: 'list', ordered: false, items: [
@@ -290,6 +294,9 @@ export function methodSection(){
       'Logged delays are as entered. Reading morning dispatch as the drive to the first order is how the installer says it is used.',
       `The ${A.PAUSE_OVER_MIN}-minute threshold, the ${A.FLAG_MIN}-minute flag and the ${A.MIN_ORDERS}-order rule are choices.`,
       'On Boat and All: the pause method was only checked against land work.',
+      'The expected number of orders is the installer\'s own usual pace applied to the route that was logged. It cannot see orders that were never given out, '
+        + 'and it does not judge when the first and last meters were logged. A job that took longer at a stop counts against the pace like any other long gap. '
+        + 'It is a yardstick: the day view says how close it has been on the full days to date.',
       'Drive logs exist only for the days and phones where tracking was switched on, and only while the app was in front. Average speed includes slow movement while parked.',
     ] }] };
 }
@@ -318,6 +325,53 @@ function timelineSection(day, forPage){
     ...(day.gaps.length ? [{ t: 'cap', screenOnly: true, text: 'One block per gap between logs. Pick a block, or a row in the list at the bottom, '
       + 'for its two orders, the distance, the usual time and what was logged against it.' }] : []),
     ...(forPage ? [{ t: 'slot', id: 'auGapDetail' }] : [])] };
+}
+
+// How on pace the day was (compute/audit.js dayPace). The first caption under the
+// table spells the arithmetic out with the day's own numbers, so a reader who was
+// not there can follow how "expected" was reached. The second says how close the
+// figure has been on this installer's full days, and the third what it cannot see.
+// "Expected" is never called a target: it is the installer's own usual pace applied
+// to the route that was logged and the time between the first and last meter.
+function paceSection({ pace }){
+  const title = 'Pace on this route';
+  if(!pace.gaps) return { title, blocks: [{ t: 'empty', text: 'Only one order was logged, so there is no route to pace.' }] };
+  const typ = pace.typical;
+  const of = f => typ ? f(typ) : '—';
+  const tiles = [
+    [String(pace.orders), 'orders logged'],
+    [pace.expected == null ? '—' : String(pace.expected), 'expected for the time between first and last meter, on this route'],
+    [pace.diff == null ? '—' : pace.diff > 0 ? `${pace.diff} over` : pace.diff < 0 ? `${-pace.diff} under` : 'Level',
+      'against the expected number'],
+    [`${n1(pace.perOrder)} min`, 'usual time per order on this route' + (typ ? ` (full days: ${n1(typ.perOrder)})` : '')],
+  ];
+  const caps = [];
+  if(pace.expected == null){
+    caps.push(`No day with ${AUDIT.MIN_ORDERS} or more orders yet, so there is no typical day to expect a number from.`);
+  } else {
+    caps.push(`Expected: ${fmtMin(pace.tookMin)} min from first to last meter`
+      + (pace.loggedMin > 0 ? `, less ${fmtMin(pace.loggedMin)} min of delay logged against those gaps, is ${fmtMin(pace.ownMin)} min. ` : '. ')
+      + `On a typical full day ${share(typ.share)} of that time is at the usual pace, and the rest is breaks, lunch and stops that ran long. `
+      + `That is ${fmtMin(pace.atPaceMin)} min. `
+      + `At this route's ${n1(pace.perOrder)} usual min per order it is ${plural(pace.expected - 1, 'order', 'orders')} after the first: ${pace.expected}.`);
+    caps.push('On the full days to date, half land '
+      + (typ.miss > 0 ? `within ${plural(typ.miss, 'order', 'orders')} of` : 'exactly on') + ' their expected number.');
+  }
+  caps.push('Expected is not a target. It is this installer\'s own usual pace, the usual time for each distance between orders over all '
+    + 'their work to date in this work mode, applied to the route that was logged and the time between the first and last meter. '
+    + 'It does not judge when those two meters were logged; the next table has that. It cannot see orders that were never given out, '
+    + 'and a job that took longer at a stop counts against the pace like any other long gap. '
+    + `The right-hand column is over the days with ${AUDIT.MIN_ORDERS} or more orders, in minutes unless the row says otherwise.`);
+  return { title, blocks: [{ t: 'tiles', items: tiles },
+    { t: 'table', head: ['', 'This day', `Full days to date (${plural(typ ? typ.days : 0, 'day', 'days')})`],
+      rows: [
+        ['Usual minutes per order on the route (median)', n1(pace.perOrder), of(t => n1(t.perOrder))],
+        ['Distance between orders, straight line, km (median)', n1(pace.km), of(t => n1(t.km))],
+        ['First to last meter, less delay logged against those gaps (median)', fmtMin(pace.ownMin), of(t => fmtMin(t.ownMin))],
+        ['The same gaps at the usual pace (median)', fmtMin(pace.usualMin), of(t => fmtMin(t.routeMin))],
+        ['Share of that time at the usual pace (median)', share(pace.share), of(t => share(t.share))],
+      ] },
+    ...caps.map(text => ({ t: 'cap', text }))] };
 }
 
 function compareSection({ day, baselines }){
@@ -381,7 +435,7 @@ function logsSection(day){
  *  `forPage` adds the empty slot the page opens a gap's detail in. `detail` is
  *  dayDetail()'s result. */
 export function daySections(detail, { forPage = false } = {}){
-  return { top: [timelineSection(detail.day, forPage), compareSection(detail), delaysSection(detail.day)],
+  return { top: [timelineSection(detail.day, forPage), paceSection(detail), compareSection(detail), delaysSection(detail.day)],
     bottom: [logsSection(detail.day)] };
 }
 export function dayTopHtml(detail){ return sectionsHtml(daySections(detail, { forPage: true }).top); }

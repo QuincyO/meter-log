@@ -341,12 +341,77 @@ export function periodStats(prep, { from = '', to = '' } = {}){
 /** One day with its neighbours and the two baselines it is compared with: the up
  *  to 30 most recent qualifying days strictly before it, and every qualifying day.
  *  Null when the date has no logs in the mode. */
+// ── The pace on a day's route ────────────────────────────────────────────────
+// "How on pace was this day?" The answer is an expected number of orders for the
+// time the day actually had between its first and last meter, on the route that was
+// actually logged, at the installer's own usual pace. Nothing else is compared.
+//
+//   own time   first-to-last-meter time, less delay logged against those gaps. A
+//              logged delay excuses no more than its gap ran over, as in the pause rule.
+//   usual      the same gaps, each at the usual time for its distance.
+//   share      usual ÷ own time: how much of the day's time was at the usual pace.
+//              The rest is breaks, lunch, unlogged delay and stops that ran long. A
+//              typical full day has plenty of it; it is not a fault.
+//   at pace    own time × the TYPICAL full day's share.
+//   expected   1 + at pace ÷ this route's usual minutes per order.
+//
+// A spread-out route costs more usual minutes per order, so the same time expects
+// fewer orders; a short day (a late first meter, an early last one) expects fewer
+// too. The figure deliberately takes the first and last meter as given: when they
+// were logged is shown elsewhere on the page and is not judged here.
+//
+// "Typical" is the middle full day (pct .5, the page's median) of every full day in
+// the mode, like the usual times: not only the days before this one.
+//
+// THIS IS THE THIRD FORMULA; the first two were measured against one installer's
+// real history and dropped. Don't go back to either.
+//   1. A fixed budget (a typical day's route time, moved by the delay logged that
+//      day against the average) missed the logged count badly on most days: days
+//      differ far more in length than in logged delay.
+//   2. Own time less a typical day's minutes over the usual pace, cut down in
+//      proportion for a shorter day but never raised for a longer one, was biased:
+//      half of all days are shorter than the middle one, so it expected too many
+//      orders on average. A share of the time scales both ways and is not.
+// Even so the figure is a yardstick. `typical.miss` (half the full days land within
+// this many orders of their expected number) exists so the page can say how close it
+// has been, instead of implying a precision it does not have.
+function routeOf(day){
+  const gaps = day.gaps;
+  const usualMin = sum(gaps, g => g.usual);
+  const loggedMin = sum(gaps, g => Math.min(g.loggedMin, Math.max(0, g.over)));
+  const ownMin = day.spanMin - loggedMin;
+  return { orders: day.n, gaps: gaps.length, usualMin, tookMin: day.spanMin, loggedMin, ownMin,
+    share: ownMin > 0 ? usualMin / ownMin : null, perOrder: gaps.length ? usualMin / gaps.length : null,
+    km: sum(gaps, g => g.km == null ? 0 : g.km) };
+}
+function expectedOn(r, share){
+  const atPaceMin = r.ownMin * share;
+  const expected = Math.max(1, Math.round(1 + atPaceMin / r.perOrder));
+  // paceMin: minutes of usual-pace work the day is short of (+) or ahead of (−) its expected number
+  return { atPaceMin, expected, diff: r.orders - expected, paceMin: atPaceMin - r.usualMin };
+}
+function dayPace(prep, day){
+  const r = routeOf(day);
+  const full = prep.days.filter(d => d.qualifies).map(routeOf).filter(x => x.share != null);
+  let typical = null;
+  if(full.length){
+    typical = { days: full.length, perOrder: pct(full.map(x => x.perOrder), .5),
+      km: pct(full.map(x => x.km), .5), routeMin: pct(full.map(x => x.usualMin), .5),
+      ownMin: pct(full.map(x => x.ownMin), .5), share: pct(full.map(x => x.share), .5),
+      loggedMin: mean(full.map(x => x.loggedMin)) };
+    typical.miss = pct(full.map(x => Math.abs(expectedOn(x, typical.share).diff)), .5);
+  }
+  const none = { atPaceMin: null, expected: null, diff: null, paceMin: null };
+  return { ...r, typical, ...(typical && r.gaps && r.perOrder > 0 ? expectedOn(r, typical.share) : none) };
+}
+
 export function dayDetail(prep, date){
   const i = prep.days.findIndex(d => d.date === date);
   if(i < 0) return null;
   const full = prep.days.filter(d => d.qualifies);
   return {
     day: prep.days[i],
+    pace: dayPace(prep, prep.days[i]),
     prevDate: i > 0 ? prep.days[i - 1].date : null,
     nextDate: i + 1 < prep.days.length ? prep.days[i + 1].date : null,
     baselines: {

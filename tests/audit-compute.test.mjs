@@ -501,3 +501,84 @@ test('the phone\'s own lead-gap note is the drive to the first order', () => {
   assert.equal(day.log.dispatchBefore, 35);
   assert.equal(day.pauseLoggedMin, 0);
 });
+
+// ── the pace on a day's route ────────────────────────────────────────────────
+// Eleven full days worked next door (6 minutes a gap) and ten full days with the
+// orders 0.3 km apart (12 minutes a gap), every one with a single gap 30 minutes
+// over: a lunch. The usual time is then 6 next door and 12 at 0.3 km. The typical
+// full day is the middle one of the 21, a next-door day: 8 gaps, 78 minutes from
+// first to last meter, 48 of them at the usual pace: a share of 48/78.
+const SPREAD = { km: 0.3 };
+const withLunch = step => { const a = every('09:00', 5, step), [h, m] = a[4].split(':').map(Number);
+  const t = h * 60 + m + step + 30;
+  return [...a, ...every(`${pad(Math.floor(t / 60))}:${pad(t % 60)}`, 4, step)]; };
+const mixed = () => [...weekdays(11).flatMap(d => stopsOn(d, withLunch(6))),
+  ...weekdays(10, '2026-10-01').flatMap(d => stopsOn(d, withLunch(12), SPREAD))];
+const paceOf = (stops, downtime = []) => dayDetail(prep([...mixed(), ...stops], downtime), D).pace;
+
+test('the typical full day is the middle one, and a route is priced at the usual pace', () => {
+  const pace = paceOf(stopsOn(D, ['10:00', '10:12', '10:24', '11:06', '11:18'], SPREAD));
+  const t = pace.typical;
+  assert.deepEqual([t.days, t.perOrder, t.routeMin, t.ownMin, t.share, t.loggedMin, t.miss], [21, 6, 48, 78, 48 / 78, 0, 0]);
+  assert.ok(Math.abs(t.km - 0.08) < 0.001);
+  assert.deepEqual([pace.orders, pace.gaps, pace.usualMin, pace.perOrder, pace.tookMin, pace.ownMin, pace.share],
+    [5, 4, 48, 12, 78, 78, 48 / 78]);
+  assert.ok(Math.abs(pace.km - 1.2) < 0.001);
+});
+
+test('the same time on a spread-out route expects fewer orders than on a tight one', () => {
+  // 78 minutes at the typical share is 48 at the usual pace: 4 gaps at 12 minutes, 5 orders
+  const spread = paceOf(stopsOn(D, ['10:00', '10:12', '10:24', '11:06', '11:18'], SPREAD));
+  assert.deepEqual([Math.round(spread.atPaceMin), spread.expected, spread.diff, Math.round(spread.paceMin)], [48, 5, 0, 0]);
+  // the same 78 minutes next door: 48 at 6 minutes is 8 gaps, 9 orders. Five were logged.
+  const tight = paceOf(stopsOn(D, ['10:00', '10:06', '10:12', '11:12', '11:18']));
+  assert.deepEqual([tight.expected, tight.diff, Math.round(tight.paceMin)], [9, -4, 24]);
+});
+
+test('a delay logged against a gap comes off the time, and no more of it than the gap ran over', () => {
+  const route = stopsOn(D, ['10:00', '10:12', '10:24', '11:34', '11:46'], SPREAD);     // the third gap is 58 over
+  const none = paceOf(route);                      // 106 × 48/78 = 65.2 at the usual pace: 5.4 gaps
+  assert.deepEqual([none.tookMin, none.loggedMin, none.ownMin, none.expected, none.diff, Math.round(none.paceMin)], [106, 0, 106, 6, -1, 17]);
+  const part = paceOf(route, [gapRow(D, 'WAREHOUSE', 28, 'gap 10:24–11:34')]);
+  assert.deepEqual([part.loggedMin, part.ownMin, part.expected, part.diff, Math.round(part.paceMin)], [28, 78, 5, 0, 0]);
+  const more = paceOf(route, [gapRow(D, 'WAREHOUSE', 100, 'gap 10:24–11:34')]);
+  assert.deepEqual([more.loggedMin, more.ownMin], [58, 48]);
+  // a delay logged before the first meter is outside the time being paced
+  const before = paceOf(route, [gapRow(D, 'DISPATCH', 60, 'gap 07:30–08:30'), gapRow(D, 'LUNCH', 30, '')]);
+  assert.deepEqual([before.loggedMin, before.expected], [0, 6]);
+});
+
+test('a short day is paced by the same share of its own time', () => {
+  // 24 minutes at 48/78 is 14.8 at the usual pace: 2.5 gaps at 6 minutes
+  const short = paceOf(stopsOn(D, every('10:00', 5, 6)));
+  assert.ok(Math.abs(short.atPaceMin - 24 * 48 / 78) < 1e-9);
+  assert.deepEqual([short.expected, short.diff, Math.round(short.paceMin)], [3, 2, -9]);
+});
+
+test('quicker than usual is ahead of pace', () => {
+  const quick = paceOf(stopsOn(D, ['10:00', '10:09', '10:18', '10:57', '11:06'], SPREAD));   // 9, 9, 39, 9
+  assert.deepEqual([quick.tookMin, quick.usualMin], [66, 48]);
+  assert.ok(quick.paceMin < 0);
+  assert.equal(quick.diff, 1);
+});
+
+test('one order has no route to pace, and with no full day there is nothing to expect', () => {
+  const one = paceOf(stopsOn(D, ['11:15']));
+  assert.deepEqual([one.orders, one.gaps, one.expected, one.diff, one.paceMin, one.perOrder], [1, 0, null, null, null, null]);
+  const alone = dayDetail(prep(stopsOn(D, every('10:00', 5, 12), SPREAD)), D).pace;
+  assert.equal(alone.typical, null);
+  assert.deepEqual([alone.expected, alone.diff, alone.paceMin, alone.atPaceMin], [null, null, null, null]);
+  assert.deepEqual([alone.usualMin, alone.share], [48, 1]);            // against the median of its own gaps
+});
+
+test('the page can say how close the expected number has been on the full days to date', () => {
+  // Three full days next door, 9 orders each, with one gap 30, 60 and 90 minutes over:
+  // 78, 108 and 138 minutes, each with 48 at the usual pace. The typical share is the
+  // middle one, 48/108. At that share the first day expects 7, the second 9, the third 11.
+  const day = (date, over) => stopsOn(date, [...every('09:00', 5, 6),
+    ...every(`${pad(9 + Math.floor((30 + over) / 60))}:${pad((30 + over) % 60)}`, 4, 6)]);
+  const dates = weekdays(3);
+  const p = prep(dates.flatMap((d, i) => day(d, 30 * (i + 1))));
+  assert.deepEqual(dates.map(d => dayDetail(p, d).pace.diff), [2, 0, -2]);
+  assert.equal(dayDetail(p, dates[0]).pace.typical.miss, 2);           // the middle of 0, 2 and 2
+});

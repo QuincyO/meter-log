@@ -136,7 +136,8 @@ test('method and limits states the rules with the values in use', () => {
   const html = methodHtml();
   assert.match(html, /<details class="au-method">/);
   for(const phrase of ['07:30', '10 minutes', '45 minutes', '8 or more orders', '60 minutes',
-    'cannot separate a break from an unlogged delay', 'straight line'])
+    'cannot separate a break from an unlogged delay', 'straight line', 'expected number of orders',
+    'cannot see orders that were never given out'])
     assert.match(html, new RegExp(phrase), phrase);
 });
 
@@ -159,7 +160,7 @@ const detailOf = (stops, date, downtime = [], days = []) =>
 test('the day view compares the day with both baselines and says how many days each used', () => {
   const html = dayTopHtml(detailOf(DAY_STOPS, DAY, DAY_DOWN));
   const heads = [...html.matchAll(/<h2[^>]*>([^<]+)</g)].map(m => m[1].trim());
-  assert.deepEqual(heads, ['Timeline of the day', 'This day, and how it compares', 'Delays logged this day']);
+  assert.deepEqual(heads, ['Timeline of the day', 'Pace on this route', 'This day, and how it compares', 'Delays logged this day']);
   assert.match(html, /<th class="n">This day<\/th><th class="n">30 worked days before \(6 days\)<\/th><th class="n">All to date \(6 days\)<\/th>/);
   for(const label of ['Orders (average)', 'First meter (average)', 'Last meter (average)',
     'Delay logged before the first meter (average)', 'Delay logged between meters (average)',
@@ -169,6 +170,55 @@ test('the day view compares the day with both baselines and says how many days e
   assert.match(html, /34 at 10:06/);
   assert.match(html, /id="auGapDetail"/);
   assert.doesNotMatch(html, /NaN|undefined|>null</);
+});
+
+test('the day view says how on pace the day was, and shows its arithmetic', () => {
+  // Six full days next door, 6 minutes a gap and nothing over: on a typical full day
+  // all of the time between first and last meter is at the usual pace. This day: gaps
+  // of 6, 60 and 6, so 72 minutes, 20 of them logged against the long gap. The 52 left,
+  // at 6 minutes an order, is 8.7 orders after the first: 10 expected, 4 logged.
+  const html = dayTopHtml(detailOf(DAY_STOPS, DAY, DAY_DOWN));
+  const card = html.slice(html.indexOf('Pace on this route'), html.indexOf('This day, and how it compares'));
+  const tile = (n, label) => assert.ok(card.includes(`<div class="au-tile"><b>${n}</b><span>${label}</span></div>`), `${n} ${label}`);
+  tile('4', 'orders logged');
+  tile('10', 'expected for the time between first and last meter, on this route');
+  tile('6 under', 'against the expected number');
+  tile('6.0 min', 'usual time per order on this route (full days: 6.0)');
+  assert.match(card, /<th class="n">This day<\/th><th class="n">Full days to date \(6 days\)<\/th>/);
+  assert.match(card, /<td>Usual minutes per order on the route \(median\)<\/td><td class="n">6\.0<\/td><td class="n">6\.0<\/td>/);
+  assert.match(card, /<td>First to last meter, less delay logged against those gaps \(median\)<\/td><td class="n">52<\/td><td class="n">48<\/td>/);
+  assert.match(card, /<td>The same gaps at the usual pace \(median\)<\/td><td class="n">18<\/td><td class="n">48<\/td>/);
+  assert.match(card, /<td>Share of that time at the usual pace \(median\)<\/td><td class="n">35%<\/td><td class="n">100%<\/td>/);
+  assert.ok(card.includes('<td>Distance between orders, straight line, km (median)</td>'));
+  assert.ok(card.includes('Expected: 72 min from first to last meter, less 20 min of delay logged against those gaps, is 52 min. '
+    + 'On a typical full day 100% of that time is at the usual pace, and the rest is breaks, lunch and stops that ran long. That is 52 min. '
+    + 'At this route\'s 6.0 usual min per order it is 9 orders after the first: 10.'), 'the arithmetic');
+  assert.match(card, /On the full days to date, half land exactly on their expected number\./);
+  assert.match(card, /Expected is not a target\./);
+  assert.match(card, /cannot see orders that were never given out/);
+  assert.doesNotMatch(card, /NaN|undefined|>null<|\byour\b/);
+
+  // worked at the usual pace with nothing logged: exactly the expected number
+  const steady = dayTopHtml(detailOf(stopsOn(DAY, every('10:00', 5)), DAY));
+  assert.ok(steady.includes('<b>5</b><span>expected for the time between first and last meter, on this route</span>'));
+  assert.ok(steady.includes('<b>Level</b><span>against the expected number</span>'));
+  assert.match(steady, /Expected: 24 min from first to last meter\. On a typical full day/);
+
+  // nine orders five minutes apart: quicker than the usual six, so one over
+  const quick = dayTopHtml(detailOf(stopsOn(DAY, every('10:00', 9, 5)), DAY));
+  assert.ok(quick.includes('<b>1 over</b><span>against the expected number</span>'));
+});
+
+test('a day with one order, or with no full day to compare with, says so and invents nothing', () => {
+  const one = dayTopHtml(detailOf(stopsOn(DAY, ['11:15']), DAY));
+  assert.match(one, /Pace on this route<\/h2><p class="au-empty">Only one order was logged, so there is no route to pace\.<\/p>/);
+  const alone = dayTopHtml(dayDetail(prepareAudit({ stops: stopsOn(DAY, every('10:00', 5)), downtime: [], days: [] },
+    { installer: WHO, mode: 'land' }), DAY));
+  assert.ok(alone.includes('<b>—</b><span>expected for the time between first and last meter, on this route</span>'));
+  assert.ok(alone.includes('<b>6.0 min</b><span>usual time per order on this route</span>'));
+  assert.match(alone, /No day with 8 or more orders yet, so there is no typical day to expect a number from\./);
+  assert.match(alone, /<th class="n">Full days to date \(0 days\)<\/th>/);
+  assert.doesNotMatch(alone, /NaN|undefined|>null</);
 });
 
 test('dispatch before the first meter is labelled as the drive to the first order', () => {

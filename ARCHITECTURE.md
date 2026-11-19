@@ -2100,6 +2100,28 @@ tap, which shares the kept file at once; a second refusal saves the file as a do
 Closing the share sheet is not an error, and success shows no message because the browser
 cannot know whether anything was sent.
 
+### Pace on this route
+
+The day view's second card answers "how on pace was this day?" with an expected number
+of orders beside the number logged (`dayPace` in `js/compute/audit.js`, on
+`dayDetail().pace`; drawn by `paceSection` in `js/audit-render.js`, so the page and the PDF
+share it).
+
+- **Own time**: first-to-last-meter time, less delay logged against those gaps. A logged
+  delay excuses no more of a gap than the gap ran over, as in the pause rule.
+- **Share**: the same gaps at their usual times, divided by own time. The typical share is
+  the median over every full day in the mode. The rest of a day is breaks, lunch, unlogged
+  delay and stops that ran long.
+- **Expected** = 1 + own time × typical share ÷ that route's usual minutes per order.
+
+A spread-out route costs more usual minutes per order and a short day has less own time,
+so both expect fewer orders. The first and last meter are taken as given; the comparison
+card below shows when they were. The card states how close the figure has been on the
+installer's own full days (`typical.miss`, the median distance between logged and
+expected), because it is a yardstick: a gap's usual time by distance says little about how
+hard the job at the stop was. Two earlier formulas were dropped after being measured
+against real days; `AGENTS.md` (The Audits pages, item 16) says which and why.
+
 ## Data structures
 
 ### Stop  (one row per work order visited → tab "Stops")

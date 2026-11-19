@@ -101,7 +101,7 @@ test('a view with no days still makes a PDF that says so', () => {
 test('the day PDF has the day\'s sections, the route and the method, and nothing kept for the screen', () => {
   const doc = buildAuditPdf(jsPDF, day([...HISTORY(8), ...LONG_DAY], DAY));
   const text = all(doc);
-  inOrder(text, ['Audit: Pat Example', 'Mon Nov 2, 2026', 'TIMELINE OF THE DAY', 'THIS DAY, AND HOW IT COMPARES', 'DELAYS LOGGED THIS DAY',
+  inOrder(text, ['Audit: Pat Example', 'Mon Nov 2, 2026', 'TIMELINE OF THE DAY', 'PACE ON THIS ROUTE', 'THIS DAY, AND HOW IT COMPARES', 'DELAYS LOGGED THIS DAY',
     'ROUTE WORKED', 'EVERY LOG, IN ORDER', 'METHOD AND LIMITS']);
   for(const piece of ['30 worked days before (8 days)', 'All to date (9 days)', 'Dispatch (drive to the first order)',
     'before the first meter', 'It is the order worked, not the roads driven.', 'first meter', 'long gap', '900008'])
