@@ -90,11 +90,82 @@ test('the delay per stop reads back as a number, 0 when blank', () => {
   assert.match(js, /export function usualStart\(\)/);
 });
 
-test('the day 1 clock goes live after the first log, or once the usual start has passed', () => {
+test('the day 1 clock goes live after the first log, or once Day 1\'s own clock has passed', () => {
   const src = sourceOf('day1DepartTime');
   assert.match(src, /if\(!fromCurrent \|\| planDay\(\) !== localDate\(\)\) return ''/);
-  assert.match(src, /todayFirstLog\(\) \|\| hhmmMin\(now\) > hhmmMin\(usualStart\(\)\)/);
+  // Day 1's own clock, not the bare usual start: an early appointment pulls the day
+  // earlier, and the pulled plan must go live once ITS clock has passed.
+  assert.match(src, /const own = day1OwnClock\(usualStart\(\), apptsSeen\.items, planDay\(\)\);/);
+  assert.match(src, /todayFirstLog\(\) \|\| hhmmMin\(now\) > hhmmMin\(own\)/);
   assert.doesNotMatch(src, /ROUTE_DEPART_TIME/);
+  // Never from a stored ETA: once the day is live that value moves, and the test
+  // would flip-flop.
+  assert.doesNotMatch(src, /scheduledEta/);
+  assert.doesNotMatch(sourceOf('day1OwnClock'), /scheduledEta/);
+});
+
+// day1OwnClock is pure, so it runs here from its own source text with the two
+// helpers it calls handed in.
+const { hhmmMin } = await import('../js/time.js');
+const { isPending } = await import('../js/route-variants.js');
+const day1OwnClock = new Function('hhmmMin', 'isPending',
+  `${sourceOf('day1OwnClock')}\nreturn day1OwnClock;`)(hhmmMin, isPending);
+const appt = (time, over) => ({ id:'a', wlStatus:'pending', appointmentDate:'2026-11-18',
+  appointmentTime:time, ...over });
+
+test('Day 1\'s own clock is the usual start with no appointment', () => {
+  assert.equal(day1OwnClock('10:10', [], '2026-11-18'), '10:10');
+  assert.equal(day1OwnClock('10:10', [{ id:'x', wlStatus:'pending' }], '2026-11-18'), '10:10');
+  assert.equal(day1OwnClock('10:10', undefined, '2026-11-18'), '10:10');
+});
+
+test('an 08:30 appointment today pulls Day 1\'s clock to 08:10', () => {
+  assert.equal(day1OwnClock('10:10', [appt('08:30')], '2026-11-18'), '08:10');
+  // The earliest one decides.
+  assert.equal(day1OwnClock('10:10', [appt('09:00'), appt('08:30', { id:'b' })], '2026-11-18'), '08:10');
+});
+
+test('an appointment after the usual start leaves the usual start', () => {
+  assert.equal(day1OwnClock('10:10', [appt('11:00')], '2026-11-18'), '10:10');
+  // 10:25 less 20 is 10:05, but only an appointment BEFORE the clock pulls the day
+  // (scheduleRouteConstraints' pullingAppt): at 10:10 the crew is inside its window.
+  assert.equal(day1OwnClock('10:10', [appt('10:25')], '2026-11-18'), '10:10');
+});
+
+test('an appointment dated another day leaves the usual start', () => {
+  assert.equal(day1OwnClock('10:10', [appt('08:30', { appointmentDate:'2026-11-19' })], '2026-11-18'), '10:10');
+  assert.equal(day1OwnClock('10:10', [appt('08:30', { appointmentDate:'' })], '2026-11-18'), '10:10');
+});
+
+test('a done or set-aside order\'s appointment is ignored', () => {
+  assert.equal(day1OwnClock('10:10', [appt('08:30', { wlStatus:'done' })], '2026-11-18'), '10:10');
+  assert.equal(day1OwnClock('10:10', [appt('08:30', { ignored:true })], '2026-11-18'), '10:10');
+});
+
+test('the appointments day1DepartTime reads are kept from every read of the list', () => {
+  // allSorted is the list read the five day-1 clock users all sit behind;
+  // persistOrderIds reads IndexedDB directly, so it notes them itself.
+  assert.match(sourceOf('allSorted'), /noteAppointments\(items\)/);
+  assert.match(sourceOf('persistOrderIds'), /noteAppointments\(items\)/);
+});
+
+test('a newly read usual first log re-times the list once, through the passive path', () => {
+  const src = sourceOf('refreshAvgDay');
+  // Before and after the read, and the re-time only on a change, never mid-Optimize.
+  assert.match(src, /const firstLogBefore = store\.get\('wlUsualFirstLogMin'\) \|\| '';/);
+  assert.match(src,
+    /if\(\(store\.get\('wlUsualFirstLogMin'\) \|\| ''\) !== firstLogBefore && !optimizing\) await retimeList\(\);/);
+  assert.ok(src.indexOf('const firstLogBefore') < src.indexOf("apiGet('installerMetrics'"),
+    'the before value is read before the metrics read');
+  assert.equal([...src.matchAll(/retimeList\(\)/g)].length, 1);
+  // The same path a logged stop takes, and no scheduler call of its own.
+  assert.match(sourceOf('retimeList'), /await applyTodayAnchor\(\);\n\s*if\(!\$\('worklistScreen'\)\.classList\.contains\('hide'\)\) await renderWorklist\(\);/);
+  assert.match(sourceOf('markWorklistDone'), /await retimeList\(\);/);
+  assert.doesNotMatch(src, /scheduleRouteConstraints|applyVariant|optimizeRoute\(/);
+  // The Optimize flag spans the run: set before it starts, cleared in its finally.
+  const opt = sourceOf('optimizeRouteHandler');
+  assert.match(opt, /optimizing = true;\s*btn\.disabled = true;/);
+  assert.match(opt, /finally \{\n\s*optimizing = false;/);
 });
 
 test('today\'s first log is read from the day cache, installs and UTIs only', () => {
@@ -131,4 +202,10 @@ test('a morning day is measured from its own first ETA, without the drive out', 
   assert.match(sourceOf('dayFirstEta'), /scheduledEta/);
   // The drive out is only inside a span that departs from where the crew stands.
   assert.match(src, /fromNow \? 'the drive out, ' : ''/);
+});
+
+test('the tuning screen states the usual-start clock, not the old 08:15', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /Leave-start time is set for everyone/);
+  assert.match(html, /<p class="muted tune-hint">ETAs start from your own usual first-stop time, taken from your last 30 land working days, or 09:30 until there are 10 such days\.<\/p>/);
 });

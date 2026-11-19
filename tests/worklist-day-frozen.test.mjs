@@ -116,9 +116,12 @@ test('a phone that was mid-day when this shipped keeps its day', () => {
 
 test('finishing the locked day’s last order does not pull tomorrow’s work up', () => {
   // markWorklistDone is the path that used to trip it — every logged stop lands here,
-  // and it must pass nothing.
+  // and it must pass nothing. It re-times through retimeList, the passive path a
+  // newly read usual start shares, which calls applyTodayAnchor with no options.
   const done = worklistJs.slice(worklistJs.indexOf('export async function markWorklistDone'));
-  assert.match(done.slice(0, 900), /await applyTodayAnchor\(\);/);
+  assert.match(done.slice(0, 900), /await retimeList\(\);/);
+  const retime = worklistJs.slice(worklistJs.indexOf('async function retimeList()'));
+  assert.match(retime.slice(0, 200), /^async function retimeList\(\)\{\n\s*await applyTodayAnchor\(\);/);
 });
 
 // ── the toggle itself ───────────────────────────────────────────────────────

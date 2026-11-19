@@ -1504,9 +1504,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   clock (that press means "the day as planned from the depot"), while "Start from
   here" and every rolling re-schedule (`applyTodayAnchor` after each logged stop, the
   variant flip, the drag) use the current time once a stop has been logged today or
-  the usual start has passed. **ETAs only** — nothing in day sizing reads it, or the
-  finish-by clock is back under a new name. `applyTodayAnchor`'s write guard compares
-  `scheduledEta` too, since a moving clock re-times a stop that has not moved.
+  Day 1's own clock has passed: the usual start, or 20 minutes before an earlier
+  appointment dated today (`day1OwnClock`, the scheduler's own pull). **ETAs only** —
+  nothing in day sizing reads it, or the finish-by clock is back under a new name.
+  `applyTodayAnchor`'s write guard compares `scheduledEta` too, since a moving clock
+  re-times a stop that has not moved.
 - **The day divider's length is read back from the schedule, not modelled twice.**
   `dayDurationMin(items, firstStopTime, fallbackOnSite)` (`js/route-constraints.js`)
   spans the departure clock to the last stop's **departure** — its `scheduledEta`
@@ -1557,8 +1559,10 @@ qualifying days are read, and fewer than 10 means both are blank. Per day,
 overhead = (last log - first log) - (n - 1) x that day's median gap, and
 `delayPerStopMin` is the median of `max(0, overhead - 60) / n`. The 60 is
 `DAY_BREAK_MIN`: the delay is **net of the break minutes**, so the planned breaks are
-not counted as the crew being held up. Nothing reads these yet; they are stored for the
-ETA work that follows.
+not counted as the crew being held up. Both are read now: `usualFirstLogMin` sets the
+start clock on the phone and the desktop planner (`usualStart()`, less one on-site
+time), and the route map's All tab adds `delayPerStopMin` to each day's end time and
+uses both for the flat-out line (`dayEndText`, `flatOutText`).
 
 The other half of every ETA, and until it was measured it was one flat number for
 every stop on every route: `onSiteMinutes(pace)` = the 30-day `recent30AvgLogMin`

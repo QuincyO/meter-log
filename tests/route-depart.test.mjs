@@ -36,9 +36,11 @@ test('the day-1 clock follows the crew, and only when it is the crew standing th
   // the constant; "start from here" and every rolling in-day re-schedule do not.
   assert.match(worklistJs, /function day1DepartTime\(fromCurrent\)/);
   assert.match(worklistJs, /if\(!fromCurrent \|\| planDay\(\) !== localDate\(\)\) return ''/);
-  // Only ever forward — before the usual start, and with nothing logged yet today,
-  // Day 1 keeps the usual start. After the first log the clock is real however early.
-  assert.match(worklistJs, /\(todayFirstLog\(\) \|\| hhmmMin\(now\) > hhmmMin\(usualStart\(\)\)\) \? now : ''/);
+  // Only ever forward — before Day 1's own clock (the usual start, or earlier when an
+  // appointment pulls the day), and with nothing logged yet today, Day 1 keeps its
+  // morning clock. After the first log the clock is real however early.
+  assert.match(worklistJs, /const own = day1OwnClock\(usualStart\(\), apptsSeen\.items, planDay\(\)\);/);
+  assert.match(worklistJs, /\(todayFirstLog\(\) \|\| hhmmMin\(now\) > hhmmMin\(own\)\) \? now : ''/);
   // Optimize passes the START-LOCATION answer, never a bare true.
   assert.match(worklistJs, /day1FirstStopTime:\s*day1DepartTime\(startFromCurrent\)/);
   // The re-schedule after every logged stop is by definition where the crew is.

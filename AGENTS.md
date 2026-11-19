@@ -589,7 +589,12 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   strips it, so no plan push carries it; `firstStopTime` still rides along as the
   clock string), and **`wlDayEta` measures a morning day from that day's own
   earliest ETA**, because an early appointment pulls an arrival day before
-  `firstStopTime`. **The desktop planner runs on the same clock**, so an
+  `firstStopTime`. The list is timed as the worklist opens, before the metrics read
+  answers, so **`refreshAvgDay` re-times it once when the read changes
+  `wlUsualFirstLogMin`** (`retimeList`, the same passive `applyTodayAnchor` + render a
+  logged stop takes; skipped while an Optimize is running). Without it a phone showed
+  09:30-based ETAs until the next open or logged stop, while the flat-out line already
+  used the new start. **The desktop planner runs on the same clock**, so an
   office-planned list shows the phone's ETAs: `js/pages/planner.js planShape` sends
   `usualStart()` with `firstStopArrival: true`, over the picked installer's
   `usualFirstLogMin` from the same `installerMetrics` read as its cadence
@@ -616,8 +621,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   for those Day 1 runs from now once **either** a stop has been logged today
   (`todayFirstLog()`, read from the dayCache by `refreshTodayFirstLog` at the top
   of every `applyTodayAnchor`, so after every logged stop) **or** now is past
-  `usualStart()`. After the first log the clock is real however early it was; before
-  either, Day 1 keeps the usual start rather than promising a 06:40 arrival.
+  **Day 1's own clock**: `usualStart()`, or 20 minutes before the earliest pending
+  appointment dated today when that is earlier (`day1OwnClock`, the same pull the
+  scheduler gives the day). Testing the bare usual start left a day pulled to 08:10
+  by an 08:30 appointment on its morning plan until 10:10, showing the appointment
+  "on time" at 09:00. The appointments come from the last read of the list
+  (`noteAppointments`, kept by `allSorted`), never from a stored first
+  `scheduledEta`: once the day is live that ETA moves and the answer would
+  flip-flop. After the first log the clock is real however early it was; before
+  either, Day 1 keeps its morning clock rather than promising a 06:40 arrival.
   This is the installer's call, not an inference;
   (2) **it is `opts.day1Count`'s twin and shares its trap** — absent is unset,
   and `0` is midnight, a real value. Test against null, never truthiness;
@@ -1082,9 +1094,16 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   (`dayEndText`, `flatOutText`, fed by `opts.dayPlan` from `worklist.js`) are **display
   only; never a sizing input**: nothing from them reaches the target, `counts[]`/`capFor`
   or the Optimize solve. The view reaches `dayEndEstimate`/`flatOutPerDay` through
-  `import * as sched` with a `typeof` check and never imports `config.js` (the constants
-  ride in the plan). Without `opts.dayPlan` or those functions the rows keep the
-  first-to-last ETA window and the line is hidden. Breaks are a 60-minute daily total;
+  `import * as sched` with a `typeof` check, and also requires
+  `sched.breakMinutesLeft`: the first versions of those two ignored `breakMin`, so a
+  phone pairing this view with that cached scheduler would drop the breaks silently.
+  It never imports `config.js` (the constants ride in the plan). Without
+  `opts.dayPlan` or those functions the rows keep the first-to-last ETA window and the
+  line is hidden. **The flat-out line needs a list optimized at least once**: a pending
+  order with a saved variant order (`VARIANT_FIELDS.road/straight.order`, finite).
+  ETAs are no sign of it, because opening the worklist times every pending order
+  whether or not it was ever optimized; the day rows' end times stay regardless, since
+  they describe the days as ordered now. Breaks are a 60-minute daily total;
   only Day 1 of a plan for today gets `breakMinutesLeft`, from the logged breaks and
   stops `refreshTodayFirstLog` keeps off its one `dayCache` read, and Day 1's pending
   count, which the view passes as `dayPlan`'s argument.

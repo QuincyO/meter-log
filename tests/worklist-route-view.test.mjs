@@ -573,13 +573,18 @@ test('a day with no ETAs, or no plan, has no end time to show', () => {
 
 // 113 orders over five optimized days, every stop 12 minutes of work. With 1.5
 // minutes of delay a stop, 09:30 to 15:30 less 60 of breaks holds 300 / 13.5 = 22.
-function optimizedDays(sizes){
+// Optimized means each order carries the road variant's saved order, which is
+// what an Optimize writes; `saved:false` leaves it off, as on a list never optimized.
+function optimizedDays(sizes, { saved = true } = {}){
   let n = 0;
   return sizes.map((size, d) => ({ key:`day:${d + 1}`, label:`Day ${d + 1}`, day:d + 1,
     items:Array.from({ length:size }, (_, k) => {
       const m = 570 + 12 * k;
       const eta = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
-      return etaStop(`s${n++}`, eta, 12);
+      const stop = etaStop(`s${n}`, eta, 12);
+      if(saved) stop[VARIANT_FIELDS.road.order] = n * 10;
+      n++;
+      return stop;
     }) }));
 }
 
@@ -603,4 +608,51 @@ test('the flat-out line is hidden with no ETAs, no plan, or no room', () => {
   assert.equal(flatOutText(groups, undefined, 25), '');
   // A cut-off that leaves no room after the breaks is 0 a day: say nothing.
   assert.equal(flatOutText(groups, dayPlan({ flatOutEnd:'10:00' }), 25), '');
+});
+
+// The worklist times every pending order the moment it opens, optimized or not, so
+// ETAs alone do not mean the list was optimized: an unoptimized list would quote a
+// flat-out figure off entry-order driving. A saved variant order is what an
+// Optimize leaves behind (controller ruling, 2026-11-18).
+test('the flat-out line waits for the list to have been optimized', () => {
+  const plan = dayPlan({ delayPerStopMin:1.5 });
+  assert.equal(flatOutText(optimizedDays([25, 13], { saved:false }), plan, 25), '');
+  // One order with a saved order is enough: the list has been optimized once.
+  const one = optimizedDays([25, 13], { saved:false });
+  one[1].items[0][VARIANT_FIELDS.road.order] = 0;
+  assert.equal(flatOutText(one, plan, 25),
+    'Flat out: about 22 a day by 15:30 — all 38 in 2 days. Planned at 25 a day.');
+  // The straight-line variant's saved order counts the same.
+  const straight = optimizedDays([25, 13], { saved:false });
+  straight[0].items[3][VARIANT_FIELDS.straight.order] = 30;
+  assert.equal(flatOutText(straight, plan, 25),
+    'Flat out: about 22 a day by 15:30 — all 38 in 2 days. Planned at 25 a day.');
+  // A blank left by an older sync is not a saved order.
+  const blank = optimizedDays([25, 13], { saved:false });
+  blank[0].items.forEach(x => { x[VARIANT_FIELDS.road.order] = ''; x[VARIANT_FIELDS.straight.order] = null; });
+  assert.equal(flatOutText(blank, plan, 25), '');
+});
+
+test('the day rows keep their end times on a list never optimized', () => {
+  // End times describe the day as it is ordered now, like the ETAs under them.
+  // Five stops 12 minutes apart from 09:30, the last leaving 10:30; + 60 + 5 × 10 = 12:20.
+  const [day] = optimizedDays([5], { saved:false });
+  assert.equal(dayEndText({ ...day, day:2 }, dayPlan()),
+    '09:30 → ends about 12:20 · 60 min breaks · 50 min delays');
+});
+
+// An older cached route-constraints.js has dayEndEstimate and flatOutPerDay but
+// ignores `breakMin`, so pairing it with this view would silently drop the breaks.
+// breakMinutesLeft shipped with the version that reads it. A namespace import of a
+// real module cannot be swapped out under node --test without a loader hook, so the
+// guard is pinned in the source here.
+test('the end time and the flat-out line need the scheduler that understands breaks', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../js/worklist-route-view.js', import.meta.url), 'utf8');
+  const body = name => src.slice(src.indexOf(`export function ${name}(`),
+    src.indexOf('\n}\n', src.indexOf(`export function ${name}(`)));
+  assert.match(body('dayEndText'),
+    /typeof sched\.dayEndEstimate !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return '';/);
+  assert.match(body('flatOutText'),
+    /typeof sched\.flatOutPerDay !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return '';/);
 });

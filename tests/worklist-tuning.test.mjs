@@ -24,8 +24,11 @@ test('the tuning screen has its dial, a readout and a save', () => {
   assert.doesNotMatch(html, /id="tuneFinishBy"/);
   assert.match(html, /id="tuneReadout"/);
   assert.match(html, /id="tuneSave"/);
-  // the org-wide leave time is shown as read-only context, not an input
-  assert.match(html, /08:15/);
+  // Where the ETAs start is shown as read-only context, not an input. It used to
+  // name an org-wide 08:15 leave time; the clock is each installer's own usual
+  // first-stop time now (tests/worklist-usual-start.test.mjs pins the sentence).
+  assert.match(html, /<p class="muted tune-hint">ETAs start from your own usual first-stop time/);
+  assert.doesNotMatch(html, /08:15/);
 });
 
 test('the device-local block carries the Navigate destination toggle', () => {

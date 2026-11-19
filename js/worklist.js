@@ -74,6 +74,7 @@ let routeView = null;           // initialized once the capture page DOM is read
 let addrFill = null;            // the address fill-in walkthrough (same)
 let tuning = null;              // the #tuning route-dials screen (same)
 let driveView = null;           // the #drive driving screen (same)
+let optimizing = false;         // an Optimize run is writing the route (refreshAvgDay waits it out)
 
 // Where is the crew standing when they hit Optimize? The answer changes the whole
 // shape of the route, so it is asked every run rather than armed ahead of time (the
@@ -368,16 +369,53 @@ function dayPlan(day1Left){
 // morning ETA. It goes live in two cases (the owner's rule):
 //   - a stop has been logged today: from then on the clock is real, however early
 //     that first log was — a crew working at 08:50 is not waiting for 09:30;
-//   - now is past the usual start: the morning's plan has run out of time.
-// Before either, the usual start stands rather than promising a 06:40 start
+//   - now is past Day 1's OWN clock: the morning's plan has run out of time.
+// Day 1's own clock is the usual start, or 20 minutes before an earlier
+// appointment, which is the clock the scheduler starts that day on. Testing the
+// bare usual start let a day pulled to 08:10 by an 08:30 appointment sit on its
+// morning plan until 10:10: at 09:00 it showed the appointment on time and a
+// morning of ETAs already gone.
+// Before either, the morning clock stands rather than promising a 06:40 start
 // nobody is driving.
+//
+// Sync because it runs inside every render, so the appointments come from the
+// last read of the list (noteAppointments), never from a stored first ETA: once
+// the day is live that ETA moves with the clock and the answer would flip-flop.
 //
 // Days 2+ are untouched by construction (route-constraints.js firstMinFor), and
 // nothing here reaches day SIZING — see the ETAs-only note over there.
 function day1DepartTime(fromCurrent){
   if(!fromCurrent || planDay() !== localDate()) return '';
   const now = clockOf(stamp());
-  return (todayFirstLog() || hhmmMin(now) > hhmmMin(usualStart())) ? now : '';
+  const own = day1OwnClock(usualStart(), apptsSeen.items, planDay());
+  return (todayFirstLog() || hhmmMin(now) > hhmmMin(own)) ? now : '';
+}
+
+// Day 1's own morning clock: `usual`, or 20 minutes before the earliest pending
+// appointment dated `day` when that appointment is before `usual`. The same rule as
+// scheduleRouteConstraints' dayClock/pullingAppt: one at or after the usual start
+// does not pull the day, since the crew arriving then is already inside its window.
+// Pure, so the tests run it from its source.
+function day1OwnClock(usual, items, day){
+  const usualMin = hhmmMin(usual);
+  if(usualMin == null) return usual;
+  let pull = null;
+  (items || []).forEach(x => {
+    if(!isPending(x) || String(x.appointmentDate || '').slice(0, 10) !== day) return;
+    const t = hhmmMin(x.appointmentTime);
+    if(t != null && t < usualMin && (pull == null || t < pull)) pull = t;
+  });
+  if(pull == null) return usual;
+  const m = Math.max(0, pull - 20);
+  return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+
+// The appointments day1DepartTime reads: the timed orders from the last read of
+// the list. allSorted() keeps it, since every caller of day1DepartTime reads the list
+// through it first (persistOrderIds reads IndexedDB itself and notes them too).
+let apptsSeen = { items:[] };
+function noteAppointments(items){
+  apptsSeen = { items:(items || []).filter(x => x && x.appointmentDate && x.appointmentTime) };
 }
 
 // Which saved route is live. The office picks one and it rides down with the
@@ -438,7 +476,11 @@ function sortItems(items){
     return ao === bo ? String(a.createdAt||'').localeCompare(String(b.createdAt||'')) : ao - bo;
   });
 }
-async function allSorted(){ return sortItems((await idb.all('worklist')) || []); }
+async function allSorted(){
+  const items = sortItems((await idb.all('worklist')) || []);
+  noteAppointments(items);
+  return items;
+}
 
 // The day's timed appointments — the "TR" line on the clipboard tally the daily-log
 // PDF copies (js/compute/tally.js tallyBlock). An appointment lives only on the
@@ -996,6 +1038,7 @@ async function optimizeRouteHandler(useNetwork){
 
   const target = targetVal();
   const btn = $('wlOptimize'), prog = $('wlRouteProgress');
+  optimizing = true;
   btn.disabled = true; prog.classList.remove('hide'); prog.textContent = 'Starting…';
   try {
     // 🔒 Locked: Day 1 is what is LEFT of the day — the target less the installs
@@ -1043,13 +1086,16 @@ async function optimizeRouteHandler(useNetwork){
     const unroutable = unroutableReason(base, pending.length);
     if(unroutable) throw new Error(unroutable);
     // Drive-time lookup for the ETAs: real durations from the road matrix (Google/
-    // ORS/OSRM), or the estimate route.js derived from distances — either way the
-    // first stop's ETA now includes the crew-start drive and the day fits the clock.
+    // ORS/OSRM), or the estimate route.js derived from distances. A day timed on the
+    // installer's usual start ARRIVES at its first stop then (firstStopArrival), so no
+    // drive out is added to it; only a Day 1 departing from now (day1DepartTime)
+    // prices the drive from the crew start.
     const travel = travelLookup(base.measure);
     // "Start from here" moves the route's origin to where the crew is standing;
     // it has to move the route's CLOCK too, or a run pressed at 11:40 arrives
     // everywhere at breakfast. Starting from the muster point deliberately keeps
-    // 08:15 — that press means "show me the day as planned from the depot".
+    // the morning clock — the installer's usual first-stop time (usualStart) — as
+    // that press means "show me the day as planned from the depot".
     // After a timed appointment or a locked stop the route carries on FROM it
     // (route-constraints.js reflow). Reached through the namespace import: a phone
     // can hold an older cached route.js, and that must cost the reflow, not the page.
@@ -1248,6 +1294,7 @@ async function optimizeRouteHandler(useNetwork){
   } catch (err) {
     toast((err && err.message) || 'Route optimization failed — try again');
   } finally {
+    optimizing = false;
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
 }
@@ -1805,6 +1852,11 @@ async function refreshAvgDay(){
   // must still be painted — it is the half that answers "why is my target ignored".
   paintTargetHint();
   if(!c.hNumber || !navigator.onLine) return;
+  // The list was timed when the worklist opened, before this read answered. A usual
+  // first log that this read CHANGES moves every day's start, so the list is re-timed
+  // once below; without it the day this ships showed 09:30-based ETAs until the next
+  // open or logged stop, while the flat-out line already used the new start.
+  const firstLogBefore = store.get('wlUsualFirstLogMin') || '';
   try{
     // Worklist routing is a land workflow, so use land stops even when the
     // capture screen was last left in boat mode.
@@ -1839,6 +1891,10 @@ async function refreshAvgDay(){
     }
   } catch {}
   await refreshSiteFactors();
+  // The passive re-time a logged stop gets: it re-schedules the list as it stands and
+  // never re-solves the route. Not while an Optimize is running, which is about to
+  // write the whole route itself.
+  if((store.get('wlUsualFirstLogMin') || '') !== firstLogBefore && !optimizing) await retimeList();
 }
 
 function storeNum(key, v){
@@ -2142,6 +2198,7 @@ async function persistOrder(){
 async function persistOrderIds(ordered){
   let ids = ordered.slice();
   const items = (await idb.all('worklist')) || [];
+  noteAppointments(items);
   const byId = {}; items.forEach(x => { byId[x.id] = x; });
   const pending = pendingOf(items);
   let schedule = null;
@@ -2487,6 +2544,13 @@ export async function markWorklistDone(workOrderId){
   await idb.put('worklist', Object.assign({}, match, { wlStatus:'done', ignored:false, updatedAt:stamp() }));
   // Re-times the remaining route. Finishing the LAST of today's committed set no
   // longer rolls the anchor to the next chunk — the day is simply done (needsCommit).
+  await retimeList();
+}
+
+// The passive re-time: re-schedule the list as it stands (applyTodayAnchor holds every
+// day as tagged and never re-solves the route), then repaint it if it is on screen.
+// A logged stop takes this path, and so does a newly read usual start (refreshAvgDay).
+async function retimeList(){
   await applyTodayAnchor();
   if(!$('worklistScreen').classList.contains('hide')) await renderWorklist();
 }
@@ -2796,8 +2860,9 @@ async function applyTodayAnchor(opts){
   let schedule;
   try {
     // This runs after every logged stop, so it is the re-schedule that keeps the
-    // remaining ETAs honest as the day is worked — and it is by definition
-    // happening from where the crew is now, never from the muster point at 08:15.
+    // remaining ETAs honest as the day is worked. Once the day is live (a stop
+    // logged, or Day 1's own clock passed) Day 1 runs from now; before that it keeps
+    // the morning clock, the installer's usual first-stop time (day1DepartTime).
     schedule = scheduleRouteConstraints(pending, seq,
       { ...planShape(), target, day1Count: fits, travel, dwell: dwellShape(),
         day1FirstStopTime: day1DepartTime(true) });

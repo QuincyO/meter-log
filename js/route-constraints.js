@@ -322,9 +322,10 @@ export function scheduleRouteConstraints(items, geographicIds, opts={}){
   if(firstMin == null) throw new Error('First-stop time is invalid');
   // The clock DAY 1 departs on, when it differs from every other day's. A route
   // re-solved at 11:40 from where the crew is standing is a route that departs at
-  // 11:40, and pricing it from 08:15 makes every ETA on it a morning ETA — and
-  // makes placeAppointments search an afternoon against a morning clock, which is
-  // the optimistic direction that fails late instead of early.
+  // 11:40, and pricing it from the morning clock (`firstStopTime`, the installer's
+  // usual first-stop time) makes every ETA on it a morning ETA — and makes
+  // placeAppointments search an afternoon against a morning clock, which is the
+  // optimistic direction that fails late instead of early.
   // Absent/unparseable ⇒ null ⇒ every day keeps `firstMin`, byte-identical to
   // before. Same null-is-unset trap as `opts.day1Count` below: `0` is midnight,
   // a real value, so this must be tested against null and never truthiness.

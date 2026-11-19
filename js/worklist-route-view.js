@@ -315,12 +315,19 @@ function planClock(min){
   return String(Math.floor(n / 60) % 24).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
 }
 
+// The scheduler this view needs is the one that adds `breakMin`. The first
+// dayEndEstimate/flatOutPerDay to ship ignored it, so a phone pairing this file with
+// that cached route-constraints.js would drop the 60 break minutes without a word.
+// breakMinutesLeft shipped in the same change as the break support, so its presence
+// is the version check; without it both read-outs say nothing.
+
 /** A day row's time line: `09:45 → ends about 15:55 · 60 min breaks · 50 min delays`,
  *  or '' when there is nothing to say (no plan, no ETAs, an older cached scheduler).
  *  Only Day 1 of a plan for today has begun, so only it takes the breaks still to
  *  come and, once a stop is logged, the real start. */
 export function dayEndText(group, plan){
-  if(!plan || !group || typeof sched.dayEndEstimate !== 'function') return '';
+  if(!plan || !group) return '';
+  if(typeof sched.dayEndEstimate !== 'function' || typeof sched.breakMinutesLeft !== 'function') return '';
   const today = group.day === 1 && Boolean(plan.planIsToday);
   const started = today ? planMin(plan.todayFirstLog) : null;
   const e = sched.dayEndEstimate(group.items, {
@@ -339,14 +346,24 @@ export function dayEndText(group, plan){
 
 /** The All tab's flat-out line: how many a day could hold from the usual start to
  *  the cut-off, at the work per stop the optimized days show, with the full break
- *  allowance and the delays. '' when there is no optimized day to measure, no plan,
- *  or no room. `target` is the meters/day target, quoted for comparison only. */
+ *  allowance and the delays. '' when the list has never been optimized, there is no
+ *  day to measure, no plan, or no room. `target` is the meters/day target, quoted
+ *  for comparison only. */
 export function flatOutText(groups, plan, target){
-  if(!plan || typeof sched.flatOutPerDay !== 'function') return '';
+  if(!plan) return '';
+  if(typeof sched.flatOutPerDay !== 'function' || typeof sched.breakMinutesLeft !== 'function') return '';
   // A missing clock must not reach flatOutPerDay as null: Number(null) is midnight.
   const startMin = planMin(plan.usualStart), endMin = planMin(plan.flatOutEnd);
   if(startMin == null || endMin == null) return '';
   const list = groups || [];
+  // Only a list optimized at least once. ETAs are no sign of it: the worklist times
+  // every pending order as it opens, so an unoptimized list would quote a figure
+  // off the order the orders were entered in. An Optimize saves each variant's
+  // order on every order it routes, so one saved order says the list was solved.
+  // (The day rows' end times stay: they describe the days as ordered now.)
+  const saved = x => isPending(x) && [VARIANT_FIELDS.road.order, VARIANT_FIELDS.straight.order]
+    .some(f => x[f] !== '' && x[f] != null && isFinite(Number(x[f])));
+  if(!list.some(g => (g.items || []).some(saved))) return '';
   const r = sched.flatOutPerDay(list.map(g => g.items), {
     startMin, endMin,
     delayPerStopMin: plan.delayPerStopMin,
