@@ -623,6 +623,8 @@ Tap a date in **Day by day** to open that day: a timeline with one block per gap
 
 **Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn over the street map when the phone has signal as the PDF is made, and on a plain background when it does not.
 
+**Your drive log.** When Drive tracking recorded the day, the route card gives a line with the top speed, average speed, distance and time driving, and a **Show drive log** box that lays the track over the map in purple. A PDF made from this page carries that line whenever the day has a drive log, and the track only if the box is ticked. Keep in mind that the top speed is on it when you send the PDF to someone. It shows only your own, for the name and H number in Settings.
+
 **By road.** If the phone has an offline road map (**Settings ▸ Offline road map** on the log page), the audit measures the distance between your orders by road instead of in a straight line, and the line on the map follows the roads. It is the shortest drive on that map, which is not always the one you took. An order the road map cannot reach is still measured in a straight line, and the note at the top says how many. A phone or PC without the road map measures everything in a straight line, so the same day can show slightly different figures there; the audit always says which way it measured.
 
 **Send PDF** makes the same file and opens your phone's share sheet with it attached, so you can text or email it, to your supervisor for example. Open the day first to send that day, or stay on the period to send the period. You choose the app and the person; the page itself sends nothing, and nothing goes until you send it there. If you see **Ready. Tap Send PDF again**, tap it once more: some phones only open the share sheet on a fresh tap. If the phone cannot share after all, the file is saved instead and you can attach it yourself. The button is not shown in a browser that cannot share a file; use **Download PDF** there.
@@ -776,7 +778,7 @@ The rules are the same for every installer: the shift starts at 07:30, statistic
 
 An unlogged pause is not a finding against anyone. It is time between meters that is neither the usual time for the stop nor a logged delay, and it includes breaks.
 
-Installers see the same audit of their own work from **☰ → 📊 My audit** on the Log page, without the drive log. That page shows whoever's name is in Settings on the phone; there is no per-installer sign-in.
+Installers see the same audit of their own work from **☰ → 📊 My audit** on the Log page, including their own drive log for a day when one was recorded (it needs the H number in Settings on the phone). That page shows whoever's name is in Settings on the phone; there is no per-installer sign-in.
 
 ---
 

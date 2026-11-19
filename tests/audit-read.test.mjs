@@ -18,7 +18,7 @@ function spine(tables){
     'UrlFetchApp', 'LockService', 'ContentService', 'ScriptApp', 'CacheService', '__T', `
     function rows(n){ return __T[n] || []; }
     ${src}
-    return { auditRead };
+    return { auditRead, getNeedsAdmin, myDriveTracksRead: typeof myDriveTracksRead === 'function' ? myDriveTracksRead : null };
   `)(
     { getActiveSpreadsheet: () => ({ getSheetByName: n => (tables[n] ? {} : null) }) },
     { formatDate: NO_APPS_SCRIPT }, {}, {}, {}, {}, {}, {}, {},
@@ -71,4 +71,50 @@ test('auditRead refuses a blank installer', () => {
 test('auditRead tolerates a sheet with no Days tab', () => {
   const { auditRead } = spine({ Stops: [] });
   assert.deepEqual(auditRead('Pat Example').days, []);
+});
+
+// ── an installer's own drive log (myDriveTracks) ─────────────────────────────
+// Owner's decision, 2026-11-19: an installer may see their own drive log on My
+// audit. The read is token-only, asks for the name AND the H number that belongs to
+// it, and hands over one day at a time. It is not a lock (the roster read gives out
+// H numbers); it is a check that the asker knows which installer they are.
+
+const leg = (id, date, installer) => ({ id, date, installer, workType: 'land', startTime: 1, endTime: 2, pointCount: 3,
+  distanceM: 31400, driveMin: 52, avgSpeed: 10, maxSpeed: 23.4, gaps: '[]', encoded: 'abc' });
+const DRIVE = {
+  Employees: [{ hNumber: 'H123', firstName: 'Pat', lastName: 'Example', active: true }, { hNumber: 'H456', firstName: 'Sam', lastName: 'Other', active: true }],
+  DriveTracks: [leg('l1', '2026-09-01', 'Pat Example'), leg('l2', '2026-09-02', 'Pat Example'), leg('l3', '2026-09-01', 'Sam Other')],
+};
+
+test('myDriveTracks hands an installer their own legs for one day', () => {
+  const { myDriveTracksRead } = spine(DRIVE);
+  const res = myDriveTracksRead('Pat Example', 'H123', '2026-09-01', '2026-09-01');
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.driveTracks.map(l => l.id), ['l1']);
+  assert.equal(res.driveTracks[0].maxSpeed, 23.4);
+  assert.deepEqual(myDriveTracksRead(' pat example ', ' H123 ', '2026-09-02', '2026-09-02').driveTracks.map(l => l.id), ['l2'], 'case and spaces in the name are forgiven');
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H123', '2026-09-03', '2026-09-03').driveTracks, []);
+});
+
+test('myDriveTracks refuses a name and H number that do not belong together, and anything but one day', () => {
+  const { myDriveTracksRead } = spine(DRIVE);
+  const no = { ok: false, error: 'name and H number do not match' };
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H456', '2026-09-01', '2026-09-01'), no, 'another installer\'s number');
+  assert.deepEqual(myDriveTracksRead('Sam Other', 'H123', '2026-09-01', '2026-09-01'), no);
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H999', '2026-09-01', '2026-09-01'), no, 'no such number');
+  assert.deepEqual(myDriveTracksRead('Pat Example', '', '2026-09-01', '2026-09-01'), no);
+  assert.deepEqual(myDriveTracksRead('', 'H123', '2026-09-01', '2026-09-01'), no);
+  assert.deepEqual(myDriveTracksRead(undefined, undefined, '2026-09-01', '2026-09-01'), no);
+  const oneDay = { ok: false, error: 'one day at a time' };
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H123', '', ''), oneDay);
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H123', '2026-09-01', '2026-09-02'), oneDay);
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H123', '2026-09-01', undefined), oneDay);
+  assert.deepEqual(myDriveTracksRead('Pat Example', 'H123', 'yesterday', 'yesterday'), oneDay);
+});
+
+test('the office read of every drive log stays behind the password, and the installer\'s own does not', () => {
+  const { getNeedsAdmin } = spine(DRIVE);
+  assert.equal(getNeedsAdmin({ action: 'driveTracks' }), true);
+  assert.equal(getNeedsAdmin({ action: 'driveTracks', installer: 'Pat Example' }), true);
+  assert.equal(getNeedsAdmin({ action: 'myDriveTracks' }), false);
 });

@@ -585,6 +585,7 @@ function doGet(e) {
   // One installer's logs, delays and day times for the Audits pages. Token-only
   // (the phone calls it); auditRead refuses a blank name.
   if (p.action === 'audit') return json(auditRead(p.installer));
+  if (p.action === 'myDriveTracks') return json(myDriveTracksRead(p.installer, p.hNumber, p.from, p.to));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
   // Crew-wide per-site dwell history for the route ETA model — sites the crew has
@@ -2726,6 +2727,35 @@ function driveTracksRead(installer, from, to) {
         pointCount: num(r.pointCount), distanceM: num(r.distanceM), driveMin: num(r.driveMin),
         avgSpeed: num(r.avgSpeed), maxSpeed: num(r.maxSpeed), gaps: gaps, encoded: r.encoded };
     }) };
+}
+
+/** An installer's OWN drive log for one day, for the "My audit" page on the phone.
+ *
+ *  Token-only, and NOT in ADMIN_GET. Owner's decision (2026-11-19), reversing
+ *  2026-11-18 for this one case: an installer may see their own drive log. The
+ *  office read of anyone's legs over any dates (`driveTracks`) stays gated.
+ *
+ *  What stands between the public token and a drive log here:
+ *    - the name AND the H number that belongs to it (Employees). This is a check
+ *      that the asker knows which installer they are, NOT a password: the
+ *      token-only `roster` read hands out every H number. The owner was told.
+ *    - one day per request, so a history cannot be pulled in one call.
+ *  Do not widen either without the owner. Do not move `driveTracks` out of
+ *  ADMIN_GET "to match": that read takes a blank installer and returns the crew. */
+function myDriveTracksRead(installer, hNumber, from, to) {
+  const who = String(installer == null ? '' : installer).trim();
+  const h = String(hNumber == null ? '' : hNumber).trim();
+  const owner = h ? fullName(employeeByH(h)) : '';
+  if (!who || !owner || owner.toLowerCase() !== who.toLowerCase()) {
+    return { ok: false, error: 'name and H number do not match' };
+  }
+  const day = String(from == null ? '' : from).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || String(to == null ? '' : to).trim() !== day) {
+    return { ok: false, error: 'one day at a time' };
+  }
+  // The legs are stored under the name the phone logged with; ask for the roster's
+  // spelling of it so a stray capital in Settings does not hide the log.
+  return driveTracksRead(owner, day, day);
 }
 
 /** Everything the Audits pages need for ONE installer, for all dates: their

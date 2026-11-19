@@ -320,9 +320,11 @@ test('logs with no pin are listed under the map by their place in the day', () =
 
 test('the installer page is never gated and never asks for a gated read', () => {
   const src = read('js/pages/my-audit.js');
-  assert.doesNotMatch(src, /admin-auth|requireAdmin|driveTracks|apiGet\('downtime'/);
+  assert.doesNotMatch(src, /admin-auth|requireAdmin|apiGet\('driveTracks'|apiGet\('downtime'/);
   assert.match(src, /fixedInstaller:\s*name/);
-  assert.match(src, /loadDriveLegs:\s*null/);
+  // its own drive log: the name AND the H number, one day, through the read that is not gated
+  assert.match(src, /apiGet\('myDriveTracks', \{ installer, hNumber, from: date, to: date \}\)/);
+  assert.match(src, /loadDriveLegs:\s*hNumber \? loadDriveLegs : null/, 'a phone with no H number in Settings asks for nothing');
   assert.match(src, /cfg\(\)\.name/);
 });
 

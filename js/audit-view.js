@@ -183,8 +183,9 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     for(const r of document.querySelectorAll(`.au-logrow[data-gap="${i}"]`)) r.classList.add('on');
   }
 
-  // The day's drive log. Only the office page passes a loader: the read behind it
-  // needs the office password, so on the phone none of this is drawn.
+  // The day's drive log, through whichever loader the page passed: the office's
+  // (anyone's, behind the password) or the phone's (the installer's own, by name and
+  // H number). No loader, nothing drawn.
   async function renderDrive(who, date, my){
     if(!el.drive) return;
     if(loadDriveLegs){

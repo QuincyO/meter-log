@@ -1994,8 +1994,8 @@ and for a single day. The full design, with the owner's rules and the reasoning,
 - **`audits.html`** (`js/pages/audits.js`) — the office page. It starts with
   `await requireAdmin()`, has an installer picker, and can overlay a day's drive log.
 - **`my-audit.html`** (`js/pages/my-audit.js`) — the installer's own, opened from the log
-  page's ☰ menu. No password. It audits the name in the phone's Settings, has no picker
-  and no drive log.
+  page's ☰ menu. No password. It audits the name in the phone's Settings, has no picker,
+  and can overlay that installer's own drive log for a day.
 
 Both run the same view (`js/audit-view.js`) over the same numbers (`js/compute/audit.js`).
 
@@ -2014,7 +2014,10 @@ dates:
 A blank installer returns `{ ok:false, error:'installer required' }`. The read answers to
 the public token and is not in `ADMIN_GET`, because the phone calls it (owner's decision,
 2026-11-18). The office page reads the day's drive log separately, through the gated
-`driveTracks` read, only when a day is opened.
+`driveTracks` read, only when a day is opened. My audit reads the installer's own through
+`myDriveTracks`, which is token-only, needs the name and the H number that belongs to it,
+and answers for one day per request (owner's decision, 2026-11-19). The roster read gives
+out H numbers, so that pair is a sanity check and not a password.
 
 The page fetches `audit` once per installer and keeps it in memory. Changing the work
 mode re-runs `prepareAudit`; changing the range re-runs `periodStats`; opening a day runs

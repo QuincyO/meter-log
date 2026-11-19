@@ -9,16 +9,30 @@
 // therefore the name in Settings, not a lock: per-installer sign-in does not
 // exist. What this page must never do is import the office gate or ask for a
 // password-gated read. tests/admin-gate.test.mjs scans this file as capture-side
-// code, and the drive log (the one thing the office view has that this does not)
-// is behind that password. So there is no drive-log loader here, and the shared
-// view draws nothing for it.
+// code.
+//
+// The drive log (owner's decision, 2026-11-19): an installer sees their OWN, through
+// `myDriveTracks`, which wants the name and the H number that belongs to it and
+// gives one day at a time. The office read of anyone's drive log (`driveTracks`)
+// stays behind the password and must never be asked for here. A phone with no H
+// number in Settings is given no loader, and the shared view then draws nothing.
 import { $ } from '../dom.js';
 import { cfg } from '../store.js';
+import { apiGet } from '../api.js';
 import { initAuditView } from '../audit-view.js';
 
 const name = String(cfg().name || '').trim();
+const hNumber = String(cfg().hNumber || '').trim();
 const whose = $('whose');
 if(whose) whose.textContent = name || '—';
+
+async function loadDriveLegs(installer, date){
+  const res = await apiGet('myDriveTracks', { installer, hNumber, from: date, to: date });
+  if(!res || res.ok === false) throw new Error((res && res.error) || 'no answer');
+  // a spine from before this read answers an unknown action with a bare ok
+  if(!Array.isArray(res.driveTracks)) throw new Error('the server does not have this yet');
+  return res.driveTracks;
+}
 
 if(!name){
   const note = $('auNote'), controls = $('auPeriodControls'), text = $('statusText');
@@ -26,5 +40,5 @@ if(!name){
   if(controls) controls.classList.add('hide');
   if(text) text.textContent = 'No name set';
 } else {
-  initAuditView({ installers: null, fixedInstaller: name, loadDriveLegs: null });
+  initAuditView({ installers: null, fixedInstaller: name, loadDriveLegs: hNumber ? loadDriveLegs : null });
 }
