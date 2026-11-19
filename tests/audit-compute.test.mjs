@@ -582,3 +582,54 @@ test('the page can say how close the expected number has been on the full days t
   assert.deepEqual(dates.map(d => dayDetail(p, d).pace.diff), [2, 0, -2]);
   assert.equal(dayDetail(p, dates[0]).pace.typical.miss, 2);           // the middle of 0, 2 and 2
 });
+
+// ── a delay belongs to an order, and its time can fall after that order's log ──
+// The phone files a delay under the gap BEFORE the order it is entered on (a gap is
+// keyed to its arriving stop). But the time is often lost after the log is saved:
+// log the meter, then the truck will not start. A field report found this: a delay
+// entered on the problem order was filed under the short gap before its log, and the
+// long gap after it read "nothing logged".
+// Next door, so every gap's usual time is 6: gaps of 20, 10, 60 and 12 are 14, 4, 54 and 6 over.
+const AFTER = ['10:00', '10:20', '10:30', '11:30', '11:42'];
+const carried = downtime => dayOf(prep([...history(10), ...stopsOn(D, AFTER)], downtime), D);
+
+test('what the gap before an order did not run over is taken off the gap after that order', () => {
+  const day = carried([gapRow(D, 'TRUCK_ISSUES', 30, 'gap 10:20–10:30'), gapRow(D, 'TOOLS_MATERIAL', 15, 'gap 10:20–10:30')]);
+  assert.deepEqual(day.gaps.map(g => g.over), [14, 4, 54, 6]);
+  assert.deepEqual(day.gaps.map(g => g.loggedMin), [0, 45, 0, 0], 'each entry stays filed where it was entered');
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 41, 0]);
+  assert.deepEqual(day.gaps.map(g => g.carriedOutMin), [0, 41, 0, 0]);
+  assert.deepEqual(day.gaps.map(g => [g.unloggedMin, g.flagged]), [[14, false], [0, false], [13, false], [0, false]]);
+  assert.deepEqual([day.pauseUnMin, day.pauseLoggedMin, day.flags, day.longestMin], [27, 41, 0, 14]);
+  // the delays say where they were counted
+  assert.deepEqual(day.delays.map(d => [d.fromMin, d.toMin, d.carriedTo]),
+    [[620, 630, { fromMin: 630, toMin: 690 }], [620, 630, { fromMin: 630, toMin: 690 }]]);
+});
+
+test('the gap before takes what it ran over first, and the rest goes one gap on and no further', () => {
+  const day = carried([gapRow(D, 'TRUCK_ISSUES', 30, 'gap 10:00–10:20')]);       // 14 over: 14 used, 16 left
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 0, 0]);          // the gap after is work, not a pause: nothing to take off
+  assert.deepEqual(day.gaps.map(g => g.unloggedMin), [0, 0, 54, 0]);
+  assert.equal(day.delays[0].carriedTo, null, 'nothing of it came off a pause after the order');
+});
+
+test('a gap\'s own entries count before anything carried into it, and never below zero', () => {
+  const day = carried([gapRow(D, 'TRUCK_ISSUES', 45, 'gap 10:20–10:30'), gapRow(D, 'WAREHOUSE', 40, 'gap 10:30–11:30')]);
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 14, 0]);         // 54 over, 40 its own, room for 14 of the 41
+  assert.equal(day.gaps[2].unloggedMin, 0);
+  const full = carried([gapRow(D, 'TRUCK_ISSUES', 45, 'gap 10:20–10:30'), gapRow(D, 'WAREHOUSE', 90, 'gap 10:30–11:30')]);
+  assert.deepEqual([full.gaps[2].carriedMin, full.gaps[2].unloggedMin, full.gaps[3].carriedMin], [0, 0, 0]);
+});
+
+test('a delay on the last order has no gap after it, and one before the first meter is not carried', () => {
+  const day = carried([gapRow(D, 'TRUCK_ISSUES', 30, 'gap 11:30–11:42'), gapRow(D, 'DISPATCH', 60, 'gap 07:30–08:30'),
+    gapRow(D, 'LUNCH', 30, 'gap 10:20–10:30')]);
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0, 0, 0]);
+  assert.deepEqual(day.gaps.map(g => g.unloggedMin), [14, 0, 54, 0]);
+});
+
+test('the pace counts a carried delay once', () => {
+  const p = prep([...history(10), ...stopsOn(D, AFTER)], [gapRow(D, 'TRUCK_ISSUES', 45, 'gap 10:20–10:30')]);
+  const pace = dayDetail(p, D).pace;
+  assert.deepEqual([pace.tookMin, pace.loggedMin, pace.ownMin], [102, 45, 57]);   // 4 from its own gap, 41 from the one after
+});

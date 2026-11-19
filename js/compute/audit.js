@@ -13,7 +13,8 @@
 //      the work mode, whatever range the page is showing. A short range or a
 //      single day then still has a stable "usual".
 //   4. A gap 10+ minutes over the usual time for its kind is a pause; the excess is
-//      its length. Logged delays whose note names that gap come off it.
+//      its length. Logged delays whose note names that gap come off it, and what
+//      that gap did not run over comes off the gap after the same order.
 //   5. What is left is unlogged pause time. It cannot tell a break from an
 //      unlogged delay, and nothing here pretends it can.
 //
@@ -175,11 +176,29 @@ export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
   for(const [date, logs] of byDay){
     const gaps = dayGaps.get(date);
     let workMin = 0, pauseAllMin = 0, pauseUnMin = 0, pauses = 0, longestMin = 0, longestAtMin = null, flags = 0;
+    // A delay belongs to an ORDER, and the phone files it under the gap BEFORE that
+    // order's log (a gap is keyed to its arriving stop: compute/gaps.js). But the time
+    // is often lost AFTER the log is saved: log the meter, then the truck will not
+    // start. So what the gap before did not run over is carried ONE gap on, to the gap
+    // after the same order, and taken off the pause there. Field report, 2026-11-19: a
+    // delay entered on the problem order was filed under the short gap before its log,
+    // and the long gap after it read "nothing logged".
+    //   • The gap before takes what it ran over first, so nothing is counted twice.
+    //   • The gap after's own entries count before anything carried into it.
+    //   • One gap and no further, and only into a pause: never below zero.
+    //   • loggedMin stays "what was entered against this gap"; carriedMin is the part
+    //     of the previous gap's entries counted here, and carriedOutMin its mirror.
+    let carry = 0, prev = null;
     for(const g of gaps){
       g.usual = g.kind < 0 ? usualAny : usual[g.kind];
       g.over = g.min - g.usual;
       g.isPause = g.over >= AUDIT.PAUSE_OVER_MIN;
-      g.unloggedMin = g.isPause ? Math.max(0, g.over - g.loggedMin) : 0;
+      const room = Math.max(0, g.over), own = Math.min(g.loggedMin, room);
+      g.carriedMin = g.isPause ? Math.min(carry, room - own) : 0;
+      g.carriedOutMin = 0;
+      if(prev) prev.carriedOutMin = g.carriedMin;
+      carry = g.loggedMin - own; prev = g;
+      g.unloggedMin = g.isPause ? Math.max(0, g.over - g.loggedMin - g.carriedMin) : 0;
       g.flagged = g.unloggedMin >= AUDIT.FLAG_MIN;
       if(!g.isPause){ workMin += g.min; continue; }
       workMin += g.usual; pauses++; pauseAllMin += g.over; pauseUnMin += g.unloggedMin;
@@ -190,6 +209,16 @@ export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
     log.otherBefore = log.before - log.dispatchBefore;
     const delays = (dayDelays.get(date) || []).slice().sort((a, b) =>
       (a.fromMin == null ? Infinity : a.fromMin) - (b.fromMin == null ? Infinity : b.fromMin));
+    // Where a delay was counted, when that is not where it was entered: the gap after.
+    for(const d of delays){
+      d.carriedTo = null;
+      if(d.where !== 'between') continue;
+      const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
+      if(i >= 0 && gaps[i].carriedOutMin > 0 && !NOT_DEDUCTED[d.category]){
+        const next = gaps[i + 1];
+        d.carriedTo = { fromMin: Math.floor(next.atMin), toMin: Math.floor(next.atMin + next.min) };
+      }
+    }
     const firstMin = logs[0].min, lastMin = logs[logs.length - 1].min;
     const startMin = Math.min(AUDIT.SHIFT_START_MIN, firstMin);
     const returned = closeouts.get(date);
@@ -378,7 +407,7 @@ export function periodStats(prep, { from = '', to = '' } = {}){
 function routeOf(day){
   const gaps = day.gaps;
   const usualMin = sum(gaps, g => g.usual);
-  const loggedMin = sum(gaps, g => Math.min(g.loggedMin, Math.max(0, g.over)));
+  const loggedMin = sum(gaps, g => Math.min(g.loggedMin, Math.max(0, g.over)) + g.carriedMin);
   const ownMin = day.spanMin - loggedMin;
   return { orders: day.n, gaps: gaps.length, usualMin, tookMin: day.spanMin, loggedMin, ownMin,
     share: ownMin > 0 ? usualMin / ownMin : null, perOrder: gaps.length ? usualMin / gaps.length : null,

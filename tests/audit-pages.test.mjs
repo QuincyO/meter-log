@@ -416,3 +416,26 @@ test('both pages carry Send PDF beside Download PDF, hidden until the script fin
     assert.match(html, /id="auPrintDay">Download PDF<\/button>\s*<button type="button" class="btn hide" id="auSendDay">Send PDF<\/button>/, page);
   }
 });
+
+// ── a delay whose time fell after its order's log ────────────────────────────
+
+test('a delay counted in the gap after its order says so, in the delays, the log list, the gap detail and the method', () => {
+  // next door, usual 6: the 10:20–10:30 gap ran 4 over and the 10:30–11:30 gap 54 over
+  const stops = stopsOn(DAY, ['10:00', '10:20', '10:30', '11:30', '11:42']);
+  const d = detailOf(stops, DAY, [
+    { timestamp: `${DAY} 12:00:00`, category: 'TRUCK_ISSUES', minutes: 30, note: 'gap 10:20–10:30' },
+    { timestamp: `${DAY} 12:00:00`, category: 'TOOLS_MATERIAL', minutes: 15, note: 'gap 10:20–10:30' },
+    { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 5, note: 'gap 10:00–10:20' },
+  ]);
+  const top = dayTopHtml(d);
+  assert.ok(top.includes('10:20–10:30, counted in the gap after it (10:30–11:30)'));
+  assert.equal(top.split('counted in the gap after it').length - 1, 2, 'the two entries on that order, and not the third');
+  assert.match(dayLogsHtml(d.day), /pause 54: 41 logged as a delay, 13 not logged/);
+  assert.match(gapDetailHtml(d.day, 1), /Logged against this gap<\/td><td class="n">45 min/);
+  assert.match(gapDetailHtml(d.day, 1), /Of that, counted in the gap after<\/td><td class="n">41 min/);
+  assert.match(gapDetailHtml(d.day, 2), /Logged against this gap<\/td><td class="n">0 min/);
+  assert.match(gapDetailHtml(d.day, 2), /Logged against the order before, counted here<\/td><td class="n">41 min/);
+  assert.match(gapDetailHtml(d.day, 2), /Not logged<\/td><td class="n">13 min/);
+  assert.doesNotMatch(gapDetailHtml(d.day, 0), /counted in the gap after|counted here/);
+  assert.match(methodHtml(), /What that gap did not run over is taken off the gap after the same order/);
+});

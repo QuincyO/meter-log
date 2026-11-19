@@ -625,7 +625,7 @@ Tap a date in **Day by day** to open that day: a timeline with one block per gap
 
 **Send PDF** makes the same file and opens your phone's share sheet with it attached, so you can text or email it, to your supervisor for example. Open the day first to send that day, or stay on the period to send the period. You choose the app and the person; the page itself sends nothing, and nothing goes until you send it there. If you see **Ready. Tap Send PDF again**, tap it once more: some phones only open the share sheet on a fresh tap. If the phone cannot share after all, the file is saved instead and you can attach it yourself. The button is not shown in a browser that cannot share a file; use **Download PDF** there.
 
-Logging a delay against the gap it happened in is what takes it out of the unlogged pause time. Do that from **Today's orders** or at **End of day**.
+Logging a delay is what takes it out of the unlogged pause time. Do that from **Today's orders** or at **End of day**, on the order the problem belongs to. It does not matter whether the time was lost before you logged that order or after: the audit takes the delay off the gap before that order's log first, and whatever that gap did not run over comes off the gap after it. So if you log a meter and then the truck will not start, enter the delay on that same order, not on the next one. In **Delays logged this day** such an entry reads "counted in the gap after it".
 
 ---
 

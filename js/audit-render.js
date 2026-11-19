@@ -269,7 +269,9 @@ export function methodSection(){
       'The usual time for a kind is this installer\'s own median gap of that kind, over all their work to date in the chosen work mode. '
         + `A kind with fewer than ${A.MIN_KIND_GAPS} gaps, and a gap beside a log with no pin, is compared with the median of every gap.`,
       `A gap ${A.PAUSE_OVER_MIN} minutes or more over its usual time is a pause, and the excess is its length. A smaller overrun stays work.`,
-      'A delay logged against that same gap is taken off the pause, never below zero. Travel, break and lunch entries are not taken off.',
+      'A delay is entered against an order and filed under the gap before that order\'s log. It is taken off that gap\'s pause, never below zero. '
+        + 'What that gap did not run over is taken off the gap after the same order, because the time is often lost after the log is saved. '
+        + 'It goes one gap and no further. Travel, break and lunch entries are not taken off.',
       'What is left is unlogged pause time. The typical day is the median of the daily totals.',
       'Working time is the gaps with each pause cut back to the usual time, so first-to-last-meter time is working time plus all pause time.',
       'A logged delay is placed before the first meter, between meters or after the last meter by the times in its entry. One with no times is "without a time of day".',
@@ -399,7 +401,9 @@ function delaysSection(day){
   const span = d => `${fmtClock(d.fromMin)}–${fmtClock(d.toMin)}`;
   const against = d => d.where === 'untimed' ? 'no time of day'
     : d.where === 'before' ? `${span(d)}, before the first meter`
-    : d.where === 'after' ? `${span(d)}, after the last meter` : span(d);
+    : d.where === 'after' ? `${span(d)}, after the last meter`
+    // entered on an order, filed under the gap before its log, counted where the time was lost
+    : d.carriedTo ? `${span(d)}, counted in the gap after it (${fmtClock(d.carriedTo.fromMin)}–${fmtClock(d.carriedTo.toMin)})` : span(d);
   const extra = [day.log.breaks ? `${fmtMin(day.log.breaks)} min of breaks or lunch` : '',
     day.log.travel ? `${fmtMin(day.log.travel)} min of travel` : ''].filter(Boolean);
   return { title: 'Delays logged this day', blocks: [
@@ -455,6 +459,8 @@ export function gapDetailHtml(day, i){
       [`Usual time for ${kind}`, n1(g.usual) + ' min'],
       ['Over the usual time', g.over > 0 ? mins(g.over) : 'none'],
       ['Logged against this gap', mins(g.loggedMin)],
+      ...(g.carriedOutMin > 0 ? [['Of that, counted in the gap after', mins(g.carriedOutMin)]] : []),
+      ...(g.carriedMin > 0 ? [['Logged against the order before, counted here', mins(g.carriedMin)]] : []),
       g.isPause ? ['Not logged', { text: mins(g.unloggedMin), flag: g.flagged ? 'long gap' : '' }]
         : ['Read as', `work (under ${AUDIT.PAUSE_OVER_MIN} minutes over)`],
     ] }) + '</div>';

@@ -2100,6 +2100,16 @@ tap, which shares the kept file at once; a second refusal saves the file as a do
 Closing the share sheet is not an error, and success shows no message because the browser
 cannot know whether anything was sent.
 
+### A delay counted after its order
+
+A logged delay is entered on an order and filed under the gap before that order's log,
+because a gap is keyed to its arriving stop. The time itself may have been lost after the
+log was saved. `prepareAudit` therefore takes a delay off its own gap first, as far as
+that gap ran over, and carries what is left one gap on, to the gap after the same order,
+where it comes off the pause (never below zero, and never further than that one gap). The
+gap keeps `loggedMin` as entered; `carriedMin` and `carriedOutMin` record the move, and a
+delay's `carriedTo` names the gap it was counted in so the day view can say so.
+
 ### Pace on this route
 
 The day view's second card answers "how on pace was this day?" with an expected number
