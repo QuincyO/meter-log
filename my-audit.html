@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13171C">
+<title>Meter Log — My audit</title>
+<link rel="stylesheet" href="css/vendor/leaflet.css">
+<link rel="stylesheet" href="css/audits.css">
+</head>
+<body>
+
+  <div class="bar">
+    <a href="./index.html">← Back to the log</a>
+    <div class="title">My audit</div>
+    <div class="pill" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+  </div>
+
+  <!-- Period controls: who, which work, which dates. Hidden while a day is open. -->
+  <div class="card au-controls" id="auPeriodControls">
+    <div class="au-row">
+      <div class="au-field au-grow">Installer
+        <div class="au-whose" id="whose"></div>
+      </div>
+      <div class="au-field">Work
+        <div class="au-seg" id="auMode" role="group" aria-label="Work mode">
+          <button type="button" data-mode="land">Land</button>
+          <button type="button" data-mode="boat">Boat</button>
+          <button type="button" data-mode="all">All</button>
+        </div>
+      </div>
+    </div>
+    <div class="au-row">
+      <label class="au-field">From <input type="date" id="auFrom"></label>
+      <label class="au-field">To <input type="date" id="auTo"></label>
+      <button type="button" class="btn" id="auAll">All to date</button>
+      <label class="au-field">Open a day <input type="date" id="auDay"></label>
+      <button type="button" class="btn au-push" id="auPrint">Print</button>
+    </div>
+  </div>
+
+  <!-- Day controls: shown while a day is open. -->
+  <div class="card au-controls hide" id="auDayControls">
+    <div class="au-row">
+      <button type="button" class="btn" id="auBack">← Back to the period</button>
+      <button type="button" class="btn" id="auPrev" aria-label="Previous worked day">‹</button>
+      <div class="au-daytitle" id="auDayTitle"></div>
+      <button type="button" class="btn" id="auNext" aria-label="Next worked day">›</button>
+      <button type="button" class="btn au-push" id="auPrintDay">Print</button>
+    </div>
+  </div>
+
+  <!-- Printed at the top of the page only. -->
+  <div class="au-printhead" id="auPrintHead"></div>
+
+  <div id="auNote"></div>
+  <div id="auPeriod"></div>
+
+  <div id="auDayView" class="hide">
+    <div id="auDayTop"></div>
+    <section class="card au-card" id="auRouteCard">
+      <h2>Route worked</h2>
+      <div id="auDrive"></div>
+      <div class="au-map" id="auMap"></div>
+      <div id="auMapNote"></div>
+    </section>
+    <div id="auDayBottom"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script defer src="js/vendor/leaflet.js"></script>
+<script type="module" src="js/pages/my-audit.js"></script>
+</body>
+</html>

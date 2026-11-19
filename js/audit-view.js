@@ -88,7 +88,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     const res = await apiGet('audit', { installer: who });
     if(!res || res.ok === false) throw new Error((res && res.error) || 'no answer');
     // A spine from before this read answers an unknown action with a bare ok.
-    if(!Array.isArray(res.stops)) throw new Error('the spine has no audit read yet');
+    if(!Array.isArray(res.stops)) throw new Error('the server does not have this report yet');
     raws.set(who, res);
     return res;
   }

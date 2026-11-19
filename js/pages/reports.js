@@ -252,6 +252,7 @@ $('navSel').onchange = e => {
   else if(v==='teams')     window.location.href = 'teams.html';
   else if(v==='edit')      window.location.href = 'edit.html';
   else if(v==='planner')   window.location.href = 'planner.html';
+  else if(v==='audits')    window.location.href = 'audits.html';
   else if(v==='help')      window.location.href = 'help.html';
 };
 window.addEventListener('pageshow', () => { $('navSel').value = 'reports'; });

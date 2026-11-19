@@ -33,6 +33,9 @@
         <button id="navTuning">🎛 Route tuning</button>
         <button id="navSettings">⚙︎ Settings</button>
         <button id="navHelp">❓ Help</button>
+        <!-- Carries its own action on purpose: capture.js must not bind a new id
+             here (a phone can run this markup against an older cached script). -->
+        <button type="button" onclick="location.href='my-audit.html'">📊 My audit</button>
       </div>
     </div>
   </div>

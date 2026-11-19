@@ -265,3 +265,49 @@ test('logs with no pin are listed under the map by their place in the day', () =
   assert.match(html, /Not on the map: #2 900001 \(no pin\), #4 900003 \(no pin\)/);
   assert.equal(offMapHtml(detailOf(DAY_STOPS, DAY).day), '');
 });
+
+// ── the installer's page and the menus ───────────────────────────────────────
+
+test('the installer page is never gated and never asks for a gated read', () => {
+  const src = read('js/pages/my-audit.js');
+  assert.doesNotMatch(src, /admin-auth|requireAdmin|driveTracks|apiGet\('downtime'/);
+  assert.match(src, /fixedInstaller:\s*name/);
+  assert.match(src, /loadDriveLegs:\s*null/);
+  assert.match(src, /cfg\(\)\.name/);
+});
+
+test('my-audit.html has the view\'s ids, no picker and no office dropdown', () => {
+  const html = read('my-audit.html');
+  for(const id of ['status', 'statusText', 'auMode', 'auFrom', 'auTo', 'auDay', 'auPrint', 'auBack',
+    'auPrev', 'auNext', 'auNote', 'auPeriod', 'auDayView', 'auMap', 'toast'])
+    assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.doesNotMatch(html, /id="auWho"|id="navSel"/);
+  assert.match(html, /<a href="\.\/index\.html">← Back to the log<\/a>/);
+  assert.match(html, /<script type="module" src="js\/pages\/my-audit\.js"><\/script>/);
+  assert.match(html, /<script defer src="js\/vendor\/leaflet\.js"><\/script>/);
+  assert.doesNotMatch(html, /https?:\/\//);
+});
+
+test('both pages share one body: the same view ids in the same order', () => {
+  const ids = f => [...read(f).matchAll(/id="(au\w+)"/g)].map(m => m[1]).filter(id => id !== 'auWho');
+  assert.deepEqual(ids('my-audit.html'), ids('audits.html'));
+});
+
+test('every office page lists Audits and knows where it goes', () => {
+  for(const p of ['map', 'teams', 'edit', 'reports', 'planner']){
+    assert.match(read(`${p}.html`), /<option value="audits">Audits<\/option>/, p);
+    assert.match(read(`js/pages/${p}.js`), /value\s*===?\s*'audits'|v\s*===?\s*'audits'/, p);
+    assert.match(read(`js/pages/${p}.js`), /audits\.html/, p);
+  }
+});
+
+test('the log page menu opens My audit without help from capture.js', () => {
+  // The entry carries its own action. A phone can run this markup against an older
+  // cached capture.js (or the reverse) for as long as it likes; a new id bound in
+  // capture.js would throw there and take the rest of the page's wiring with it.
+  const html = read('index.html');
+  assert.match(html, /<button type="button" onclick="location\.href='my-audit\.html'">📊 My audit<\/button>/);
+  const menu = html.slice(html.indexOf('id="navMenu"'), html.indexOf('</div>', html.indexOf('id="navMenu"')));
+  assert.ok(menu.indexOf('navHelp') < menu.indexOf('my-audit.html'), 'after Help');
+  assert.doesNotMatch(read('js/pages/capture.js'), /my-audit|navAudit/);
+});
