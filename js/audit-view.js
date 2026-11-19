@@ -21,20 +21,22 @@ import { $, esc, toast } from './dom.js';
 import { apiGet } from './api.js';
 import { prepareAudit, periodStats, dayDetail, driveStats } from './compute/audit.js';
 import { fmtDate } from './audit-charts.js';
-import { periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml, dayNotesHtml, driveLineHtml }
-  from './audit-render.js';
+import { MODE_LABEL, NO_DRIVE_LOG, ROUTE_CAPTION, periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml,
+  dayNotesHtml, driveLineHtml } from './audit-render.js';
 import { createRouteMap, offMapHtml } from './audit-map.js';
+import { periodPdfModel, dayPdfModel, downloadAuditPdf } from './audit-pdf.js';
 
 const MODES = ['land', 'boat', 'all'];
-const MODE_LABEL = { land: 'Land work', boat: 'Boat work', all: 'Land and boat work' };
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 const todayKey = () => { const n = new Date(), p = x => ('0' + x).slice(-2);
   return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`; };
 
 /** installers: string[] | null — the office's picker. fixedInstaller: string | null
  *  — the phone's one name (hides the picker). loadDriveLegs: (installer, date) =>
- *  Promise<object[]>, office only. */
-export function initAuditView({ installers = null, fixedInstaller = null, loadDriveLegs = null } = {}){
+ *  Promise<object[]>, office only. savePdf: what "Download PDF" hands its model to
+ *  (the real download unless a test passes its own). */
+export function initAuditView({ installers = null, fixedInstaller = null, loadDriveLegs = null,
+  savePdf = downloadAuditPdf } = {}){
   const el = {
     status: $('status'), statusText: $('statusText'),
     who: $('auWho'), mode: $('auMode'), from: $('auFrom'), to: $('auTo'), all: $('auAll'),
@@ -125,8 +127,13 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     html(el.printHead, `Audit: ${esc(state.who)}<small>${esc(MODE_LABEL[state.mode])} · ${esc(what)} · printed ${esc(fmtDate(todayKey()))}</small>`);
   }
 
+  // What is on screen, kept so "Download PDF" can write exactly that: the period
+  // with its statistics, or the day with its detail. Null while there is nothing.
+  let current = null;
+
   function renderPeriod(prep){
     const stats = periodStats(prep, { from: state.from, to: state.to });
+    current = { kind: 'period', prep, stats };
     html(el.note, notesHtml({ prep, stats, name: state.who }));
     html(el.period, periodHtml(stats, prep));
     const a = stats.daily.length ? stats.daily[0].date : '', b = stats.daily.length ? stats.daily[stats.daily.length - 1].date : '';
@@ -163,7 +170,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
         return;
       }
       if(my !== seq) return;
-      if(!legs.length){ html(el.drive, '<p class="au-cap">No drive log was recorded this day.</p>'); return; }
+      if(!legs.length){ html(el.drive, `<p class="au-cap">${esc(NO_DRIVE_LOG)}</p>`); return; }
       html(el.drive, '<label class="au-check"><input type="checkbox" id="auDriveOn"> Show drive log</label>'
         + `<span class="au-cap">${esc(driveLineHtml(driveStats(legs)))}</span>`);
       const box = $('auDriveOn');
@@ -183,19 +190,19 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     if(el.next){ el.next.disabled = !next; el.next.onclick = () => { if(next) go({ day: next }); }; }
     printHead(fmtDate(state.day));
     if(!detail){
-      shownDay = null;
+      shownDay = null; current = null;
       show(el.dayView, false);
       html(el.note, (prep.mode !== 'land' ? '<p class="au-note warn">The pause figures were checked against land work only.</p>' : '')
         + `<p class="au-note">No logs on ${esc(fmtDate(state.day))} for ${esc(state.who)} in this view.</p>`);
       return;
     }
     const day = shownDay = detail.day;
-    html(el.note, (prep.mode !== 'land' ? '<p class="au-note warn">The pause figures were checked against land work only.</p>' : '')
-      + dayNotesHtml(day));
+    current = { kind: 'day', prep, detail };
+    html(el.note, dayNotesHtml(day, prep.mode));
     html(el.dayTop, dayTopHtml(detail));
     html(el.dayBottom, dayLogsHtml(day));
     html(el.mapNote, offMapHtml(day)
-      + '<p class="au-cap">Pins are numbered in the order the orders were logged and joined in that order with straight lines. It is the order worked, not the roads driven.</p>');
+      + `<p class="au-cap">${esc(ROUTE_CAPTION)}</p>`);
     if(el.map){
       if(!routeMap) routeMap = createRouteMap(el.map);
       routeMap.show(day);
@@ -208,7 +215,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
   // one person's day under another person's name. The period controls come back
   // so the picker stays reachable even with a day in the address.
   function blank(note){
-    shownDay = null;
+    shownDay = null; current = null;
     for(const node of [el.period, el.dayTop, el.dayBottom, el.mapNote, el.drive, el.printHead]) html(node, '');
     if(el.dayTitle) el.dayTitle.textContent = '';
     show(el.dayView, false); show(el.dayControls, false);
@@ -275,9 +282,36 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
   };
   if(el.dayTop) el.dayTop.onclick = pickGap;
   if(el.dayBottom) el.dayBottom.onclick = pickGap;
-  const print = () => window.print();
-  if(el.print) el.print.onclick = print;
-  if(el.printDay) el.printDay.onclick = print;
+  // "Download PDF": the same sections that are on screen, written as a document
+  // (js/audit-pdf.js). On the office page a day's PDF carries the drive-log numbers
+  // when the day has legs, and the track itself only while "Show drive log" is on.
+  // The two buttons keep the ids they had as Print buttons, so a page whose markup
+  // and script are briefly out of step still has a working button.
+  function driveForPdf(){
+    if(!loadDriveLegs) return null;
+    const legs = driveLegs.get(state.who + '|' + state.day);
+    if(!legs) return null;                     // still loading, or the read failed
+    const box = $('auDriveOn');
+    return { legs, show: !!(box && box.checked) };
+  }
+  async function download(button){
+    if(!current){ toast('Nothing to download yet'); return; }
+    const label = button.textContent;
+    button.disabled = true; button.textContent = 'Building…';
+    try {
+      const today = todayKey();
+      const model = current.kind === 'day'
+        ? dayPdfModel({ name: state.who, prep: current.prep, detail: current.detail, drive: driveForPdf(), today })
+        : periodPdfModel({ name: state.who, prep: current.prep, stats: current.stats, today });
+      toast('Saved ' + await savePdf(model));
+    } catch {
+      toast('Could not make the PDF');
+    } finally {
+      button.disabled = false; button.textContent = label;
+    }
+  }
+  if(el.print) el.print.onclick = () => download(el.print);
+  if(el.printDay) el.printDay.onclick = () => download(el.printDay);
   // A closed <details> prints empty. Open method and limits for the printout and
   // put it back afterwards.
   let reopened = [];

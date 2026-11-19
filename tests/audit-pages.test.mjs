@@ -14,7 +14,7 @@ import { encodeTrack } from '../js/drive-track.js';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const exists = p => existsSync(new URL('../' + p, import.meta.url));
 const AUDIT_FILES = ['audits.html', 'my-audit.html', 'css/audits.css', 'js/audit-view.js',
-  'js/audit-render.js', 'js/audit-charts.js', 'js/audit-map.js', 'js/pages/audits.js',
+  'js/audit-render.js', 'js/audit-charts.js', 'js/audit-map.js', 'js/audit-pdf.js', 'js/pages/audits.js',
   'js/pages/my-audit.js', 'js/compute/audit.js'].filter(exists);
 
 const pad = n => String(n).padStart(2, '0');
@@ -340,4 +340,20 @@ test('sheet values are escaped wherever a day prints them', () => {
   const html = dayTopHtml(d) + dayLogsHtml(d.day) + gapDetailHtml(d.day, 0) + offMapHtml({ logs: d.day.logs.map(l => ({ ...l, pin: false })) });
   assert.doesNotMatch(html, /<img/);
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+});
+
+// ── Download PDF ─────────────────────────────────────────────────────────────
+
+test('both pages offer Download PDF, and the PDF module asks the spine for nothing', () => {
+  for(const page of ['audits.html', 'my-audit.html']){
+    const html = read(page);
+    assert.match(html, /id="auPrint">Download PDF<\/button>/, page);
+    assert.match(html, /id="auPrintDay">Download PDF<\/button>/, page);
+    assert.doesNotMatch(html, />Print</, page);
+    assert.doesNotMatch(html, /jspdf/i, page + ': the PDF library is loaded on demand, not by the page');
+  }
+  const pdf = read('js/audit-pdf.js');
+  assert.doesNotMatch(pdf, /apiGet\(|apiPost\(|from '\.\/api\.js'|admin-auth|driveTracks|addImage/);
+  assert.match(pdf, /js\/vendor\/jspdf\.umd\.min\.js/);
+  assert.doesNotMatch(read('js/audit-view.js'), /window\.print\(\)\s*;?\s*\n\s*if\(el\.print\)/);
 });

@@ -32,15 +32,18 @@ const DATA = {
 
 // One fake page. `answer(installer)` decides each audit read: an object to resolve
 // with, 'fail' to reject, or 'hold' to leave it pending until release() is called.
-async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null } = {}){
+async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null, savePdf } = {}){
   const els = Object.fromEntries(IDS.map(id => [id, mkEl(id)]));
   els.auMode.buttons = ['land', 'boat', 'all'].map(m => { const b = mkEl('mode'); b.dataset.mode = m; return b; });
   els.auDayView.classList.add('hide'); els.auDayControls.classList.add('hide');
-  const listeners = {}, requests = [], held = [], scrolls = [];
-  globalThis.document = { getElementById: id => els[id] || null, querySelectorAll: () => [], createElement: () => mkEl('new') };
+  const listeners = {}, requests = [], held = [], scrolls = [], prints = [];
+  // the drive-log checkbox is drawn by the view; it exists once its markup does
+  globalThis.document = { getElementById: id => els[id] || (id === 'auDriveOn' && /id="auDriveOn"/.test(els.auDrive.innerHTML)
+      ? (els.auDriveOn = mkEl('auDriveOn')) : null),
+    querySelectorAll: () => [], createElement: () => mkEl('new') };
   globalThis.location = { search, pathname: '/audits.html' };
   globalThis.history = { pushState(_, __, url){ const q = url.indexOf('?'); location.search = q < 0 ? '' : url.slice(q); } };
-  globalThis.window = { addEventListener: (k, f) => { listeners[k] = f; }, print(){}, scrollTo: (x, y) => scrolls.push([x, y]) };
+  globalThis.window = { addEventListener: (k, f) => { listeners[k] = f; }, print(){ prints.push(1); }, scrollTo: (x, y) => scrolls.push([x, y]) };
   globalThis.localStorage = { getItem: () => null, setItem(){}, removeItem(){} };
   globalThis.fetch = url => {
     const u = new URL(url), who = u.searchParams.get('installer');
@@ -51,10 +54,10 @@ async function boot({ search = '', answer = who => DATA[who], fixedInstaller = n
     return a === 'hold' ? new Promise(res => held.push(() => res(reply))) : Promise.resolve(reply);
   };
   const { initAuditView } = await import('../js/audit-view.js');
-  initAuditView({ installers: fixedInstaller ? null : Object.keys(DATA), fixedInstaller, loadDriveLegs });
+  initAuditView({ installers: fixedInstaller ? null : Object.keys(DATA), fixedInstaller, loadDriveLegs, ...(savePdf ? { savePdf } : {}) });
   const settle = async () => { for(let i = 0; i < 6; i++) await new Promise(r => setTimeout(r, 0)); };
   await settle();
-  return { els, requests, scrolls, listeners, settle,
+  return { els, requests, scrolls, listeners, prints, settle,
     release: async () => { while(held.length) held.shift()(); await settle(); },
     pick: async who => { els.auWho.value = who; els.auWho.onchange(); await settle(); },
     openDay: async date => { els.auPeriod.onclick({ target: { closest: () => ({ dataset: { day: date } }) } }); await settle(); },
@@ -138,4 +141,71 @@ test('the drive log is asked for only when the office page gave a loader', async
   assert.equal(phone.els.auDrive.innerHTML, '');
   assert.match(phone.els.auDayTop.innerHTML, /Timeline of the day/);
   assert.deepEqual(phone.requests, ['audit:Pat Example']);
+});
+
+// ── Download PDF ─────────────────────────────────────────────────────────────
+
+const routeOf = model => model.sections.find(s => s.title === 'Route worked');
+
+test('Download PDF hands over what is on screen: the period, then the day', async () => {
+  const saved = [];
+  const p = await boot({ savePdf: async model => { saved.push(model); return model.fileName; } });
+  await p.pick('Pat Example');
+  await p.els.auPrint.onclick(); await p.settle();
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].fileName, 'Audit - Pat Example - 2026-11-02 to 2026-11-03.pdf');
+  assert.equal(saved[0].title, 'Audit: Pat Example');
+  assert.deepEqual(saved[0].sections.map(s => s.title).slice(0, 2), ['Headline', 'Where an average day goes']);
+  assert.match(p.els.toast.textContent, /Saved Audit - Pat Example - 2026-11-02 to 2026-11-03\.pdf/);
+  await p.openDay('2026-11-02');
+  await p.els.auPrintDay.onclick(); await p.settle();
+  assert.equal(saved[1].fileName, 'Audit - Pat Example - 2026-11-02.pdf');
+  assert.deepEqual(saved[1].sections.map(s => s.title), ['Timeline of the day', 'This day, and how it compares',
+    'Delays logged this day', 'Route worked', 'Every log, in order', 'Method and limits']);
+  assert.deepEqual(p.prints, [], 'the print dialog is never opened');
+  assert.equal(p.els.auPrintDay.disabled, false);
+});
+
+test('the day PDF carries the drive log only on the office page, and its line only when switched on', async () => {
+  const legs = [{ distanceM: 31400, driveMin: 52, maxSpeed: 23.4, gaps: [], startTime: 0, encoded: '' }];
+  const saved = [];
+  const savePdf = async model => { saved.push(model); return model.fileName; };
+  const office = await boot({ search: '?who=Pat+Example&day=2026-11-02', loadDriveLegs: async () => legs, savePdf });
+  await office.els.auPrintDay.onclick(); await office.settle();
+  let route = routeOf(saved[0]);
+  assert.match(route.blocks[0].text, /^Top 84 km\/h/);
+  assert.equal(route.blocks.find(b => b.t === 'map').legs, null, 'switched off: the numbers, not the line');
+  const box = document.getElementById('auDriveOn');
+  box.checked = true; box.onchange();
+  await office.els.auPrintDay.onclick(); await office.settle();
+  route = routeOf(saved[1]);
+  assert.equal(route.blocks.find(b => b.t === 'map').legs, legs);
+
+  const none = await boot({ search: '?who=Pat+Example&day=2026-11-02', loadDriveLegs: async () => [], savePdf });
+  await none.els.auPrintDay.onclick(); await none.settle();
+  assert.equal(routeOf(saved[2]).blocks[0].text, 'No drive log was recorded this day.');
+
+  const phone = await boot({ search: '?day=2026-11-02', fixedInstaller: 'Pat Example', savePdf });
+  await phone.els.auPrintDay.onclick(); await phone.settle();
+  route = routeOf(saved[3]);
+  assert.equal(route.blocks[0].t, 'map');
+  assert.equal(route.blocks[0].legs, null);
+  assert.doesNotMatch(JSON.stringify(route.blocks.filter(b => b.t === 'cap')), /drive log|km\/h/i);
+});
+
+test('with nothing on screen there is nothing to download, and a failure says so', async () => {
+  const saved = [];
+  const p = await boot({ savePdf: async model => { saved.push(model); throw new Error('no library'); } });
+  await p.els.auPrint.onclick(); await p.settle();
+  assert.deepEqual(saved, [], 'no installer picked');
+  assert.match(p.els.toast.textContent, /Nothing to download/);
+  await p.pick('Pat Example');
+  await p.typeDay('2026-12-25');                       // a date with no logs
+  await p.els.auPrintDay.onclick(); await p.settle();
+  assert.deepEqual(saved, []);
+  p.els.auBack.onclick(); await p.settle();
+  await p.els.auPrint.onclick(); await p.settle();
+  assert.equal(saved.length, 1);
+  assert.match(p.els.toast.textContent, /Could not make the PDF/);
+  assert.equal(p.els.auPrint.disabled, false, 'the button comes back after a failure');
 });

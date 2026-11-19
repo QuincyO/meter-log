@@ -2063,9 +2063,28 @@ page prints these limits itself, under "Method and limits".
 
 `js/compute/audit.js` (the numbers, pure), `js/audit-charts.js` (charts as HTML strings),
 `js/audit-render.js` (what each view says), `js/audit-view.js` (controls and address-bar
-state: `who`, `mode`, `from`, `to`, `day`), `js/audit-map.js` (the route map), and
-`css/audits.css` (including the print stylesheet). None is in the `sw.js` shell; the audit
+state: `who`, `mode`, `from`, `to`, `day`), `js/audit-map.js` (the route map),
+`js/audit-pdf.js` (the downloaded PDF), and `css/audits.css` (including the print stylesheet). None is in the `sw.js` shell; the audit
 needs a connection, and the worker caches the files on first load like any other request.
+
+### Download PDF
+
+Both pages have a "Download PDF" button for the period and for an open day. The file is
+built on the device with the vendored jsPDF, loaded on demand; nothing is sent anywhere.
+
+A view is described once. `js/audit-render.js` returns it as a list of sections, each a
+title and a list of plain blocks (tiles, a table, a caption, a chart, a list). Two writers
+turn that list into something to look at: `sectionsHtml()` for the page and
+`js/audit-pdf.js` for the PDF. The page and the PDF therefore cannot differ in wording or
+figures; they differ only in how a block is drawn.
+
+The PDF differs from the page on purpose in three places. The route map has no street
+background: the page's tiles are images from another site, so the PDF draws the numbered
+pins and the route line from the coordinates on a plain box (the owner chose this on
+2026-11-19). The day's drive log is drawn only when "Show drive log" is on, though its
+numbers line is always given when the day has legs. And anything that only makes sense on
+a screen (the hint to pick a block, the slot a gap's detail opens in) is left out. Method
+and limits is always included.
 
 ## Data structures
 

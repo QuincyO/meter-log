@@ -92,24 +92,24 @@ export function pauseHistogramHtml(bins, allowanceMin){
       + `<span class="au-hl">${label}</span></div>`;
   }).join('');
   return `<div class="au-hist" role="img" aria-label="Number of days by minutes of unlogged pause time">${cols}</div>`
-    + `<div class="au-hcap">Minutes of unlogged pause time in the day. The dashed line is the ${fmtMin(allowanceMin)}-minute break allowance.</div>`;
+    + `<div class="au-hcap">${esc(histCaption(allowanceMin))}</div>`;
 }
+/** The line under the histogram, on the page and in the PDF. */
+export const histCaption = allowanceMin =>
+  `Minutes of unlogged pause time in the day. The dashed line is the ${fmtMin(allowanceMin)}-minute break allowance.`;
 
 /** One day (a DayRec from prepareAudit) as blocks from its start to its end: the
  *  time before the first meter split three ways, then per gap its work, the part
  *  of a pause that was logged as a delay and the part that was not, then close-out
- *  and drive home. A gap's blocks are buttons carrying data-gap="<index>". */
-export function timelineHtml(day){
-  if(!day) return '';
-  const span = day.endMin - day.startMin;
-  if(!(span > 0)) return '';
+ *  and drive home. Each is { key, minutes, gap, flag, title }: `key` is a SEGMENTS
+ *  key, `gap` the gap's index (null outside the gaps), `flag` a long gap. Zero-
+ *  length blocks are left out. The page and the PDF both draw from this list. */
+export function timelineBlocks(day){
   const out = [];
+  if(!day || !(day.endMin - day.startMin > 0)) return out;
   const block = (key, minutes, gap, flag, title) => {
     if(!(minutes > 0)) return;
-    const s = SEG[key], tag = gap == null ? 'i' : 'button';
-    out.push(`<${tag}${gap == null ? '' : ' type="button"'} class="au-blk${flag ? ' flag' : ''}" data-seg="${key}"`
-      + `${gap == null ? '' : ` data-gap="${gap}"`} style="width:${w(minutes / span)};background:${s.color}"`
-      + ` title="${attr(title || (s.label + ': ' + fmtMin(minutes) + ' min'))}"></${tag}>`);
+    out.push({ key, minutes, gap, flag: !!flag, title: title || (SEG[key].label + ': ' + fmtMin(minutes) + ' min') });
   };
   // Before the first meter. More delay can be logged there than there was time;
   // the logged blocks are then scaled to fit and the unlogged block is empty.
@@ -131,8 +131,22 @@ export function timelineHtml(day){
       `${from}–${to}: ${fmtMin(g.unloggedMin)} min, nothing logged`);
   }
   block('closeout', day.closeoutMin);
-  return framed(out.join(''), 'au-stack au-timeline', day, day.endSource === 'lastMeter' ? 'last meter' : 'end');
+  return out;
 }
+
+/** The timeline as HTML. A gap's blocks are buttons carrying data-gap="<index>". */
+export function timelineHtml(day){
+  const blocks = timelineBlocks(day);
+  if(!blocks.length) return '';
+  const span = day.endMin - day.startMin;
+  const html = blocks.map(b => { const tag = b.gap == null ? 'i' : 'button';
+    return `<${tag}${b.gap == null ? '' : ' type="button"'} class="au-blk${b.flag ? ' flag' : ''}" data-seg="${b.key}"`
+      + `${b.gap == null ? '' : ` data-gap="${b.gap}"`} style="width:${w(b.minutes / span)};background:${SEG[b.key].color}"`
+      + ` title="${attr(b.title)}"></${tag}>`; }).join('');
+  return framed(html, 'au-stack au-timeline', day, endLabel(day));
+}
+/** What the right-hand end of a day's bar is called. */
+export const endLabel = day => (day.endSource === 'lastMeter' ? 'last meter' : 'end');
 
 /** The colour key. `keys` = the SEGMENTS keys to show (all of them when omitted),
  *  always listed in drawing order. */

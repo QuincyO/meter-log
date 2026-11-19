@@ -32,9 +32,13 @@ export function driveRuns(leg){
 }
 
 /** The logs that cannot be drawn, named by their place in the day; '' when all can. */
+export function offMapText(day){
+  const off = day.logs.map((l, i) => l.pin ? '' : `#${i + 1} ${l.workOrderId || 'no order number'} (no pin)`).filter(Boolean);
+  return off.length ? 'Not on the map: ' + off.join(', ') : '';
+}
 export function offMapHtml(day){
-  const off = day.logs.map((l, i) => l.pin ? '' : `#${i + 1} ${esc(l.workOrderId || 'no order number')} (no pin)`).filter(Boolean);
-  return off.length ? `<p class="au-cap">Not on the map: ${off.join(', ')}</p>` : '';
+  const text = offMapText(day);
+  return text ? `<p class="au-cap">${esc(text)}</p>` : '';
 }
 
 const pinFace = (n, color) => `<span style="display:flex;align-items:center;justify-content:center;`

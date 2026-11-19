@@ -614,7 +614,7 @@ What the numbers mean:
 
 Tap a date in **Day by day** to open that day: a timeline with one block per gap between your logs, the day beside your 30 worked days before it and all your work to date, the delays you logged, a map of your orders numbered in the order you logged them, and every log in order. Tap a block or a row for that gap's details. **‹** and **›** step to the day before and after, and **← Back to the period** returns.
 
-**Print** prints what is on screen, or saves it as a PDF from the print dialog.
+**Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn as the numbered pins and the line between them on a plain background, without the street map.
 
 Logging a delay against the gap it happened in is what takes it out of the unlogged pause time. Do that from **Today's orders** or at **End of day**.
 
@@ -754,7 +754,7 @@ Land installers each run their own route, so they aren't paired as partners and 
 - **Land / Boat / All** picks the work it covers. It opens on Land. Boat and All show the same audit under a note that the pause figures were only checked against land work.
 - **From** and **To** set the period. Left alone, it is all work to date. **All to date** clears them.
 - **Open a day** jumps to one date. So does any date in the Day by day table.
-- **Print** prints the period or the day, or saves it as a PDF from the print dialog.
+- **Download PDF** saves the period, or the open day, as a PDF file named for the installer and the dates. Nothing is sent anywhere; the file is made on your computer. In the PDF the route is the numbered pins and the line between them on a plain background, without the street map, and the drive log is drawn only if **Show drive log** is switched on. The browser's own print (Ctrl+P) still prints a clean page if you want paper straight away.
 
 The period shows, in order: the headline numbers; **Where an average day goes** (one bar from the 07:30 start to the end of the day); **Unlogged pause time per day** (how many days fell in each range, against the 60-minute break allowance); **By month**; **Logged delays by category**; **Output**, with the usual time between two logs for each distance; **Day by day**; and **Method and limits**, which explains every number and what the data cannot show.
 
