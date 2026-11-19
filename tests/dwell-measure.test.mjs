@@ -109,6 +109,47 @@ test('gap-tagged downtime is subtracted, so waiting is not counted as installing
     `unallocated waiting must inflate the fit (was ${withNoRows.onSiteMin})`);
 });
 
+test('a land gap delay is subtracted though its row carries no work type', () => {
+  // saveTravel writes every gap allocation with a BLANK workType (the phone does not
+  // send one), and a blank reads as boat. Filtering the rows by work mode therefore
+  // dropped all of them from a land fit: every one of the 861 gap rows in the sheet
+  // was blank, so no logged delay ever came off a land gap and the waiting was
+  // priced as installing. The key (installer, date, both log minutes) already names
+  // one gap between two logs of this mode, so it needs no mode filter.
+  const delays = { 1: 45, 3: 45, 5: 45, 7: 45, 9: 45 };
+  const d1 = day({ date: '2026-06-22', legsKm: LEGS, onSite: 20, rate: 4 });
+  const d2 = day({ date: '2026-06-23', legsKm: LEGS, onSite: 20, rate: 4, delays });
+  const downtime = d2.gaps.map((g, i) => ({
+    id: `d${i}`, timestamp: '2026-06-23 12:00:00', installer: g.installer,
+    category: 'DISPATCH', minutes: String(g.minutes), workOrderId: g.wo,
+    note: g.note, workType: ''
+  }));
+  const api = spine({ Stops: [...d1, ...d2], Downtime: downtime });
+  assert.equal(api.installerOnSiteFit('Ann Example', 'land', 0).onSiteMin, 20);
+  // And the same rows are still there for a boat fit, where blank has always matched.
+  const boat = spine({ Stops: [...d1, ...d2].map(s => ({ ...s, workType: 'boat' })),
+    Downtime: downtime });
+  assert.equal(boat.installerOnSiteFit('Ann Example', 'boat', 0).onSiteMin, 20);
+});
+
+test('a gap delay never comes off another installer\'s gap', () => {
+  // With no mode filter the key is the only guard, so pin the part of it that keeps
+  // one installer's allocation off a crewmate who logged at the same two minutes.
+  const delays = { 1: 45, 3: 45, 5: 45, 7: 45, 9: 45 };
+  const mine = [
+    ...day({ date: '2026-06-22', legsKm: LEGS, onSite: 20, rate: 4 }),
+    ...day({ date: '2026-06-23', legsKm: LEGS, onSite: 20, rate: 4, delays }),
+  ];
+  const theirs = day({ date: '2026-06-23', installer: 'Bob Example', legsKm: LEGS,
+    onSite: 20, rate: 4, delays });
+  const withTheirRows = spine({ Stops: [...mine, ...theirs], Downtime: theirs.gaps.map((g, i) => ({
+    id: `d${i}`, timestamp: '2026-06-23 12:00:00', installer: 'Bob Example',
+    category: 'DISPATCH', minutes: String(g.minutes), workOrderId: g.wo, note: g.note, workType: ''
+  })) }).installerOnSiteFit('Ann Example', 'land', 0);
+  const withNoRows = spine({ Stops: mine }).installerOnSiteFit('Ann Example', 'land', 0);
+  assert.equal(withTheirRows.onSiteMin, withNoRows.onSiteMin);
+});
+
 test('the legacy TRAVEL_TIME category is not subtracted', () => {
   // isGapDeduction's rule: TRAVEL_TIME meant "the whole gap was still travel", so
   // netting it out would double-count and is what keeps closed days computing the

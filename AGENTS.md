@@ -292,7 +292,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   `BOAT_DAYS_AFTER_LAND_START`, land otherwise. Don't "simplify" it back to the tag.
   Timing and Dispatch have no tag, `pins()` drops it, gap-tagged Downtime rows are
   blank (which reads as boat), and Quincy's all-island 2026-08-06 has a `land`
-  Tracker row. **When boat work resumes, add those days to the map**, or they'll
+  Tracker row. For the same reason, spine code that matches a gap-tagged Downtime row
+  to a gap between two logs (`dwellSamples`, `dayShapePause`) must **not** filter those
+  rows by `workType`: every one is blank, so a land measurement silently loses all of
+  them. Filter the stops by mode and let the row's key find its gap. **When boat work resumes, add those days to the map**, or they'll
   count as land. The switch is on its own `analyticsWorkType` key, and `map.js`
   reaches the helpers through `import * as life`, so a stale cached module degrades
   to plain totals instead of a dead page. See ARCHITECTURE.md §"Analytics Land / Boat /

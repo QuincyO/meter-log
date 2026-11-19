@@ -3327,12 +3327,15 @@ function dwellSamples(name, workType, workdays) {
   // The crew's own end-of-day allocation of what each long gap actually was. This
   // is what separates "the install took an hour" from "dispatch took 40 of it".
   // Keyed on the gap's clock window, which is how gapNoteTimes() records it.
+  // NOT filtered by work mode, as in dayShapePause: saveTravel writes these rows with
+  // a blank workType, which reads as boat, so a mode filter dropped every one of them
+  // from a land fit and the waiting was priced as installing. The key already names
+  // one gap between two of this installer's logs in this mode, which is filter enough.
   const ded = {};
   rows('Downtime').forEach(function (r) {
     if (!isGapDeduction(String(r.category || '').trim().toUpperCase())) return;
     const who = String(r.installer == null ? '' : r.installer).trim();
     if (!who || (nm && !sameName(who, nm))) return;
-    if (!inMode(r.workType)) return;
     const m = gapNoteTimes(r.note), d = dateOf(r.timestamp);
     if (!m || !d) return;
     const k = who + '|' + d + '|' + hhmmToMinutes(m[1]) + '|' + hhmmToMinutes(m[2]);
@@ -3501,7 +3504,7 @@ function installerDayShape(name, workType, workdays, model) {
  *  against that same gap (never below 0); the day's pauses are summed. */
 function dayShapePause(nm, byDate, dates) {
   // The crew's end-of-day allocations, keyed on the gap's clock window the way
-  // dwellSamples keys them. NOT filtered by work mode, unlike dwellSamples: saveTravel
+  // dwellSamples keys them. NOT filtered by work mode, as in dwellSamples: saveTravel
   // writes these rows with a blank workType, which reads as boat, so a mode filter
   // would drop every one of them from a land day. The key already names one of this
   // installer's gaps in this mode (date and both log minutes), which is filter enough.

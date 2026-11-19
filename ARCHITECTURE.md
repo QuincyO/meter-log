@@ -1599,10 +1599,10 @@ that is neither ordinary work nor a logged delay, breaks included. Over the same
 5. Less the minutes logged as a delay against that gap (never below 0), from the
    gap-keyed `Downtime` rows keyed the way `dwellSamples` keys them, except that
    `BREAK`, `LUNCH` and `MISC_TRAVEL` are **not** taken off (a logged break is still
-   break time, and this number is the break allowance), and the rows are **not**
-   mode-filtered: `saveTravel` writes them with a blank `workType`, which reads as
-   boat, so a filter would drop every one from a land day and the logged delays would
-   silently stop coming off.
+   break time, and this number is the break allowance). As in `dwellSamples`, the rows
+   are **not** mode-filtered: `saveTravel` writes them with a blank `workType`, which
+   reads as boat, so a filter would drop every one from a land day and the logged
+   delays would silently stop coming off.
 6. Summed per day; `pauseMinPerDay` is the median day, rounded.
 
 The owner's figure matches the independent analysis of his history it was specified
@@ -1647,7 +1647,11 @@ interruptions`, where the interruptions are exactly the gap-tagged `Downtime` ro
 allocated in the end-of-day travel review (`isGapDeduction` — note this nets out
 *every* category, where `installerRecentAvgLogMin` nets out only LUNCH/BREAK).
 Subtract them and regress the remainder on distance: the **intercept** is on-site
-work, the **slope** is the installer's real travel rate. Stored per work mode in the
+work, the **slope** is the installer's real travel rate. The stops are filtered by
+work mode; the `Downtime` rows are **not**, because `saveTravel` writes them with a
+blank `workType` (read as boat) and a filter dropped every logged delay from a land
+fit. A row's key (installer, date, both log minutes) already ties it to one gap
+between two logs of the mode being measured. Stored per work mode in the
 appended `InstallerMetrics` block `onSiteMin` / `extraMeterMin` / `travelMinPerKm` /
 `onSiteSource`, read through `installerMetricsRead`'s `boat*`/`land*` projection.
 
