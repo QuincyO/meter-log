@@ -1,0 +1,165 @@
+/* Audits (audits.html, the office) and My audit (my-audit.html, the installer).
+   Self-contained: the same tokens and chrome as the other office pages
+   (css/reports.css), wider because the audit is tables and charts. The charts in
+   js/audit-charts.js carry their own colours inline; only layout lives here.
+   The @media print block at the end is part of the feature: an audit has to
+   print cleanly. */
+:root{
+  --surface:#F7F8FA; --panel:#FFFFFF; --ink:#13171C; --ink-soft:#5A636E;
+  --line:#D9DEE5; --amber:#F59E0B; --amber-press:#C97E00;
+  --install:#1E8E5A; --uti:#D64500; --shadow:0 1px 0 rgba(19,23,28,.04),0 2px 8px rgba(19,23,28,.06);
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--surface); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px; line-height:1.4; padding:env(safe-area-inset-top) 14px 48px;
+  max-width:980px; margin:0 auto; -webkit-text-size-adjust:100%;
+}
+.hide{display:none !important}
+
+.bar{display:flex;align-items:center;gap:10px;padding:14px 2px 8px;position:sticky;top:0;
+     background:var(--surface);z-index:1100}
+.bar .title{font-size:18px;font-weight:800;flex:1}
+.bar a{font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;padding:9px 12px;
+       border:1px solid var(--line);border-radius:10px;background:var(--panel);box-shadow:var(--shadow)}
+.pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+      padding:8px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--install);flex:none}
+.pill.wait .dot{background:var(--amber)} .pill.off .dot{background:var(--uti)}
+.navsel{width:auto;height:40px;padding:0 10px;border:1px solid var(--line);
+        border-radius:10px;background:var(--panel);box-shadow:var(--shadow);
+        font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;flex:none}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+      padding:14px;margin:12px 0;box-shadow:var(--shadow)}
+.btn{min-height:42px;padding:0 14px;border:2px solid var(--line);border-radius:11px;
+     background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;
+     font-family:inherit;flex:none}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:3px solid rgba(245,158,11,.6);outline-offset:1px}
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+.au-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.au-row + .au-row{margin-top:10px}
+.au-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--ink-soft)}
+.au-grow{flex:1;min-width:200px}
+.au-push{margin-left:auto}
+.au-field select,.au-field input{min-height:42px;border:2px solid var(--line);border-radius:11px;
+   padding:0 10px;font-size:15px;background:var(--panel);color:var(--ink);font-family:inherit;width:100%}
+.au-seg{display:inline-flex}
+.au-seg button{min-height:42px;padding:0 14px;border:2px solid var(--line);background:var(--panel);
+   color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:-2px}
+.au-seg button:first-child{border-radius:11px 0 0 11px;margin-left:0}
+.au-seg button:last-child{border-radius:0 11px 11px 0}
+.au-seg button.on{background:var(--install);border-color:var(--install);color:#fff;position:relative}
+.au-daytitle{flex:1;text-align:center;font-weight:800;font-size:16px;align-self:center;min-width:160px}
+
+/* ── notes above the audit ──────────────────────────────────────────────── */
+.au-note{margin:8px 2px;color:var(--ink-soft);font-size:14px}
+.au-note.warn{color:var(--ink);background:#FFF4E6;border:1px solid #F5C77A;border-radius:10px;padding:9px 12px}
+.au-note.bad{color:var(--ink);background:#FDECE6;border:1px solid #F0A98C;border-radius:10px;padding:9px 12px}
+.au-printhead{display:none}
+
+/* ── cards and tables ───────────────────────────────────────────────────── */
+.au-card h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);
+            font-weight:800;margin:0 0 10px}
+.au-card h3{font-size:14px;margin:16px 0 6px}
+.au-cap{color:var(--ink-soft);font-size:12.5px;margin:8px 0 0}
+.au-empty{color:var(--ink-soft);margin:4px 0}
+.au-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.au-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.au-table th{text-align:left;font-weight:700;color:var(--ink-soft);border-bottom:1.5px solid var(--ink);
+             padding:5px 8px 5px 0;vertical-align:bottom;font-size:12px}
+.au-table td{border-bottom:1px solid var(--line);padding:5px 8px 5px 0;vertical-align:top}
+.au-table th.n,.au-table td.n{text-align:right;font-variant-numeric:tabular-nums;padding:5px 0 5px 8px;white-space:nowrap}
+.au-pairs td:first-child{white-space:pre-wrap}
+.au-days td.n{white-space:nowrap}
+.au-table tr.on td{background:#FFF8E8}
+.au-table tr.au-logrow{cursor:pointer}
+
+.au-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.au-tile{border:1px solid var(--line);border-radius:10px;padding:10px 11px}
+.au-tile b{display:block;font-size:24px;line-height:1.1;font-weight:800}
+.au-tile span{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:4px;line-height:1.3}
+.au-two{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;align-items:start}
+
+.au-daybtn{border:0;background:none;padding:0;font:inherit;font-weight:700;color:#1D4ED8;
+           cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.au-flag,.au-tag{display:inline-block;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px;white-space:nowrap}
+.au-flag{background:var(--uti);color:#fff}
+.au-tag{background:#E8EBF0;color:var(--ink-soft)}
+
+/* ── the stacked bar and the timeline (js/audit-charts.js) ──────────────── */
+.au-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);margin-bottom:3px}
+.au-stack{display:flex;height:34px;border-radius:7px;overflow:hidden;background:#EEF0F3}
+.au-blk{display:flex;align-items:center;justify-content:center;height:100%;flex:none;
+        font-style:normal;font-size:12px;font-weight:700;overflow:hidden;white-space:nowrap;
+        border:0;padding:0;margin:0;min-width:0;font-family:inherit}
+.au-timeline .au-blk{box-shadow:inset -1px 0 0 rgba(255,255,255,.75)}
+.au-timeline button.au-blk{cursor:pointer}
+.au-timeline .au-blk.flag{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 4px,transparent 4px 8px) !important}
+.au-timeline .au-blk.sel{box-shadow:inset 0 0 0 3px var(--ink)}
+.au-ticks{position:relative;height:20px;margin-top:3px;font-size:12px;color:var(--ink-soft)}
+.au-tick{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;padding-top:6px}
+.au-tick::before{content:'';position:absolute;left:50%;top:0;height:6px;border-left:1.5px solid var(--ink-soft)}
+.au-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:8px}
+.au-key span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;
+                     margin-right:5px;background:var(--c)}
+
+/* ── the histogram ──────────────────────────────────────────────────────── */
+.au-hist{display:flex;align-items:stretch;gap:4px;height:170px}
+.au-hcol{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.au-hcol.allow{border-left:2px dashed var(--ink);padding-left:3px;margin-left:-1px}
+.au-hn{font-size:12px;font-weight:700;height:18px}
+.au-hbar{flex:1;width:100%;display:flex;align-items:flex-end}
+.au-hbar i{display:block;width:100%;background:var(--uti);border-radius:3px 3px 0 0;min-height:1px}
+.au-hl{font-size:10.5px;color:var(--ink-soft);height:16px;white-space:nowrap}
+.au-hcap{font-size:12px;color:var(--ink-soft);margin-top:4px}
+
+/* ── method and limits ──────────────────────────────────────────────────── */
+.au-method summary{cursor:pointer;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+                   color:var(--ink-soft);font-weight:800}
+.au-method li{margin-bottom:5px}
+.au-method ol,.au-method ul{padding-left:20px;margin:6px 0 10px;font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);
+   background:var(--ink);color:#fff;padding:13px 19px;border-radius:12px;font-weight:700;
+   box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:1200;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+
+/* ── a phone ────────────────────────────────────────────────────────────── */
+@media (max-width:640px){
+  body{padding-left:10px;padding-right:10px}
+  .au-tiles{grid-template-columns:repeat(2,1fr)}
+  .au-two{grid-template-columns:1fr}
+  .au-tile b{font-size:21px}
+  .au-hist{height:140px}
+  .au-hl{font-size:9px}
+  .au-push{margin-left:0}
+  .au-tick{font-size:11px}
+}
+
+/* ── print ──────────────────────────────────────────────────────────────── */
+@media print{
+  @page{margin:0.55in}
+  body{background:#fff;max-width:none;padding:0;font-size:11pt;
+       -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bar,.au-controls,.toast,.au-noprint{display:none !important}
+  .au-printhead{display:block;font-size:15pt;font-weight:800;margin:0 0 8pt;
+                border-bottom:1.5px solid #000;padding-bottom:6pt}
+  .au-printhead small{display:block;font-size:10pt;font-weight:400;color:#444;margin-top:2pt}
+  .card{box-shadow:none;border:0;border-top:1px solid #999;border-radius:0;padding:8pt 0;margin:0}
+  .au-card{break-inside:avoid}
+  .au-card:has(.au-days),.au-card:has(.au-method),.au-card:has(.au-logs){break-inside:auto}
+  .au-table tr{break-inside:avoid}
+  .au-scroll{overflow:visible}
+  .au-daybtn{color:#000;text-decoration:none}
+  .au-method > :not(summary){display:block}
+  details.au-method:not([open]) > :not(summary){display:block}
+  .au-method summary{list-style:none}
+}

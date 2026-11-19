@@ -95,7 +95,7 @@ test('doGet and doPost check the gate before dispatching any action', () => {
 // Every action the capture phone, the wo-bot or the Apple Shortcut sends must
 // stay token-only — gating one silently breaks the crew's safety-critical path.
 test('no capture-side action is admin-gated', () => {
-  const OFFICE = new Set(['map.js', 'edit.js', 'teams.js', 'reports.js', 'planner.js']);
+  const OFFICE = new Set(['map.js', 'edit.js', 'teams.js', 'reports.js', 'planner.js', 'audits.js']);
   const files = [
     ...readdirSync(new URL('../js/', import.meta.url)).filter(f => f.endsWith('.js')).map(f => 'js/' + f),
     ...readdirSync(new URL('../js/pages/', import.meta.url)).filter(f => f.endsWith('.js') && !OFFICE.has(f)).map(f => 'js/pages/' + f),
@@ -118,7 +118,7 @@ test('no capture-side action is admin-gated', () => {
 });
 
 test('every office page waits for the login gate', () => {
-  for(const p of ['map', 'edit', 'teams', 'reports', 'planner'])
+  for(const p of ['map', 'edit', 'teams', 'reports', 'planner', 'audits'])
     assert.match(read(`js/pages/${p}.js`), /\nawait requireAdmin\(\);/, `${p}.js must await requireAdmin()`);
   assert.doesNotMatch(read('js/pages/capture.js'), /admin-auth/, 'the capture page must never be gated');
 });
