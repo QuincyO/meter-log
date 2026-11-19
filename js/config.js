@@ -28,10 +28,12 @@ export const GMAPS_API_KEY = 'AIzaSyCwS3fECtqyJnoIL2ZbSMVRRHzdQst8ei0';
 // entirely. Same public-client-key tradeoff as GMAPS_API_KEY above.
 export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYxNDdkYzE3ZmFjYzQ5Yzk5ZGVhNjI1OTA4ZjUzZTc3IiwiaCI6Im11cm11cjY0In0=';
 
-// When the crew leaves the start location each morning ('HH:MM', 24h). Global,
-// not per-installer: the ETA model anchors the first stop to this clock plus the
-// real drive out to it. Change it with a commit — GitHub Pages ships it. The
-// desktop planner still clamps it into its [08:00, 08:30] muster window.
+// When the crew leaves the start location each morning ('HH:MM', 24h). It no longer
+// schedules anything: the phone and the desktop planner both start their ETAs from
+// each installer's usual first-stop ARRIVAL (ROUTE_USUAL_START below and
+// usualStartClock in js/route-constraints.js). Kept because optimizeRoute's
+// `departMin` still names it, which the solver does not schedule on; the desktop
+// planner clamps it into its [08:00, 08:30] muster window there.
 export const ROUTE_DEPART_TIME = '08:15';
 
 // When the working day is over ('HH:MM', 24h). Used for exactly ONE decision: is

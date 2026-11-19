@@ -30,6 +30,9 @@ import { weekdayOnOrAfter } from '../route-planday.js';
 import { installCount, remainingDay1, strictDay1Ids, taggedDay1Ids } from '../route-today.js';
 import { unionBbox, isSparseUnion, unionWaste, normalizeBbox, clampBbox, wasClamped } from '../districts.js';
 import { ROUTE_DEPART_TIME } from '../config.js';
+// Namespace import for the same reason as routeConstraints above: ROUTE_USUAL_START is
+// newer than ROUTE_DEPART_TIME, and every read of it carries the literal as a fallback.
+import * as conf from '../config.js';
 import {
   VARIANTS, VARIANT_FIELDS, VARIANT_LABELS, applyVariant, dayHomeMeters, fmtKm, isIgnored, isPending,
   liveDayMeters, pendingOf, routeTotalSummary, variantMatchesLive, variantSelectable, variantSummary,
@@ -81,12 +84,18 @@ let avgLogMin = null, avgPerDay = null;
 // installer has enough history, which the dwell lookup reads as "use the pace
 // guess" — the planner then behaves exactly as it did before.
 let onSiteMin = null, extraMeterMin = null;
+// The same read's usual first LOG of the day, in minutes after midnight, for
+// usualStart(). Null until the read answers, when it fails, when the spine is too old
+// to send it, or when this installer has too few days: all of which plan on 09:30.
+let usualFirstLogMin = null;
 // Crew-wide per-site dwell history, fetched once per page load.
 let siteFactorMap = {};
 
 // Day time window (minutes-of-day). The crew leaves the muster point at 08:00 (no
 // later than 08:30) and aims to finish the daily target by 14:00 — two hours before
 // the 16:00 shift end — so a slow/heavy day can still knock off by ~16:00.
+// Only optimizeRoute's `departMin` reads this window now: the ETAs start from the
+// installer's usual first-stop arrival (usualStart below), not from a departure.
 const DEPART_MIN = 8 * 60;              // 08:00 earliest departure
 const DEPART_LATEST_MIN = 8 * 60 + 30; // 08:30 hard latest
 // 'HH:MM' → minutes-of-day, clamped to the [08:00, 08:30] leave window; DEPART_MIN
@@ -105,6 +114,16 @@ function pullVal(v){
   return isFinite(n) ? Math.max(0, Math.min(100, n)) : 70;
 }
 
+// The pace box, read live. Its own function so dwellShape can read it without going
+// through planShape, which reaches dwellShape (via usualStart) and would recurse.
+function paceVal(){
+  return Math.max(1, Math.round(Number($('plPace').value) || 30));
+}
+
+// `firstStopTime` is the time the crew ARRIVES at a day's first stop
+// (`firstStopArrival`), so the scheduler adds no drive out to it: the same clock the
+// phone's planShape uses, so a list planned here shows the same ETAs on the phone.
+// It used to be the 08:15 departure plus the drive, an hour or more early.
 function planShape(){
   return {
     // Only a DEFAULT for the empty picker — the office's #plRouteDate is the real
@@ -113,8 +132,9 @@ function planShape(){
     // read like "tomorrow" while only skipping weekends, which is exactly how the
     // phone's routes ended up permanently dated today — see js/route-planday.js.)
     routeStartDate:$('plRouteDate').value || weekdayOnOrAfter(localDate()),
-    firstStopTime:ROUTE_DEPART_TIME,
-    paceMin:Math.max(1, Math.round(Number($('plPace').value) || 30)),
+    firstStopTime:usualStart(),
+    firstStopArrival:true,
+    paceMin:paceVal(),
     paceSource:store.get('plannerPaceSource:' + hNumber()) || 'fallback',
     routeVariant:activeVariant(),
     straightDistanceSource:store.get('plannerStraightSource:' + hNumber()) || '',
@@ -122,6 +142,18 @@ function planShape(){
     target:targetVal(),
     dayLockDate:plLockDate()
   };
+}
+
+// When the picked installer usually reaches the first stop: their measured usual
+// first LOG (installerMetrics, kept by showAvgDay) less one on-site time, since a log
+// lands after the work. Blank or implausible falls back to ROUTE_USUAL_START. The
+// on-site time is this run's dwell base, the phone's rule, so both agree. Both new
+// names are reached through their namespaces with a fallback.
+// Never called from inside dwellShape: planShape calls this, and this calls dwellShape.
+function usualStart(){
+  const fallback = conf.ROUTE_USUAL_START || '09:30';
+  if(typeof routeConstraints.usualStartClock !== 'function') return fallback;
+  return routeConstraints.usualStartClock(usualFirstLogMin, dwellShape().base, fallback);
 }
 
 // ── the work-list lock, office side ────────────────────────────────────────
@@ -717,26 +749,30 @@ async function loadSiteFactors(){
   } catch {}
 }
 // The run's on-site model. Same assembly as the phone's dwellShape(), so a route
-// built here and a route built on the phone price a stop identically.
+// built here and a route built on the phone price a stop identically. The pace comes
+// from paceVal, never planShape(): planShape reaches this through usualStart.
 function dwellShape(){
-  return dwellLookup({ paceMin: planShape().paceMin, onSiteMin, extraMeterMin,
+  return dwellLookup({ paceMin: paceVal(), onSiteMin, extraMeterMin,
                        siteFactors: siteFactorMap });
 }
 
 // The picked installer's cadence: fills the avg/day hint beside the target field.
 async function showAvgDay(){
   const el = $('plAvgDay');
-  avgLogMin = null; avgPerDay = null; onSiteMin = null; extraMeterMin = null;
+  avgLogMin = null; avgPerDay = null; onSiteMin = null; extraMeterMin = null; usualFirstLogMin = null;
   if(el) el.textContent = '';
   const h = hNumber();
   if(!h) return;
   loadSiteFactors();
   try{
     const r = await apiGet('installerMetrics', { hNumber: h, workType:'land' });
+    if(hNumber() !== h) return;   // the office picked someone else meanwhile: not theirs
     const m = (r && r.ok && r.metrics && r.metrics[0]) || null;
     if(m){
       onSiteMin = numOrNull(m.onSiteMin);
       extraMeterMin = numOrNull(m.extraMeterMin);
+      // An older spine omits it; numOrNull makes that null, which plans on 09:30.
+      usualFirstLogMin = numOrNull(m.usualFirstLogMin);
       avgPerDay = (m.avgPerDay === '' || m.avgPerDay == null) ? null : Number(m.avgPerDay);
       avgLogMin = (m.recent30AvgLogMin === '' || m.recent30AvgLogMin == null)
         ? ((m.avgLogMin === '' || m.avgLogMin == null) ? null : Number(m.avgLogMin))
@@ -999,7 +1035,10 @@ async function optimize(pending, health){
         // A stop locked to Day 1 slot 1 is where the route starts: Day 1 grows from it.
         leadId: typeof routeConstraints.routeLeadId === 'function'
           ? routeConstraints.routeLeadId(pending, planShape().routeStartDate) : null,
-        departMin:departMinutes(planShape().firstStopTime), paceMin:planShape().paceMin,
+        // The muster departure, not planShape().firstStopTime: that is now an ARRIVAL
+        // clock, and the 08:00-08:30 clamp would turn it into a departure. The solver
+        // does not schedule on departMin (scheduleRouteConstraints below does that).
+        departMin:departMinutes(ROUTE_DEPART_TIME), paceMin:planShape().paceMin,
         commutePull:planShape().commutePull,
         // Day 1's size while locked — the scheduler below takes the same number.
         day1Count });
@@ -1203,9 +1242,12 @@ async function upload(){
   const who = roster.employees.find(e => String(e.hNumber) === h);
   if(items.length && !confirm(`Upload ${items.length} orders as ${who ? fullName(who) : h}'s list? This replaces their saved copy on the sheet — they get it with ⇩ Download.`)) return;
   setStatus('wait','Uploading…');
+  // `firstStopArrival` describes how the scheduler reads `firstStopTime`, not a
+  // WorklistPlans column, so it stays on this machine (the phone's savePlanLocal rule).
+  const { firstStopArrival, ...plan } = planShape();
   try{
     const r = await apiPost({ action:'saveWorklist', hNumber: h,
-      installer: who ? fullName(who) : '', orders: items.map(wireShape), plan:planShape() });
+      installer: who ? fullName(who) : '', orders: items.map(wireShape), plan });
     if(!r.ok) throw new Error(r.error || 'upload failed');
     setStatus('ok','Synced');
     toast('Uploaded ✓ — ready for the phone’s ⇩ Download');

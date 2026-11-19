@@ -1320,8 +1320,15 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   and geocoded on the phone). `optimizeRoute` takes the start as `opts.start` and the
   home as `home`. The team start is **where every day begins**: Day 1 is the stops
   that finish soonest from it, and each later day is planned from it too (see
-  §"Multi-day split" above). It also times, prices (`homeLegMetersFor`, still kept
-  out of the between-stop total), and draws the drive OUT to each day's first stop.
+  §"Multi-day split" above). It also prices (`homeLegMetersFor`, still kept out of
+  the between-stop total) and draws the drive OUT to each day's first stop. It no
+  longer times it: **one clock, on both pages** — each day's first stop is timed at
+  the installer's usual first-stop ARRIVAL (`usualStart()` with `firstStopArrival`:
+  their measured usual first log less one on-site time, 09:30 without one), so the
+  muster departure (`ROUTE_DEPART_TIME`, 08:15) schedules nothing, and an
+  office-planned list shows the same ETAs on the phone. Only a phone Day 1 running
+  from where the crew stands adds a drive out (see "Day 1 departs on the clock the
+  crew is actually on" below).
   `measure.startIsCommute` marks it a commute (every day's drive-out is from it) —
   distinct from the one-run GPS start, whose first leg is a charged driven leg and
   which anchors Day 1 only; with a team start on file a GPS run keeps the meet as
@@ -1485,9 +1492,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   two callers disagreeing about the active pack would throw the decode away every
   tick. The ETA path measures without adopting.
 - **Day 1 departs on the clock the crew is actually on** (`opts.day1FirstStopTime`).
-  The day's start clock — on the phone the installer's usual first-stop ARRIVAL
-  (`usualStart()`, `firstStopArrival`, 09:30 by default); on the desktop planner still
-  `ROUTE_DEPART_TIME` (08:15) as a departure — is where the *day* starts, not where
+  The day's start clock — on the phone and the desktop planner alike the installer's
+  usual first-stop ARRIVAL (`usualStart()`, `firstStopArrival`, 09:30 by default;
+  the planner has no Day 1 override) — is where the *day* starts, not where
   every re-solve of it starts — `scheduleRouteConstraints` applied one
   `firstStopTime` to every day, so a route re-optimized at 11:40 arrived everywhere at breakfast and `placeAppointments`
   searched an afternoon against a morning clock. `firstMinFor(day)` overrides day 0

@@ -18,8 +18,8 @@ test('the phone worklist no longer renders the route-start / first-stop inputs',
 });
 
 // The phone moved off the 08:15 departure onto each installer's usual first-stop
-// ARRIVAL (tests/worklist-usual-start.test.mjs pins the details). The desktop
-// planner below stays on the constant until it is moved separately.
+// ARRIVAL (tests/worklist-usual-start.test.mjs pins the details), and the desktop
+// planner followed (tests/planner-usual-start.test.mjs).
 test('the phone plan anchors first-stop time to the usual start, as an arrival', () => {
   assert.match(worklistJs, /firstStopTime:\s*usualStart\(\),\s*\n\s*firstStopArrival:\s*true/);
   assert.doesNotMatch(worklistJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
@@ -47,7 +47,7 @@ test('the day-1 clock follows the crew, and only when it is the crew standing th
 
 // The office plans ahead — its route starts on the date its own picker names, so a
 // desk clock must never leak into it.
-test('the desktop planner keeps the constant and gains no day-1 clock', () => {
+test('the desktop planner gains no day-1 clock', () => {
   assert.doesNotMatch(plannerJs, /day1FirstStopTime/);
 });
 
@@ -68,11 +68,11 @@ test('no finish-by clock reaches the router from either caller', () => {
   assert.match(worklistJs, /import\s*\{[^}]*\bROUTE_DAY_END\b[^}]*\}\s*from\s*'\.\/config\.js'/);
 });
 
-test('the planner drops its first-stop input and uses the departure constant', () => {
+test('the planner drops its first-stop input and uses the usual start, as an arrival', () => {
   assert.doesNotMatch(plannerHtml, /id="plRouteTime"/);
   assert.match(plannerHtml, /id="plRouteDate"/); // the office still picks a start date
-  assert.match(plannerJs, /import\s*\{[^}]*\bROUTE_DEPART_TIME\b[^}]*\}\s*from\s*'\.\.\/config\.js'/);
-  assert.match(plannerJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
+  assert.match(plannerJs, /firstStopTime:\s*usualStart\(\),\s*\n\s*firstStopArrival:\s*true/);
+  assert.doesNotMatch(plannerJs, /firstStopTime:\s*ROUTE_DEPART_TIME/);
   assert.doesNotMatch(plannerJs, /\$\('plRouteTime'\)/);
 });
 
