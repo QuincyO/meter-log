@@ -8,7 +8,8 @@
 // The method, in the order the code runs it:
 //   1. Logs are grouped by Toronto calendar day and sorted by time.
 //   2. A gap is the time from one log to the next on the same day, with the
-//      straight-line distance between the two pins. Seven kinds by distance.
+//      distance between the two pins: by road when the page hands over a road map
+//      that reaches both, else a straight line. Seven kinds by distance.
 //   3. The usual time for a kind is the median gap of that kind over EVERY day in
 //      the work mode, whatever range the page is showing. A short range or a
 //      single day then still has a stable "usual".
@@ -94,7 +95,7 @@ const emptyLog = () => ({ before: 0, between: 0, after: 0, untimed: 0, total: 0,
 
 /** raw = the `audit` read ({ stops, downtime, days }); mode = 'land' | 'boat' | 'all'.
  *  Returns every day in the mode, oldest first, with its gaps, pauses and delays. */
-export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
+export function prepareAudit(raw, { installer = '', mode = 'land', road = null } = {}){
   const src = raw || {};
   const inMode = date => (mode !== 'land' && mode !== 'boat') || modeOf(date, installer) === mode;
 
@@ -153,12 +154,24 @@ export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
   // 3. Gaps, then the usual time for each kind over every day in the mode.
   const allGaps = [];
   const dayGaps = new Map();
+  // How the gaps were measured: counts of pinned gaps by road and by straight line,
+  // and the road map's name. The page words its captions and its method from this.
+  const distance = { road: 0, straight: 0, map: road && road.name ? String(road.name) : '' };
   for(const [date, logs] of byDay){
     const gaps = [];
     for(let i = 0; i + 1 < logs.length; i++){
       const a = logs[i], b = logs[i + 1];
-      const dist = a.pin && b.pin ? km(a, b) : null;
-      gaps.push({ i, atMin: a.min, min: b.min - a.min, km: dist, kind: kindOf(dist),
+      // Distance: by road when the page was handed a road map and the map can reach
+      // both ends, else the straight line. `road.km` is the device's own offline road
+      // map (js/audit-roads.js), so it can be missing, partial or corrupt: anything
+      // but a finite, non-negative number falls back, and a throw costs that gap only.
+      const straight = a.pin && b.pin ? km(a, b) : null;
+      let driven = null;
+      if(straight != null && road){ try { driven = road.km(a, b); } catch { driven = null; } }
+      const byRoad = typeof driven === 'number' && isFinite(driven) && driven >= 0;
+      const dist = byRoad ? driven : straight;
+      if(dist != null) distance[byRoad ? 'road' : 'straight']++;
+      gaps.push({ i, atMin: a.min, min: b.min - a.min, km: dist, kmStraight: straight, byRoad, kind: kindOf(dist),
         loggedMin: inGap.get(date + '|' + Math.floor(a.min) + '|' + Math.floor(b.min)) || 0 });
     }
     dayGaps.set(date, gaps);
@@ -237,7 +250,7 @@ export function prepareAudit(raw, { installer = '', mode = 'land' } = {}){
   }
   days.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
-  return { installer, mode, days, usual, usualAny, kindCounts, gapsCount: allGaps.length,
+  return { installer, mode, days, usual, usualAny, kindCounts, distance, gapsCount: allGaps.length,
     orders, status, unpinned, skippedOtherMode };
 }
 
@@ -441,6 +454,7 @@ export function dayDetail(prep, date){
   return {
     day: prep.days[i],
     pace: dayPace(prep, prep.days[i]),
+    distance: prep.distance,
     prevDate: i > 0 ? prep.days[i - 1].date : null,
     nextDate: i + 1 < prep.days.length ? prep.days[i + 1].date : null,
     baselines: {

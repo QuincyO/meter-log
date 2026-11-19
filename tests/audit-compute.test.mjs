@@ -633,3 +633,51 @@ test('the pace counts a carried delay once', () => {
   const pace = dayDetail(p, D).pace;
   assert.deepEqual([pace.tookMin, pace.loggedMin, pace.ownMin], [102, 45, 57]);   // 4 from its own gap, 41 from the one after
 });
+
+// ── distance by road ─────────────────────────────────────────────────────────
+// The page hands prepareAudit a `road` when the device holds an offline road map:
+// km(a, b) is the shortest drive between two logs, or null where the map cannot reach.
+
+test('with a road map a gap is measured and sorted by road, and by straight line where the map cannot reach', () => {
+  const stops = stopsOn(D, ['10:00', '10:10', '10:20', '10:30'], { km: 0.3 });
+  const answers = [0.35, 1.5, null], asked = [];
+  const road = { name: 'Test District', km: (a, b) => { asked.push([a.id, b.id]); return answers[asked.length - 1]; } };
+  const p = prepareAudit({ stops, downtime: [], days: [] }, { installer: WHO, mode: 'land', road });
+  const gaps = p.days[0].gaps;
+  assert.deepEqual(asked, [[`${D}-0`, `${D}-1`], [`${D}-1`, `${D}-2`], [`${D}-2`, `${D}-3`]]);
+  assert.deepEqual(gaps.map(g => g.byRoad), [true, true, false]);
+  assert.deepEqual(gaps.map(g => Math.round(g.km * 100) / 100), [0.35, 1.5, 0.3]);
+  assert.deepEqual(gaps.map(g => Math.round(g.kmStraight * 100) / 100), [0.3, 0.3, 0.3]);
+  assert.deepEqual(gaps.map(g => g.kind), [1, 3, 1], 'the 1.5 km drive is a "1 to 2 km" gap, not a "60 m to 0.5 km" one');
+  assert.deepEqual(p.distance, { road: 2, straight: 1, map: 'Test District' });
+});
+
+test('without a road map every gap is a straight line, and a bad answer from one is ignored', () => {
+  const stops = stopsOn(D, ['10:00', '10:10', '10:20', '10:30'], { km: 0.3 });
+  const plain = prepareAudit({ stops, downtime: [], days: [] }, { installer: WHO, mode: 'land' });
+  assert.deepEqual(plain.days[0].gaps.map(g => g.byRoad), [false, false, false]);
+  assert.deepEqual(plain.distance, { road: 0, straight: 3, map: '' });
+  const answers = [NaN, -1, Infinity];
+  const bad = prepareAudit({ stops, downtime: [], days: [] },
+    { installer: WHO, mode: 'land', road: { name: 'X', km: () => answers.shift() } });
+  assert.deepEqual(bad.days[0].gaps.map(g => g.byRoad), [false, false, false]);
+  const thrown = prepareAudit({ stops, downtime: [], days: [] },
+    { installer: WHO, mode: 'land', road: { name: 'X', km: () => { throw new Error('corrupt pack'); } } });
+  assert.deepEqual(thrown.distance, { road: 0, straight: 3, map: 'X' });
+});
+
+test('a gap beside a log with no pin is never asked of the road map', () => {
+  const stops = stopsOn(D, ['10:00', '10:10', '10:20']);
+  stops[1].lat = ''; stops[1].lng = '';
+  let asked = 0;
+  const p = prepareAudit({ stops, downtime: [], days: [] }, { installer: WHO, mode: 'land', road: { name: 'X', km: () => { asked++; return 1; } } });
+  assert.equal(asked, 0);
+  assert.deepEqual(p.days[0].gaps.map(g => [g.km, g.byRoad, g.kind]), [[null, false, -1], [null, false, -1]]);
+  assert.deepEqual(p.distance, { road: 0, straight: 0, map: 'X' });
+});
+
+test('the pace card\'s distance follows the gaps', () => {
+  const stops = stopsOn(D, ['10:00', '10:10', '10:20'], { km: 0.3 });
+  const p = prepareAudit({ stops, downtime: [], days: [] }, { installer: WHO, mode: 'land', road: { name: 'X', km: () => 2 } });
+  assert.equal(dayDetail(p, D).pace.km, 4);
+});

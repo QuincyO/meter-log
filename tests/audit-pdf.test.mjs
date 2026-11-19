@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { prepareAudit, periodStats, dayDetail } from '../js/compute/audit.js';
-import { auditPdfName, pdfText, periodPdfModel, dayPdfModel, drawAuditPdf, buildAuditPdf, auditPdfShare } from '../js/audit-pdf.js';
+import { auditPdfName, pdfText, periodPdfModel, dayPdfModel, drawAuditPdf, buildAuditPdf, auditPdfShare, mapFrame } from '../js/audit-pdf.js';
 import { encodeTrack } from '../js/drive-track.js';
 
 const { jsPDF } = createRequire(import.meta.url)('../js/vendor/jspdf.umd.min.js');
@@ -109,7 +109,7 @@ test('the day PDF has the day\'s sections, the route and the method, and nothing
   assert.doesNotMatch(text, /Pick a block|NaN|undefined|Show drive log|No drive log|Top \d+ km/i);
 });
 
-test('the route is drawn as one numbered pin per pinned order, on a plain background', () => {
+test('the route is drawn as one numbered pin per pinned order', () => {
   const draw = (stops, drive) => { const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const seen = { circle: 0, line: 0, image: 0 };
     for(const k of ['circle', 'line']){ const real = doc[k].bind(doc); doc[k] = (...a) => { seen[k]++; return real(...a); }; }
@@ -118,7 +118,7 @@ test('the route is drawn as one numbered pin per pinned order, on a plain backgr
     return { seen, text: all(doc) }; };
   const pinned = draw([...HISTORY(8), ...LONG_DAY]);
   assert.equal(pinned.seen.circle, 9);
-  assert.equal(pinned.seen.image, 0, 'no street tiles are embedded');
+  assert.equal(pinned.seen.image, 0, 'no street map unless one was fetched for it');
   const stops = LONG_DAY.map((s, i) => (i === 1 || i === 4 ? { ...s, lat: null, lng: null } : s));
   const some = draw([...HISTORY(8), ...stops]);
   assert.equal(some.seen.circle, 7);
@@ -180,4 +180,55 @@ test('the file handed over is the PDF the download makes, named and typed, and n
   await auditPdfShare.send(file);
   assert.deepEqual(Object.keys(shared[0]), ['files'], 'the file alone: a title or text beside it makes some apps drop the file');
   assert.equal(shared[0].files[0], file);
+});
+
+// ── the route map: along the roads, and over the street map ──────────────────
+
+test('the map frame keeps every point inside the box, north up, and centres a lone pin', () => {
+  const f = mapFrame([[44.0, -79.0], [44.1, -78.9], [44.05, -79.2]], 528, 236);
+  for(const p of [[44.0, -79.0], [44.1, -78.9], [44.05, -79.2]]){
+    const [x, y] = f.at(p);
+    assert.ok(x >= 17.9 && x <= 510.1 && y >= 17.9 && y <= 218.1, `${p} is at ${x}, ${y}`);
+  }
+  assert.ok(f.at([44.1, -79.0])[1] < f.at([44.0, -79.0])[1], 'north is up');
+  assert.ok(f.at([44.0, -78.9])[0] > f.at([44.0, -79.0])[0], 'east is right');
+  const one = mapFrame([[44.0, -79.0]], 528, 236);
+  assert.deepEqual(one.at([44.0, -79.0]).map(Math.round), [264, 118]);
+  assert.ok(isFinite(one.scale) && one.scale > 0);
+});
+
+test('the route is drawn along the roads it was handed, and over the street map when one was fetched', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const draw = change => { const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const seen = { line: 0, image: [] };
+    const realLine = doc.line.bind(doc); doc.line = (...a) => { seen.line++; return realLine(...a); };
+    doc.addImage = (...a) => { seen.image.push(a); };
+    const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+    change(model.sections.find(s => s.title === 'Route worked').blocks.find(b => b.t === 'map'));
+    drawAuditPdf(doc, model);
+    return { seen, text: all(doc) }; };
+  const straight = draw(() => {});
+  assert.deepEqual(straight.seen.image, []);
+  assert.doesNotMatch(straight.text, /OpenStreetMap/);
+  // three points a gap instead of two: twice the line pieces
+  const pins = LONG_DAY.map(s => [s.lat, s.lng]);
+  const roads = draw(map => { map.lines = pins.slice(1).map((p, i) => [pins[i], [pins[i][0] + 0.0002, pins[i][1] + 0.0002], p]); });
+  assert.equal(roads.seen.line - straight.seen.line, 8);
+  // the street map, at the size of the box, with its credit
+  const mapped = draw(map => { map.image = { data: PNG, w: 528, h: 236 }; });
+  assert.equal(mapped.seen.image.length, 1);
+  assert.deepEqual(mapped.seen.image[0].slice(1, 3).concat(mapped.seen.image[0].slice(4)), ['PNG', 42, 528, 236]);
+  assert.match(mapped.text, /© OpenStreetMap contributors/);
+  // a picture made for another width is not stretched over the map
+  assert.deepEqual(draw(map => { map.image = { data: PNG, w: 300, h: 236 }; }).seen.image, []);
+});
+
+test('a street map that cannot be embedded costs the background, not the PDF', () => {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  doc.addImage = () => { throw new Error('bad image'); };
+  const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+  model.sections.find(s => s.title === 'Route worked').blocks.find(b => b.t === 'map').image = { data: 'data:image/jpeg;base64,AAAA', w: 528, h: 236 };
+  drawAuditPdf(doc, model);
+  assert.match(all(doc), /EVERY LOG, IN ORDER/);
+  assert.doesNotMatch(all(doc), /OpenStreetMap/);
 });

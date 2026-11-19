@@ -2078,10 +2078,7 @@ turn that list into something to look at: `sectionsHtml()` for the page and
 `js/audit-pdf.js` for the PDF. The page and the PDF therefore cannot differ in wording or
 figures; they differ only in how a block is drawn.
 
-The PDF differs from the page on purpose in three places. The route map has no street
-background: the page's tiles are images from another site, so the PDF draws the numbered
-pins and the route line from the coordinates on a plain box (the owner chose this on
-2026-11-19). The day's drive log is drawn only when "Show drive log" is on, though its
+The PDF differs from the page on purpose in two places. The day's drive log is drawn only when "Show drive log" is on, though its
 numbers line is always given when the day has legs. And anything that only makes sense on
 a screen (the hint to pick a block, the slot a gap's detail opens in) is left out. Method
 and limits is always included.
@@ -2099,6 +2096,25 @@ that, so the built file is kept for the view it was built from. A refusal asks f
 tap, which shares the kept file at once; a second refusal saves the file as a download.
 Closing the share sheet is not an error, and success shows no message because the browser
 cannot know whether anything was sent.
+
+### Distance by road, and the map
+
+A gap's distance decides its kind, and so its usual time. It is a straight line between
+the two pins unless the device holds an offline road map, in which case it is the shortest
+drive on that map. `js/audit-roads.js` reads the district already in the browser's
+IndexedDB and gives the view `{ name, km(a, b), path(a, b) }`; `prepareAudit` takes it as
+`road` and records how the gaps were measured in `prep.distance`. A gap the map cannot
+reach is a straight line. The pack is never fetched from the audit pages.
+
+Because the pack lives in one browser, the same day can be measured by road on a phone and
+by straight line on an office PC. The audit states which it used in its notes, its method,
+its distance figures and its map caption, all from `prep.distance`.
+
+The route line follows `path()` gap by gap, on the page (Leaflet) and in the PDF. The PDF's
+map box also carries the street map: before drawing, `addMapImages()` fetches the
+OpenStreetMap tiles the box covers into one canvas and attaches the picture to the map
+block. The box is framed in Web Mercator (`mapFrame`) by both the fetch and the drawer so
+they agree. Without signal the box is plain, as it was.
 
 ### A delay counted after its order
 

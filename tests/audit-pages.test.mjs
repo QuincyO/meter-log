@@ -7,14 +7,14 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { prepareAudit, periodStats, dayDetail } from '../js/compute/audit.js';
 import { periodHtml, notesHtml, methodHtml, dayTopHtml, dayLogsHtml, gapDetailHtml, dayNotesHtml,
-  driveLineHtml } from '../js/audit-render.js';
+  driveLineHtml, routeCaption, ROUTE_CAPTION } from '../js/audit-render.js';
 import { driveRuns, offMapHtml } from '../js/audit-map.js';
 import { encodeTrack } from '../js/drive-track.js';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const exists = p => existsSync(new URL('../' + p, import.meta.url));
 const AUDIT_FILES = ['audits.html', 'my-audit.html', 'css/audits.css', 'js/audit-view.js',
-  'js/audit-render.js', 'js/audit-charts.js', 'js/audit-map.js', 'js/audit-pdf.js', 'js/pages/audits.js',
+  'js/audit-render.js', 'js/audit-charts.js', 'js/audit-map.js', 'js/audit-pdf.js', 'js/audit-roads.js', 'js/pages/audits.js',
   'js/pages/my-audit.js', 'js/compute/audit.js'].filter(exists);
 
 const pad = n => String(n).padStart(2, '0');
@@ -403,7 +403,7 @@ test('both pages offer Download PDF, and the PDF module asks the spine for nothi
     assert.doesNotMatch(html, /jspdf/i, page + ': the PDF library is loaded on demand, not by the page');
   }
   const pdf = read('js/audit-pdf.js');
-  assert.doesNotMatch(pdf, /apiGet\(|apiPost\(|from '\.\/api\.js'|admin-auth|driveTracks|addImage/);
+  assert.doesNotMatch(pdf, /apiGet\(|apiPost\(|from '\.\/api\.js'|admin-auth|driveTracks/);
   assert.match(pdf, /js\/vendor\/jspdf\.umd\.min\.js/);
   assert.doesNotMatch(read('js/audit-view.js'), /window\.print\(\)\s*;?\s*\n\s*if\(el\.print\)/);
 });
@@ -438,4 +438,40 @@ test('a delay counted in the gap after its order says so, in the delays, the log
   assert.match(gapDetailHtml(d.day, 2), /Not logged<\/td><td class="n">13 min/);
   assert.doesNotMatch(gapDetailHtml(d.day, 0), /counted in the gap after|counted here/);
   assert.match(methodHtml(), /What that gap did not run over is taken off the gap after the same order/);
+});
+
+// ── distance by road: the words follow the method in use ─────────────────────
+
+const ROAD = { name: 'Test District', km: (a, b) => (a.id.endsWith('-0') ? null : 1.2) };   // each day's first gap is off the map
+const roadPrep = () => prepareAudit({ stops: [...FULL, ...stopsOn(DAY, every('10:00', 5))], downtime: [], days: [] },
+  { installer: WHO, mode: 'land', road: ROAD });
+
+test('with a road map the page says distances are by road, names the map and counts what it could not reach', () => {
+  const prep = roadPrep(), stats = periodStats(prep, { from: '', to: '' });
+  assert.deepEqual(prep.distance, { road: 45, straight: 7, map: 'Test District' });
+  const note = notesHtml({ prep, stats, name: WHO });
+  assert.match(note, /Distances between orders are by road, from the offline road map on this device \(Test District\)\. 7 of 52 gaps are off that map and are straight lines\./);
+  const period = periodHtml(stats, prep);
+  assert.match(period, /with the distance between the two pins by road: the shortest drive on the offline road map on this device \(Test District\)/);
+  assert.match(period, /A device without that road map measures every gap in a straight line, so its figures differ\./);
+  assert.doesNotMatch(period, /with the straight line distance between the two pins/);
+  const d = dayDetail(prep, DAY);
+  assert.match(dayNotesHtml(d.day, prep.mode, prep.distance), /Distances between orders are by road/);
+  assert.ok(dayTopHtml(d).includes('<td>Distance between orders, by road, km (median)</td>'));
+  assert.match(gapDetailHtml(d.day, 0), /Straight-line distance \(off the road map\)<\/td>/);
+  assert.match(gapDetailHtml(d.day, 1), /Distance by road<\/td><td class="n">1\.2 km/);
+  assert.equal(routeCaption(true), 'Pins are numbered in the order the orders were logged. The line between them follows the roads on the '
+    + 'offline road map: the shortest drive, which is not always the one taken. A straight piece is a gap the road map could not reach.');
+  assert.equal(routeCaption(false), ROUTE_CAPTION);
+});
+
+test('without a road map nothing about the wording changes, and a map that reaches nothing says so', () => {
+  const plain = build([...FULL, ...SHORT]);
+  assert.doesNotMatch(notesHtml({ ...plain, name: WHO }), /road/);
+  assert.match(periodHtml(plain.stats, plain.prep), /with the straight line distance between the two pins/);
+  assert.match(periodHtml(plain.stats, plain.prep), /With an offline road map on the device \(Settings on the log page\) they are measured by road instead\./);
+  const none = prepareAudit({ stops: FULL, downtime: [], days: [] }, { installer: WHO, mode: 'land', road: { name: 'Far Away', km: () => null } });
+  assert.match(notesHtml({ prep: none, stats: periodStats(none, { from: '', to: '' }), name: WHO }),
+    /The offline road map on this device \(Far Away\) reaches none of these orders: distances are straight lines\./);
+  assert.match(methodHtml(), /with the straight line distance between the two pins/);
 });

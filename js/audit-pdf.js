@@ -23,7 +23,7 @@
 //     top of each page it runs onto.
 import { driveStats } from './compute/audit.js';
 import { SEGMENTS, fmtClock, fmtMin, fmtDate, timelineBlocks, endLabel, histCaption } from './audit-charts.js';
-import { MODE_LABEL, NO_DRIVE_LOG, ROUTE_CAPTION, periodSections, daySections, methodSection, notesList, dayNotes,
+import { MODE_LABEL, NO_DRIVE_LOG, routeCaption, periodSections, daySections, methodSection, notesList, dayNotes,
   driveLineHtml } from './audit-render.js';
 import { driveRuns, offMapText } from './audit-map.js';
 
@@ -61,18 +61,18 @@ export function periodPdfModel({ name, prep, stats, today }){
  *  page it is { legs, show }: the day's drive-log legs and whether the overlay is
  *  switched on. The numbers line is printed whenever there are legs; the track is
  *  drawn only when it is showing on the page. */
-export function dayPdfModel({ name, prep, detail, drive, today }){
+export function dayPdfModel({ name, prep, detail, drive, today, lines = null }){
   const day = detail.day, parts = daySections(detail);
   const legs = drive && drive.show && drive.legs.length ? drive.legs : null;
   const off = offMapText(day);
   const route = { title: 'Route worked', blocks: [
     ...(drive ? [{ t: 'cap', text: drive.legs.length ? driveLineHtml(driveStats(drive.legs)) : NO_DRIVE_LOG }] : []),
-    { t: 'map', day, legs },
+    { t: 'map', day, legs, lines },
     ...(off ? [{ t: 'cap', text: off }] : []),
-    { t: 'cap', text: ROUTE_CAPTION + (legs ? ' The purple line is where the truck drove.' : '') }] };
+    { t: 'cap', text: routeCaption(!!lines) + (legs ? ' The purple line is where the truck drove.' : '') }] };
   return { title: `Audit: ${name}`,
     sub: [MODE_LABEL[prep.mode] || 'Work', fmtDate(day.date), `made ${fmtDate(today)}`].join(' · '),
-    notes: dayNotes(day, prep.mode), sections: [...parts.top, route, ...parts.bottom, methodSection()],
+    notes: dayNotes(day, prep.mode, prep.distance), sections: [...parts.top, route, ...parts.bottom, methodSection(prep.distance)],
     fileName: auditPdfName({ name, day: day.date }) };
 }
 
@@ -276,26 +276,55 @@ function list(c, f, block){
 }
 
 // The route: numbered pins joined in the order logged, on a plain box. No tiles.
-function routeMap(c, f, day, legs){
-  const pinned = day.logs.map((l, i) => ({ ...l, n: i + 1 })).filter(l => l.pin);
-  const runs = (legs || []).flatMap(leg => driveRuns(leg));
-  const pts = [...pinned.map(l => [l.lat, l.lng]), ...runs.flat()];
+// ── the route map ────────────────────────────────────────────────────────────
+// Pins, the route between them and (office) the drive log, in a box. Since
+// 2026-11-19 the box has the street map behind it when the tiles could be fetched
+// (the owner asked for it after seeing the plain one), and the route follows the
+// roads when the device has an offline road map. Both are extras: with no signal
+// and no road map this still draws pins joined by straight lines on a plain box.
+//
+// The frame is Web Mercator, the projection the street tiles are drawn in, so a
+// tile picture and the pins line up. It is one pure function used twice: by the
+// drawer below, and by addMapImages() to decide which tiles the box covers.
+const MAP_H = 236, MAP_PAD = 18, MAP_MAX_ZOOM = 17;
+const mercX = lng => (lng + 180) / 360;
+const mercY = lat => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
+/** points: [[lat, lng], …]. Returns { w, h, scale, midX, midY, at([lat, lng]) → [x, y] in the box }. */
+export function mapFrame(points, w, h, pad = MAP_PAD){
+  const xs = points.map(p => mercX(p[1])), ys = points.map(p => mercY(p[0]));
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const scale = Math.min((w - pad * 2) / Math.max(maxX - minX, 1e-12), (h - pad * 2) / Math.max(maxY - minY, 1e-12),
+    256 * 2 ** MAP_MAX_ZOOM);                  // a lone pin, or pins on one spot: street level, not infinity
+  const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
+  return { w, h, scale, midX, midY, at: ([lat, lng]) => [w / 2 + (mercX(lng) - midX) * scale, h / 2 + (mercY(lat) - midY) * scale] };
+}
+// Everything the map shows, as points: what the frame has to hold.
+function mapParts(b){
+  const pinned = b.day.logs.map((l, i) => ({ ...l, n: i + 1 })).filter(l => l.pin);
+  const runs = (b.legs || []).flatMap(leg => driveRuns(leg));
+  const lines = Array.isArray(b.lines) && b.lines.length ? b.lines : [pinned.map(l => [l.lat, l.lng])];
+  return { pinned, runs, lines, points: [...pinned.map(l => [l.lat, l.lng]), ...runs.flat(), ...(b.lines || []).flat()] };
+}
+function routeMap(c, f, b){
+  const { pinned, runs, lines, points } = mapParts(b);
   if(!pinned.length){ paragraph(c, f, 'No pins to draw: no order this day has a location.', { color: SOFT }); return; }
-  const h = 236, padIn = 18;
+  const h = MAP_H;
   c.need(h + 10);
-  const lats = pts.map(p => p[0]), lngs = pts.map(p => p[1]);
-  const latMid = (Math.min(...lats) + Math.max(...lats)) / 2, squeeze = Math.cos(latMid * Math.PI / 180) || 1;
-  const xOf = lng => lng * squeeze, minX = Math.min(...lngs.map(xOf)), maxX = Math.max(...lngs.map(xOf));
-  const minY = Math.min(...lats), maxY = Math.max(...lats);
-  const scale = Math.min((f.w - padIn * 2) / Math.max(maxX - minX, 1e-9), (h - padIn * 2) / Math.max(maxY - minY, 1e-9), 4e6);
-  const cx = f.x + f.w / 2, cy = c.y + h / 2, midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
-  const at = ([lat, lng]) => [cx + (xOf(lng) - midX) * scale, cy - (lat - midY) * scale];
+  const frame = mapFrame(points, f.w, h);
+  const at = p => { const [x, y] = frame.at(p); return [f.x + x, c.y + y]; };
+  // The street map, when one was fetched for exactly this box. A picture that will
+  // not embed costs the background and nothing else.
+  let mapped = false;
+  const img = b.image;
+  if(img && img.data && img.w === f.w && img.h === h){
+    try { c.doc.addImage(img.data, /^data:image\/png/i.test(img.data) ? 'PNG' : 'JPEG', f.x, c.y, f.w, h); mapped = true; } catch { mapped = false; }
+  }
   c.doc.setFillColor(...GROUND); c.doc.setDrawColor(...LINE); c.doc.setLineWidth(0.7);
-  c.doc.roundedRect(f.x, c.y, f.w, h, 5, 5, 'FD');
-  const path = (points, color, weight) => { c.doc.setDrawColor(...color); c.doc.setLineWidth(weight);
-    for(let i = 1; i < points.length; i++){ const [x1, y1] = at(points[i - 1]), [x2, y2] = at(points[i]); c.doc.line(x1, y1, x2, y2); } };
-  for(const run of runs) path(run, PURPLE, 1.5);
-  path(pinned.map(l => [l.lat, l.lng]), GREEN, 1.7);
+  if(mapped) c.doc.rect(f.x, c.y, f.w, h, 'S'); else c.doc.roundedRect(f.x, c.y, f.w, h, 5, 5, 'FD');
+  const path = (pts, color, weight) => { c.doc.setDrawColor(...color); c.doc.setLineWidth(weight);
+    for(let i = 1; i < pts.length; i++){ const [x1, y1] = at(pts[i - 1]), [x2, y2] = at(pts[i]); c.doc.line(x1, y1, x2, y2); } };
+  for(const run of runs) path(run, PURPLE, mapped ? 2 : 1.5);
+  for(const line of lines) path(line, GREEN, mapped ? 2.2 : 1.7);
   for(const l of pinned){
     const [x, y] = at([l.lat, l.lng]);
     c.doc.setFillColor(...(l.status === 'INSTALLED' ? GREEN : l.status === 'UTI' ? RED : SOFT));
@@ -303,7 +332,61 @@ function routeMap(c, f, day, legs){
     c.doc.circle(x, y, 6.4, 'FD');
     c.font(l.n > 99 ? 4.6 : 5.8, true, [255, 255, 255]); c.put(String(l.n), x, y + 2, { align: 'center' });
   }
+  if(mapped){                                  // the tiles' licence asks for this credit
+    const credit = '© OpenStreetMap contributors';
+    c.font(5.6, false, SOFT);
+    const tw = c.doc.getTextWidth(pdfText(credit));
+    c.doc.setFillColor(255, 255, 255); c.doc.rect(f.x + f.w - tw - 7, c.y + h - 10, tw + 6, 9, 'F');
+    c.put(credit, f.x + f.w - 4, c.y + h - 3.4, { align: 'right' });
+  }
   c.y += h + 8;
+}
+
+// In the browser, before the PDF is drawn: fetch the street tiles each map box
+// covers and hand the drawer one picture of them (block.image). OpenStreetMap's
+// tiles are the ones the page's own map shows, and they allow a canvas to read
+// them. Anything that goes wrong (no signal, a blocked tile, a browser that will
+// not export the canvas) leaves the block without a picture, and the drawer falls
+// back to the plain box. It never delays the PDF by more than a few seconds.
+const TILE = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+const TILE_WAIT_MS = 7000, MAP_PX_PER_PT = 2, MAX_TILES = 48;
+async function mapImage(frame){
+  if(typeof document === 'undefined' || typeof Image === 'undefined') return null;
+  const k = MAP_PX_PER_PT;
+  const z = Math.max(0, Math.min(18, Math.floor(Math.log2(frame.scale * k / 256))));
+  const world = 256 * 2 ** z, s = frame.scale * k / world;       // canvas px per tile px: 1 up to 2
+  const W = Math.round(frame.w * k), H = Math.round(frame.h * k);
+  const left = frame.midX * world - (W / 2) / s, top = frame.midY * world - (H / 2) / s;
+  const x0 = Math.floor(left / 256), x1 = Math.floor((left + W / s) / 256);
+  const y0 = Math.floor(top / 256), y1 = Math.floor((top + H / s) / 256);
+  if((x1 - x0 + 1) * (y1 - y0 + 1) > MAX_TILES) return null;
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return null;
+  ctx.fillStyle = '#f1f3f5'; ctx.fillRect(0, 0, W, H);
+  const n = 2 ** z, jobs = [];
+  let drawn = 0;
+  for(let x = x0; x <= x1; x++) for(let y = y0; y <= y1; y++){
+    if(y < 0 || y >= n) continue;
+    jobs.push(new Promise(done => {
+      const im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = () => { try { ctx.drawImage(im, (x * 256 - left) * s, (y * 256 - top) * s, 256 * s + 0.6, 256 * s + 0.6); drawn++; } catch { /* skip it */ } done(); };
+      im.onerror = () => done();
+      im.src = TILE(z, ((x % n) + n) % n, y);
+    }));
+  }
+  await Promise.race([Promise.all(jobs), new Promise(done => setTimeout(done, TILE_WAIT_MS))]);
+  if(!drawn) return null;
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(0, 0, W, H);     // a light wash, so the pins and the route read
+  try { return { data: canvas.toDataURL('image/jpeg', 0.85), w: frame.w, h: frame.h }; } catch { return null; }
+}
+async function addMapImages(model){
+  const w = PAGE.w - PAGE.m * 2;               // a section's width: the box the drawer will use
+  for(const section of model.sections || []) for(const b of section.blocks || []){
+    if(b.t !== 'map') continue;
+    const { pinned, points } = mapParts(b);
+    if(pinned.length) b.image = await mapImage(mapFrame(points, w, MAP_H));
+  }
 }
 
 function drawBlock(c, f, b){
@@ -323,7 +406,7 @@ function drawBlock(c, f, b){
     case 'empty': return paragraph(c, f, b.text, { color: SOFT });
     case 'h3': c.need(34); c.y += 4; return paragraph(c, f, b.text, { size: 9.4, bold: true, after: 2 });
     case 'list': return list(c, f, b);
-    case 'map': return routeMap(c, f, b.day, b.legs);
+    case 'map': return routeMap(c, f, b);
     case 'two': {
       // side by side: the chart on the left, its figures on the right
       c.need(210);
@@ -384,6 +467,7 @@ function ensureJsPDF(){
 }
 async function pdfBlob(model){
   await ensureJsPDF();
+  try { await addMapImages(model); } catch { /* no street map: the plain box */ }
   return buildAuditPdf(window.jspdf.jsPDF, model).output('blob');
 }
 function saveBlob(blob, fileName){

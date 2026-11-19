@@ -32,7 +32,7 @@ const DATA = {
 
 // One fake page. `answer(installer)` decides each audit read: an object to resolve
 // with, 'fail' to reject, or 'hold' to leave it pending until release() is called.
-async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null, savePdf, share } = {}){
+async function boot({ search = '', answer = who => DATA[who], fixedInstaller = null, loadDriveLegs = null, savePdf, share, loadRoads = async () => null } = {}){
   const els = Object.fromEntries(IDS.map(id => [id, mkEl(id)]));
   els.auMode.buttons = ['land', 'boat', 'all'].map(m => { const b = mkEl('mode'); b.dataset.mode = m; return b; });
   els.auDayView.classList.add('hide'); els.auDayControls.classList.add('hide');
@@ -57,7 +57,7 @@ async function boot({ search = '', answer = who => DATA[who], fixedInstaller = n
   };
   const { initAuditView } = await import('../js/audit-view.js');
   initAuditView({ installers: fixedInstaller ? null : Object.keys(DATA), fixedInstaller, loadDriveLegs, ...(savePdf ? { savePdf } : {}),
-    ...(share ? { share } : {}) });
+    ...(share ? { share } : {}), loadRoads });
   const settle = async () => { for(let i = 0; i < 6; i++) await new Promise(r => setTimeout(r, 0)); };
   await settle();
   return { els, requests, scrolls, listeners, prints, settle,
@@ -323,4 +323,41 @@ test('with nothing on screen there is nothing to send, and a PDF that cannot be 
   assert.deepEqual(share.log.sent, []);
   assert.equal(p.els.auSend.disabled, false);
   assert.equal(p.els.auSend.textContent, 'Send PDF');
+});
+
+// ── the offline road map ─────────────────────────────────────────────────────
+
+const fakeRoads = log => async stops => { log.push(stops.length);
+  return { name: 'Test District', km: () => 1.2, path: (a, b) => [[a.lat, a.lng], [a.lat + 0.0005, a.lng - 0.0005], [b.lat, b.lng]] }; };
+
+test('with a road map on the device the audit is measured by road and the day\'s line follows the roads', async () => {
+  const asked = [], saved = [];
+  const p = await boot({ search: DAY_URL, loadRoads: fakeRoads(asked), savePdf: async m => { saved.push(m); return m.fileName; } });
+  assert.deepEqual(asked, [18], 'asked once, with that installer\'s stops');
+  assert.match(p.text('auNote'), /Distances between orders are by road, from the offline road map on this device \(Test District\)\./);
+  assert.match(p.text('auMapNote'), /follows the roads on the offline road map/);
+  assert.match(p.els.auDayTop.innerHTML, /Distance between orders, by road, km/);
+  await p.els.auPrintDay.onclick(); await p.settle();
+  const route = routeOf(saved[0]), map = route.blocks.find(b => b.t === 'map');
+  assert.equal(map.lines.length, 8, 'one line per gap between the nine pinned orders');
+  assert.ok(map.lines.every(l => l.length === 5), 'each from its pin, along the road, to the next pin');
+  assert.match(route.blocks.at(-1).text, /follows the roads on the offline road map/);
+  // another mode, and back to the period: the road map is not read again
+  p.els.auBack.onclick(); await p.settle();
+  p.els.auMode.buttons[2].onclick && p.els.auMode.buttons[2].onclick(); await p.settle();
+  assert.deepEqual(asked, [18]);
+  await p.pick('Sam Other');
+  assert.deepEqual(asked, [18, 9], 'once per installer');
+});
+
+test('without a road map, or when reading it fails, the audit is straight lines and still loads', async () => {
+  const saved = [];
+  const plain = await boot({ search: DAY_URL, savePdf: async m => { saved.push(m); return m.fileName; } });
+  assert.doesNotMatch(plain.text('auNote'), /road/);
+  assert.match(plain.text('auMapNote'), /joined in that order with straight lines/);
+  await plain.els.auPrintDay.onclick(); await plain.settle();
+  assert.equal(routeOf(saved[0]).blocks.find(b => b.t === 'map').lines, null);
+  const broken = await boot({ search: DAY_URL, loadRoads: async () => { throw new Error('corrupt pack'); } });
+  assert.match(broken.els.auDayTop.innerHTML, /Timeline of the day/);
+  assert.match(broken.text('auMapNote'), /straight lines/);
 });

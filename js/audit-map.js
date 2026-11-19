@@ -64,7 +64,9 @@ export function createRouteMap(el){
     if(all.length === 1) map.setView(all[0], 15);
     else if(all.length) map.fitBounds(all, { padding: [28, 28], maxZoom: 16 });
   }
-  function show(day){
+  // `lines`: one polyline per gap, along the roads (js/audit-view.js routeLines), or
+  // null to join the pins with straight lines.
+  function show(day, lines = null){
     routeLayer.clearLayers(); driveLayer.clearLayers(); map.closePopup();
     bounds = [];
     const line = [];
@@ -78,7 +80,8 @@ export function createRouteMap(el){
         `<b>#${i + 1} · ${esc(log.clock)}</b><br>${esc(log.workOrderId || 'no order number')} · ${esc(STATUS[log.status] || log.status)}`
         + (log.address ? `<br>${esc(log.address)}` : '')).openOn(map));
     });
-    if(line.length > 1) L.polyline(line, { color: ROUTE, weight: 4, opacity: .78, interactive: false }).addTo(routeLayer);
+    for(const path of (lines && lines.length ? lines : [line]))
+      if(path.length > 1) L.polyline(path, { color: ROUTE, weight: 4, opacity: .78, interactive: false }).addTo(routeLayer);
     // The card was hidden while the period view was up: let it lay out first.
     setTimeout(() => fit(), 60);
   }

@@ -52,6 +52,21 @@ export const NO_DRIVE_LOG = 'No drive log was recorded this day.';
 /** Under the route map, on the page and in the PDF. */
 export const ROUTE_CAPTION = 'Pins are numbered in the order the orders were logged and joined in that order with '
   + 'straight lines. It is the order worked, not the roads driven.';
+/** The caption for the route actually drawn: along the road map's roads, or straight lines. */
+export function routeCaption(byRoad){
+  return byRoad ? 'Pins are numbered in the order the orders were logged. The line between them follows the roads on the '
+    + 'offline road map: the shortest drive, which is not always the one taken. A straight piece is a gap the road map could not reach.'
+    : ROUTE_CAPTION;
+}
+// How the gaps were measured (prep.distance), as a note. Nothing is said when the
+// device has no road map: straight lines are the ordinary case and the method says so.
+const usesRoads = d => !!(d && d.road > 0);
+function distanceNote(d){
+  if(!d || !d.map) return [];
+  if(!d.road) return [{ text: `The offline road map on this device (${d.map}) reaches none of these orders: distances are straight lines.` }];
+  return [{ text: `Distances between orders are by road, from the offline road map on this device (${d.map}).`
+    + (d.straight ? ` ${d.straight} of ${plural(d.road + d.straight, 'gap', 'gaps')} are off that map and are straight lines.` : '') }];
+}
 
 // ── the HTML writer ──────────────────────────────────────────────────────────
 function cellHtml(c){
@@ -117,13 +132,14 @@ export function notesList({ prep, stats, name }){
   }
   out.push({ text: `Statistics use the ${plural(stats.fullDays, 'day', 'days')} with `
     + `${AUDIT.MIN_ORDERS} or more orders, of ${plural(stats.days, 'day', 'days')}.` });
+  out.push(...distanceNote(prep.distance));
   return out;
 }
 const notesToHtml = list => list.map(n => `<p class="au-note${n.warn ? ' warn' : ''}">${esc(n.text)}</p>`).join('');
 export function notesHtml(model){ return notesToHtml(notesList(model)); }
 
 /** The lines above a day: late, never closed out, left out of the statistics. */
-export function dayNotes(day, mode = 'land'){
+export function dayNotes(day, mode = 'land', distance = null){
   const out = [], end = fmtClock(AUDIT.DEFAULT_END_MIN);
   if(mode !== 'land') out.push({ text: LAND_ONLY, warn: true });
   if(!day.qualifies) out.push({ text: `Left out of the statistics (under ${AUDIT.MIN_ORDERS} orders).` });
@@ -131,9 +147,10 @@ export function dayNotes(day, mode = 'land'){
   if(!day.closed) out.push({ text: day.pastEnd
     ? `Not closed out, and the last meter was after ${end}: the day runs to the last meter.`
     : `Not closed out: ${end} is assumed.` });
+  out.push(...distanceNote(distance));
   return out;
 }
-export function dayNotesHtml(day, mode){ return notesToHtml(dayNotes(day, mode)); }
+export function dayNotesHtml(day, mode, distance){ return notesToHtml(dayNotes(day, mode, distance)); }
 
 // ── the period ───────────────────────────────────────────────────────────────
 function headlineSection(p){
@@ -256,15 +273,17 @@ function dailySection(p){
 }
 
 /** Method and limits, as a section. */
-export function methodSection(){
-  const A = AUDIT, start = fmtClock(A.SHIFT_START_MIN), end = fmtClock(A.DEFAULT_END_MIN);
+export function methodSection(distance = null){
+  const A = AUDIT, road = usesRoads(distance), mapName = road ? distance.map : '', start = fmtClock(A.SHIFT_START_MIN), end = fmtClock(A.DEFAULT_END_MIN);
   return { title: 'Method and limits', method: true, blocks: [
     { t: 'h3', text: 'How each number is worked out' },
     { t: 'list', ordered: true, items: [
       'Every log with the status installed, unable to install, visited or unaccounted counts as an order.',
       'Land or boat work is decided by the date, not by a tag on the log.',
       'Logs are grouped by calendar day and put in time order.',
-      'A gap is the time from one log to the next on the same day, with the straight line distance between the two pins. '
+      (road ? 'A gap is the time from one log to the next on the same day, with the distance between the two pins by road: '
+          + `the shortest drive on the offline road map on this device (${mapName}). A gap that map cannot reach is measured in a straight line. `
+        : 'A gap is the time from one log to the next on the same day, with the straight line distance between the two pins. ')
         + 'Gaps are sorted into seven kinds by that distance, from next door (under 60 m) to over 10 km.',
       'The usual time for a kind is this installer\'s own median gap of that kind, over all their work to date in the chosen work mode. '
         + `A kind with fewer than ${A.MIN_KIND_GAPS} gaps, and a gap beside a log with no pin, is compared with the median of every gap.`,
@@ -292,7 +311,10 @@ export function methodSection(){
       'The comparison is with the installer\'s own usual pace, not a company standard and not another installer. A stop that took longer because the job was harder counts as a pause.',
       'A log records one moment per order, when the entry is saved. Arrival and departure are not recorded, so the first installation and the drive to it sit before the first log.',
       `The start is the ${start} rule and the end is the time recorded at close-out. Neither was checked against anything.`,
-      'Distances are straight lines between pins. The route map joins the pins with straight lines too: it is the order worked, not the roads driven.',
+      road ? 'Distances are the shortest drive between pins on the offline road map, not the drive that was taken, and a straight line where that map does not reach. '
+          + 'A device without that road map measures every gap in a straight line, so its figures differ.'
+        : 'Distances are straight lines between pins. The route map joins the pins with straight lines too: it is the order worked, not the roads driven. '
+          + 'With an offline road map on the device (Settings on the log page) they are measured by road instead.',
       'Logged delays are as entered. Reading morning dispatch as the drive to the first order is how the installer says it is used.',
       `The ${A.PAUSE_OVER_MIN}-minute threshold, the ${A.FLAG_MIN}-minute flag and the ${A.MIN_ORDERS}-order rule are choices.`,
       'On Boat and All: the pause method was only checked against land work.',
@@ -303,8 +325,8 @@ export function methodSection(){
     ] }] };
 }
 /** Method and limits: closed until opened, open in print. */
-export function methodHtml(){
-  const s = methodSection();
+export function methodHtml(distance){
+  const s = methodSection(distance);
   return `<details class="au-method"><summary>${esc(s.title)}</summary>${blocksHtml(s.blocks)}</details>`;
 }
 
@@ -313,7 +335,7 @@ export function methodHtml(){
 export function periodSections(p, prep){
   if(!p || !p.days) return [];
   return [headlineSection(p), barSection(p), pauseSection(p), monthSection(p), categorySection(p),
-    outputSection(p, prep), dailySection(p), methodSection()];
+    outputSection(p, prep), dailySection(p), methodSection(prep.distance)];
 }
 export function periodHtml(p, prep){ return sectionsHtml(periodSections(p, prep)); }
 
@@ -335,7 +357,7 @@ function timelineSection(day, forPage){
 // figure has been on this installer's full days, and the third what it cannot see.
 // "Expected" is never called a target: it is the installer's own usual pace applied
 // to the route that was logged and the time between the first and last meter.
-function paceSection({ pace }){
+function paceSection({ pace, distance }){
   const title = 'Pace on this route';
   if(!pace.gaps) return { title, blocks: [{ t: 'empty', text: 'Only one order was logged, so there is no route to pace.' }] };
   const typ = pace.typical;
@@ -368,7 +390,7 @@ function paceSection({ pace }){
     { t: 'table', head: ['', 'This day', `Full days to date (${plural(typ ? typ.days : 0, 'day', 'days')})`],
       rows: [
         ['Usual minutes per order on the route (median)', n1(pace.perOrder), of(t => n1(t.perOrder))],
-        ['Distance between orders, straight line, km (median)', n1(pace.km), of(t => n1(t.km))],
+        [`Distance between orders, ${usesRoads(distance) ? 'by road' : 'straight line'}, km (median)`, n1(pace.km), of(t => n1(t.km))],
         ['First to last meter, less delay logged against those gaps (median)', fmtMin(pace.ownMin), of(t => fmtMin(t.ownMin))],
         ['The same gaps at the usual pace (median)', fmtMin(pace.usualMin), of(t => fmtMin(t.routeMin))],
         ['Share of that time at the usual pace (median)', share(pace.share), of(t => share(t.share))],
@@ -455,7 +477,7 @@ export function gapDetailHtml(day, i){
   return `<div class="au-gap"><b>${esc(logName(day, i))}</b> (${place(a)}) to <b>${esc(logName(day, i + 1))}</b> (${place(b)})`
     + blockHtml({ t: 'pairs', rows: [
       ['Time between the two logs', mins(g.min)],
-      ['Straight-line distance', metres(g.km)],
+      [g.byRoad ? 'Distance by road' : day.gaps.some(x => x.byRoad) ? 'Straight-line distance (off the road map)' : 'Straight-line distance', metres(g.km)],
       [`Usual time for ${kind}`, n1(g.usual) + ' min'],
       ['Over the usual time', g.over > 0 ? mins(g.over) : 'none'],
       ['Logged against this gap', mins(g.loggedMin)],

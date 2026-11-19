@@ -21,10 +21,11 @@ import { $, esc, toast } from './dom.js';
 import { apiGet } from './api.js';
 import { prepareAudit, periodStats, dayDetail, driveStats } from './compute/audit.js';
 import { fmtDate } from './audit-charts.js';
-import { MODE_LABEL, NO_DRIVE_LOG, ROUTE_CAPTION, periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml,
+import { MODE_LABEL, NO_DRIVE_LOG, routeCaption, periodHtml, notesHtml, dayTopHtml, dayLogsHtml, gapDetailHtml,
   dayNotesHtml, driveLineHtml } from './audit-render.js';
 import { createRouteMap, offMapHtml } from './audit-map.js';
 import { periodPdfModel, dayPdfModel, downloadAuditPdf, auditPdfShare } from './audit-pdf.js';
+import { loadAuditRoads } from './audit-roads.js';
 
 const MODES = ['land', 'boat', 'all'];
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
@@ -37,7 +38,7 @@ const todayKey = () => { const n = new Date(), p = x => ('0' + x).slice(-2);
  *  (the real download unless a test passes its own). share: the system share sheet
  *  behind "Send PDF" ({ can, file, send, save }; js/audit-pdf.js unless a test passes its own). */
 export function initAuditView({ installers = null, fixedInstaller = null, loadDriveLegs = null,
-  savePdf = downloadAuditPdf, share = auditPdfShare } = {}){
+  savePdf = downloadAuditPdf, share = auditPdfShare, loadRoads = loadAuditRoads } = {}){
   const el = {
     status: $('status'), statusText: $('statusText'),
     who: $('auWho'), mode: $('auMode'), from: $('auFrom'), to: $('auTo'), all: $('auAll'),
@@ -100,10 +101,36 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     raws.set(who, res);
     return res;
   }
-  function prepFor(who, mode, raw){
+  // The device's offline road map for this installer's orders, or null: read once
+  // per installer (js/audit-roads.js). With one, gaps are measured by road and the
+  // day's line follows the roads; without one, or if reading it fails, straight lines.
+  const roads = new Map();     // installer → { name, km, path } | null
+  async function roadFor(who, raw){
+    if(!roads.has(who)){
+      let road = null;
+      try { road = await loadRoads(raw.stops); } catch { road = null; }
+      roads.set(who, road && typeof road.km === 'function' ? road : null);
+    }
+    return roads.get(who);
+  }
+  function prepFor(who, mode, raw, road){
     const key = who + '|' + mode;
-    if(!preps.has(key)) preps.set(key, prepareAudit(raw, { installer: who, mode }));
+    if(!preps.has(key)) preps.set(key, prepareAudit(raw, { installer: who, mode, road }));
     return preps.get(key);
+  }
+  // The day's route as one line per gap between pinned orders: along the road map's
+  // roads where the gap was measured by road, else straight. Null with no road map.
+  function routeLines(day, road){
+    if(!road || typeof road.path !== 'function' || !day.gaps.some(g => g.byRoad)) return null;
+    const lines = [];
+    day.gaps.forEach((g, i) => {
+      const a = day.logs[i], b = day.logs[i + 1];
+      if(!a.pin || !b.pin) return;
+      let mid = [];
+      if(g.byRoad){ try { mid = road.path(a, b) || []; } catch { mid = []; } }
+      lines.push([[a.lat, a.lng], ...mid, [b.lat, b.lng]]);
+    });
+    return lines;
   }
 
   // ── drawing ────────────────────────────────────────────────────────────────
@@ -199,15 +226,16 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
       return;
     }
     const day = shownDay = detail.day;
-    current = { kind: 'day', prep, detail };
-    html(el.note, dayNotesHtml(day, prep.mode));
+    const lines = routeLines(day, roads.get(state.who));
+    current = { kind: 'day', prep, detail, lines };
+    html(el.note, dayNotesHtml(day, prep.mode, prep.distance));
     html(el.dayTop, dayTopHtml(detail));
     html(el.dayBottom, dayLogsHtml(day));
     html(el.mapNote, offMapHtml(day)
-      + `<p class="au-cap">${esc(ROUTE_CAPTION)}</p>`);
+      + `<p class="au-cap">${esc(routeCaption(!!lines))}</p>`);
     if(el.map){
       if(!routeMap) routeMap = createRouteMap(el.map);
-      routeMap.show(day);
+      routeMap.show(day, lines);
     }
     renderDrive(state.who, state.day, my);
   }
@@ -248,7 +276,10 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
       return;
     }
     if(my !== seq) return;       // a newer pick overtook this one
-    const prep = prepFor(state.who, state.mode, raw);
+    if(!roads.has(state.who)) setStatus('wait', 'Measuring…');
+    const road = await roadFor(state.who, raw);
+    if(my !== seq) return;
+    const prep = prepFor(state.who, state.mode, raw, road);
     syncControls(prep);
     if(state.day) renderDay(prep, my); else renderPeriod(prep);
     setStatus('', 'Loaded');
@@ -299,7 +330,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
   function pdfModel(){
     const today = todayKey();
     return current.kind === 'day'
-      ? dayPdfModel({ name: state.who, prep: current.prep, detail: current.detail, drive: driveForPdf(), today })
+      ? dayPdfModel({ name: state.who, prep: current.prep, detail: current.detail, drive: driveForPdf(), lines: current.lines, today })
       : periodPdfModel({ name: state.who, prep: current.prep, stats: current.stats, today });
   }
   async function download(button){
