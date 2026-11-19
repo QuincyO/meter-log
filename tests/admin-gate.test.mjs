@@ -71,6 +71,17 @@ test('day/range need admin only when asking for every installer', () => {
   assert.equal(getNeedsAdmin({ action: 'roster' }), false);
 });
 
+// The installer's own "My audit" page calls this from the phone. Gating it would
+// break that page; leaving the name optional would hand out every installer's
+// delays and close-out times to anyone holding the public token.
+test('the audit read is token-only for a named installer and never crew-wide', () => {
+  const { getNeedsAdmin } = harness('k');
+  assert.equal(getNeedsAdmin({ action: 'audit', installer: 'Pat Example' }), false);
+  assert.ok(!ADMIN_GET.audit, 'audit must not be in ADMIN_GET: the phone calls it');
+  assert.match(fnSrc('auditRead'), /installer required/);
+  assert.match(fnSrc('doGet'), /p\.action === 'audit'\)\s*return json\(auditRead\(p\.installer\)\)/);
+});
+
 test('doGet and doPost check the gate before dispatching any action', () => {
   const get = fnSrc('doGet'), post = fnSrc('doPost');
   const g = get.indexOf('getNeedsAdmin(p) && !isAdmin(p.adminKey)');

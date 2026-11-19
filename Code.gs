@@ -582,6 +582,9 @@ function doGet(e) {
   if (p.action === 'boatdays')return json(boatDays(p.from, p.to));
   if (p.action === 'dispatch')return json(dispatchRows(p.from, p.to));
   if (p.action === 'driveTracks') return json(driveTracksRead(p.installer, p.from, p.to));
+  // One installer's logs, delays and day times for the Audits pages. Token-only
+  // (the phone calls it); auditRead refuses a blank name.
+  if (p.action === 'audit') return json(auditRead(p.installer));
   if (p.action === 'avgDispatchTime') return json({ ok: true, avgDispatchTime: readMetric('avgDispatchTime') });
   if (p.action === 'installerMetrics') return json({ ok: true, metrics: installerMetricsRead(p.hNumber, p.workType) });
   // Crew-wide per-site dwell history for the route ETA model — sites the crew has
@@ -2723,6 +2726,41 @@ function driveTracksRead(installer, from, to) {
         pointCount: num(r.pointCount), distanceM: num(r.distanceM), driveMin: num(r.driveMin),
         avgSpeed: num(r.avgSpeed), maxSpeed: num(r.maxSpeed), gaps: gaps, encoded: r.encoded };
     }) };
+}
+
+/** Everything the Audits pages need for ONE installer, for all dates: their
+ *  printable logs, their Downtime rows and their Days bookends. The browser works
+ *  out every figure from this (js/compute/audit.js), so a change of range, work
+ *  mode or day costs no second request and the 6-minute limit is not in play.
+ *
+ *  Token-only, and NOT in ADMIN_GET: the installer's own "My audit" page calls it
+ *  from the phone. Owner's decision (2026-11-18): a named installer's logged
+ *  delays and close-out times are readable with the public token, as their stops
+ *  already are through `day`/`range`. Drive logs are not: `driveTracks` stays
+ *  gated. A blank name is refused outright so this can never return the crew.
+ *
+ *  Downtime rows are NOT filtered by workType. A gap delay is written with a
+ *  blank workType, which reads as boat, so a mode filter would drop every one of
+ *  them from a land audit. The browser matches a row to its gap by its note. */
+function auditRead(installer) {
+  const who = String(installer == null ? '' : installer).trim();
+  if (!who) return { ok: false, error: 'installer required' };
+  const printable = { INSTALLED: 1, UTI: 1, VISITED: 1, UNACCOUNTED: 1 };
+  const has = n => !!SpreadsheetApp.getActiveSpreadsheet().getSheetByName(n);
+  const stops = rows('Stops')
+    .filter(r => sameName(r.installer, who) && printable[String(r.status || '').toUpperCase()])
+    .map(r => ({ id: r.id, timestamp: r.timestamp, status: r.status,
+      workOrderId: r.workOrderId, address: r.address,
+      lat: numCoord(r.lat), lng: numCoord(r.lng) }));
+  const downtime = !has('Downtime') ? [] : rows('Downtime')
+    .filter(r => sameName(r.installer, who))
+    .map(r => ({ id: r.id, timestamp: r.timestamp, category: r.category,
+      minutes: r.minutes, workOrderId: r.workOrderId, note: r.note }));
+  const days = !has('Days') ? [] : rows('Days')
+    .filter(r => sameName(r.installer, who))
+    .map(r => ({ date: dateOf(r.date), departure: clockHHMM(r.departure),
+      returned: clockHHMM(r.returned) }));
+  return { ok: true, installer: who, stops: stops, downtime: downtime, days: days };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
