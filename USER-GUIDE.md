@@ -2,7 +2,7 @@
 
 Meter Log is the crew's tool for recording every meter stop, the day's downtime, and the end-of-day paperwork. It runs in the phone's browser, works with **no signal** (everything syncs later on its own), and replaces the paper daily log with a PDF the phone builds itself.
 
-This guide covers the whole app: the capture page the installers use in the field, and the four office pages (Map & Analytics, Crew & Boat Teams, Edit & Daily Log, Reports).
+This guide covers the whole app: the capture page the installers use in the field, and the office pages (Map & Analytics, Crew & Boat Teams, Edit & Daily Log, Reports, Audits).
 
 ---
 
@@ -13,10 +13,12 @@ This guide covers the whole app: the capture page the installers use in the fiel
 - **Crew & Teams** (`teams.html`) — add crew members, captains and sub foremen, and set up the boat or land crews. For the office.
 - **Edit & Daily Log** (`edit.html`) — the back-office editor: fix any stop, remove or restore stops, set day times, close or re-close a day, and generate the daily-log PDF for anyone. For the office.
 - **Reports** (`reports.html`) — pick a sub foreman and a date, see the whole crew's totals for that day, and close out anyone who forgot. For sub foremen and the office.
+- **Audits** (`audits.html`) — one installer's work over a period or on a single day: where the day goes, the delays they logged, and the pause time between meters that nothing was logged against. Read-only. For the office.
+- **My audit** (`my-audit.html`) — the same audit of your own work, on your phone. Open it from the ☰ menu on the Log page. No password.
 
 **The office pages are password-protected.** Opening any of them shows an **Office login** box first; type the admin password and the page loads. The phone remembers it, so the other office pages open without asking again, until you tap **🔒 Log out** (bottom-left corner). After 10 wrong tries, logins pause for 10 minutes. The capture page and this guide never ask for a password.
 
-The office pages link to each other through the dropdown in the top bar (**Log / Map / Analytics / Crew & Teams / Edit & Daily Log / Reports / Help**). The capture page keeps things simple for the field: its ☰ menu has only **📋 Worklist**, **🗓 Recent days**, **⚙︎ Settings**, and **❓ Help**.
+The office pages link to each other through the dropdown in the top bar (**Log / Map / Analytics / Crew & Teams / Edit & Daily Log / Reports / Route Planner / Audits / Help**). The capture page keeps things simple for the field: its ☰ menu has **📋 Worklist**, **🗓 Recent days**, **🎛 Route tuning**, **⚙︎ Settings**, **❓ Help**, and **📊 My audit**.
 
 ---
 
@@ -590,6 +592,34 @@ you how many addresses are cached or need lookup and which fallbacks are ready.
 
 ---
 
+## My audit
+
+**☰ → 📊 My audit** shows where your days go, worked out from your own logs. It is the same audit the office sees for you. It changes nothing, and it needs signal.
+
+It shows whoever's name is in **Settings** on that phone. There is no password and no sign-in.
+
+It opens on all your land work to date. **Land / Boat / All** switches the work it covers, **From** and **To** narrow the dates, and **All to date** clears them. Boat and All carry a note that the pause figures were only checked against land work.
+
+What the numbers mean:
+
+- **The shift starts at 07:30**, every day, for everyone. The day ends at the time set at close-out, at 16:00 if the day was never closed out, or at your last meter if that is later.
+- **Unlogged pause time, breaks included.** The time from one log to the next is compared with what that kind of stop usually takes you, by how far apart the two pins are. When a gap runs 10 minutes or more over, the extra is a pause. Any delay you logged against that gap is taken off. What is left is the unlogged pause time.
+- It includes breaks and lunch, delays that were not logged, and stops that simply took longer than usual. **The data cannot tell these apart**, and the page does not try to.
+- **The break allowance is 60 minutes a day** (two 15-minute breaks and a 30-minute lunch). The chart marks it with a dashed line.
+- **Drive to the first order** is the dispatch time you logged before your first meter. **Before the first meter, not logged** is the rest of the time before your first log. A log is written when a job is finished, so your first installation is inside it.
+- **Close-out and drive home** is the time from your last meter to the end of the day.
+- **Statistics use only days with 8 or more orders.** Shorter days are still listed and can be opened, marked "under 8 orders".
+- **A long gap** is 45 minutes or more between two logs with nothing logged against it. It is the only thing the page flags.
+- The comparison is with **your own usual pace**, not a company standard and not another installer.
+
+Tap a date in **Day by day** to open that day: a timeline with one block per gap between your logs, the day beside your 30 worked days before it and all your work to date, the delays you logged, a map of your orders numbered in the order you logged them, and every log in order. Tap a block or a row for that gap's details. **‹** and **›** step to the day before and after, and **← Back to the period** returns.
+
+**Print** prints what is on screen, or saves it as a PDF from the print dialog.
+
+Logging a delay against the gap it happened in is what takes it out of the unlogged pause time. Do that from **Today's orders** or at **End of day**.
+
+---
+
 ## End of day
 
 When the day's done, close it out — this files the day's record and produces the daily-log PDF. It works fully offline.
@@ -714,6 +744,27 @@ Land installers each run their own route, so they aren't paired as partners and 
 **Land / Boat / All** at the top of Analytics picks which work the numbers cover. It opens on **Land**, and the page remembers your last pick on that computer. Boat means every day before **2026-07-20** (the first land day), plus the two later island days (Quincy, Aug 4 and Aug 6). Land is everything else, and All is both together. The switch only changes Analytics: the Map still shows every pin in the date range. In Land, the two boat-only tiles (log→log per boat, boat dispatch) are hidden.
 
 **Analytics** shows the tiles — Installed, UTI, install rate, downtime minutes, and the pace averages (install→install, between completed WOs, log→log with partner, log→log per boat, dispatch waits) — plus charts: **Installs vs UTI by day**, **Downtime by category (min)**, **UTI reasons**, and the per-installer table. Below those, **Installer lifetime metrics** shows each installer's all-time rollups — days, hours, logs, installs, UTI rate, pace per day/hour, average minutes per log with a recent-30-workday trend arrow (▼ faster / ▲ slower than lifetime), downtime per day — plus an **Avg minutes per log — land vs boat** chart and the **dwell model** the route planner uses for ETAs (on-site minutes, extra time per second meter, travel minutes per km, and how it was measured: gps, fit, or pace). These are lifetime numbers rebuilt at end of day, so the date range doesn't apply to them; the installer chips and the Land / Boat / All switch do. Each card has an ⓘ — tap it for a plain-language explanation of the numbers, including how the dwell sources are measured (gps = parked time between recorded drives with a log inside it, fit = a line fitted through stop-to-stop gaps, pace = not measured yet).
+
+---
+
+## Audits (office)
+
+`audits.html` — one installer's work, audited. Pick the **Installer**, then:
+
+- **Land / Boat / All** picks the work it covers. It opens on Land. Boat and All show the same audit under a note that the pause figures were only checked against land work.
+- **From** and **To** set the period. Left alone, it is all work to date. **All to date** clears them.
+- **Open a day** jumps to one date. So does any date in the Day by day table.
+- **Print** prints the period or the day, or saves it as a PDF from the print dialog.
+
+The period shows, in order: the headline numbers; **Where an average day goes** (one bar from the 07:30 start to the end of the day); **Unlogged pause time per day** (how many days fell in each range, against the 60-minute break allowance); **By month**; **Logged delays by category**; **Output**, with the usual time between two logs for each distance; **Day by day**; and **Method and limits**, which explains every number and what the data cannot show.
+
+A single day shows its timeline, the day beside the installer's 30 worked days before it and all their work to date, the delays logged that day, the route worked on a map, and every log in order. When a drive log was recorded that day, **Show drive log** lays it over the map and gives the top speed, average speed, distance, driving time and number of legs. Speeds are shown as numbers only; nothing flags them.
+
+The rules are the same for every installer: the shift starts at 07:30, statistics use days with 8 or more orders, a long gap is 45 minutes or more with nothing logged against it, and the break allowance is 60 minutes a day. See **My audit** above for what each number means.
+
+An unlogged pause is not a finding against anyone. It is time between meters that is neither the usual time for the stop nor a logged delay, and it includes breaks.
+
+Installers see the same audit of their own work from **☰ → 📊 My audit** on the Log page, without the drive log. That page shows whoever's name is in Settings on the phone; there is no per-installer sign-in.
 
 ---
 

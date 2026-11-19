@@ -383,6 +383,10 @@ per-page (plus `css/vendor/leaflet.css`). `map.js` uses the Leaflet (`L`) +
 Chart globals loaded by classic `<script>`s before its module — vendored at
 `js/vendor/leaflet.js` + `js/vendor/chart.umd.min.js`, no CDN.
 
+The two audit pages (`audits.html`, `my-audit.html`) have their own modules
+(`js/compute/audit.js`, `js/audit-{charts,render,view,map}.js`, `css/audits.css`), all
+outside the service-worker shell. See §"Audits".
+
 ## Offline geocoding
 
 Reverse-geocoding can't be fully offline (that would need bundled map data), so
@@ -1980,6 +1984,89 @@ prunes legs older than ~8 days. `saveDriveTrack` is idempotent on the leg id and
 shipped leg is marked `queued:true`, so a leg can't double-upload. Legs with < 2
 points are dropped, never uploaded.
 
+## Audits
+
+Two read-only pages that show, for one installer, where the day goes, the delays they
+logged and the pause time between meters that nothing was logged against, over a period
+and for a single day. The full design, with the owner's rules and the reasoning, is
+`docs/superpowers/specs/2026-11-19-audits-page-design.md`.
+
+- **`audits.html`** (`js/pages/audits.js`) — the office page. It starts with
+  `await requireAdmin()`, has an installer picker, and can overlay a day's drive log.
+- **`my-audit.html`** (`js/pages/my-audit.js`) — the installer's own, opened from the log
+  page's ☰ menu. No password. It audits the name in the phone's Settings, has no picker
+  and no drive log.
+
+Both run the same view (`js/audit-view.js`) over the same numbers (`js/compute/audit.js`).
+
+### One read, everything else in the browser
+
+`GET ?action=audit&installer=<name>` (`auditRead`) returns, for that one installer and all
+dates:
+
+```
+{ ok, installer,
+  stops:    [{ id, timestamp, status, workOrderId, address, lat, lng }],   // the four printable statuses
+  downtime: [{ id, timestamp, category, minutes, workOrderId, note }],   // NOT filtered by workType
+  days:     [{ date, departure, returned }] }                            // Days bookends, HH:mm or ''
+```
+
+A blank installer returns `{ ok:false, error:'installer required' }`. The read answers to
+the public token and is not in `ADMIN_GET`, because the phone calls it (owner's decision,
+2026-11-18). The office page reads the day's drive log separately, through the gated
+`driveTracks` read, only when a day is opened.
+
+The page fetches `audit` once per installer and keeps it in memory. Changing the work
+mode re-runs `prepareAudit`; changing the range re-runs `periodStats`; opening a day runs
+`dayDetail`. None of those makes a request, and the Apps Script time limit is not in play.
+
+### The method
+
+1. Logs with a printable status are grouped by Toronto calendar day and sorted by time.
+   Land or boat is decided by the date (`workTypeOn`), never a row's tag.
+2. A gap is the time from one log to the next on the same day, with the straight-line
+   distance between the two pins. Seven kinds by distance: under 60 m, 60 m–0.5 km, 0.5–1,
+   1–2, 2–5, 5–10, over 10 km.
+3. The usual time for a kind is the median gap of that kind over every day in the mode,
+   whatever range is on screen. Fewer than 5 gaps of a kind, or a missing pin: the median
+   of every gap.
+4. A gap 10 minutes or more over its usual time is a pause; the excess is its length.
+5. A logged delay whose note names that gap (`gap HH:MM–HH:MM`; the key is the date and
+   both clock minutes, floored) comes off the pause, never below zero. `BREAK`, `LUNCH`,
+   `MISC_TRAVEL` and legacy `TRAVEL_TIME` rows are not taken off.
+6. What is left is unlogged pause time. An unlogged pause of 45 minutes or more is the
+   one thing the page flags.
+7. Working time is the gaps with each pause cut back to its usual time, so first-to-last
+   meter = work + all pause time.
+8. The day runs from 07:30 (or the first log, when earlier) to `Days.returned`, to 16:00
+   when the day was never closed out, or to the last meter when that is later.
+9. Per-day statistics use only days with 8 or more orders. Medians and tenths are the
+   value at `floor(n × p)` of the sorted list.
+10. A day is compared with two baselines: the up to 30 most recent days of 8+ orders
+    before it, and every such day in the mode.
+
+This is the spine's `dayShapePause` method, with these differences on purpose: the usual
+time is over all work in the mode (the spine uses the latest 30 days of 5+ logs), the
+percentile definition above, and the day's end following the close-out time. So the page's
+typical pause need not equal `InstallerMetrics.pauseMinPerDay`. Over the same data and
+period the page was checked figure by figure against the one-off report it replaced.
+
+### What it cannot show
+
+It cannot separate a break from an unlogged delay; both are a gap that ran long with
+nothing logged against it. The comparison is with the installer's own pace. A log records
+one moment per order, so the first installation sits before the first log. Distances are
+straight lines, and the route map joins pins in the order logged, not along roads. The
+page prints these limits itself, under "Method and limits".
+
+### Files
+
+`js/compute/audit.js` (the numbers, pure), `js/audit-charts.js` (charts as HTML strings),
+`js/audit-render.js` (what each view says), `js/audit-view.js` (controls and address-bar
+state: `who`, `mode`, `from`, `to`, `day`), `js/audit-map.js` (the route map), and
+`css/audits.css` (including the print stylesheet). None is in the `sw.js` shell; the audit
+needs a connection, and the worker caches the files on first load like any other request.
+
 ## Data structures
 
 ### Stop  (one row per work order visited → tab "Stops")
@@ -2881,14 +2968,17 @@ consistent with the rest of the app.
   saves and deletes, `deleteEmployee`). These require `adminKey` to equal the
   Script Property `ADMIN_KEY` (`isAdmin`). It fails closed when unset and locks out
   for 10 minutes after 10 bad keys.
-  - The five office pages start with `await requireAdmin()` (`js/admin-auth.js`),
+  - The six office pages (map, teams, edit, reports, planner, audits) start with
+    `await requireAdmin()` (`js/admin-auth.js`),
     a login box that stores the key in `localStorage['adminKey']`. `js/api.js`
     attaches the key to every call.
   - The box is the affordance; the spine is the lock.
   - `tests/admin-gate.test.mjs` fails if a capture-side action ever lands in an
     admin set.
 - **What stays reachable with the public token alone** is by the owner's choice:
-  one *named* installer's stops (`day`/`range`/`lookup`, GPS included), the
+  one *named* installer's stops (`day`/`range`/`lookup`, GPS included) and their
+  audit (`audit`: logs, logged delays and close-out times; a blank name is refused;
+  owner's decision 2026-11-18, so the installer can open their own audit), the
   roster (home/start addresses), and stop edits/removals (`updateStop`/
   `archiveStop`), because the phone uses all of them. Closing that needs
   per-installer auth on the phone.
