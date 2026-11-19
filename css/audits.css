@@ -111,6 +111,9 @@ body{
 .au-ticks{position:relative;height:20px;margin-top:3px;font-size:12px;color:var(--ink-soft)}
 .au-tick{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;padding-top:6px}
 .au-tick::before{content:'';position:absolute;left:50%;top:0;height:6px;border-left:1.5px solid var(--ink-soft)}
+/* near an end of the bar the label hangs inward from its mark (js/audit-charts.js) */
+.au-tick.l{transform:none} .au-tick.l::before{left:0}
+.au-tick.r{transform:translateX(-100%)} .au-tick.r::before{left:auto;right:0}
 .au-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:8px}
 .au-key span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;
                      margin-right:5px;background:var(--c)}

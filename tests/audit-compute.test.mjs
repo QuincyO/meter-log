@@ -488,3 +488,16 @@ test('driveStats totals the legs', () => {
   assert.equal(driveStats(null), null);
   assert.equal(driveStats([{ distanceM: 0, driveMin: 0, maxSpeed: 0 }]).avgKmh, null);
 });
+
+// ── found by the whole-branch review ─────────────────────────────────────────
+
+test('the phone\'s own lead-gap note is the drive to the first order', () => {
+  // On a land day the phone lets the first order carry downtime through a zero-length
+  // "lead" gap: both clocks are the first log's own minute, and the log has seconds.
+  const stops = stopsOn(D, ['09:05:40', '09:20:00', '09:30:00']);
+  const p = prep([...history(10), ...stops], [gapRow(D, 'DISPATCH', 35, 'gap 09:05–09:05')]);
+  const day = dayOf(p, D);
+  assert.deepEqual(day.delays.map(d => [d.where, d.driveToFirst, d.minutes]), [['before', true, 35]]);
+  assert.equal(day.log.dispatchBefore, 35);
+  assert.equal(day.pauseLoggedMin, 0);
+});

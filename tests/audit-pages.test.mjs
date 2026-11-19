@@ -311,3 +311,33 @@ test('the log page menu opens My audit without help from capture.js', () => {
   assert.ok(menu.indexOf('navHelp') < menu.indexOf('my-audit.html'), 'after Help');
   assert.doesNotMatch(read('js/pages/capture.js'), /my-audit|navAudit/);
 });
+
+// ── found by the whole-branch review ─────────────────────────────────────────
+
+test('a gap read as work still shows what was logged against it', () => {
+  // 6 minutes next door is work, and 7 minutes were logged against it
+  const d = detailOf(stopsOn(DAY, ['10:00', '10:06', '10:12']), DAY,
+    [{ timestamp: `${DAY} 12:00:00`, category: 'ASSIST', minutes: 7, note: 'gap 10:00–10:06' }]);
+  const html = gapDetailHtml(d.day, 0);
+  assert.match(html, /Logged against this gap<\/td><td class="n">7 min/);
+  assert.match(html, /Read as<\/td><td class="n">work/);
+  assert.match(gapDetailHtml(d.day, 1), /Logged against this gap<\/td><td class="n">0 min/);
+});
+
+test('a long gap is described as what the code flags: 45 minutes of unlogged pause', () => {
+  const { prep, stats } = build([...FULL, ...LONG]);
+  const html = periodHtml(stats, prep);
+  assert.match(html, /A long gap is one whose unlogged pause is 45 minutes or more/);
+  assert.match(html, /Long gaps \(45\+ min of unlogged pause\)/);
+  assert.match(methodHtml(), /long gap when its unlogged pause is 45 minutes or more/);
+  assert.doesNotMatch(html + read('USER-GUIDE.md'), /45 minutes or more (between two logs )?with nothing logged against it/);
+});
+
+test('sheet values are escaped wherever a day prints them', () => {
+  const bad = '<img src=x onerror=alert(1)>';
+  const stops = stopsOn(DAY, ['10:00', '11:00']).map(s => ({ ...s, workOrderId: bad, address: bad }));
+  const d = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: bad, minutes: 5, note: 'gap 10:00–11:00' }]);
+  const html = dayTopHtml(d) + dayLogsHtml(d.day) + gapDetailHtml(d.day, 0) + offMapHtml({ logs: d.day.logs.map(l => ({ ...l, pin: false })) });
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+});

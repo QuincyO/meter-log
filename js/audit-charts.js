@@ -56,7 +56,10 @@ const w = share => (Math.round(share * 100000) / 1000) + '%';   // three decimal
 function framed(blocks, cls, { startMin, firstMin, lastMin, endMin }, endLabel){
   const span = endMin - startMin;
   const at = min => span > 0 ? Math.max(0, Math.min(100, (min - startMin) / span * 100)) : 0;
-  const tick = (min, text) => `<span class="au-tick" style="left:${w(at(min) / 100)}">${esc(text)}</span>`;
+  // A label is centred on its mark, except near an end, where half of it would hang
+  // off the card: there it is anchored to the mark's inner side.
+  const tick = (min, text) => { const p = at(min);
+    return `<span class="au-tick${p < 12 ? ' l' : p > 88 ? ' r' : ''}" style="left:${w(p / 100)}">${esc(text)}</span>`; };
   return `<div class="au-stackwrap"><div class="au-ends"><span>${fmtClock(startMin)} start</span><span>${esc(endLabel)} ${fmtClock(endMin)}</span></div>`
     + `<div class="${cls}">${blocks}</div>`
     + `<div class="au-ticks">${tick(firstMin, 'first meter ' + fmtClock(firstMin))}`

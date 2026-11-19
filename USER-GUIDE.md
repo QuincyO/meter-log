@@ -609,7 +609,7 @@ What the numbers mean:
 - **Drive to the first order** is the dispatch time you logged before your first meter. **Before the first meter, not logged** is the rest of the time before your first log. A log is written when a job is finished, so your first installation is inside it.
 - **Close-out and drive home** is the time from your last meter to the end of the day.
 - **Statistics use only days with 8 or more orders.** Shorter days are still listed and can be opened, marked "under 8 orders".
-- **A long gap** is 45 minutes or more between two logs with nothing logged against it. It is the only thing the page flags.
+- **A long gap** is a gap between two logs with 45 minutes or more of unlogged pause: the time over what that stop usually takes you, less any delay you logged against it. So a 45-minute gap is not by itself a long gap. It is the only thing the page flags.
 - The comparison is with **your own usual pace**, not a company standard and not another installer.
 
 Tap a date in **Day by day** to open that day: a timeline with one block per gap between your logs, the day beside your 30 worked days before it and all your work to date, the delays you logged, a map of your orders numbered in the order you logged them, and every log in order. Tap a block or a row for that gap's details. **‹** and **›** step to the day before and after, and **← Back to the period** returns.
@@ -760,7 +760,7 @@ The period shows, in order: the headline numbers; **Where an average day goes** 
 
 A single day shows its timeline, the day beside the installer's 30 worked days before it and all their work to date, the delays logged that day, the route worked on a map, and every log in order. When a drive log was recorded that day, **Show drive log** lays it over the map and gives the top speed, average speed, distance, driving time and number of legs. Speeds are shown as numbers only; nothing flags them.
 
-The rules are the same for every installer: the shift starts at 07:30, statistics use days with 8 or more orders, a long gap is 45 minutes or more with nothing logged against it, and the break allowance is 60 minutes a day. See **My audit** above for what each number means.
+The rules are the same for every installer: the shift starts at 07:30, statistics use days with 8 or more orders, a long gap is one with 45 minutes or more of unlogged pause, and the break allowance is 60 minutes a day. See **My audit** above for what each number means.
 
 An unlogged pause is not a finding against anyone. It is time between meters that is neither the usual time for the stop nor a logged delay, and it includes breaks.
 

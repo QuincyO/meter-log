@@ -122,3 +122,15 @@ test('labels are the owner\'s words and never say drive back', () => {
   assert.equal(label('beforeUnlogged'), 'Before the first meter, not logged');
   assert.doesNotMatch(JSON.stringify(SEGMENTS), /drive back|return to the yard/i);
 });
+
+// ── found by the whole-branch review ─────────────────────────────────────────
+
+test('a clock mark near either end of the bar is anchored inside it', () => {
+  // first meter five minutes into the day, last meter after the set end time
+  const early = timelineHtml(dayOf(model(stopsOn(D, ['07:35', '07:41', '16:30']))));
+  assert.match(early, /class="au-tick l"[^>]*>first meter 07:35</);
+  assert.match(early, /class="au-tick r"[^>]*>last meter 16:30</);
+  const mid = timelineHtml(dayOf(model(stopsOn(D, ['10:00', '10:06', '13:00']))));
+  assert.match(mid, /class="au-tick"[^>]*>first meter 10:00</);
+  assert.match(mid, /class="au-tick"[^>]*>last meter 13:00</);
+});

@@ -92,7 +92,7 @@ function pauseCard(p){
       ? `${fmtMin(s.longestMedian)} min, starting around ${fmtClock(s.longestAtMedian)}` : '—'),
     pair('Before logged delays are taken off', isNum(s.allMedian)
       ? `median ${fmtMin(s.allMedian)}, average ${fmtMin(s.allAvg)} min` : '—'),
-    pair(`Long gaps (${AUDIT.FLAG_MIN}+ min, nothing logged)`,
+    pair(`Long gaps (${AUDIT.FLAG_MIN}+ min of unlogged pause)`,
       `${s.flags} on ${plural(s.flagDays, 'day', 'days')}`),
   ];
   return card('Unlogged pause time per day', '<div class="au-two"><div>'
@@ -173,7 +173,8 @@ function dailyCard(p){
   return card('Day by day', table(
     ['Date', 'Orders', 'First meter', 'Last meter', 'Delay before first meter', 'Delay between meters', 'Unlogged pause', 'Longest pause'],
     rows, 'au-days')
-    + cap(`Minutes. Open a day for its timeline and route. A long gap is ${AUDIT.FLAG_MIN} minutes or more with nothing logged against it.`));
+    + cap(`Minutes. Open a day for its timeline and route. A long gap is one whose unlogged pause is ${AUDIT.FLAG_MIN} minutes or more: `
+      + 'the time over the usual for that stop, less any delay logged against it.'));
 }
 
 /** Method and limits: closed until opened, open in print. */
@@ -200,7 +201,7 @@ export function methodHtml(){
         + 'or at the last meter when that is later. "Before the first meter, not logged" is the first meter less the start less the delay logged before it. '
         + '"Close-out and drive home" is the end of the day less the last meter.',
       `Per-day statistics use only days with ${A.MIN_ORDERS} or more orders. Shorter days are listed and can be opened.`,
-      `A single gap is marked as a long gap when ${A.FLAG_MIN} minutes or more of it has nothing logged against it.`,
+      `A single gap is marked as a long gap when its unlogged pause is ${A.FLAG_MIN} minutes or more. That is the time over the usual for the stop, less any delay logged against it, so a ${A.FLAG_MIN}-minute gap is not by itself a long gap.`,
       `The break allowance is ${A.BREAK_ALLOWANCE_MIN} minutes a day: two 15-minute breaks and a 30-minute lunch.`,
     ])
     + '<h3>What the data cannot show</h3>'
@@ -323,9 +324,10 @@ export function gapDetailHtml(day, i){
       pair('Straight-line distance', metres(g.km)),
       pair(`Usual time for ${kind}`, n1(g.usual) + ' min'),
       pair('Over the usual time', g.over > 0 ? mins(g.over) : 'none'),
-      ...(g.isPause ? [pair('Logged against this gap', mins(g.loggedMin)),
-        pair('Not logged', mins(g.unloggedMin) + (g.flagged ? ' <span class="au-flag">long gap</span>' : ''))]
-        : [pair('Read as', `work (under ${AUDIT.PAUSE_OVER_MIN} minutes over)`)]),
+      pair('Logged against this gap', mins(g.loggedMin)),
+      g.isPause
+        ? pair('Not logged', mins(g.unloggedMin) + (g.flagged ? ' <span class="au-flag">long gap</span>' : ''))
+        : pair('Read as', `work (under ${AUDIT.PAUSE_OVER_MIN} minutes over)`),
     ]) + '</div>';
 }
 

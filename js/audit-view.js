@@ -75,9 +75,13 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
   }
   // A change the user made: one new history entry, then draw it.
   function go(change){
+    const opensDay = !!change.day && change.day !== state.day;
     Object.assign(state, change);
     try { history.pushState(null, '', address()); } catch {}
     render();
+    // A day is opened from the bottom of a long page; start it at the top. Not on
+    // popstate: the browser restores its own place for Back and Forward.
+    if(opensDay) try { window.scrollTo(0, 0); } catch {}
   }
 
   // ── data ───────────────────────────────────────────────────────────────────
@@ -199,12 +203,25 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     renderDrive(state.who, state.day, my);
   }
 
+  // Nothing to show: no installer picked, or the read failed. Whatever was drawn
+  // for the installer before must go, the day view above all. Leaving it up shows
+  // one person's day under another person's name. The period controls come back
+  // so the picker stays reachable even with a day in the address.
+  function blank(note){
+    shownDay = null;
+    for(const node of [el.period, el.dayTop, el.dayBottom, el.mapNote, el.drive, el.printHead]) html(node, '');
+    if(el.dayTitle) el.dayTitle.textContent = '';
+    show(el.dayView, false); show(el.dayControls, false);
+    show(el.periodControls, true); show(el.period, true);
+    html(el.note, note);
+  }
+
   let seq = 0;
   async function render(){
     const my = ++seq;
     syncControls(null);
     if(!state.who){
-      html(el.period, ''); html(el.note, '<p class="au-note">Pick an installer to see their audit.</p>');
+      blank('<p class="au-note">Pick an installer to see their audit.</p>');
       setStatus('', 'Ready');
       return;
     }
@@ -214,8 +231,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
       raw = await rawFor(state.who);
     } catch(err){
       if(my !== seq) return;
-      html(el.period, '');
-      html(el.note, `<p class="au-note bad">Could not load the audit for ${esc(state.who)} (${esc(err.message || 'no connection')}). `
+      blank(`<p class="au-note bad">Could not load the audit for ${esc(state.who)} (${esc(err.message || 'no connection')}). `
         + 'It needs a connection. <button type="button" class="btn" id="auRetry">Try again</button></p>');
       const retry = $('auRetry');
       if(retry) retry.onclick = render;
