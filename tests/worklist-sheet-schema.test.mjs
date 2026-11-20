@@ -36,13 +36,16 @@ test('the route-variant and set-aside columns are appended, never inserted', () 
   // into the middle renames nothing on an existing sheet and duplicates the
   // tail instead. New columns must go on the end.
   const wl = headers('WORKLIST_HEADERS');
-  assert.deepEqual(wl.slice(-2), ['homeLegGeometryRoad', 'homeLegGeometryStraight'],
-    'the drive-out geometry columns are the new tail');
-  assert.deepEqual(wl.slice(-4, -2), ['homeLegMetersRoad', 'homeLegMetersStraight']);
-  assert.deepEqual(wl.slice(-13, -4), ['ignored', 'orderRoad', 'dayRoad', 'legMetersRoad',
+  assert.equal(wl[wl.length - 1], 'exactPin', 'the typed-pin flag is the new tail');
+  assert.deepEqual(wl.slice(-3, -1), ['homeLegGeometryRoad', 'homeLegGeometryStraight'],
+    'the drive-out geometry columns keep their place ahead of it');
+  // Columns AH:AI, which setupSheets pins to plain text by letter.
+  assert.equal(wl.indexOf('homeLegGeometryRoad'), 33);
+  assert.deepEqual(wl.slice(-5, -3), ['homeLegMetersRoad', 'homeLegMetersStraight']);
+  assert.deepEqual(wl.slice(-14, -5), ['ignored', 'orderRoad', 'dayRoad', 'legMetersRoad',
     'orderStraight', 'dayStraight', 'legMetersStraight',
     'legGeometryRoad', 'legGeometryStraight']);
-  assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 14, 'the pre-existing tail must not move');
+  assert.equal(wl.indexOf('scheduledWaitMin'), wl.length - 15, 'the pre-existing tail must not move');
 
   const wp = headers('WORKLIST_PLANS_HEADERS');
   assert.equal(wp[wp.length - 1], 'dayLockDate', 'the work-list lock is the new tail');

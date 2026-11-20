@@ -20,6 +20,10 @@
 // and sink rules; the screen below is the only part that touches the page.
 import { $, esc, toast } from './dom.js';
 import { isIgnored, isPending } from './route-variants.js';
+// Both long-standing exports, so a named import is safe against an older cached
+// copy of either module.
+import { normalizeStreet } from './roadgraph.js';
+import { siteKey } from './route-dwell.js';
 
 // ── address text ────────────────────────────────────────────────────────────
 // "6740 Svorn River Shore" → { num:'6740', street:'Svorn River Shore' }.
@@ -35,8 +39,14 @@ export function joinAddr(num, street){
 // Shorthand belongs to the NUMBER BOX only, never to arbitrary stored address
 // text: old hyphenated civic addresses must not be silently reinterpreted.
 // Keeping the detail in unit also keeps it out of geocoding and navigation.
+//
+// "-Railway Lights" is a unit with NO house number: roadside equipment has no
+// civic address, and its Street box holds coordinates ("42.933446,-81.486452",
+// which route.js `coordsFromText` pins as typed). A lone "-" clears such a unit.
 export function parseAddressInput(num, street, existingUnit = ''){
   const number = String(num || '').trim();
+  const bare = number.match(/^-\s*(.*)$/);
+  if(bare) return { address: joinAddr('', street), unit: bare[1].trim() };
   const m = number.match(/^(\d\w*)\s*-\s*(\S.*)$/);
   return {
     address: joinAddr(m ? m[1] : number, street),
@@ -49,7 +59,78 @@ export function addressFields(item){
   // in Street so an untouched Save cannot reinterpret it as newly typed units.
   if(a.num.includes('-')) return { num:'', street:String(item.address || '').trim() };
   const unit = String((item && item.unit) || '').trim();
-  return { num: a.num && unit ? `${a.num}-${unit}` : a.num, street: a.street };
+  // No house number: the unit still shows, as "-unit", so it can be read and
+  // edited, and an untouched Save gives back the same address and unit.
+  return { num: unit ? `${a.num}-${unit}` : a.num, street: a.street };
+}
+
+// ── the address a lookup found ──────────────────────────────────────────────
+// A geocoder's answer is a comma list: "123 Main St, Glencoe, ON N0L 1M0,
+// Canada" from Google, "8583 Falconbridge Dr, Strathroy-Caradoc" from the
+// district index, "123, Main Street, Glencoe, …" from Nominatim. These read the
+// street and the town out of one without caring which it was.
+const DIRECTION_WORDS = new Set(['north', 'south', 'east', 'west',
+  'northeast', 'northwest', 'southeast', 'southwest']);
+// The segment after the street is the town unless it is the province, the
+// postal code or the country — "ON N0L 1M0", "Ontario", "Canada".
+function townOf(segment){
+  const t = String(segment || '').trim();
+  return (!t || /\d/.test(t) || /^(on|ontario|canada)$/i.test(t)) ? '' : t;
+}
+
+/** The typed address rewritten with what a lookup found: the found street
+ *  spelling and town, and the TYPED house number — a pin placed on an estimate
+ *  reverse-geocodes to the neighbour's number, and the number on the order is
+ *  the one that was ordered. Null when the lookup is for another street, or has
+ *  no town to add: the order is then left exactly as typed.
+ *
+ *  A town already on the typed address — after a comma, or just typed on the
+ *  end — is replaced. "King St W" against "King St" is NOT a match: those can be
+ *  two different roads, and dropping the W would move the order. */
+export function foundAddress(typed, found){
+  const head = splitAddr(String(typed || '').split(',')[0]);
+  const want = normalizeStreet(head.street);
+  if(!head.num || !want) return null;
+  const hasComma = String(typed).includes(',');
+  const parts = String(found || '').split(',').map(s => s.trim());
+  for(let i = 0; i < parts.length; i++){
+    const street = splitAddr(parts[i]).street;
+    const got = normalizeStreet(street);
+    if(!got) continue;
+    let same = got === want;
+    if(!same && !hasComma && want.startsWith(got + ' ')){
+      // The rest of the typed street is a town with no comma before it.
+      const rest = want.slice(got.length + 1).split(' ');
+      same = !rest.some(w => DIRECTION_WORDS.has(w));
+    }
+    if(!same) continue;
+    const town = townOf(parts[i + 1]);
+    return town ? `${head.num} ${street}, ${town}` : null;
+  }
+  return null;
+}
+
+/** The address nearest a typed coordinate, from a reverse lookup: the first
+ *  part that is a civic address ("1234 Glendon Dr"), else a bare road, plus its
+ *  town. Null for a plus code or a town on its own — nothing worth writing over
+ *  the coordinates. */
+export function nearestAddress(found){
+  const parts = String(found || '').split(',').map(s => s.trim());
+  const at = parts.findIndex(p => splitAddr(p).num);
+  if(at >= 0) return [parts[at], townOf(parts[at + 1])].filter(Boolean).join(', ');
+  const road = parts[0];
+  if(!road || road.includes('+') || !/[a-z]/i.test(road)) return null;
+  const town = townOf(parts[1]);
+  return town ? `${road}, ${town}` : null;
+}
+
+/** Same house number and street, whatever the town or the spelling of "Rd".
+ *  The Log screen's planned-vs-GPS chooser asks only when this is false: the
+ *  offline map names the municipality and Google names the community, and that
+ *  difference fired the chooser on every town-picked order (2026-11-19). */
+export function addressesAgree(a, b){
+  const ka = siteKey(a);
+  return !!ka && ka === siteKey(b);
 }
 export function formatOrderAddress(item){
   const address = String((item && item.address) || '').trim();

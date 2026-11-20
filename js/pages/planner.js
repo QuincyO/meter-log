@@ -829,6 +829,10 @@ async function setItems(next){
   render();
 }
 
+// 'TRUE' off the sheet, true off an Optimize run that pinned typed coordinates.
+const isExactPin = x => !!x && (x.exactPin === true
+  || String(x.exactPin == null ? '' : x.exactPin).trim().toUpperCase() === 'TRUE');
+
 // Same field set the phone uploads (worklist.js wireShape — keep in sync).
 // geoFail/geoAmbig deliberately never leave this machine.
 function wireShape(x){
@@ -843,7 +847,9 @@ function wireShape(x){
     scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
     scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
     scheduledLateMin:x.scheduledLateMin||'',
-    ignored:isIgnored(x),
+    // A pin typed as coordinates (worklist.js isExactPin). Carried so an office
+    // upload cannot blank it.
+    ignored:isIgnored(x), exactPin:isExactPin(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
     homeLegMetersRoad:blank(x.homeLegMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
@@ -884,7 +890,7 @@ async function loadList(){
       scheduledSlot:(o.scheduledSlot===''||o.scheduledSlot==null)?'':Number(o.scheduledSlot),
       scheduledWaitMin:(o.scheduledWaitMin===''||o.scheduledWaitMin==null)?'':Number(o.scheduledWaitMin),
       scheduledLateMin:(o.scheduledLateMin===''||o.scheduledLateMin==null)?'':Number(o.scheduledLateMin),
-      ignored:isIgnored(o),
+      ignored:isIgnored(o), exactPin:isExactPin(o),
       orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
       homeLegMetersRoad:blank(o.homeLegMetersRoad),
       orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
@@ -1509,7 +1515,7 @@ function render(){
           // road geometry — the stop has moved, so both must be re-derived.
           item.address = addr;
           item.lat = undefined; item.lng = undefined;
-          item.geoFail = false; item.geoAmbig = undefined;
+          item.geoFail = false; item.geoAmbig = undefined; item.exactPin = undefined;
           item.legGeometryRoad = ''; item.legGeometryStraight = '';
           item.homeLegGeometryRoad = ''; item.homeLegGeometryStraight = '';
         }

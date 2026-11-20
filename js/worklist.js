@@ -16,6 +16,7 @@ import { stamp, localDate, clockOf, hhmmMin } from './time.js';
 import { apiGet, apiPost } from './api.js';
 import { optimizeRoute, unroutableReason, coordsOf, isParked, geocodeOne, haversine, legMetersFor, homeLegMetersFor, encodePolyline, travelLookup, estimateTravelFromCoords, roadTravelFromCoords, savedRoadTravelFromCoords, localRoadGeometry } from './route.js';
 import { installedPacks } from './roadpack.js';
+import { resolveAddress } from './geocode.js';
 // `lastFix` only. avgMovingSpeed used to price this module's remaining route and no
 // longer prices anything here — see the on-pace projection header for why.
 import { lastFix } from './drive-recorder.js';
@@ -557,11 +558,16 @@ async function pruneDoneWorklist(){
 // No trusted pin and no address means no destination.
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// A TYPED pin (exactPin: the address was entered as coordinates) is the one case
+// the switch does not decide. The address on such an order is only the nearest
+// house, written there so the paperwork has something to say; steering by it
+// would take the truck to that house instead of the equipment.
 function destOf(item){
   const c = isParked(item) ? null : coordsOf(item);
   const addr = String(item.address || '').trim();   // + ", ON" to stay in-province
   const pinDest = c ? enc(c.lat + ',' + c.lng) : '';
   const addrDest = addr ? enc(addr + ', ON') : '';
+  if(item.exactPin && pinDest) return pinDest;
   return navByPin() ? (pinDest || addrDest) : (addrDest || pinDest);
 }
 // The address line exactly as the card shows it — what lands on the clipboard.
@@ -619,7 +625,7 @@ function wireShape(x){
     lockedDate:x.lockedDate||'', lockedSlot:x.lockedSlot||'',
     scheduledDate:x.scheduledDate||'', scheduledEta:x.scheduledEta||'',
     scheduledSlot:x.scheduledSlot||'', scheduledWaitMin:x.scheduledWaitMin||'',
-    ignored:isIgnored(x),
+    ignored:isIgnored(x), exactPin:isExactPin(x),
     orderRoad:blank(x.orderRoad), dayRoad:blank(x.dayRoad), legMetersRoad:blank(x.legMetersRoad),
     homeLegMetersRoad:blank(x.homeLegMetersRoad),
     orderStraight:blank(x.orderStraight), dayStraight:blank(x.dayStraight),
@@ -628,6 +634,23 @@ function wireShape(x){
     // upload from here can't blank it (same reason legMeters* round-trips).
     legGeometryRoad:String(x.legGeometryRoad || ''), legGeometryStraight:String(x.legGeometryStraight || ''),
     homeLegGeometryRoad:String(x.homeLegGeometryRoad || ''), homeLegGeometryStraight:String(x.homeLegGeometryStraight || '') };
+}
+// A typed pin: the flag (true locally, 'TRUE' off the sheet), or an address that
+// is still the coordinates themselves — which is how the flag comes back after a
+// phone on older code has uploaded the list without the column.
+function isExactPin(x){
+  if(!x) return false;
+  if(x.exactPin === true || String(x.exactPin == null ? '' : x.exactPin).trim().toUpperCase() === 'TRUE') return true;
+  return typeof routeMod.coordsFromText === 'function' && !!routeMod.coordsFromText(x.address);
+}
+// Coordinates typed as the address pin the order where they say, at Save, so the
+// card, the route map and Navigate all work before the next Optimize. Reached
+// through the namespace: an older cached route.js has no coordsFromText, and
+// then the order simply waits for an Optimize like any other address.
+function pinTypedCoords(item){
+  const c = typeof routeMod.coordsFromText === 'function' ? routeMod.coordsFromText(item.address) : null;
+  if(c) Object.assign(item, { lat: c.lat, lng: c.lng, exactPin: true, geoFail: false, geoAmbig: undefined });
+  return item;
 }
 // Route-variant cells are numbers or genuinely absent; '' (not 0) is the absent
 // form the sheet and the variant helpers both understand.
@@ -709,7 +732,7 @@ async function applyDownloadedList(list, opts){
       scheduledDate:String(o.scheduledDate||''), scheduledEta:String(o.scheduledEta||''),
       scheduledSlot:(o.scheduledSlot === '' || o.scheduledSlot == null) ? '' : Number(o.scheduledSlot),
       scheduledWaitMin:(o.scheduledWaitMin === '' || o.scheduledWaitMin == null) ? '' : Number(o.scheduledWaitMin),
-      ignored:isIgnored(o),
+      ignored:isIgnored(o), exactPin:isExactPin(o),
       orderRoad:blank(o.orderRoad), dayRoad:blank(o.dayRoad), legMetersRoad:blank(o.legMetersRoad),
       homeLegMetersRoad:blank(o.homeLegMetersRoad),
       orderStraight:blank(o.orderStraight), dayStraight:blank(o.dayStraight),
@@ -1310,12 +1333,83 @@ async function optimizeRouteHandler(useNetwork){
       : mode === 'home' ? 'Route optimized — ends near home ✓'
       : 'Route optimized — starts at your first order ✓';
     toast((startFallback ? 'Current location unavailable — used normal routing · ' : '') + modeText + extra);
+    // The route is saved; now put the towns on the addresses, behind it. Not
+    // awaited: a lookup on thin signal must never hold the Optimize button.
+    confirmFoundAddresses().catch(() => {});
   } catch (err) {
     toast((err && err.message) || 'Route optimization failed — try again');
   } finally {
     optimizing = false;
     btn.disabled = false; prog.classList.add('hide'); prog.textContent = '';
   }
+}
+
+// ── the address a lookup found, written back onto the order ─────────────────
+// Optimize used to keep the pin and throw the rest away, so an order typed as
+// "123 Main St" stayed "123 Main St": Google Maps by address guessed its own
+// town, and the Log screen's planned-vs-GPS chooser disagreed with any town the
+// pick-a-town chip had written (the offline map names the MUNICIPALITY,
+// "Southwest Middlesex"; Google names the community, "Glencoe").
+//
+// So after every Optimize each routable order's PIN is asked about, and the
+// answer's street and town are written onto the address:
+//   1. Google's keyless reverse lookup in the spine — the same call the Log
+//      screen's Refresh makes (geocode.js resolveAddress: cached per spot, so a
+//      pin is asked about once and is free and offline ever after);
+//   2. with no answer, the label the geocoder gave when it found the pin
+//      (`geoLabel`, route.js geocodeAll) — the offline map's town. A later
+//      Optimize with signal replaces it with Google's.
+// An order typed as coordinates gets the nearest address instead.
+//
+// THE PIN NEVER MOVES HERE. This pass reads the pin and writes address text;
+// it must not write lat/lng, and it must not go through wlSave, whose "address
+// changed" rule would blank the pin it just read. The typed house number is
+// kept and the street has to match (address-fill.js foundAddress), so a lookup
+// that lands on the next road changes nothing.
+let confirmingAddresses = false;
+const ROUTE_TOAST_MS = 2500;   // dom.js shows a toast for 2.2 s
+async function confirmFoundAddresses(){
+  if(confirmingAddresses) return;
+  const began = Date.now();
+  // An older cached address module has neither helper: skip the pass whole.
+  if(typeof addressText.foundAddress !== 'function'
+    || typeof addressText.nearestAddress !== 'function') return;
+  confirmingAddresses = true;
+  let changed = 0, misses = 0;
+  try {
+    for(const item of pendingOf(await allSorted())){
+      if(isParked(item)) continue;          // no pin worth asking about
+      const pin = coordsOf(item);
+      const typed = String(item.address || '').trim();
+      const asCoords = typeof routeMod.coordsFromText === 'function'
+        && !!routeMod.coordsFromText(typed);
+      if(!asCoords && !splitAddr(typed).num) continue;   // a landmark: leave it
+      // Two unanswered lookups in a row with signal showing means the signal is
+      // not really there. Stop asking for this run rather than queue a timeout
+      // per order; the next Optimize picks up where this one stopped.
+      const found = misses < 2 ? await resolveAddress(pin.lat, pin.lng) : null;
+      if(found) misses = 0; else if(navigator.onLine) misses++;
+      const next = asCoords ? addressText.nearestAddress(found)
+        : (addressText.foundAddress(typed, found) || addressText.foundAddress(typed, item.geoLabel));
+      if(!next || next === typed) continue;
+      // Re-read: the order may have been edited or logged while the lookup ran.
+      const stored = await idb.get('worklist', item.id);
+      if(!stored || String(stored.address || '').trim() !== typed) continue;
+      await idb.put('worklist', Object.assign({}, stored, { address: next, updatedAt: stamp() }));
+      changed++;
+    }
+  } finally { confirmingAddresses = false; }
+  if(!changed) return;
+  await renderWorklist();
+  // Push now. The Drive screen's autoSync replaces this list with the sheet's
+  // whenever the queue is empty, and would put the old text straight back.
+  syncWorklist().catch(() => {});
+  // With every pin already cached this finishes in milliseconds, and its toast
+  // would replace Optimize's own before anyone read it — the one that says how
+  // many orders were parked. Let that one have its time on screen first.
+  const wait = ROUTE_TOAST_MS - (Date.now() - began);
+  if(wait > 0) await new Promise(r => setTimeout(r, wait));
+  toast(`${changed} address${changed === 1 ? '' : 'es'} updated to match the map ✓`);
 }
 
 // ── Optimize press gesture: the on-device run vs. the network secret ────────
@@ -1625,8 +1719,9 @@ async function saveWorklistAddress(id, address, unit){
   const patch = { address, updatedAt: stamp() };
   if(unit !== undefined) patch.unit = unit;  // old walkthroughs omit it
   if(existing.address !== address)
-    Object.assign(patch, { lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined });
-  await idb.put('worklist', Object.assign({}, existing, patch));
+    Object.assign(patch, { lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined,
+      exactPin: undefined, geoLabel: undefined });
+  await idb.put('worklist', pinTypedCoords(Object.assign({}, existing, patch)));
 }
 
 // Leaving the walkthrough (finished, exited, or backed out of) parks whatever is
@@ -2363,7 +2458,10 @@ async function wlSave(){
     }
     // Address changed → the cached coords are stale; drop them (and the parked/
     // ambiguous flags) so the next optimize re-geocodes the new address.
-    if(existing.address !== address){ item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined; }
+    if(existing.address !== address){
+      item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined;
+      item.exactPin = undefined; item.geoLabel = undefined;
+    }
   } else {
     const items = await allSorted();
     // Prevent a duplicate WO# at the source — the way the existing duplicates got
@@ -2383,7 +2481,7 @@ async function wlSave(){
       createdAt:now, updatedAt:now
     };
   }
-  await idb.put('worklist', item);
+  await idb.put('worklist', pinTypedCoords(item));
   toast(_wlEditId ? 'Order updated ✓' : 'Order saved ✓');
   // A brand-new order (never an edit of one already placed) may want to join
   // today's frozen set — queue it for the chooser below.

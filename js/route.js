@@ -130,12 +130,18 @@ function medianCenter(items){
 // silently pick a town; the card shows the choices instead (worklist.js).
 // The ", ON, Canada" text bias stays: the crew ranges province-wide, and the
 // circle (not the text) is what pins the region.
+//
+// A TYPED pin (exactPin — the address was entered as coordinates, see
+// coordsFromText) is the one pin that is never asked about again. Both re-checks
+// below look the address TEXT up, and once the nearest house has been written
+// over the coordinates (worklist.js confirmFoundAddresses) the text is no longer
+// where the order is: a re-lookup would move roadside equipment onto a house.
 async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false){
   let done = 0;
   const shared = sharedPinIds(items);
   for(const item of items){
     const c = coordsOf(item);
-    const stale = !!(c && center && haversine(c, center) > GEO_RADIUS_KM * 1000);
+    const stale = !item.exactPin && !!(c && center && haversine(c, center) > GEO_RADIUS_KM * 1000);
     if(c && !stale && (item.geoFail || item.geoAmbig)){
       // In-radius pin with leftover parked flags (a previous run's miss, gate
       // has since moved into range) — heal, or the order stays parked forever:
@@ -151,6 +157,11 @@ async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false
       if(hit && !hit.ambig){
         item.lat = hit.lat; item.lng = hit.lng; item.geoSource = hit.source || '';
         item.geoFail = false; item.geoAmbig = undefined;
+        // The geocoder's own wording of the address — the town it found. Kept
+        // (phone-only, like geoSource) so the town can be written onto the
+        // order when there is no signal to ask Google about the pin.
+        item.geoLabel = hit.label || '';
+        item.exactPin = hit.source === 'coords';
       } else if(hit){
         item.geoSource = hit.source || '';
         item.geoFail = false; item.geoAmbig = hit.ambig;
@@ -161,12 +172,12 @@ async function geocodeAll(items, onProgress, center, geoUrl, offlineOnly = false
       const stored = (await idb.get('worklist', item.id)) || item;
       await idb.put('worklist', Object.assign({}, stored, {
         lat: item.lat, lng: item.lng, geoFail: item.geoFail, geoAmbig: item.geoAmbig,
-        geoSource: item.geoSource,
+        geoSource: item.geoSource, geoLabel: item.geoLabel, exactPin: item.exactPin,
         updatedAt: stamp() }));
       await sleep(GEOCODE_MS);
     } else {
       geoProvenance.cached++;
-      if(shared.has(item.id)) await repinShared(item, c, center);
+      if(shared.has(item.id) && !item.exactPin) await repinShared(item, c, center);
     }
     onProgress && onProgress({ phase:'geocode', done: ++done, total: items.length });
   }
@@ -235,6 +246,10 @@ function providerEvent(onProgress, activity, provider, status){
 export async function geocodeOne(address, center, geoUrl, stats=null, onProgress=null, opts={}){
   const text = String(address || '').trim();
   if(!text) return null;
+  // Coordinates typed as the address are the answer, not a question: no
+  // provider, no quota, no radius gate (that gate is for a geocoder's guess).
+  const typed = coordsFromText(text);
+  if(typed) return { lat: typed.lat, lng: typed.lng, label: text, source: 'coords' };
   const tryProvider = async (provider, lookup) => {
     if(stats) stats[provider].attempted++;
     providerEvent(onProgress, 'geocoding', provider, 'attempted');
@@ -268,6 +283,19 @@ export async function geocodeOne(address, center, geoUrl, stats=null, onProgress
     if(o){ orsGeoUsed = true; if(geoUrl) geoFellBack = true; return o; }
   }
   return null;
+}
+
+// "42.933446,-81.486452" → { lat, lng }, else null. Some orders have no address
+// — railway lights on the side of a road — so the Street box takes a position
+// copied out of a maps app instead. The WHOLE text must be the pair and both
+// numbers need a decimal point, so nothing that could be an address ("12, 34",
+// "1234 Glendon Dr, Komoka") is ever read as one.
+export function coordsFromText(text){
+  const m = String(text == null ? '' : text).trim()
+    .match(/^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/);
+  if(!m) return null;
+  const lat = Number(m[1]), lng = Number(m[2]);
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
 }
 
 // Rank normalized hits [{lat,lng,label,place}] into the geocodeOne result:

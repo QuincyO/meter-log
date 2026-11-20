@@ -191,6 +191,12 @@ and go through them one at a time instead of scrolling up and down:
   lookups use only the base address; the copied address includes the unit.
   This also works in **Add order / Edit**. Reopening restores `14-a`; remove
   `-a` to clear the unit. Put this shorthand in the number box, not Street.
+- **No address at all** (equipment at the side of a road): copy the spot from your
+  maps app and paste it into **Street**, like `42.933446,-81.486452`. In the
+  **No. / unit** box type a dash and a name, like `-Railway Lights`. The order is
+  pinned exactly there. After the next Optimize with signal the nearest address is
+  filled in for you, and **Navigate still goes to the spot you typed**, not to that
+  house. To remove the name, leave just `-` in the box.
 - **‹ Back** and **Skip ›** move without saving. Back still reaches orders you
   already filled in, so a typo is one tap away. The last order says **Finish ✓**.
 - Orders that wouldn't map (**📍 fix address**) or matched several towns
@@ -321,6 +327,7 @@ Tap **🧭 Optimize route** to put the pending orders in the best driving order 
 - **📍 fix address**: the order drops to the bottom — fix the address (Edit) and optimize again. If it was pinned before, it **keeps its old pin** — it just sits out of the route until fixed.
 - **⚠ pick a town**: the possible towns appear as buttons **right on the card** — tap the right one to pin it (they're in Edit too), and the next optimize routes it. You should see this rarely: when the same street and number exist in more than one town, the app takes the town clearly nearest your other orders and only asks when it's a close call.
 - **Typing the town is optional.** `8583 Falconbridge Dr`, `8583 Falconbridge Dr, Glencoe` and `8583 Falconbridge Dr Glencoe` all work. The house number decides where on the road the pin goes; the town only helps when two different roads share the name.
+- **The app fills in the town for you.** A moment after Optimize, each order it found gets its town added, like `8583 Falconbridge Dr, Mount Brydges`, and a toast says how many addresses were updated. Your house number is never changed and the pin does not move. With no signal it uses the town from the downloaded map and corrects it the next time you optimize with signal. On the Log screen, the **Keep planned / Use GPS** box now only appears when the house number or street is different, not when only the town is.
 - **A number the map doesn't have** is placed between the numbers it does have, on the road. Two different addresses never share a pin unless the map has run out of road. If two do, optimize once more — the app looks those up again by itself.
 - If the road distances couldn't be fetched, the finished message says **why** (for example the map key was rejected) and the route is planned on straight-line distances instead — still usable, just blind to rivers and detours.
 - The directions button (🧭) sends your maps app to the order's **map pin** — the same spot you see on the route map — rather than to the address text, so the maps app doesn't get to make its own guess about which road or which town you meant. If the order has **no pin**, or its card is flagged **📍 fix address** or **⚠ pick a town** (those keep an old pin that's known to be in the wrong place), it navigates by the written address instead. On iPhone it opens **Google Maps** (or Apple Maps if Google Maps isn't installed); on Android it uses whichever maps app you've set as your default. Either way it **copies the address to your clipboard** on the way out, ready to paste wherever you need it.

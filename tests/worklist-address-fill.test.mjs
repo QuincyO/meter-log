@@ -155,9 +155,15 @@ test('saving only a unit preserves the pin, changing the base address invalidate
   const source = js.match(/async function saveWorklistAddress\([^]*?\n\}/)?.[0];
   assert.ok(source);
   let row = { id:'a', address:'14 Whatever Lane', unit:'a', lat:45, lng:-79, geoFail:false };
-  const save = runInNewContext(`(${source})`, {
+  // The real pinTypedCoords too, over the real coordinate parser: a typed
+  // position is pinned at Save, not left for the next Optimize.
+  const pinSource = js.match(/function pinTypedCoords\([^]*?\n\}/)?.[0];
+  assert.ok(pinSource);
+  const { coordsFromText } = await import('../js/route.js');
+  const save = runInNewContext(`${pinSource}\n(${source})`, {
     idb:{ get:async () => row, put:async (_store, value) => { row = value; } },
     stamp:() => '2026-09-29 12:00:00',
+    routeMod:{ coordsFromText },
   });
   await save('a', '14 Whatever Lane', '2');
   assert.equal(row.unit, '2');
@@ -170,6 +176,16 @@ test('saving only a unit preserves the pin, changing the base address invalidate
   assert.equal(row.lat, undefined);
   assert.equal(row.lng, undefined);
   assert.equal(row.geoFail, undefined);
+  // Coordinates typed as the address: the pin is the text, and it is exact.
+  await save('a', '42.933446,-81.486452', 'Railway Lights');
+  assert.equal(row.lat, 42.933446);
+  assert.equal(row.lng, -81.486452);
+  assert.equal(row.exactPin, true);
+  assert.equal(row.unit, 'Railway Lights');
+  // Typing a real address over it makes it an ordinary order again.
+  await save('a', '15 Whatever Lane', '');
+  assert.equal(row.lat, undefined);
+  assert.equal(row.exactPin, undefined);
 });
 
 test('picking a town saves the edited unit and old callers retain the saved detail', async () => {
@@ -262,4 +278,108 @@ test('directions copy the address before handing off to the maps app', () => {
   // Must precede the iOS scheme hand-off, which takes the page out from under us.
   assert.ok(fn.indexOf('clipboard') < fn.indexOf('comgooglemaps://'),
     'the clipboard write has to happen before the maps launch');
+});
+
+// ── a unit with no house number, and coordinates typed as the street ─────────
+test('a Number box of "-text" is a unit with no house number', () => {
+  for(const [num, street, want] of [
+    ['-Railway Lights', '42.933446,-81.486452',
+      { address:'42.933446,-81.486452', unit:'Railway Lights' }],
+    [' - Pump house ', ' Main St ', { address:'Main St', unit:'Pump house' }],
+    // A lone dash is "no number, no unit": the way to clear a unit that has no
+    // house number in front of it.
+    ['-', 'Main St', { address:'Main St', unit:'' }],
+  ]) assert.deepEqual(addressText.parseAddressInput(num, street, 'old unit'), want);
+});
+
+test('a unit with no house number shows as "-unit" and survives an untouched Save', () => {
+  for(const item of [
+    { address:'42.933446,-81.486452', unit:'Railway Lights' },
+    { address:'Bala Island', unit:'C20-5' },
+  ]){
+    const f = addressText.addressFields(item);
+    assert.equal(f.num, '-' + item.unit);
+    assert.deepEqual(addressText.parseAddressInput(f.num, f.street, item.unit), item);
+  }
+  // No unit, no number: the box stays empty, as it always did.
+  assert.deepEqual(addressText.addressFields({ address:'Bala Island' }),
+    { num:'', street:'Bala Island' });
+});
+
+test('foundAddress adds the found town and keeps the typed house number', () => {
+  const google = '123 Main St, Glencoe, ON N0L 1M0, Canada';
+  assert.equal(typeof addressText.foundAddress, 'function');
+  for(const [typed, found, want] of [
+    ['123 Main St', google, '123 Main St, Glencoe'],
+    // The pick-a-town chip wrote the municipality; Google names the community.
+    ['123 Main St, Southwest Middlesex', google, '123 Main St, Glencoe'],
+    // A town typed on the end with no comma.
+    ['123 Main Street Glencoe', google, '123 Main St, Glencoe'],
+    ['123 Main Street', google, '123 Main St, Glencoe'],
+    // The pin sits on an estimate, so the nearest house has another number: the
+    // street and town are still right, and the typed number is what was ordered.
+    ['123 Main St', '127 Main St, Glencoe, ON N0L 1M0, Canada', '123 Main St, Glencoe'],
+    ['123A Main St', 'Main St, Glencoe, ON, Canada', '123A Main St, Glencoe'],
+    // A business name ahead of the address.
+    ['123 Main St', 'Tim Hortons, 123 Main St, Glencoe, ON N0L 1M0, Canada', '123 Main St, Glencoe'],
+    // The offline map's own label, and a Nominatim one.
+    ['8583 Falconbridge Dr', '8583 Falconbridge Dr, Strathroy-Caradoc',
+      '8583 Falconbridge Dr, Strathroy-Caradoc'],
+    ['123 Main St', '123, Main Street, Glencoe, Southwest Middlesex, Ontario, Canada',
+      '123 Main Street, Glencoe'],
+    // Already current: the same text comes back, so the caller writes nothing.
+    ['123 Main St, Glencoe', google, '123 Main St, Glencoe'],
+  ]) assert.equal(addressText.foundAddress(typed, found), want, `${typed} <- ${found}`);
+});
+
+test('foundAddress leaves an order alone when the street is not the one typed', () => {
+  for(const [typed, found] of [
+    ['123 Main St', '8 Oak Ave, Glencoe, ON N0L 1M0, Canada'],
+    ['123 Main St', 'WGM7+2X Glencoe, ON, Canada'],            // a plus code
+    ['123 Main St', 'Glencoe, ON N0L 1M0, Canada'],            // a town, no street
+    ['123 Main St', '123 Main St, ON N0L 1M0, Canada'],        // no town to add
+    ['123 Main St', ''], ['123 Main St', null], ['', '123 Main St, Glencoe, ON'],
+    ['Bala Island', 'Bala Island, Muskoka Lakes, ON'],         // a landmark, no number
+    // "King St W" and "King St" can be two different roads.
+    ['123 King St W', '123 King St, London, ON N6A 1C1, Canada'],
+    ['123 King St', '123 King St W, London, ON N6A 1C1, Canada'],
+  ]) assert.equal(addressText.foundAddress(typed, found), null, `${typed} <- ${found}`);
+});
+
+test('nearestAddress names the closest address to a typed coordinate', () => {
+  assert.equal(typeof addressText.nearestAddress, 'function');
+  for(const [found, want] of [
+    ['1234 Glendon Dr, Komoka, ON N0L 1R0, Canada', '1234 Glendon Dr, Komoka'],
+    ['Glendon Dr, Komoka, ON N0L 1R0, Canada', 'Glendon Dr, Komoka'],
+    ['CN Yard, 1234 Glendon Dr, Komoka, ON N0L 1R0, Canada', '1234 Glendon Dr, Komoka'],
+    ['1234 Glendon Dr, ON N0L 1R0, Canada', '1234 Glendon Dr'],
+    ['WGM7+2X Komoka, ON, Canada', null],
+    ['Komoka, ON N0L 1R0, Canada', null],
+    ['', null], [null, null],
+  ]) assert.equal(addressText.nearestAddress(found), want, String(found));
+});
+
+test('two addresses agree when number and street match, whatever the town', () => {
+  assert.equal(typeof addressText.addressesAgree, 'function');
+  const agree = addressText.addressesAgree;
+  assert.equal(agree('123 Main St, Southwest Middlesex', '123 Main St, Glencoe, ON N0L 1M0, Canada'), true);
+  assert.equal(agree('123 Main Street', '123 Main St, Glencoe, ON N0L 1M0, Canada'), true);
+  assert.equal(agree('Bala Island', 'Bala Island, Muskoka Lakes, ON'), true);
+  // The wrong house is still a conflict: that is what the chooser is for.
+  assert.equal(agree('123 Main St', '125 Main St, Glencoe, ON'), false);
+  assert.equal(agree('123 Main St', '123 Oak St, Glencoe, ON'), false);
+  assert.equal(agree('', ''), false);
+  assert.equal(agree('123 Main St', ''), false);
+});
+
+test('the Log screen asks nothing when only the town differs', () => {
+  const cap = readFileSync(new URL('../js/pages/capture.js', import.meta.url), 'utf8');
+  // Reached through the namespace: a phone can hold an older cached address
+  // module, and a missing named import would take the whole Log screen with it.
+  assert.match(cap, /import \* as addressText from '\.\.\/worklist-address-fill\.js'/);
+  assert.doesNotMatch(cap, /import\s*\{[^}]*\baddressesAgree\b[^}]*\}/);
+  const fn = cap.match(/async function fetchAddress\([\s\S]*?\n\}/)?.[0] || '';
+  assert.match(fn, /typeof addressText\.addressesAgree === 'function'/);
+  assert.ok(fn.indexOf('addressesAgree') < fn.indexOf('showAddrConflict('),
+    'the agreement test has to come before the chooser is shown');
 });

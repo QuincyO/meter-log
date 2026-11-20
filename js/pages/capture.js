@@ -27,6 +27,12 @@ import {
   startRecording, stopRecording, subscribe as subscribeDrive,
 } from '../drive-recorder.js';
 import { geocodeOne } from '../route.js';
+// Namespace imports, both: `addressesAgree` and `coordsFromText` are newer than
+// the modules they live in, and a phone can hold an older cached copy of either.
+// A missing NAMED import is a link error that kills this whole page; a missing
+// property is just the old behaviour.
+import * as addressText from '../worklist-address-fill.js';
+import * as routeLib from '../route.js';
 import { installedPacks, activePackId, setActivePack, fetchManifest, downloadPack, deletePack } from '../roadpack.js';
 import { UTI_REASONS, utiReasonOptionsHTML } from '../utiReasons.js';
 // utiNoteText is newer than the two names above, so it is reached through a
@@ -545,9 +551,22 @@ async function fetchAddress(lat, lng, force){
   // No force for a plan compare — a cached coord→address IS the GPS answer here.
   const addr = await resolveAddress(lat, lng, { force });
   const cur2 = $('addr').value.trim();
+  // A plan address that is still raw coordinates (an order with no address,
+  // not yet looked up) is not an address to defend: let GPS fill the field.
+  if(addr && planFilled && typeof routeLib.coordsFromText === 'function'
+    && routeLib.coordsFromText(cur2) && normAddr(cur2) === normAddr(planAddr)){
+    $('addr').value = addr;
+    $('locText').textContent = `Location: ${lat}, ${lng} · address filled — edit to override`;
+    return;
+  }
   if(addr && planFilled && cur2 && normAddr(cur2) === normAddr(planAddr)){
     const a = normAddr(addr), p = normAddr(cur2);
-    if(a && p && a !== p && a.indexOf(p) === -1 && p.indexOf(a) === -1){
+    // Same number and street is agreement, whatever the town: the offline map
+    // names the municipality and Google names the community, and asking about
+    // that on every stop (2026-11-19) teaches the crew to stop reading the box.
+    const agree = typeof addressText.addressesAgree === 'function'
+      && addressText.addressesAgree(addr, cur2);
+    if(a && p && a !== p && !agree && a.indexOf(p) === -1 && p.indexOf(a) === -1){
       showAddrConflict(cur2, addr);
       $('locText').textContent = `Location: ${lat}, ${lng} · GPS address differs from plan`;
       return;   // real conflict — let the installer choose which address is right

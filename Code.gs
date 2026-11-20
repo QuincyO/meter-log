@@ -301,7 +301,11 @@ const WORKLIST_HEADERS = ['id','installer','hNumber','workOrderId','unit','addre
   // The crew-start → first-stop drive-out path per variant (OSRM road polyline,
   // or a straight two-point line when OSRM has none). Drawn faintly on both maps;
   // never in any distance total. Opaque text → setupSheets pins these to '@'.
-  'homeLegGeometryRoad','homeLegGeometryStraight'];
+  'homeLegGeometryRoad','homeLegGeometryStraight',
+  // 'TRUE' when the pin was TYPED as coordinates (an order with no address —
+  // roadside equipment). The address on such a row is only the nearest house,
+  // so the phone never re-geocodes it and always navigates to the pin.
+  'exactPin'];
 // One synchronized route-plan record per installer. Kept separate from the
 // order rows so route settings do not repeat on every Worklist row.
 // `routeVariant` ('road'|'straight') is which saved variant is currently live —
@@ -355,7 +359,7 @@ const WORKLIST_INBOX_HEADERS = ['id','hNumber','workOrderId','source','receivedA
 const WORKLIST_REMOVED_HEADERS = ['id','hNumber','worklistId','workOrderId','source',
   'removedAt','restoredAt','row'];
 const WORKLIST_REMOVED_DETAILS = ['unit','address','oldJNumber','lat','lng',
-  'appointmentDate','appointmentTime','ignored'];
+  'appointmentDate','appointmentTime','ignored','exactPin'];
 const WORKLIST_REMOVED_KEEP_DAYS = 30;   // swept nightly by clearDoneWorklistJob
 
 // Fields the web form is allowed to change on an existing stop.
@@ -1524,7 +1528,8 @@ function saveWorklist(b) {
     // Per-day home→first-stop distance, kept out of the day total, saved for reference.
     numOrBlank(o.homeLegMetersRoad), numOrBlank(o.homeLegMetersStraight),
     // Encoded drive-out polylines (road or straight) — opaque text, ride through verbatim.
-    String(o.homeLegGeometryRoad || ''), String(o.homeLegGeometryStraight || '') ]));
+    String(o.homeLegGeometryRoad || ''), String(o.homeLegGeometryStraight || ''),
+    o.exactPin ? 'TRUE' : '' ]));
 
   const body = kept.concat(added);
   const oldRows = data.length - 1;
@@ -1712,7 +1717,7 @@ function removeWorklistOrders(b) {
       const details = {};
       WORKLIST_REMOVED_DETAILS.forEach(k => {
         const v = col(k) === -1 ? '' : r[col(k)];
-        if (k === 'ignored') { if (v === true || String(v).trim().toUpperCase() === 'TRUE') details[k] = true; }
+        if (k === 'ignored' || k === 'exactPin') { if (v === true || String(v).trim().toUpperCase() === 'TRUE') details[k] = true; }
         else if (v !== '' && v != null) details[k] = v;
       });
       shelve(id, wo, details);
@@ -1842,7 +1847,7 @@ function claimWorklistInbox(hNumber) {
       // Header-keyed, so the row lands right on a sheet whose columns drifted.
       const rec = { unit: d.unit, address: d.address, oldJNumber: d.oldJNumber, lat: d.lat, lng: d.lng,
         appointmentDate: d.appointmentDate, appointmentTime: d.appointmentTime,
-        ignored: d.ignored ? 'TRUE' : '',
+        ignored: d.ignored ? 'TRUE' : '', exactPin: d.exactPin ? 'TRUE' : '',
         id: 'inbox-' + data[r][0], installer: installer, hNumber: h, workOrderId: wo,
         wlStatus: 'pending', order: maxOrder + (add.length + 1) * 10, createdAt: ts, updatedAt: ts };
       add.push(head.map(k => rec[k] === undefined ? '' : rec[k]));

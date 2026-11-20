@@ -700,6 +700,25 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   planner labels and the navigation clipboard show `14 Whatever Lane · Unit a`.
   Geocoding and Maps destinations still read only `address` (or the trusted pin).
   A unit-only edit leaves that pin intact; removing the suffix clears the unit.
+  A number box of `-Railway Lights` is a **unit with no house number**; it shows
+  back as `-Railway Lights`, and a lone `-` clears it.
+  **Coordinates as the address:** a Street box holding `42.933446,-81.486452` (the
+  whole text, both numbers with a decimal point — `route.js coordsFromText`) pins
+  the order at that position with no geocoder asked, at Save and again in
+  `geocodeOne`. The order is marked `exactPin`: never re-geocoded, and Navigate
+  always goes to the pin. This is for work with no address, such as equipment at
+  the side of a road.
+  **The found address is written back after Optimize**
+  (`worklist.js confirmFoundAddresses`, in the background): each routable order's
+  pin is reverse-looked-up through the spine's keyless Google geocoder
+  (`geocode.js resolveAddress`, cached per spot), and the address becomes
+  `typed number + found street, found town` when the street matches
+  (`foundAddress`); with no answer the town comes from the label the geocoder gave
+  (`geoLabel`, phone-only). A coordinate order gets the nearest address
+  (`nearestAddress`). Only the address text changes — never the pin — and the list
+  is pushed with `syncWorklist()` afterwards. The Log screen's planned-vs-GPS
+  chooser compares number and street only (`addressesAgree`), so a town that
+  differs no longer asks.
   Picking a town from either address form saves its currently typed unit with
   the selected pin; a card's town chip preserves the already saved unit.
   Labels can contain text or further hyphens. Landmark-only edits preserve legacy
@@ -2522,6 +2541,7 @@ installer's saved rows.
 | `legGeometryRoad` / `legGeometryStraight` | string | the OSRM-encoded polyline (polyline5) of that same arriving **between-stops** leg for each variant. A day's first stop is empty here — its drive out from the crew start is drawn separately from `homeLegGeometry*` (below). Empty when the planner never fetched directions, a leg had no route, or an Optimize reordered the stop and OSRM was down (blanked so a stale leg can't be drawn — see "Route variants"). Opaque text; `setupSheets` pins these columns to `@` |
 | `homeLegMetersRoad` / `homeLegMetersStraight` | number | per-variant drive-out distance to a **day's first stop**, stored on that first stop (one per day). Measured from the crew's **team start** (the morning drive out of the muster point) — **only** when one is set. Home is the end-of-day bias and is **never** a drive-out anchor, so a run with no team start records nothing here. Deliberately **kept out of** `legMeters*` and the day/route total — a "distance out" reference number, shown as a **`start`** readout on the day headers. Empty for non-first stops and when the crew has no start location. (Field name is legacy; despite the `home` prefix it holds the **crew-start** drive-out.) |
 | `homeLegGeometryRoad` / `homeLegGeometryStraight` | string | per-variant **drive-out path** from the crew start to a **day's first stop**, stored on that first stop (parallel to `homeLegMeters*`). The OSRM road polyline (polyline5) when the local server is up, else a straight two-point line `encodePolyline`'d from the crew-start and first-stop coords, else empty (no crew start on file). Drawn as a **faint dashed line + start pin** on both the planner map and the phone route view — never in any distance total. Rides the sync verbatim, blanked on any reorder, drawn only while `variantMatchesLive` holds. Opaque text; `setupSheets` pins these columns (`AH:AI`) to `@` |
+| `exactPin`    | string | `'TRUE'` = the pin was **typed as coordinates** (an order with no address). The address on the row is only the nearest house, so the phone never re-geocodes it and always navigates to the pin. Appended last; blank on every ordinary order |
 
 ### Route variants (the two saved routes)
 
@@ -2781,7 +2801,7 @@ Rows older than 30 days are dropped by the nightly `clearDoneWorklistJob`
 | `source` | string | `telegram` |
 | `removedAt` | string | Toronto-local stamp |
 | `restoredAt` | string | stamp of the claim that gave the details back; blank = not restored |
-| `row` | string | JSON of the typed details: `unit`, `address`, `oldJNumber`, `lat`, `lng`, `appointmentDate`, `appointmentTime`, `ignored`. Route fields and polylines are not kept |
+| `row` | string | JSON of the typed details: `unit`, `address`, `oldJNumber`, `lat`, `lng`, `appointmentDate`, `appointmentTime`, `ignored`, `exactPin`. Route fields and polylines are not kept |
 
 ---
 

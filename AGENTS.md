@@ -996,6 +996,45 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   fix. It asks the district index only, and anything but a clean single answer leaves
   the order alone: it was routable a moment ago. `tests/roadgraph.test.mjs`,
   `tests/route-nearest-town.test.mjs`.
+  **After every Optimize the found town is written onto the address, and that pass
+  never moves a pin** (`confirmFoundAddresses` in `js/worklist.js`, field report
+  2026-11-19). The offline map names the municipality ("Southwest Middlesex") and
+  Google names the community ("Glencoe"). A pick-a-town chip wrote the first, the
+  Log screen's Refresh answered with the second, and the Keep planned / Use GPS box
+  fired on every such order with the number and street right. Five things to keep:
+  (1) **the town is Google's, by reverse lookup of the order's own pin** — the keyless
+  `Maps.newGeocoder()` in `Code.gs geocode`, the same call Refresh makes, reached
+  through `geocode.js resolveAddress` so a pin is asked about once and is cached
+  after. It is not the capped API key, and it is the owner's choice (2026-11-19) that
+  a tap makes this one lookup per newly found order. With no answer the pass falls
+  back to `geoLabel`, the label the geocoder gave when it found the pin;
+  (2) **it writes `address` and nothing else.** Never route it through `wlSave` or
+  `saveWorklistAddress`: their "address changed" rule blanks the pin it just read;
+  (3) **the typed house number is kept and the street must match**
+  (`worklist-address-fill.js foundAddress`). A pin on an estimate reverse-geocodes to
+  the neighbour's number, and "King St W" against "King St" is not a match;
+  (4) **it is started, not awaited**, and stops asking after two unanswered lookups
+  with signal showing. A slow lookup must not hold the Optimize button;
+  (5) **it ends in `syncWorklist()`**, or the Drive screen's `autoSync` pulls the old
+  text back from the sheet.
+  The Log screen chooser now asks only when number or street differ
+  (`addressesAgree`, which is `siteKey` on both sides). Don't go back to comparing
+  whole strings.
+  **Coordinates typed as the address are a pin, and `exactPin` marks it.** An order
+  with no address (roadside equipment) takes `42.933446,-81.486452` in the Street box
+  and `-Railway Lights` in the Number box (a unit with no house number).
+  `route.js coordsFromText` is the one parser: `geocodeOne` returns the typed pin
+  before any provider, and `wlSave`/`saveWorklistAddress` pin it at Save. The pass
+  above then writes the nearest address over the coordinates, so from then on the
+  address text is NOT where the order is. That is what `exactPin` (the last
+  `Worklist` column, `'TRUE'`) is for: `geocodeAll` never re-geocodes such an order
+  (neither the out-of-radius check nor `repinShared`), and `destOf` always navigates
+  to its pin, whatever the Navigate switch says. A phone on older code uploads the
+  column blank; the order then follows the switch like any other, and the flag comes
+  back by itself only while the address is still the coordinates (`isExactPin`).
+  `coordsFromText`, `foundAddress`, `nearestAddress` and `addressesAgree` are all
+  reached through `import * as` + `typeof`. `tests/route-coords.test.mjs`,
+  `tests/worklist-address-fill.test.mjs`.
   **`normalizeStreet` must behave identically on both sides** — the builder normalizes
   OSM's `addr:street`, the phone normalizes what was typed — and its positional rule
   is load-bearing: a suffix expands anywhere *except* the first word, so "Concession
