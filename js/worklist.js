@@ -1401,9 +1401,10 @@ async function confirmFoundAddresses(){
   } finally { confirmingAddresses = false; }
   if(!changed) return;
   await renderWorklist();
-  // Push now. The Drive screen's autoSync replaces this list with the sheet's
-  // whenever the queue is empty, and would put the old text straight back.
-  syncWorklist().catch(() => {});
+  // NO upload here. Optimize never writes to the sheet, and this pass is part of
+  // Optimize: the new text goes up with the route, on the next log or ⇪ Upload.
+  // Until then the Drive screen's autoSync can put the sheet's older text back;
+  // the next Optimize rewrites it from the lookup cache.
   // With every pin already cached this finishes in milliseconds, and its toast
   // would replace Optimize's own before anyone read it — the one that says how
   // many orders were parked. Let that one have its time on screen first.

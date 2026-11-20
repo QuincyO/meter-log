@@ -99,7 +99,10 @@ test('the town pass changes the address text and nothing else', () => {
   assert.ok(fn, 'confirmFoundAddresses not found');
   assert.doesNotMatch(fn, /\blat\s*:|\blng\s*:/, 'the pass must never move a pin');
   assert.match(fn, /isParked\(/, 'a parked order has no pin to trust');
-  assert.match(fn, /syncWorklist\(\)/, 'or the Drive screen pulls the old text back');
+  // Owner's rule: an Optimize never uploads the list. Strip comments first so
+  // the note explaining that cannot satisfy or trip the check.
+  const code = fn.replace(/\/\/.*$/gm, '');
+  assert.doesNotMatch(code, /syncWorklist|apiPost|saveWorklist/, 'Optimize must not upload the list');
   // Started after the route is saved, and not awaited: a slow lookup must not
   // hold the Optimize button.
   const handler = js.match(/async function optimizeRouteHandler\([\s\S]*?\n\}/)?.[0] || '';

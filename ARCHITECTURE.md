@@ -715,8 +715,8 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `typed number + found street, found town` when the street matches
   (`foundAddress`); with no answer the town comes from the label the geocoder gave
   (`geoLabel`, phone-only). A coordinate order gets the nearest address
-  (`nearestAddress`). Only the address text changes — never the pin — and the list
-  is pushed with `syncWorklist()` afterwards. The Log screen's planned-vs-GPS
+  (`nearestAddress`). Only the address text changes — never the pin — and nothing
+  is uploaded: the text reaches the sheet with the next log or ⇪ Upload. The Log screen's planned-vs-GPS
   chooser compares number and street only (`addressesAgree`), so a town that
   differs no longer asks.
   Picking a town from either address form saves its currently typed unit with

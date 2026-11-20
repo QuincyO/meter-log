@@ -1015,8 +1015,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   the neighbour's number, and "King St W" against "King St" is not a match;
   (4) **it is started, not awaited**, and stops asking after two unanswered lookups
   with signal showing. A slow lookup must not hold the Optimize button;
-  (5) **it ends in `syncWorklist()`**, or the Drive screen's `autoSync` pulls the old
-  text back from the sheet.
+  (5) **it does not upload.** The owner ruled on 2026-11-20 that an Optimize never
+  pushes the list, so do not add `syncWorklist()` here. The new text goes up with
+  the route, on the next log or ⇪ Upload. Until then the Drive screen's `autoSync`
+  can put the sheet's older text back, and the next Optimize rewrites it.
   The Log screen chooser now asks only when number or street differ
   (`addressesAgree`, which is `siteKey` on both sides). Don't go back to comparing
   whole strings.
