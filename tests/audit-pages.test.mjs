@@ -522,3 +522,21 @@ test('the period sets logged breaks beside the allowance and says what unlogged 
   assert.match(html, /A break or lunch entered against a gap is placed on it the same way, after the delays/);
   assert.match(html, /A break that was logged is not in this figure\./);
 });
+
+// ── downtime on no order, and on the first order ─────────────────────────────
+
+test('the delays table words the two no-order cards and the first order without their filing clocks', () => {
+  const LATE = '2026-11-23';   // after AUDIT.FIRST_ORDER_FROM
+  // next door, usual 6: the 09:05–09:45 gap ran 34 over
+  const d = detailOf(stopsOn(LATE, ['09:05', '09:45', '09:51']), LATE, [
+    { timestamp: `${LATE} 12:00:00`, category: 'DISPATCH', minutes: 35, note: 'gap 00:00–00:00' },
+    { timestamp: `${LATE} 12:00:00`, category: 'TRUCK_ISSUES', minutes: 20, note: 'gap 09:05–09:05' },
+    { timestamp: `${LATE} 12:00:00`, category: 'WAREHOUSE', minutes: 15, note: 'gap 23:59–23:59' },
+  ]);
+  const top = dayTopHtml(d);
+  assert.ok(top.includes('>before the first meter<'), 'no 00:00–00:00 in front of it');
+  assert.ok(top.includes('>after the last meter<'), 'no 23:59–23:59 in front of it');
+  assert.ok(top.includes('the first order, counted in the gap after it (09:05–09:45)'));
+  assert.doesNotMatch(top, /00:00–00:00|23:59–23:59|09:05–09:05/);
+  assert.match(gapDetailHtml(d.day, 0), /Logged against the order before, counted here<\/td><td class="n">20 min/);
+});

@@ -502,6 +502,66 @@ test('the phone\'s own lead-gap note is the drive to the first order', () => {
   assert.equal(day.pauseLoggedMin, 0);
 });
 
+// ── before the first order, on the first order, after the last ───────────────
+// Until 2026-11-21 the first order's own slot was the only place to enter the
+// morning's delay. The phone then got a card for downtime before the first order
+// and one for after the last, and the first order's slot came to mean that order.
+// The owner chose to split by date rather than re-read history.
+const SPLIT = '2026-11-23';   // a Monday after AUDIT.FIRST_ORDER_FROM
+// Next door, usual 6: gaps of 40 and 6 are 34 and 0 over.
+const firstDay = (date, downtime) =>
+  dayOf(prep([...history(10), ...stopsOn(date, ['09:05:40', '09:45:40', '09:51:40'])], downtime), date);
+
+test('from the split date, downtime on the first order is counted at that order', () => {
+  assert.ok(SPLIT >= AUDIT.FIRST_ORDER_FROM && D < AUDIT.FIRST_ORDER_FROM);
+  const day = firstDay(SPLIT, [gapRow(SPLIT, 'TRUCK_ISSUES', 20, 'gap 09:05–09:05')]);
+  assert.deepEqual(day.delays.map(d => [d.where, d.onFirst, d.driveToFirst, d.minutes]), [['between', true, false, 20]]);
+  assert.deepEqual([day.log.before, day.log.between, day.log.total], [0, 20, 20]);
+  assert.deepEqual(day.gaps.map(g => [g.loggedMin, g.carriedMin]), [[0, 20], [0, 0]]);
+  assert.deepEqual([day.pauseLoggedMin, day.pauseUnMin], [20, 14]);
+  assert.deepEqual(day.delays[0].carriedTo, { fromMin: 545, toMin: 585 });
+});
+
+test('before the split date the same entry still reads as the morning', () => {
+  const day = firstDay(D, [gapRow(D, 'TRUCK_ISSUES', 20, 'gap 09:05–09:05')]);
+  assert.deepEqual(day.delays.map(d => [d.where, d.onFirst]), [['before', false]]);
+  assert.deepEqual([day.log.before, day.pauseLoggedMin, day.pauseUnMin], [20, 0, 34]);
+});
+
+test('first-order downtime goes one gap on, only into a pause, and never past what was entered', () => {
+  // More entered than the gap after ran over: 34 counted, the rest counted nowhere.
+  const big = firstDay(SPLIT, [gapRow(SPLIT, 'TRUCK_ISSUES', 50, 'gap 09:05–09:05')]);
+  assert.deepEqual(big.gaps.map(g => g.carriedMin), [34, 0]);
+  assert.equal(big.pauseUnMin, 0);
+  // The gap after the first order is ordinary work: nothing to take off.
+  const flat = dayOf(prep([...history(10), ...stopsOn(SPLIT, ['09:05', '09:11', '09:55'])],
+    [gapRow(SPLIT, 'TRUCK_ISSUES', 20, 'gap 09:05–09:05')]), SPLIT);
+  assert.deepEqual(flat.gaps.map(g => g.carriedMin), [0, 0]);
+  assert.equal(flat.delays[0].carriedTo, null);
+  // One order and no gaps at all.
+  const lone = dayOf(prep([...history(10), ...stopsOn(SPLIT, ['09:05'])],
+    [gapRow(SPLIT, 'TRUCK_ISSUES', 20, 'gap 09:05–09:05')]), SPLIT);
+  assert.deepEqual(lone.delays.map(d => [d.where, d.carriedTo]), [['between', null]]);
+});
+
+test('a break entered on the first order is placed on the gap after it', () => {
+  const day = firstDay(SPLIT, [gapRow(SPLIT, 'LUNCH', 30, 'gap 09:05–09:05')]);
+  assert.deepEqual(day.gaps.map(g => g.breakMin), [30, 0]);
+  assert.deepEqual([day.pauseBreakMin, day.pauseUnMin, day.log.total], [30, 4, 0]);
+  assert.deepEqual(day.breaks.map(b => [b.onFirst, b.carriedTo]), [[true, { fromMin: 545, toMin: 585 }]]);
+});
+
+test('the two no-order cards are placed before the first meter and after the last', () => {
+  const day = firstDay(SPLIT, [
+    gapRow(SPLIT, 'DISPATCH', 35, 'gap 00:00–00:00'), gapRow(SPLIT, 'WAREHOUSE', 10, 'gap 00:00–00:00'),
+    gapRow(SPLIT, 'TRUCK_ISSUES', 25, 'gap 23:59–23:59')]);
+  assert.deepEqual(day.delays.map(d => [d.category, d.where, d.onFirst, d.driveToFirst]),
+    [['DISPATCH', 'before', false, true], ['WAREHOUSE', 'before', false, false], ['TRUCK_ISSUES', 'after', false, false]]);
+  assert.deepEqual([day.log.before, day.log.dispatchBefore, day.log.after, day.log.between], [45, 35, 25, 0]);
+  assert.deepEqual(day.gaps.map(g => g.carriedMin), [0, 0], 'neither is taken off any gap');
+  assert.equal(day.pauseUnMin, 34);
+});
+
 // ── the pace on a day's route ────────────────────────────────────────────────
 // Eleven full days worked next door (6 minutes a gap) and ten full days with the
 // orders 0.3 km apart (12 minutes a gap), every one with a single gap 30 minutes

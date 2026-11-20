@@ -1318,15 +1318,76 @@ function liveDowntime(rows){
   return (rows || []).filter(d => !isGapRow(d)).concat(collectGapAllocations(eodGaps));
 }
 
+// ── downtime on no order: before the first, after the last ──────────────────
+// The first order's own slot (the land-mode lead gap) used to be the only place to
+// enter the morning's delay, which printed it on that order's row of the daily log.
+// These two slots are gaps like any other (same list, same stash, same saveTravel)
+// but they arrive at no stop: `toId` and `toWO` are blank, so the row is saved with
+// no WO# and the land PDF lists it under "Not tied to a WO#".
+//
+// The key is a FIXED clock, zero-length like the lead gap: `gap 00:00–00:00` and
+// `gap 23:59–23:59`. Not the first or last log's time: one more log, an edited
+// arrival or a removed stop would re-key the slot, and the next save (a whole-day
+// replace) would drop what was in it. The audit reads the two keys as before the
+// first meter and after the last (compute/audit.js).
+//
+// Kept in THIS file on purpose, and told apart by key rather than by a flag. The
+// spine's `idle` adds the same two gaps (Code.gs), but a phone can run this file
+// beside an older gaps.js, or against a spine that has not deployed, and a slot
+// missing from `eodGaps` is not just a missing card: the next save deletes its rows.
+const EDGE_BEFORE = '00:00', EDGE_AFTER = '23:59';
+function edgeOf(g){
+  if(!g || g.start !== g.end) return '';
+  return g.start === EDGE_BEFORE ? 'before' : g.start === EDGE_AFTER ? 'after' : '';
+}
+function withEdgeGaps(gaps, rows, stash, land){
+  const list = (gaps || []).slice();
+  if(!land) return list;
+  const noteTimes = d => /gap\s+(\d{1,2}:\d{2}).+?(\d{1,2}:\d{2})/.exec(String((d && d.note) == null ? '' : d.note));
+  // The precedence every other gap has: a stash the Sheet has not confirmed wins,
+  // emptied or not (see localGapsFor); otherwise the saved rows.
+  const saved = t => Array.isArray(stash)
+    ? stash.filter(a => a.fromTime === t && a.toTime === t)
+    : (rows || []).filter(d => { const m = noteTimes(d); return m && m[1] === t && m[2] === t; });
+  const make = t => ({ start:t, end:t, idleMin:0, toWO:'', toId:'',
+    allocations: saved(t).map(a => ({ category:a.category, minutes:Number(a.minutes)||0 })) });
+  if(!list.some(g => edgeOf(g) === 'before')) list.unshift(make(EDGE_BEFORE));
+  if(!list.some(g => edgeOf(g) === 'after')) list.push(make(EDGE_AFTER));
+  return list;
+}
+
+// The End-of-day card for one of those two slots. Folded like an order's Downtime
+// section, and with no travel to net against, so it shows its total alone.
+function makeEdgeCard(g, title){
+  const card = document.createElement('div');
+  card.className = 'stopcard';
+  card.innerHTML = `<div class="sc-head"><div class="sc-sum"><strong>${title}</strong>`
+    + ' <span class="sc-meta">· downtime on no work order</span></div></div>';
+  const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+  toggle.style.marginTop = '6px';
+  const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
+  const onNet = () => {
+    const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
+    toggle.innerHTML = `${body.classList.contains('hide') ? '▸' : '▾'} Downtime: <b style="color:var(--install)">${used} min</b>`;
+  };
+  toggle.onclick = () => { touchEod(); body.classList.toggle('hide'); onNet(); };
+  body.appendChild(allocEditor(g, onNet));
+  card.appendChild(toggle); card.appendChild(body);
+  onNet();
+  return card;
+}
+// ── end: downtime on no order ───────────────────────────────────────────────
+
 // Local gaps for a cached day. `eodTravel` is "edits the Sheet has not confirmed"
 // and wins while it exists — but computeGapsLocal only lets a NON-EMPTY stash win,
 // so a stash emptied by deleting the last entry would hand the saved rows straight
 // back. Dropping the gap-tagged rows first is what makes an empty stash mean empty.
 function localGapsFor(stops, downtime, stash){
   const emptied = Array.isArray(stash) && !stash.length;
-  return computeGapsLocal(stops || [],
+  const land = workMode()==='land';
+  return withEdgeGaps(computeGapsLocal(stops || [],
     emptied ? (downtime || []).filter(d => !isGapRow(d)) : (downtime || []),
-    stash, workMode()==='land');
+    stash, land), downtime, stash, land);
 }
 
 // The spine's `idle` gaps carry the allocations the SHEET holds. While a stash
@@ -1573,7 +1634,9 @@ async function loadDay(mode){
     let gaps = localGapsFor(stops, downtime, pendingTravel);
     const idata = await idleP;
     // Never the spine's allocations over an un-synced stash — see overlayStash.
-    if(idata && idata.gaps) gaps = overlayStash(idata.gaps, pendingTravel);
+    // …and never without the two no-order slots, whatever the spine sent back.
+    if(idata && idata.gaps)
+      gaps = withEdgeGaps(overlayStash(idata.gaps, pendingTravel), downtime, pendingTravel, workMode()==='land');
     // A newer load owns the screen (see dayLoadSeq). The day is cached above either way.
     if(seq !== dayLoadSeq) return;
     // Never re-render a review the installer has already started working in — the
@@ -1643,7 +1706,11 @@ function renderEod(stops, downtime){
   // Position = order by arrival time across all logged WOs shown (1st, 2nd, …).
   const ordered = editable.slice().sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
+  // Downtime on no order sits where it happened: above the first order, below the last.
+  const before = eodGaps.find(g => edgeOf(g) === 'before'), after = eodGaps.find(g => edgeOf(g) === 'after');
+  if(before) list.appendChild(makeEdgeCard(before, 'Before first order'));
   ordered.forEach(s => list.appendChild(makeStopCard(s, null, { pos: posById[s.id], travel: true, quick: 'fold' })));
+  if(after) list.appendChild(makeEdgeCard(after, 'After last order'));
 }
 
 let eodData = { stops:[], downtime:[] };   // stash for weather + PDF

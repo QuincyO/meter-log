@@ -2881,6 +2881,25 @@ the caller's `workType`, else inferred from the day's stops (same as
 read + client editor path, **not** in `computeIdle` used by `buildDaySummary`, so no
 bogus 0-minute `Timing`/travel row is written.
 
+**Downtime on no order (land days, 2026-11-20).** End of day has a **Before first
+order** card above the first order and an **After last order** card below the last.
+Until then the lead gap was the only place to enter the morning's delay, which printed
+it on the first order's row. Each card is one more zero-length gap in the same list,
+keyed on a **fixed clock**: `gap 00:00–00:00` and `gap 23:59–23:59`. Not the first or
+last log's time, because one more log, an edited arrival or a removed stop would
+re-key the slot and the next `saveTravel` (a whole-day replace) would drop its rows.
+They arrive at no stop (`toId` and `toWO` blank), so the `Downtime` row has no WO# and
+the land PDF counts it in the column totals and lists it under "Not tied to a WO#".
+The `idle` handler adds both, and `capture.js withEdgeGaps` adds whichever the list it
+was handed lacks, so a spine that has not deployed still gets the cards. They are told
+apart by key (`edgeOf`), not by a flag. Today's orders draws no card for them but
+carries them in the shared list, so its saves keep them. `edit.html` draws both.
+No spine statistic matches these keys to a gap, so they change no travel, dwell or
+pause figure. The audit reads them as before the first meter and after the last, and
+from `AUDIT.FIRST_ORDER_FROM` (2026-11-21) reads a lead-gap entry as a delay at the
+first order, carried into the gap after its log; earlier days keep reading it as the
+morning.
+
 **Two sheets edit the one list (2026-11-13).** The subtraction editor is on the
 work-order card in **Today's orders** as well as End of day, with the stop's note beside
 it (`capture.js makeStopCard` `opts.quick`: `'open'` on Today, `'fold'` on End of day).

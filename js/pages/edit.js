@@ -160,7 +160,37 @@ function renderStops(){
   // unpadded-hour stamp ("…8:52") after "…11:11" because '8' > '1'.
   const ordered = state.stops.slice().sort((a,b)=> (parseLocalMs(a.timestamp)||0) - (parseLocalMs(b.timestamp)||0));
   const posById = {}; ordered.forEach((s,i)=> posById[s.id]=i+1);
+  // Downtime on no order (land days): the spine's `idle` sends two extra gaps, keyed
+  // `00:00–00:00` and `23:59–23:59`, that arrive at no stop. They are saved back with
+  // the rest whether or not they are drawn; drawing them lets the office edit them.
+  const before = gapData.find(g => edgeOf(g) === 'before'), after = gapData.find(g => edgeOf(g) === 'after');
+  if(before) box.appendChild(edgeCard(before, 'Before first order'));
   ordered.forEach(s => box.appendChild(stopCard(s, posById[s.id])));
+  if(after) box.appendChild(edgeCard(after, 'After last order'));
+}
+
+// Mirrors edgeOf / makeEdgeCard in js/pages/capture.js, where the keys are explained.
+function edgeOf(g){
+  if(!g || g.start !== g.end) return '';
+  return g.start === '00:00' ? 'before' : g.start === '23:59' ? 'after' : '';
+}
+function edgeCard(g, title){
+  const card = document.createElement('div');
+  card.className = 'stopcard';
+  card.innerHTML = `<div class="sc-head"><div class="sc-sum"><strong>${title}</strong>`
+    + ' <span class="sc-meta">· downtime on no work order</span></div></div>';
+  const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+  toggle.style.marginTop = '6px';
+  const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
+  const onNet = () => {
+    const used = (g.allocations||[]).reduce((s,a)=>s+(Number(a.minutes)||0),0);
+    toggle.innerHTML = `${body.classList.contains('hide') ? '▸' : '▾'} Downtime: <b style="color:#1a7f37">${used} min</b>`;
+  };
+  toggle.onclick = () => { body.classList.toggle('hide'); onNet(); };
+  body.appendChild(allocEditor(g, onNet));
+  card.appendChild(toggle); card.appendChild(body);
+  onNet();
+  return card;
 }
 
 // ── travel review: every WO→WO gap, subtract downtime/breaks ─────────────────

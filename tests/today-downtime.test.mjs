@@ -153,7 +153,8 @@ test('a response for a sheet that is no longer the one on screen paints nothing'
 });
 
 test('an un-synced stash wins over the allocations the spine sends back', () => {
-  assert.match(captureJs, /if\(idata && idata\.gaps\) gaps = overlayStash\(idata\.gaps, pendingTravel\);/);
+  // (wrapped in withEdgeGaps since 2026-11-20: see tests/edge-downtime.test.mjs)
+  assert.match(captureJs, /if\(idata && idata\.gaps\)\s+gaps = withEdgeGaps\(overlayStash\(idata\.gaps, pendingTravel\),/);
   assert.ok(!/if\(idata && idata\.gaps\) gaps = idata\.gaps;/.test(captureJs),
     'idle replaces the gaps wholesale again — un-synced downtime vanishes on open');
   const overlay = fn(captureJs, 'overlayStash');

@@ -873,6 +873,31 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   a stale copy can overwrite the first one's entries. Both already applied to End of day.
   `settleTravel` / `settleTravelCache` are reached through `import * as` + `typeof`, per
   the skew rule below. Pinned by `tests/today-downtime.test.mjs`.
+- **Downtime on no order is two more gaps, keyed on a fixed clock.** End of day (land
+  days) has a **Before first order** and an **After last order** card (2026-11-20). They
+  are gaps in the same `eodGaps` list, saved by the same `saveTravel`, keyed
+  `gap 00:00–00:00` and `gap 23:59–23:59`, with a blank `toId` and `toWO`. Five things
+  are load-bearing:
+  (1) **the key is fixed, never the first or last log's time.** One more log, an edited
+  arrival or a removed stop would re-key the slot, and `saveTravel` is a whole-day
+  replace: the next save would drop its rows;
+  (2) **a slot missing from `eodGaps` is deleted, not hidden.** So `capture.js
+  withEdgeGaps` adds whichever the list lacks, on both paths (`localGapsFor` and the
+  `idle` response), and lives in `capture.js` itself rather than `gaps.js`: the phone
+  can run it beside an older sibling module or a spine that has not deployed. Never
+  filter blank-`toId` gaps out of `setGapData` in either `capture.js` or `edit.js`;
+  (3) **told apart by key (`edgeOf`), not a flag**, so a list from any spine version
+  reads the same;
+  (4) **Today's orders draws no card but carries both**, so a save from there keeps them;
+  (5) **the first order's own slot (the lead gap) now means that order.** The audit
+  splits by date, the owner's choice: from `AUDIT.FIRST_ORDER_FROM` (2026-11-21) a
+  lead-gap entry is a delay at the first order and starts as the carry into the gap
+  after its log; on earlier days it was the only place to enter the morning's delay and
+  still reads as before the first meter. Do not move that date and do not re-read
+  history. A crew member on older code keeps entering the morning there, and after the
+  date the audit reads it as the first order's.
+  Nothing on the spine matches the two keys to a gap, so no travel, dwell or pause
+  figure moves. Pinned by `tests/edge-downtime.test.mjs` and `tests/audit-compute.test.mjs`.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at

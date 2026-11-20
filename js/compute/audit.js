@@ -48,6 +48,11 @@ export const AUDIT = {
   BREAK_ALLOWANCE_MIN: 60,     // two 15-minute breaks and a 30-minute lunch
   BASELINE_DAYS: 30,           // the "30 worked days before" comparison
   MIN_KIND_GAPS: 5,            // fewer gaps of a kind than this: use the all-gap median
+  // The first day the phone had a "Before first order" card. Until then the first
+  // order's own downtime slot was the only place to enter the morning's delay, so
+  // on earlier days an entry there reads as before the first meter. From this day
+  // on it is a delay at the first order (owner's choice, 2026-11-20).
+  FIRST_ORDER_FROM: '2026-11-21',
   KIND_KM: [0.06, 0.5, 1, 2, 5, 10, Infinity],
   KIND_LABELS: ['Next door (under 60 m)', '60 m to 0.5 km', '0.5 to 1 km', '1 to 2 km',
     '2 to 5 km', '5 to 10 km', 'Over 10 km'],
@@ -128,6 +133,10 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
   //    in the mode has no day to belong to and is skipped.
   const dayLog = new Map(), dayDelays = new Map(), inGap = new Map();
   const dayBreaks = new Map(), inBreak = new Map();   // breaks and lunch: kept apart from delays, always
+  // Entered on the FIRST order (the phone's zero-length slot on it: both clocks are
+  // the first log's own minute). There is no gap before the first order, so the
+  // whole entry goes one gap on, to the gap after its log, by the rule below.
+  const firstDelay = new Map(), firstBreak = new Map();
   for(const r of src.downtime || []){
     const date = dateOf(r.timestamp), logs = byDay.get(date);
     if(!logs) continue;
@@ -137,7 +146,13 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     const first = logs[0].min, last = logs[logs.length - 1].min;
     const note = gapNoteTimes(r.note);
     const fromMin = note ? hhmmMin(note[1]) : null, toMin = note ? hhmmMin(note[2]) : null;
+    // The "Before first order" card writes `gap 00:00–00:00` and "After last order"
+    // `gap 23:59–23:59` (js/pages/capture.js), which the two tests below already
+    // place before the first meter and after the last.
+    const onFirst = !!note && fromMin === toMin && toMin === Math.floor(first)
+      && date >= AUDIT.FIRST_ORDER_FROM;
     const where = !note ? 'untimed'
+      : onFirst ? 'between'
       : toMin <= Math.floor(first) ? 'before'
       : fromMin >= Math.floor(last) ? 'after' : 'between';
     if(!dayLog.has(date)){ dayLog.set(date, emptyLog()); dayDelays.set(date, []); dayBreaks.set(date, []); }
@@ -147,23 +162,26 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     // so the gap reads "break" instead of "nothing logged".
     if(BREAKS[category]){
       log.breaks += minutes;
-      if(where === 'between'){
+      if(onFirst) firstBreak.set(date, (firstBreak.get(date) || 0) + minutes);
+      else if(where === 'between'){
         const key = date + '|' + fromMin + '|' + toMin;
         inBreak.set(key, (inBreak.get(key) || 0) + minutes);
       }
-      dayBreaks.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where, fromMin, toMin });
+      dayBreaks.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where, fromMin, toMin, onFirst });
       continue;
     }
     if(TRAVEL[category]){ log.travel += minutes; continue; }
     log[where] += minutes; log.total += minutes;
     const driveToFirst = category === 'DISPATCH' && where === 'before';
     if(driveToFirst) log.dispatchBefore += minutes;
-    if(where === 'between' && !NOT_DEDUCTED[category]){
+    if(onFirst){
+      if(!NOT_DEDUCTED[category]) firstDelay.set(date, (firstDelay.get(date) || 0) + minutes);
+    } else if(where === 'between' && !NOT_DEDUCTED[category]){
       const key = date + '|' + fromMin + '|' + toMin;
       inGap.set(key, (inGap.get(key) || 0) + minutes);
     }
     dayDelays.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where,
-      fromMin, toMin, driveToFirst });
+      fromMin, toMin, driveToFirst, onFirst });
   }
 
   // 3. Gaps, then the usual time for each kind over every day in the mode.
@@ -225,7 +243,11 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     // on them now mean "nothing was logged against this time at all". A day with
     // its breaks logged therefore shows less unlogged pause than the same day
     // without, on purpose; the logged breaks are compared with the allowance instead.
-    let carry = 0, breakCarry = 0, prev = null;
+    //
+    // The first order (from AUDIT.FIRST_ORDER_FROM). It has no gap before it, so
+    // what was entered on it starts as the carry into the first gap: the same "one
+    // gap on, only into a pause" rule, with nothing taken off a gap before.
+    let carry = firstDelay.get(date) || 0, breakCarry = firstBreak.get(date) || 0, prev = null;
     for(const g of gaps){
       g.usual = g.kind < 0 ? usualAny : usual[g.kind];
       g.over = g.min - g.usual;
@@ -253,8 +275,13 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     const delays = (dayDelays.get(date) || []).slice().sort((a, b) =>
       (a.fromMin == null ? Infinity : a.fromMin) - (b.fromMin == null ? Infinity : b.fromMin));
     // Where a delay was counted, when that is not where it was entered: the gap after.
+    const spanOf = g => ({ fromMin: Math.floor(g.atMin), toMin: Math.floor(g.atMin + g.min) });
     for(const d of delays){
       d.carriedTo = null;
+      if(d.onFirst){
+        if(gaps[0] && gaps[0].carriedMin > 0 && !NOT_DEDUCTED[d.category]) d.carriedTo = spanOf(gaps[0]);
+        continue;
+      }
       if(d.where !== 'between') continue;
       const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
       if(i >= 0 && gaps[i].carriedOutMin > 0 && !NOT_DEDUCTED[d.category]){
@@ -267,6 +294,10 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       (a.fromMin == null ? Infinity : a.fromMin) - (b.fromMin == null ? Infinity : b.fromMin));
     for(const d of breaks){
       d.carriedTo = null;
+      if(d.onFirst){
+        if(gaps[0] && gaps[0].breakCarriedMin > 0) d.carriedTo = spanOf(gaps[0]);
+        continue;
+      }
       if(d.where !== 'between') continue;
       const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
       if(i >= 0 && gaps[i].breakCarriedOutMin > 0){

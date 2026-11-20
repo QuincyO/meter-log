@@ -654,6 +654,19 @@ function doGet(e) {
         mapped.unshift({ start: hh, end: hh, idleMin: 0, toWO: f.workOrderId || '',
           toId: f.id, distM: null, suggest: '', allocations: allocFor(hh, hh), lead: true });
       }
+      // Downtime on NO order: before the first, after the last. Two more zero-length
+      // gaps, keyed on a FIXED clock so no later log, edited arrival or removed stop
+      // can re-key them (saveTravel is a whole-day replace: a slot that re-keys loses
+      // its rows). They arrive at no stop, so the row is saved with a blank WO#. The
+      // phone tells them apart by these two keys, not by a flag, and adds them itself
+      // when this list has none (js/pages/capture.js withEdgeGaps). The audit reads
+      // them as before the first meter and after the last.
+      const noOrder = function (t) {
+        return { start: t, end: t, idleMin: 0, toWO: '', toId: '', distM: null, suggest: '',
+          allocations: allocFor(t, t) };
+      };
+      mapped.unshift(noOrder('00:00'));
+      mapped.push(noOrder('23:59'));
     }
     return json({ ok: true, gaps: mapped });
   }

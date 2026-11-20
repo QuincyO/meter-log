@@ -300,6 +300,8 @@ export function methodSection(distance = null){
       'What is left is unlogged pause time: nothing was logged against it. The typical day is the median of the daily totals.',
       'Working time is the gaps with each pause cut back to the usual time, so first-to-last-meter time is working time plus all pause time.',
       'A logged delay is placed before the first meter, between meters or after the last meter by the times in its entry. One with no times is "without a time of day".',
+      `From ${A.FIRST_ORDER_FROM} a delay entered on the first order counts at that order and is taken off the gap after it. `
+        + 'Before that date the first order was the only place to enter the morning\'s delay, so on those days it reads as before the first meter.',
       `The shift starts at ${start}. The day ends at the time set at close-out, at ${end} when the day was never closed out, `
         + 'or at the last meter when that is later. "Before the first meter, not logged" is the first meter less the start less the delay logged before it. '
         + '"Close-out and drive home" is the end of the day less the last meter.',
@@ -429,9 +431,15 @@ function compareSection({ day, baselines }){
 
 function delaysSection(day){
   const span = d => `${fmtClock(d.fromMin)}–${fmtClock(d.toMin)}`;
+  // The phone's two cards for downtime on no order write a fixed clock (00:00 and
+  // 23:59), which is a filing key and not a time anything happened: do not print it.
+  const noOrder = d => d.fromMin === d.toMin && (d.toMin === 0 || d.toMin === 1439);
   const against = d => d.where === 'untimed' ? 'no time of day'
-    : d.where === 'before' ? `${span(d)}, before the first meter`
-    : d.where === 'after' ? `${span(d)}, after the last meter`
+    : d.where === 'before' ? (noOrder(d) ? 'before the first meter' : `${span(d)}, before the first meter`)
+    : d.where === 'after' ? (noOrder(d) ? 'after the last meter' : `${span(d)}, after the last meter`)
+    // entered on the first order, which has no gap before it
+    : d.onFirst ? 'the first order' + (d.carriedTo
+      ? `, counted in the gap after it (${fmtClock(d.carriedTo.fromMin)}–${fmtClock(d.carriedTo.toMin)})` : '')
     // entered on an order, filed under the gap before its log, counted where the time was lost
     : d.carriedTo ? `${span(d)}, counted in the gap after it (${fmtClock(d.carriedTo.fromMin)}–${fmtClock(d.carriedTo.toMin)})` : span(d);
   // Breaks and lunch are listed apart: they are not delays, and they are compared
