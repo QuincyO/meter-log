@@ -1057,6 +1057,34 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   The Log screen chooser now asks only when number or street differ
   (`addressesAgree`, which is `siteKey` on both sides). Don't go back to comparing
   whole strings.
+  **📍 Clear map pins drops every pin so the next Optimize looks each address up
+  again, and it has to put the address back too** (`clearPins` in `js/worklist.js`,
+  `clearedPin` in `js/worklist-address-fill.js`; owner's request 2026-11-23). An
+  in-radius pin is never asked about again, so a pin in the wrong town could only be
+  dropped by retyping the address, one order at a time. Five things to keep:
+  (1) **clearing the pin alone fixes nothing.** The town-writing pass above has
+  already written the wrong pin's town onto the address ("6 York St, Delaware" pinned
+  in London reads "6 York St, London"), and the next lookup would read that town and
+  find the same place. So the pass keeps the text it replaces in `typedAddress`, the
+  first time only, and a clear writes it back;
+  (2) **with no `typedAddress`, a pinned order loses its town** and the next Optimize
+  takes the street nearest the phone. That covers orders rewritten before this
+  shipped and orders on a phone that did not run the Optimize. An order with no pin
+  keeps its text: it was never looked up, so the town on it is the installer's own;
+  (3) **`typedAddress` is phone-only** (`wireShape` is an allow-list), and
+  `applyDownloadedList` carries it across its wipe for each order whose id and
+  address come back unchanged. Drop that and the Drive screen's refresh throws every
+  typed copy away within minutes. A new address from the installer (`wlSave`,
+  `saveWorklistAddress`, a town chip) resets it;
+  (4) **a logged order and an `exactPin` are never cleared.** A typed pin's address
+  text is no longer where the order is, so it could not be found again;
+  (5) **the town-writing pass re-checks the pin before it writes.** It runs behind
+  Optimize, unawaited, and without the check a clear pressed while it is still
+  asking gets the old pin's town written onto an order that no longer has a pin.
+  It does not upload, like every other edit on that screen. The button ships hidden
+  in `index.html` and `paintClearPins` shows it, so a phone on the new page and an
+  older `worklist.js` never shows a button that does nothing.
+  `tests/worklist-address-fill.test.mjs`.
   **Coordinates typed as the address are a pin, and `exactPin` marks it.** An order
   with no address (roadside equipment) takes `42.933446,-81.486452` in the Street box
   and `-Railway Lights` in the Number box (a unit with no house number).

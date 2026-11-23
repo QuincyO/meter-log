@@ -124,6 +124,40 @@ export function nearestAddress(found){
   return town ? `${road}, ${town}` : null;
 }
 
+/** What "Clear map pins" writes onto one order, or null to leave it alone.
+ *
+ *  Clearing the pin is not enough on its own. After an Optimize the app writes
+ *  the pin's town onto the address (worklist.js confirmFoundAddresses), so an
+ *  order pinned in the wrong town now SAYS the wrong town, and the next lookup
+ *  would read that and find the same wrong place (field report 2026-11-23:
+ *  "6 York St, Delaware" pinned in London became "6 York St, London").
+ *
+ *  So the address goes back too:
+ *    - to `typedAddress`, the text as it stood before the app wrote a town over
+ *      it (kept by confirmFoundAddresses, phone-only);
+ *    - with no such copy (an order rewritten before 2026-11-23, or downloaded
+ *      onto another phone), a pinned order loses its town. The next Optimize
+ *      then takes the street nearest the phone.
+ *  An order with no pin was never looked up, so its town is the installer's own
+ *  and stays; only its parked flags are reset. The caller skips logged orders
+ *  and pins typed as coordinates. */
+export function clearedPin(order){
+  if(!order) return null;
+  const has = v => v != null && v !== '';
+  const pinned = has(order.lat) && has(order.lng);
+  const parked = !!(order.geoFail || (order.geoAmbig && order.geoAmbig.length));
+  if(!pinned && !parked) return null;
+  let address = String(order.address || '').trim();
+  if(pinned){
+    const typed = String(order.typedAddress || '').trim();
+    const head = address.split(',')[0].trim();
+    if(typed) address = typed;
+    else if(splitAddr(head).num) address = head;
+  }
+  return { address, lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined,
+    geoLabel: undefined, geoSource: undefined, typedAddress: undefined };
+}
+
 /** Same house number and street, whatever the town or the spelling of "Rd".
  *  The Log screen's planned-vs-GPS chooser asks only when this is false: the
  *  offline map names the municipality and Google names the community, and that

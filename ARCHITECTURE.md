@@ -718,7 +718,13 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   (`nearestAddress`). Only the address text changes — never the pin — and nothing
   is uploaded: the text reaches the sheet with the next log or ⇪ Upload. The Log screen's planned-vs-GPS
   chooser compares number and street only (`addressesAgree`), so a town that
-  differs no longer asks.
+  differs no longer asks. The text a town is written over is kept on the order as
+  `typedAddress` (phone-only, first write only, carried across a Download while the
+  address is unchanged). **📍 Clear map pins** on the worklist screen drops the pin
+  and parked flags of every order that is not logged and not an `exactPin`, and
+  writes `typedAddress` back; a pinned order with none loses its town instead
+  (`clearedPin`). The next Optimize then looks every address up again from where
+  the phone is. Nothing is uploaded.
   Picking a town from either address form saves its currently typed unit with
   the selected pin; a card's town chip preserves the already saved unit.
   Labels can contain text or further hyphens. Landmark-only edits preserve legacy

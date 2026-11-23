@@ -571,6 +571,9 @@ as a bare number.
     Seen 2026-11-23: every Routes call answered `403 PERMISSION_DENIED —
     Permission denied on the service.` (reason `ACCESS_DENIED`, service
     `routes.googleapis.com`) while a geocode on the same key returned `OK`.
+    The cause was the first one: the Routes API was not enabled on the project
+    (Library ▸ Routes API ▸ Enable fixed it). A valid key gets this same answer
+    from any API the project has not enabled, so it says nothing about billing.
   - `OVER_QUERY_LIMIT` / `monthly road-data budget spent`: the $0 guardrails
     (daily geocode cap, `MATRIX_FREE_ELEMENTS`) working as designed — routes
     go straight-line until the quota/month resets.

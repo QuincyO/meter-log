@@ -383,3 +383,71 @@ test('the Log screen asks nothing when only the town differs', () => {
   assert.ok(fn.indexOf('addressesAgree') < fn.indexOf('showAddrConflict('),
     'the agreement test has to come before the chooser is shown');
 });
+
+// ── Clear map pins (owner's request, 2026-11-23) ────────────────────────────
+// Six orders were pinned in the wrong town and could not be fixed quickly in the
+// field. Clearing the pin alone is not enough: after a wrong pin the app writes
+// that pin's town onto the address, so the next lookup would find it again.
+
+test('clearing a pin puts back the address as it was typed', () => {
+  assert.equal(typeof addressText.clearedPin, 'function');
+  const got = addressText.clearedPin({
+    address: '6 York St, London', typedAddress: '6 York St, Delaware, ON N0L 1E0',
+    lat: 42.9796, lng: -81.2549, geoLabel: '6 York St, London', geoSource: 'offline' });
+  assert.equal(got.address, '6 York St, Delaware, ON N0L 1E0');
+  for(const k of ['lat', 'lng', 'geoFail', 'geoAmbig', 'geoLabel', 'geoSource', 'typedAddress']){
+    assert.ok(k in got, `${k} must be written`);
+    assert.equal(got[k], undefined, k);
+  }
+});
+
+test('with no typed copy saved, a pinned order loses its town and keeps number and street', () => {
+  // The town may be one the app wrote from the wrong pin. With it gone the next
+  // Optimize takes the street nearest the phone.
+  for(const [address, want] of [
+    ['6 York St, London', '6 York St'],
+    ['6 York St, London, ON N6A 1A1', '6 York St'],
+    ['6 York St', '6 York St'],
+    ['Bala Island, Muskoka', 'Bala Island, Muskoka'],   // a landmark: nothing to look up by number
+  ]) assert.equal(addressText.clearedPin({ address, lat: 42.98, lng: -81.25 }).address, want, address);
+});
+
+test('an order that was never pinned keeps its own text', () => {
+  // Never looked up, so the town on it is the one the installer typed.
+  assert.equal(addressText.clearedPin({ address: '6 York St, Delaware, ON N0L 1E0' }), null);
+  assert.equal(addressText.clearedPin({ address: '6 York St, Delaware', lat: '', lng: '' }), null);
+  assert.equal(addressText.clearedPin(null), null);
+});
+
+test('a parked order with no pin has its flags reset and its text left alone', () => {
+  const failed = addressText.clearedPin({ address: '6 Yrok St, Delaware', geoFail: true });
+  assert.equal(failed.address, '6 Yrok St, Delaware');
+  assert.equal(failed.geoFail, undefined);
+  const ambig = addressText.clearedPin({ address: '6 York St, Delaware',
+    geoAmbig: [{ label: '6 York St, London', lat: 1, lng: 2 }] });
+  assert.equal(ambig.address, '6 York St, Delaware');
+  assert.equal(ambig.geoAmbig, undefined);
+});
+
+test('the Clear map pins button, the typed copy and its guards are wired', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const js = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
+  // Hidden in the markup and shown by the code that binds it, so a phone on the
+  // new page and an older worklist.js never shows a button that does nothing.
+  assert.match(html, /<button class="[^"]*\bhide\b[^"]*" id="wlClearPins"/);
+  // A new id is bound defensively: the page and the module can be a deploy apart.
+  assert.match(js, /const clearBtn = \$\('wlClearPins'\);\s*\n\s*if\(clearBtn\) clearBtn\.onclick = clearPins;/);
+  assert.doesNotMatch(js, /\$\('wlClearPins'\)\.onclick/);
+  // A logged order and a pin typed as coordinates are never cleared.
+  assert.match(js, /const clearable = x => x\.wlStatus !== 'done' && !isExactPin\(x\)/);
+  // The town-writing pass keeps what was typed, and only the first time.
+  assert.match(js, /typedAddress: stored\.typedAddress \|\| typed/);
+  // …and never writes onto an order whose pin has gone or moved meanwhile.
+  assert.match(js, /if\(!at \|\| at\.lat !== pin\.lat \|\| at\.lng !== pin\.lng\) continue;/);
+  // A list download keeps the typed copy while the address is unchanged.
+  assert.match(js, /typedAddress: keptTyped\.get\(String\(o\.id\) \+ '\\n' \+ String\(o\.address\|\|''\)\)/);
+  // Clearing pins never uploads: the list goes up with the next log, like any edit.
+  const body = js.slice(js.indexOf('async function clearPins('), js.indexOf('// ── end clear pins'));
+  assert.ok(body.length > 0, 'clearPins must exist');
+  assert.doesNotMatch(body, /syncWorklist|wlUpload|saveWorklist/);
+});

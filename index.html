@@ -289,6 +289,10 @@
     <button class="ghost wl-fill-addr hide" id="wlFillAddr" type="button">📝 Fill in missing addresses</button>
     <!-- Shown only when the same WO# is on the list more than once. -->
     <button class="ghost wl-dedup hide" id="wlDedup" type="button">🔍 Check for duplicate orders</button>
+    <!-- Drops every map pin so the next Optimize looks each address up again.
+         Hidden here and shown by worklist.js paintClearPins, so a phone holding an
+         older worklist.js never shows a button that does nothing. -->
+    <button class="ghost wl-clear-pins hide" id="wlClearPins" type="button">📍 Clear map pins</button>
     <div class="wl-counts" id="wlCounts"></div>
     <div id="wlList" style="margin-top:8px"></div>
   </section>

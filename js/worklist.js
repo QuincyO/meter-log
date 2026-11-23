@@ -706,6 +706,13 @@ async function applyDownloadedList(list, opts){
   const doneIds = new Set();
   if(preserveDone)
     for(const x of await allSorted()) if(x.wlStatus === 'done') doneIds.add(String(x.id));
+  // The address as typed (typedAddress) lives on this phone only. Carry it across
+  // the wipe for every order whose address comes back unchanged, or the Drive
+  // screen's refresh would throw it away within minutes of an Optimize. Keyed on
+  // id AND address: a different address on the sheet is somebody's newer edit.
+  const keptTyped = new Map();
+  for(const x of await allSorted())
+    if(x.typedAddress) keptTyped.set(String(x.id) + '\n' + String(x.address||''), x.typedAddress);
   for(const k of (await idb.keys('worklist')) || []) await idb.del('worklist', k);
   // Normalize each sheet row back to the exact local record shape (drop the
   // sheet-only installer/hNumber columns, re-type wlStatus + lat/lng) so
@@ -720,6 +727,7 @@ async function applyDownloadedList(list, opts){
     await idb.put('worklist', {
       id:String(o.id), workOrderId:String(o.workOrderId||''), unit:String(o.unit||''),
       address:String(o.address||''), oldJNumber:String(o.oldJNumber||''),
+      typedAddress: keptTyped.get(String(o.id) + '\n' + String(o.address||'')),
       wlStatus: (o.wlStatus === 'done' || doneIds.has(String(o.id))) ? 'done' : 'pending',
       order: i * 10,
       lat: (o.lat === '' || o.lat == null) ? undefined : Number(o.lat),
@@ -1395,7 +1403,15 @@ async function confirmFoundAddresses(){
       // Re-read: the order may have been edited or logged while the lookup ran.
       const stored = await idb.get('worklist', item.id);
       if(!stored || String(stored.address || '').trim() !== typed) continue;
-      await idb.put('worklist', Object.assign({}, stored, { address: next, updatedAt: stamp() }));
+      // …or had its pin cleared or moved (Clear map pins): the town in hand
+      // belongs to a pin that is no longer this order's.
+      const at = coordsOf(stored);
+      if(!at || at.lat !== pin.lat || at.lng !== pin.lng) continue;
+      // Keep the text as it was typed, the first time a town is written over it.
+      // Clear map pins puts it back (address-fill.js clearedPin). Phone-only:
+      // wireShape is an allow-list, so it never reaches the sheet.
+      await idb.put('worklist', Object.assign({}, stored, {
+        address: next, typedAddress: stored.typedAddress || typed, updatedAt: stamp() }));
       changed++;
     }
   } finally { confirmingAddresses = false; }
@@ -1608,6 +1624,7 @@ export async function renderWorklist(){
   paintVariantSwitch(items);
   paintFillAddr(items);
   paintDedup(items);
+  paintClearPins(items);
   if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
@@ -1684,6 +1701,55 @@ function paintFillAddr(items){
   btn.textContent = `📝 Fill in missing addresses (${n})`;
 }
 
+// ── Clear map pins ──────────────────────────────────────────────────────────
+// A pin in the wrong town can't be fixed quickly in the field: in-radius pins
+// are never looked up again, and retyping each address is the only other way to
+// drop one. This drops them all at once, so the next Optimize looks every
+// address up again from where the phone is now (owner's request, 2026-11-23).
+//
+// What it leaves alone: a logged order, and a pin typed as coordinates
+// (exactPin) — that one's address text is no longer where the order is, so it
+// could never be found again. What it does to the address is the other half of
+// the job and lives in address-fill.js clearedPin.
+//
+// It does not upload, like every other edit on this screen: the list goes up
+// with the next log or ⇪ Upload. Until then the Drive screen's refresh can put
+// the sheet's pins back, so press Optimize before driving off.
+const clearable = x => x.wlStatus !== 'done' && !isExactPin(x)
+  && typeof addressText.clearedPin === 'function' && !!addressText.clearedPin(x);
+
+// The button ships hidden in the markup and is shown from here, so a phone on
+// the new page with an older copy of this module never shows a dead button.
+function paintClearPins(items){
+  const btn = $('wlClearPins');
+  if(!btn) return;
+  const n = (items || []).filter(clearable).length;
+  btn.classList.toggle('hide', !n);
+  btn.textContent = `📍 Clear map pins (${n})`;
+}
+
+async function clearPins(){
+  if(optimizing){ toast('Wait for Optimize to finish first'); return; }
+  const todo = (await allSorted()).filter(clearable);
+  if(!todo.length){ toast('No map pins to clear'); return; }
+  if(!confirm(`Clear the map pins on ${todo.length} order${todo.length === 1 ? '' : 's'}?\n\n`
+    + 'The next Optimize looks every address up again from where you are now. '
+    + 'Addresses go back to what you typed. Where that was not saved, the town is '
+    + 'dropped. Pins typed as coordinates are kept.')) return;
+  let n = 0;
+  for(const x of todo){
+    // Re-read: an order may have been logged or edited since the list was read.
+    const stored = await idb.get('worklist', x.id);
+    if(!stored || !clearable(stored)) continue;
+    await idb.put('worklist', Object.assign({}, stored, addressText.clearedPin(stored), { updatedAt: stamp() }));
+    n++;
+  }
+  await renderWorklist();
+  await planAdvance();
+  toast(`Pins cleared on ${n} order${n === 1 ? '' : 's'} — tap Optimize to look them up again`);
+}
+// ── end clear pins ──────────────────────────────────────────────────────────
+
 // The duplicate-cleanup entry point, shown only when the same WO# is on the list
 // more than once. The count is the number of copies that would be removed, so the
 // button's presence is itself the answer to "are there duplicates?".
@@ -1721,7 +1787,7 @@ async function saveWorklistAddress(id, address, unit){
   if(unit !== undefined) patch.unit = unit;  // old walkthroughs omit it
   if(existing.address !== address)
     Object.assign(patch, { lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined,
-      exactPin: undefined, geoLabel: undefined });
+      exactPin: undefined, geoLabel: undefined, typedAddress: undefined });
   await idb.put('worklist', pinTypedCoords(Object.assign({}, existing, patch)));
 }
 
@@ -2395,6 +2461,8 @@ async function pickTown(item, c, unit, typedNumber = ''){
   await idb.put('worklist', Object.assign({}, stored, {
     address, lat: c.lat, lng: c.lng,
     ...(unit !== undefined ? { unit } : {}),
+    // The town picked is the installer's own text now, not the app's.
+    typedAddress: undefined,
     geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
   toast('Pinned ✓ — ' + c.label);
   await renderWorklist();
@@ -2461,7 +2529,7 @@ async function wlSave(){
     // ambiguous flags) so the next optimize re-geocodes the new address.
     if(existing.address !== address){
       item.lat = undefined; item.lng = undefined; item.geoFail = undefined; item.geoAmbig = undefined;
-      item.exactPin = undefined; item.geoLabel = undefined;
+      item.exactPin = undefined; item.geoLabel = undefined; item.typedAddress = undefined;
     }
   } else {
     const items = await allSorted();
@@ -3453,6 +3521,9 @@ export function initWorklist(opts){
   $('wlViewRoute').onclick = openWorklistRoute;
   $('wlFillAddr').onclick = openAddressFill;
   $('wlDedup').onclick = runDuplicateScan;
+  // Bound defensively: a new id, and the page can be a deploy behind this module.
+  const clearBtn = $('wlClearPins');
+  if(clearBtn) clearBtn.onclick = clearPins;
   $('wlUpload').onclick = wlUpload;
   $('wlDownload').onclick = wlDownload;
   bindOptimizeGesture($('wlOptimize'),

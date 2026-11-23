@@ -166,6 +166,7 @@
 .wl-noaddr-head{color:var(--amber-press)}
 .wl-noaddr-head .wl-day-dot{background:var(--amber)}
 .wl-fill-addr{width:100%;margin-top:12px;border-color:var(--amber);color:var(--amber-press)}
+.wl-clear-pins{width:100%;margin-top:12px}
 
 /* Address fill-in walkthrough — one order per screen, so filling in a list's
    worth of addresses never means scrolling back and forth. */
