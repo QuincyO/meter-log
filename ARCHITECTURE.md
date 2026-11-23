@@ -889,7 +889,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   - **Which roads are candidates**, in order: (1) a town typed on the address — after
     a comma, or just on the end — keeps only the roads through that town, and a town
     the map doesn't know is ignored (the crew types the community, OSM stores the
-    municipality); (2) a road whose known numbers **bracket** the typed one beats any
+    municipality). When no candidate road carries the typed town on its own points,
+    the town's points on other streets say where it is, and the candidates within
+    3 km of one are kept (`besideTown`, `TOWN_NEAR_M`): York St in Delaware is
+    tagged "Middlesex Centre", the streets beside it "Delaware"; (2) a road whose known numbers **bracket** the typed one beats any
     road where it falls past the end, which is a candidate only when nothing better
     exists; (3) an exact match sorts first. A bracket wider than 5 km only counts
     when a road of that name runs where the estimate landed — otherwise it is two

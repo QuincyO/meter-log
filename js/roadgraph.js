@@ -430,6 +430,7 @@ const EXTRAP_BASE_M = 300;    // shortest stretch trusted to give a numbering ra
 const EXTRAP_MAX_M  = 5000;   // never guess further than this past the last known number
 const JOIN_LOOKAHEAD = 4;     // how many numbers on to look for the neighbouring town's point
 const BRACKET_MAX_M = 5000;   // neighbours further apart than this must be shown to be one road
+const TOWN_NEAR_M   = 3000;   // a road this close to a typed town's own points is in that town
 
 // Place a house number among one road's points, which are sorted by number.
 // Returns { lat, lng, near, kind, gap }:
@@ -501,6 +502,38 @@ const townWords = s => ' ' + String(s || '').toLowerCase().replace(/[^a-z0-9]+/g
 function sameTown(a, b){
   const x = townWords(a), y = townWords(b);
   return x.length > 2 && y.length > 2 && (x.includes(y) || y.includes(x));
+}
+
+// Every address point tagged with a typed town, on any street. Kept per town on
+// the graph: finding them is one pass over all the district's points.
+function townPoints(g, town){
+  if(!g.townPoints) g.townPoints = new Map();
+  const key = townWords(town);
+  if(!g.townPoints.has(key)){
+    const ids = new Set();
+    g.placeNames.forEach((p, id) => { if(sameTown(p, town)) ids.add(id); });
+    const pts = [];
+    if(ids.size) for(let i = 0; i < g.addrCount; i++) if(ids.has(g.addrPlace[i])) pts.push(i);
+    g.townPoints.set(key, pts);
+  }
+  return g.townPoints.get(key);
+}
+
+// The candidates within TOWN_NEAR_M of the typed town, for a town none of them
+// is tagged with. A locality tag is whatever the mapper wrote on each point:
+// York St in Delaware is tagged "Middlesex Centre", the municipality, while
+// Gideon Dr two streets over is tagged "Delaware". Reading only York St's own
+// tags, "6 York St, Delaware" named a town the lookup thought it had never
+// heard of, the town was dropped, and the nearest York St to the phone won:
+// the one in London (field report 2026-11-23). So the town's points on OTHER
+// streets say where the town is, and a road beside them is the road meant.
+// Empty when the map has no such town or no candidate is near it; the caller
+// then ignores the typed town, as it always has.
+function besideTown(g, cands, town){
+  const pts = townPoints(g, town);
+  if(!pts.length) return [];
+  return cands.filter(c => pts.some(i => metresBetween(c.lat, c.lng,
+    g.addrLat[i] / COORD_SCALE, g.addrLng[i] / COORD_SCALE) <= TOWN_NEAR_M));
 }
 
 // Split one street name's points into the physical ROADS they lie on, each a
@@ -603,9 +636,11 @@ function pastTheEnd(g, view, n, hit, ids){
 // settle or raise the "⚠ pick a town" ambiguity instead of silently choosing —
 // the same protection GEO_RADIUS_KM gives the online providers. Three rules
 // decide which roads are candidates, in this order:
-//   1. a typed town keeps only the roads that run through it (a town the map
-//      doesn't know is ignored rather than failing the lookup — the crew types
-//      the community, OSM stores the municipality);
+//   1. a typed town keeps only the roads that run through it — by the tags on
+//      the road's own points, else by lying beside that town's points on other
+//      streets (besideTown). A town the map doesn't know is ignored rather than
+//      failing the lookup — the crew types the community, OSM stores the
+//      municipality;
 //   2. a road whose known numbers bracket the typed one beats any road where it
 //      falls past the end — that road is only a candidate when nothing better
 //      exists, and then only the one(s) whose numbering comes closest;
@@ -655,6 +690,10 @@ export function geocodeAddress(g, address){
   if(String(town).trim()){
     const named = cands.filter(c => c.towns.some(t => sameTown(t, town)));
     if(named.length) cands = named;
+    else {
+      const beside = besideTown(g, cands, town);
+      if(beside.length) cands = beside;
+    }
   }
   const inRange = cands.filter(c => c.kind !== 'beyond' && c.kind !== 'loose');
   if(inRange.length) cands = inRange;

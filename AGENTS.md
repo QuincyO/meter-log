@@ -1000,7 +1000,17 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   writes `…, Town` onto the order when a town is picked, so the lookup has to read
   its own label, and that label can name the wrong half of a boundary road. Rule (1)
   is what makes this safe. A town the map doesn't know is ignored: the crew types
-  Glencoe, OSM stores Southwest Middlesex;
+  Glencoe, OSM stores Southwest Middlesex. **A town the road is not tagged with is
+  looked for on the streets around it** (`besideTown`, field report 2026-11-23). The
+  tag is whatever the mapper wrote on each point: York St in Delaware is tagged
+  "Middlesex Centre" and Gideon Dr two streets over is tagged "Delaware". Reading
+  only York St's own tags dropped the typed town, and the nearest York St to the
+  phone won: six orders typed `… York St, Delaware, ON N0L 1E0` were pinned in
+  London, 16 km away, by a phone optimizing from London. A candidate within
+  `TOWN_NEAR_M` (3 km) of any point carrying the typed town is kept and the rest are
+  dropped. It runs only when no candidate carries the tag itself, and with no
+  candidate that close the town is ignored as before. The postal code is not read:
+  the pack holds none;
   (4) **only an estimate is moved onto the named road.** An exact match is the house.
   A number past the last one known carries on along the road (`pastTheEnd`) and is
   refused when no road of that name is there. Without it every number past the end

@@ -568,6 +568,9 @@ as a bare number.
     **and** ticked in the key's **API restrictions**. A key with only
     Geocoding enabled geocodes fine but every matrix call is rejected —
     permanent straight-line routes that look like the key "isn't helping".
+    Seen 2026-11-23: every Routes call answered `403 PERMISSION_DENIED —
+    Permission denied on the service.` (reason `ACCESS_DENIED`, service
+    `routes.googleapis.com`) while a geocode on the same key returned `OK`.
   - `OVER_QUERY_LIMIT` / `monthly road-data budget spent`: the $0 guardrails
     (daily geocode cap, `MATRIX_FREE_ELEMENTS`) working as designed — routes
     go straight-line until the quota/month resets.

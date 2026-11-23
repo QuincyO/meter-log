@@ -475,6 +475,51 @@ test('an estimate stretched between two far-apart points is not a candidate', ()
   assert.ok(near(lone[0].lat, 44.0010, 1e-5), `45 → ${lone[0].lat}`);
 });
 
+// Field report 2026-11-23: six orders typed "… York St, Delaware, ON N0L 1E0"
+// were pinned on York St in London. York St's own points in Delaware carry the
+// municipality ("Middlesex Centre"), so no York St was tagged Delaware and the
+// typed town was dropped. The map did know Delaware, from the streets around it.
+function villageGraph(){
+  const pt = (street, place, num, lat, lng) => ({ street, place, num, lat, lng });
+  return decodePack(toArrayBuffer(encodePack({
+    bbox: { minLat: 43.9, minLng: -78.1, maxLat: 44.4, maxLng: -77.8 },
+    nodes: NODES, segments: [seg(0, 1, STEP_LNG_M)],
+    streets: ['york street', 'mill lane'],
+    places: ['Bigcity', 'Rural Township', 'Hamlet', 'Farcorner'],
+    addresses: [
+      // York St in the city, ~16 km north of the village.
+      pt(0, 0, 2, 44.1500, -78.0000), pt(0, 0, 20, 44.1500, -77.9990), pt(0, 0, 40, 44.1500, -77.9980),
+      // York St in the village, tagged with the municipality the village is in.
+      pt(0, 1, 4, 44.0010, -78.0000), pt(0, 1, 20, 44.0010, -77.9990), pt(0, 1, 46, 44.0010, -77.9980),
+      // The next street over is where the map learned the village's name.
+      pt(1, 2, 1, 44.0020, -78.0000), pt(1, 2, 3, 44.0020, -77.9995),
+      // A town the map knows, a long way from every York St.
+      pt(1, 3, 1, 44.3000, -78.0000), pt(1, 3, 3, 44.3000, -77.9995),
+    ],
+  })));
+}
+
+test('a typed town the street is not tagged with still picks the road beside that town', () => {
+  const g = villageGraph();
+  assert.equal(geocodeAddress(g, '10 York St').length, 2, 'no town typed: a real tie');
+  for(const typed of ['10 York St, Hamlet, ON N0L 1E0', '10 York St, Hamlet', '10 York St Hamlet']){
+    const hits = geocodeAddress(g, typed);
+    assert.equal(hits.length, 1, `${typed} → ${JSON.stringify(hits)}`);
+    assert.equal(hits[0].place, 'Rural Township');
+    assert.ok(near(hits[0].lat, 44.0010, 1e-5), `${typed} → lat ${hits[0].lat}`);
+  }
+  // A tag on the street itself is still the first thing asked.
+  const city = geocodeAddress(g, '10 York St, Bigcity');
+  assert.equal(city.length, 1);
+  assert.equal(city[0].place, 'Bigcity');
+});
+
+test('a typed town nowhere near the street is ignored, as an unknown one is', () => {
+  const g = villageGraph();
+  assert.equal(geocodeAddress(g, '10 York St, Farcorner').length, 2);
+  assert.equal(geocodeAddress(g, '10 York St, Nowhereville').length, 2);
+});
+
 test('an unknown street misses cleanly so the network providers still run', () => {
   const g = addressGraph();
   assert.deepEqual(geocodeAddress(g, '5 Nowhere Lane'), []);
