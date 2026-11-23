@@ -132,28 +132,34 @@ export function nearestAddress(found){
  *  would read that and find the same wrong place (field report 2026-11-23:
  *  "6 York St, Delaware" pinned in London became "6 York St, London").
  *
- *  So the address goes back too:
- *    - to `typedAddress`, the text as it stood before the app wrote a town over
- *      it (kept by confirmFoundAddresses, phone-only);
- *    - with no such copy (an order rewritten before 2026-11-23, or downloaded
- *      onto another phone), a pinned order loses its town. The next Optimize
- *      then takes the street nearest the phone.
- *  An order with no pin was never looked up, so its town is the installer's own
- *  and stays; only its parked flags are reset. The caller skips logged orders
- *  and pins typed as coordinates. */
+ *  So the address goes back too, to `typedAddress`: the text as it stood before
+ *  the app wrote a town over it (kept by confirmFoundAddresses, phone-only).
+ *
+ *  THE TOWN IS NEVER TAKEN OFF AN ADDRESS HERE. Two rules follow from that:
+ *    - with no typed copy (an order rewritten before 2026-11-23, or downloaded
+ *      onto another phone) the address is left as it is;
+ *    - a typed copy that is only the number and street is not put back either.
+ *      It has no town to give, and putting it back removes the one the address
+ *      has.
+ *  The first version did take the town off, so the next lookup would choose the
+ *  street nearest the phone. It was undone the same evening: the owner cleared
+ *  85 pins from London, "95 Wellington St, Delaware" became "95 Wellington St"
+ *  and was pinned in London, and "33 Caverhill Cres, Middlesex Centre" in
+ *  Milton. Nearly every town on a list is right; the few that are not have to
+ *  be retyped. The owner plans from London, so "nearest the phone" is not a
+ *  safe way to choose a town for an order that already names one.
+ *  The caller skips logged orders and pins typed as coordinates. */
 export function clearedPin(order){
   if(!order) return null;
   const has = v => v != null && v !== '';
   const pinned = has(order.lat) && has(order.lng);
   const parked = !!(order.geoFail || (order.geoAmbig && order.geoAmbig.length));
   if(!pinned && !parked) return null;
-  let address = String(order.address || '').trim();
-  if(pinned){
-    const typed = String(order.typedAddress || '').trim();
-    const head = address.split(',')[0].trim();
-    if(typed) address = typed;
-    else if(splitAddr(head).num) address = head;
-  }
+  const current = String(order.address || '').trim();
+  const typed = pinned ? String(order.typedAddress || '').trim() : '';
+  // normalizeStreet, not a string compare: the lookup spells "Cres" out.
+  const bare = normalizeStreet(typed) === normalizeStreet(current.split(',')[0]);
+  const address = (typed && !bare) ? typed : current;
   return { address, lat: undefined, lng: undefined, geoFail: undefined, geoAmbig: undefined,
     geoLabel: undefined, geoSource: undefined, typedAddress: undefined };
 }

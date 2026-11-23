@@ -401,15 +401,20 @@ test('clearing a pin puts back the address as it was typed', () => {
   }
 });
 
-test('with no typed copy saved, a pinned order loses its town and keeps number and street', () => {
-  // The town may be one the app wrote from the wrong pin. With it gone the next
-  // Optimize takes the street nearest the phone.
-  for(const [address, want] of [
-    ['6 York St, London', '6 York St'],
-    ['6 York St, London, ON N6A 1A1', '6 York St'],
-    ['6 York St', '6 York St'],
-    ['Bala Island, Muskoka', 'Bala Island, Muskoka'],   // a landmark: nothing to look up by number
-  ]) assert.equal(addressText.clearedPin({ address, lat: 42.98, lng: -81.25 }).address, want, address);
+test('with no typed copy saved, a pinned order keeps its address, town and all', () => {
+  // It used to lose the town, so the nearest street to the phone would be taken.
+  // The owner cleared 85 pins from London the evening it shipped: "95 Wellington
+  // St, Delaware" became "95 Wellington St" and was pinned in London, and
+  // "33 Caverhill Cres, Middlesex Centre" was pinned in Milton, 145 km away.
+  // Nearly every town on a list is right. Throwing them all away to mend the
+  // few that are wrong made the list worse.
+  for(const address of [
+    '95 Wellington St, Delaware', '6 York St, London, ON N6A 1A1', '6 York St', 'Bala Island, Muskoka',
+  ]){
+    const got = addressText.clearedPin({ address, lat: 42.98, lng: -81.25 });
+    assert.equal(got.address, address);
+    assert.equal(got.lat, undefined);
+  }
 });
 
 test('an order that was never pinned keeps its own text', () => {
@@ -450,4 +455,19 @@ test('the Clear map pins button, the typed copy and its guards are wired', () =>
   const body = js.slice(js.indexOf('async function clearPins('), js.indexOf('// ── end clear pins'));
   assert.ok(body.length > 0, 'clearPins must exist');
   assert.doesNotMatch(body, /syncWorklist|wlUpload|saveWorklist/);
+});
+
+test('a typed copy with no town on it never replaces an address that has one', () => {
+  // What the typed copy is FOR is a town the installer typed and the app wrote
+  // over. A copy that is only the number and street has nothing to give back,
+  // and putting it back would take the town off: the same damage as above. The
+  // owner's phone holds 80 such copies from the evening the first version ran.
+  for(const [address, typedAddress] of [
+    ['95 Wellington St, London', '95 Wellington St'],
+    ['33 Caverhill Crescent, Milton', '33 Caverhill Cres'],   // the lookup spelled the street out
+    ['2 John St, Delaware', '2 john st'],
+  ]) assert.equal(addressText.clearedPin({ address, typedAddress, lat: 42.9, lng: -81.4 }).address, address);
+  // A town typed without a comma is still a town.
+  assert.equal(addressText.clearedPin({ address: '6 York St, London', typedAddress: '6 York St Delaware',
+    lat: 42.98, lng: -81.25 }).address, '6 York St Delaware');
 });

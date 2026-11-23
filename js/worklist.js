@@ -1733,9 +1733,9 @@ async function clearPins(){
   const todo = (await allSorted()).filter(clearable);
   if(!todo.length){ toast('No map pins to clear'); return; }
   if(!confirm(`Clear the map pins on ${todo.length} order${todo.length === 1 ? '' : 's'}?\n\n`
-    + 'The next Optimize looks every address up again from where you are now. '
-    + 'Addresses go back to what you typed. Where that was not saved, the town is '
-    + 'dropped. Pins typed as coordinates are kept.')) return;
+    + 'The next Optimize looks every address up again. Pins typed as coordinates '
+    + 'are kept. An address the offline map does not have will be set aside: hold '
+    + 'Optimize to look those up online.')) return;
   let n = 0;
   for(const x of todo){
     // Re-read: an order may have been logged or edited since the list was read.

@@ -485,7 +485,7 @@ function villageGraph(){
     bbox: { minLat: 43.9, minLng: -78.1, maxLat: 44.4, maxLng: -77.8 },
     nodes: NODES, segments: [seg(0, 1, STEP_LNG_M)],
     streets: ['york street', 'mill lane'],
-    places: ['Bigcity', 'Rural Township', 'Hamlet', 'Farcorner'],
+    places: ['Bigcity', 'Rural Township', 'Hamlet', 'Farcorner', 'Remotetown'],
     addresses: [
       // York St in the city, ~16 km north of the village.
       pt(0, 0, 2, 44.1500, -78.0000), pt(0, 0, 20, 44.1500, -77.9990), pt(0, 0, 40, 44.1500, -77.9980),
@@ -495,6 +495,8 @@ function villageGraph(){
       pt(1, 2, 1, 44.0020, -78.0000), pt(1, 2, 3, 44.0020, -77.9995),
       // A town the map knows, a long way from every York St.
       pt(1, 3, 1, 44.3000, -78.0000), pt(1, 3, 3, 44.3000, -77.9995),
+      // …and one further still: ~27 km from the city's York St, ~43 km from the village's.
+      pt(1, 4, 1, 44.3900, -78.0000), pt(1, 4, 3, 44.3900, -77.9995),
     ],
   })));
 }
@@ -514,9 +516,24 @@ test('a typed town the street is not tagged with still picks the road beside tha
   assert.equal(city[0].place, 'Bigcity');
 });
 
-test('a typed town nowhere near the street is ignored, as an unknown one is', () => {
+test('a street a long way from the typed town is not that address', () => {
+  // Field report 2026-11-23: "33 Caverhill Cres, Middlesex Centre" is in Komoka.
+  // The map has no Caverhill Cres there, only one in Milton, 119 km from the
+  // nearest point tagged Middlesex Centre. The town was ignored and the order was
+  // pinned in Milton. A town the map can place rules out a street that far from it.
   const g = villageGraph();
-  assert.equal(geocodeAddress(g, '10 York St, Farcorner').length, 2);
+  // Farcorner is ~17 km from the city's York St and ~33 km from the village's.
+  const far = geocodeAddress(g, '10 York St, Farcorner');
+  assert.equal(far.length, 1, JSON.stringify(far));
+  assert.equal(far[0].place, 'Bigcity');
+  // Remotetown is more than 25 km from both: a miss, so the order is set aside
+  // and a hold can look it up online.
+  assert.deepEqual(geocodeAddress(g, '10 York St, Remotetown'), []);
+});
+
+test('a typed town the map has never heard of is still ignored', () => {
+  // The crew types the community (Glencoe); the map may only know the municipality.
+  const g = villageGraph();
   assert.equal(geocodeAddress(g, '10 York St, Nowhereville').length, 2);
 });
 

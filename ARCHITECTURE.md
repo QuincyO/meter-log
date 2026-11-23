@@ -722,9 +722,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   `typedAddress` (phone-only, first write only, carried across a Download while the
   address is unchanged). **📍 Clear map pins** on the worklist screen drops the pin
   and parked flags of every order that is not logged and not an `exactPin`, and
-  writes `typedAddress` back; a pinned order with none loses its town instead
-  (`clearedPin`). The next Optimize then looks every address up again from where
-  the phone is. Nothing is uploaded.
+  writes `typedAddress` back when it names a town (`clearedPin`). It never takes
+  the town off an address. The next Optimize then looks every address up again.
+  Nothing is uploaded.
   Picking a town from either address form saves its currently typed unit with
   the selected pin; a card's town chip preserves the already saved unit.
   Labels can contain text or further hyphens. Landmark-only edits preserve legacy
@@ -898,7 +898,9 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     municipality). When no candidate road carries the typed town on its own points,
     the town's points on other streets say where it is, and the candidates within
     3 km of one are kept (`besideTown`, `TOWN_NEAR_M`): York St in Delaware is
-    tagged "Middlesex Centre", the streets beside it "Delaware"; (2) a road whose known numbers **bracket** the typed one beats any
+    tagged "Middlesex Centre", the streets beside it "Delaware". With none that
+    close, a road more than 25 km from the town (`TOWN_FAR_M`) is dropped, which
+    can leave a miss: the order is set aside, not pinned in another town; (2) a road whose known numbers **bracket** the typed one beats any
     road where it falls past the end, which is a candidate only when nothing better
     exists; (3) an exact match sorts first. A bracket wider than 5 km only counts
     when a road of that name runs where the estimate landed — otherwise it is two

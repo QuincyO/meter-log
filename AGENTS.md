@@ -1008,9 +1008,16 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   phone won: six orders typed `… York St, Delaware, ON N0L 1E0` were pinned in
   London, 16 km away, by a phone optimizing from London. A candidate within
   `TOWN_NEAR_M` (3 km) of any point carrying the typed town is kept and the rest are
-  dropped. It runs only when no candidate carries the tag itself, and with no
-  candidate that close the town is ignored as before. The postal code is not read:
-  the pack holds none;
+  dropped. It runs only when no candidate carries the tag itself. **With no candidate
+  that close, a road more than `TOWN_FAR_M` (25 km) from the town is dropped too, and
+  that can leave a miss.** "33 Caverhill Cres, Middlesex Centre" is in Komoka; the
+  map has no Caverhill Cres there, only one in Milton, 119 km from the nearest
+  Middlesex Centre point, and the order was pinned in Milton with any town typed. A
+  miss is the better answer: the order is set aside and a hold looks it up online,
+  which a pin in the wrong town never allowed (the offline answer comes first even on
+  a hold). The reach is wide because the crew names a rural address by its nearest
+  community. A town the map has no point for is still ignored. The postal code is
+  not read: the pack holds none;
   (4) **only an estimate is moved onto the named road.** An exact match is the house.
   A number past the last one known carries on along the road (`pastTheEnd`) and is
   refused when no road of that name is there. Without it every number past the end
@@ -1067,10 +1074,15 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   in London reads "6 York St, London"), and the next lookup would read that town and
   find the same place. So the pass keeps the text it replaces in `typedAddress`, the
   first time only, and a clear writes it back;
-  (2) **with no `typedAddress`, a pinned order loses its town** and the next Optimize
-  takes the street nearest the phone. That covers orders rewritten before this
-  shipped and orders on a phone that did not run the Optimize. An order with no pin
-  keeps its text: it was never looked up, so the town on it is the installer's own;
+  (2) **a clear never takes the town off an address.** With no `typedAddress` the
+  address is left as it is, and a typed copy that is only the number and street is
+  not put back. The first version dropped the town so the next lookup would take the
+  street nearest the phone, and it was undone the same evening: the owner cleared 85
+  pins from London, "95 Wellington St, Delaware" became "95 Wellington St" and was
+  pinned in London, and "33 Caverhill Cres, Middlesex Centre" in Milton, 145 km away.
+  Nearly every town on a list is right. The owner plans from London, so "nearest the
+  phone" must not choose a town for an order that already names one. An order pinned
+  in the wrong town with the wrong town written on it has to be retyped;
   (3) **`typedAddress` is phone-only** (`wireShape` is an allow-list), and
   `applyDownloadedList` carries it across its wipe for each order whose id and
   address come back unchanged. Drop that and the Drive screen's refresh throws every
