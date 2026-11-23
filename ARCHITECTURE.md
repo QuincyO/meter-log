@@ -2025,9 +2025,10 @@ dates:
 
 ```
 { ok, installer,
-  stops:    [{ id, timestamp, status, workOrderId, address, lat, lng }],   // the four printable statuses
+  stops:    [{ id, timestamp, status, workOrderId, address, lat, lng, notes, utiReason }],   // the four printable statuses
   downtime: [{ id, timestamp, category, minutes, workOrderId, note }],   // NOT filtered by workType
-  days:     [{ date, departure, returned }] }                            // Days bookends, HH:mm or ''
+  days:     [{ date, departure, returned }],                             // Days bookends, HH:mm or ''
+  comments: [{ date, text }] }                                           // Tracker notes: the End of day comment
 ```
 
 A blank installer returns `{ ok:false, error:'installer required' }`. The read answers to
@@ -2100,10 +2101,23 @@ turn that list into something to look at: `sectionsHtml()` for the page and
 `js/audit-pdf.js` for the PDF. The page and the PDF therefore cannot differ in wording or
 figures; they differ only in how a block is drawn.
 
-The PDF differs from the page on purpose in two places. The day's drive log is drawn only when "Show drive log" is on, though its
-numbers line is always given when the day has legs. And anything that only makes sense on
-a screen (the hint to pick a block, the slot a gap's detail opens in) is left out. Method
-and limits is always included.
+The PDF differs from the page on purpose. The day's drive log is drawn only when "Show
+drive log" is on, though the distance and time driven are always given when the day has
+legs; the speeds are on the page only. Anything that only makes sense on a screen (the hint
+to pick a block, the slot a gap's detail opens in) is left out. And a day's `pageOnly`
+sections are left out (next heading). A period's PDF always includes Method and limits.
+
+### The day view is for skimming
+
+A day reads top to bottom as: "The day at a glance" (six tiles and the End of day comment),
+the timeline, "Where the time went" (`timeRows` in `js/audit-render.js`: one row for each
+gap that ran long or had something entered on it, with the order logged at its end, the
+minutes over usual, what was entered, and the installer's notes under the row), the route
+map, and "Every order". `daySections()` returns those as `top` and `bottom`, and a third
+list, `details`: how the expected number was worked out, the comparison table, the delays
+and breaks as entered, and Method and limits. Those are closed cards at the bottom of the
+page and are not in the PDF. The notes come from the `audit` read and nothing is computed
+from them.
 
 ### Send PDF
 
@@ -2162,8 +2176,8 @@ delay's `carriedTo` names the gap it was counted in so the day view can say so.
 
 ### Pace on this route
 
-The day view's second card answers "how on pace was this day?" with an expected number
-of orders beside the number logged (`dayPace` in `js/compute/audit.js`, on
+The day view answers "how on pace was this day?" with an expected number of orders: the
+result is a tile in the first card and the working out is a closed section (`dayPace` in `js/compute/audit.js`, on
 `dayDetail().pace`; drawn by `paceSection` in `js/audit-render.js`, so the page and the PDF
 share it).
 

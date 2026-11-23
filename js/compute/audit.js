@@ -87,6 +87,10 @@ const minOf = ts => {
 const hhmmMin = s => { const m = /(\d{1,2}):(\d{2})/.exec(String(s == null ? '' : s)); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
 const pad = n => String(n).padStart(2, '0');
 const clock = min => pad(Math.floor(min / 60)) + ':' + pad(Math.floor(min % 60));
+const textOf = v => String(v == null ? '' : v).trim();
+// A Downtime note is the gap's filing key (`gap HH:MM–HH:MM`), or the words typed on
+// the Add downtime form. Only the words are a comment.
+const commentOf = note => (gapNoteTimes(note) ? '' : textOf(note));
 const hasPin = (lat, lng) => lat !== '' && lat != null && lng !== '' && lng != null
   && isFinite(Number(lat)) && isFinite(Number(lng)) && Number(lat) !== 0;
 const R = 6371000, rad = d => d * Math.PI / 180;
@@ -125,7 +129,9 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     byDay.get(date).push({ id: s.id, min, clock: clock(min),
       workOrderId: s.workOrderId == null ? '' : String(s.workOrderId), status: st,
       address: s.address == null ? '' : String(s.address),
-      lat: pin ? Number(s.lat) : null, lng: pin ? Number(s.lng) : null, pin });
+      lat: pin ? Number(s.lat) : null, lng: pin ? Number(s.lng) : null, pin,
+      // Typed by the installer and shown beside the gap they explain. Nothing is worked out from them.
+      note: textOf(s.notes), utiReason: textOf(s.utiReason) });
   }
   for(const logs of byDay.values()) logs.sort((a, b) => a.min - b.min);
 
@@ -167,7 +173,8 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
         const key = date + '|' + fromMin + '|' + toMin;
         inBreak.set(key, (inBreak.get(key) || 0) + minutes);
       }
-      dayBreaks.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where, fromMin, toMin, onFirst });
+      dayBreaks.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where, fromMin, toMin, onFirst,
+        workOrderId: textOf(r.workOrderId), comment: commentOf(r.note) });
       continue;
     }
     if(TRAVEL[category]){ log.travel += minutes; continue; }
@@ -181,7 +188,7 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       inGap.set(key, (inGap.get(key) || 0) + minutes);
     }
     dayDelays.get(date).push({ category, label: CAT_LABEL[category] || category, minutes, where,
-      fromMin, toMin, driveToFirst, onFirst });
+      fromMin, toMin, driveToFirst, onFirst, workOrderId: textOf(r.workOrderId), comment: commentOf(r.note) });
   }
 
   // 3. Gaps, then the usual time for each kind over every day in the mode.
@@ -219,10 +226,12 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
   // 4. Each day's pauses and totals.
   const closeouts = new Map();
   for(const d of src.days || []) closeouts.set(dateOf(d.date), hhmmMin(d.returned));
+  // The comment typed at End of day. A spine from before it sends none, and a day never closed has none.
+  const comments = new Map((src.comments || []).map(c => [dateOf(c.date), textOf(c.text)]));
   const days = [];
   for(const [date, logs] of byDay){
     const gaps = dayGaps.get(date);
-    let workMin = 0, pauseAllMin = 0, pauseUnMin = 0, pauseBreakMin = 0, pauses = 0, longestMin = 0, longestAtMin = null, flags = 0;
+    let workMin = 0, pauseAllMin = 0, pauseUnMin = 0, pauseBreakMin = 0, pauses = 0, longestMin = 0, longestAtMin = null, longestWo = '', flags = 0;
     // A delay belongs to an ORDER, and the phone files it under the gap BEFORE that
     // order's log (a gap is keyed to its arriving stop: compute/gaps.js). But the time
     // is often lost AFTER the log is saved: log the meter, then the truck will not
@@ -268,7 +277,7 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       if(!g.isPause){ workMin += g.min; continue; }
       workMin += g.usual; pauses++; pauseAllMin += g.over; pauseUnMin += g.unloggedMin; pauseBreakMin += g.breakMin;
       if(g.flagged) flags++;
-      if(g.unloggedMin > longestMin){ longestMin = g.unloggedMin; longestAtMin = g.atMin; }
+      if(g.unloggedMin > longestMin){ longestMin = g.unloggedMin; longestAtMin = g.atMin; longestWo = logs[g.i + 1].workOrderId; }
     }
     const log = dayLog.get(date) || emptyLog();
     log.otherBefore = log.before - log.dispatchBefore;
@@ -277,13 +286,14 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     // Where a delay was counted, when that is not where it was entered: the gap after.
     const spanOf = g => ({ fromMin: Math.floor(g.atMin), toMin: Math.floor(g.atMin + g.min) });
     for(const d of delays){
-      d.carriedTo = null;
+      d.carriedTo = null; d.gap = null;        // gap: the one it was entered against, where there is one
       if(d.onFirst){
         if(gaps[0] && gaps[0].carriedMin > 0 && !NOT_DEDUCTED[d.category]) d.carriedTo = spanOf(gaps[0]);
         continue;
       }
       if(d.where !== 'between') continue;
       const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
+      if(i >= 0) d.gap = i;
       if(i >= 0 && gaps[i].carriedOutMin > 0 && !NOT_DEDUCTED[d.category]){
         const next = gaps[i + 1];
         d.carriedTo = { fromMin: Math.floor(next.atMin), toMin: Math.floor(next.atMin + next.min) };
@@ -293,13 +303,14 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
     const breaks = (dayBreaks.get(date) || []).slice().sort((a, b) =>
       (a.fromMin == null ? Infinity : a.fromMin) - (b.fromMin == null ? Infinity : b.fromMin));
     for(const d of breaks){
-      d.carriedTo = null;
+      d.carriedTo = null; d.gap = null;
       if(d.onFirst){
         if(gaps[0] && gaps[0].breakCarriedMin > 0) d.carriedTo = spanOf(gaps[0]);
         continue;
       }
       if(d.where !== 'between') continue;
       const i = gaps.findIndex(g => Math.floor(g.atMin) === d.fromMin && Math.floor(g.atMin + g.min) === d.toMin);
+      if(i >= 0) d.gap = i;
       if(i >= 0 && gaps[i].breakCarriedOutMin > 0){
         const next = gaps[i + 1];
         d.carriedTo = { fromMin: Math.floor(next.atMin), toMin: Math.floor(next.atMin + next.min) };
@@ -319,7 +330,8 @@ export function prepareAudit(raw, { installer = '', mode = 'land', road = null }
       startMin, endMin, endSource, closed, pastEnd, firstMin, lastMin, spanMin: lastMin - firstMin,
       logs, gaps, workMin, pauseAllMin, pauseUnMin, pauseBreakMin,
       pauseLoggedMin: pauseAllMin - pauseUnMin - pauseBreakMin,      // the part logged as a DELAY
-      pauses, longestMin, longestAtMin, flags, log, delays, breaks,
+      pauses, longestMin, longestAtMin, longestWo, flags, log, delays, breaks,
+      comment: comments.get(date) || '',
       beforeUnloggedMin: firstMin - startMin - log.before, closeoutMin: endMin - lastMin });
   }
   days.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -343,6 +355,7 @@ function summarize(list){
     lastAvg: mean(col(list, d => d.lastMin)),
     loggedBeforeAvg: mean(col(list, d => d.log.before)),
     loggedBetweenAvg: mean(col(list, d => d.log.between)),
+    loggedAvg: mean(col(list, d => d.log.total)),
     breakAvg: mean(col(list, d => d.log.breaks)),
     pauseMedian: pct(col(list, d => d.pauseUnMin), .5),
     longestMedian: pct(col(list, d => d.longestMin).filter(v => v > 0), .5),
@@ -457,7 +470,7 @@ export function periodStats(prep, { from = '', to = '' } = {}){
     usual: AUDIT.KIND_LABELS.map((label, k) => ({ label, median: prep.usual[k], count: prep.kindCounts[k] })),
     daily: inRange.map(d => ({ date: d.date, n: d.n, qualifies: d.qualifies, firstMin: d.firstMin,
       lastMin: d.lastMin, loggedBefore: d.log.before, loggedBetween: d.log.between,
-      pauseUn: d.pauseUnMin, longest: d.longestMin, longestAt: d.longestAtMin, flags: d.flags,
+      pauseUn: d.pauseUnMin, longest: d.longestMin, longestAt: d.longestAtMin, longestWo: d.longestWo, flags: d.flags,
       pastEnd: d.pastEnd, closed: d.closed })),
   };
 }

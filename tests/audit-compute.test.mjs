@@ -441,7 +441,7 @@ test('the 30-day baseline is the 30 qualifying days before the day', () => {
   const d1 = dayDetail(model, dates[0]);
   assert.deepEqual(d1.baselines.last30,
     { days: 0, ordersAvg: null, firstAvg: null, lastAvg: null, loggedBeforeAvg: null,
-      loggedBetweenAvg: null, breakAvg: null, pauseMedian: null, longestMedian: null });
+      loggedBetweenAvg: null, loggedAvg: null, breakAvg: null, pauseMedian: null, longestMedian: null });
   assert.equal(d1.prevDate, null);
   assert.equal(dayDetail(model, dates[39]).nextDate, null);
   // the short day is still a neighbour to step to

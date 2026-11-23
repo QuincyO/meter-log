@@ -23,8 +23,7 @@
 //     top of each page it runs onto.
 import { driveStats } from './compute/audit.js';
 import { SEGMENTS, fmtClock, fmtMin, fmtDate, timelineBlocks, endLabel, histCaption } from './audit-charts.js';
-import { MODE_LABEL, NO_DRIVE_LOG, routeCaption, periodSections, daySections, methodSection, notesList, dayNotes,
-  driveLineHtml } from './audit-render.js';
+import { MODE_LABEL, routeCaption, periodSections, daySections, notesList, dayNotes, driveLineHtml } from './audit-render.js';
 import { driveRuns, offMapText } from './audit-map.js';
 
 const PAGE = { w: 612, h: 792, m: 42 };             // US Letter, in points
@@ -59,20 +58,21 @@ export function periodPdfModel({ name, prep, stats, today }){
 }
 /** One day as a PDF model. `drive` is null on the installer's page; on the office
  *  page it is { legs, show }: the day's drive-log legs and whether the overlay is
- *  switched on. The numbers line is printed whenever there are legs; the track is
- *  drawn only when it is showing on the page. */
+ *  switched on. The distance and time driven are printed whenever there are legs (no
+ *  speeds: this file is handed to other people); the track is drawn only when it is
+ *  showing on the page. The page's closed sections are left out. */
 export function dayPdfModel({ name, prep, detail, drive, today, lines = null }){
   const day = detail.day, parts = daySections(detail);
   const legs = drive && drive.show && drive.legs.length ? drive.legs : null;
   const off = offMapText(day);
   const route = { title: 'Route worked', blocks: [
-    ...(drive ? [{ t: 'cap', text: drive.legs.length ? driveLineHtml(driveStats(drive.legs)) : NO_DRIVE_LOG }] : []),
+    ...(drive && drive.legs.length ? [{ t: 'cap', text: driveLineHtml(driveStats(drive.legs), { speeds: false }) }] : []),
     { t: 'map', day, legs, lines },
     ...(off ? [{ t: 'cap', text: off }] : []),
     { t: 'cap', text: routeCaption(!!lines) + (legs ? ' The purple line is where the truck drove.' : '') }] };
   return { title: `Audit: ${name}`,
     sub: [MODE_LABEL[prep.mode] || 'Work', fmtDate(day.date), `made ${fmtDate(today)}`].join(' · '),
-    notes: dayNotes(day, prep.mode, prep.distance), sections: [...parts.top, route, ...parts.bottom, methodSection(prep.distance)],
+    notes: dayNotes(day, prep.mode), sections: [...parts.top, route, ...parts.bottom],
     fileName: auditPdfName({ name, day: day.date }) };
 }
 
@@ -100,7 +100,11 @@ function paragraph(c, f, text, { size = 9, bold = false, color = INK, lead = 1.3
   c.y += after;
 }
 
-function tiles(c, f, items){
+function tiles(c, f, items, per = 0){
+  if(per && items.length > per){
+    for(let i = 0; i < items.length; i += per) tiles(c, f, items.slice(i, i + per));
+    return;
+  }
   const gap = 8, n = items.length || 1, tw = (f.w - gap * (n - 1)) / n;
   c.font(7.8);
   const labels = items.map(([, label]) => c.wrap(label, tw - 14));
@@ -148,14 +152,16 @@ function stack(c, f, blocks, ends, { numbers = false } = {}){
   c.y = top + h + 20;
 }
 
-function legend(c, f){
+function legend(c, f, b){
+  const want = b.keys ? new Set(b.keys) : null, name = s => (b.short && s.short) || s.label;
   c.font(7.8, false, INK);
   let x = f.x; c.need(12); c.y += 9;
   for(const s of SEGMENTS){
-    const w = 10 + c.width(s.label) + 12;
+    if(want && !want.has(s.key)) continue;
+    const w = 10 + c.width(name(s)) + 12;
     if(x + w > f.x + f.w + 0.5 && x > f.x){ x = f.x; c.need(11); c.y += 11; }
     c.doc.setFillColor(...rgb(s.color)); c.doc.rect(x, c.y - 6.4, 6.5, 6.5, 'F');
-    c.font(7.8, false, INK); c.put(s.label, x + 10, c.y);
+    c.font(7.8, false, INK); c.put(name(s), x + 10, c.y);
     x += w;
   }
   c.y += 7;
@@ -190,11 +196,14 @@ function cellParts(cell){
 
 // A table: the first column on the left and the rest on the right, unless the
 // block says otherwise. `bare` (the two-column figure lists) has no heading row.
+// `flex` names a column that takes the spare width and wraps inside it; `dense` draws
+// shorter rows. A row's `notes` are lines under it, from the second column to the edge.
 function table(c, f, block){
-  const size = 8.2, lead = 10, padX = 4, gapLabel = 5;
+  const size = block.dense ? 7.6 : 8.2, lead = block.dense ? 9.2 : 10, padX = 4, gapLabel = 5, air = block.dense ? 1.4 : 5;
   const cols = block.head.length;
   const right = i => (block.align ? block.align[i] === 'r' : i > 0);
   const rows = block.rows.map(r => (Array.isArray(r) ? r : r.cells).map(cellParts));
+  const notes = block.rows.map(r => (Array.isArray(r) ? [] : r.notes || []));
   const textW = p => { c.font(size, p.bold); return c.width(p.text); };
   const labelW = p => { if(!p.label) return 0; c.font(size - 1, true); return c.width(p.label); };
   const headW = text => { c.font(size - 0.4, true); return c.width(text); };
@@ -208,7 +217,11 @@ function table(c, f, block){
   }
   const sum = a => a.reduce((s, v) => s + v, 0);
   let widths;
-  if(sum(want) <= f.w){ const k = f.w / sum(want); widths = want.map(v => v * k); }
+  if(block.flex != null){
+    const others = sum(base.filter((_, i) => i !== block.flex)), k = Math.min(1, f.w * 0.65 / others);
+    widths = base.map((v, i) => (i === block.flex ? f.w - others * k : v * k));
+  }
+  else if(sum(want) <= f.w){ const k = f.w / sum(want); widths = want.map(v => v * k); }
   else if(sum(base) <= f.w){ const spare = f.w - sum(base), ask = sum(want.map((v, i) => v - base[i])) || 1;
     widths = base.map((v, i) => v + spare * (want[i] - v) / ask); }
   else { const k = f.w / sum(base); widths = base.map(v => v * k); }
@@ -226,29 +239,38 @@ function table(c, f, block){
     c.y += h; c.rule(f.x, f.w, INK, 0.8);
   };
   c.need(block.bare ? 20 : 46); heading();
-  for(const row of rows){
+  rows.forEach((row, at) => {
     const lines = row.map((p, i) => { c.font(size, p.bold); return c.wrap(p.text, room(i) - p.indent); });
     // a cell's small label follows its text when there is room, else goes under it
     const lastW = row.map((p, i) => { c.font(size, p.bold); return lines[i].length ? c.width(lines[i][lines[i].length - 1]) : 0; });
     const under = row.map((p, i) => !!p.label && p.indent + lastW[i] + gapLabel + labelW(p) > room(i) + 0.5);
-    const h = Math.max(1, ...lines.map((l, i) => l.length + (under[i] ? 1 : 0))) * lead + 5;
-    if(c.need(h + 1)) heading();
+    const h = Math.max(1, ...lines.map((l, i) => l.length + (under[i] ? 1 : 0))) * lead + air;
+    c.font(size - 0.2);
+    const below = notes[at].flatMap(t => c.wrap(t, f.w - widths[0] - padX));
+    if(c.need(h + 1 + Math.min(below.length, 2) * lead)) heading();
+    const base0 = c.y + lead + (block.dense ? -1.2 : 1);                       // the row's first baseline
     row.forEach((p, i) => {
       const last = lines[i].length - 1, lw = labelW(p), beside = p.label && !under[i];
       lines[i].forEach((line, k) => {
         // on a right-aligned cell the label takes the edge and the text sits before it
         const shift = right(i) && beside && k === last ? lw + gapLabel : 0;
         c.font(size, p.bold);
-        c.put(line, edge(i) + (right(i) ? -shift : p.indent), c.y + 11 + k * lead, opts(i));
+        c.put(line, edge(i) + (right(i) ? -shift : p.indent), base0 + k * lead, opts(i));
       });
       if(!p.label) return;
-      const y = c.y + 11 + Math.max(0, last) * lead + (under[i] ? lead : 0);
+      const y = base0 + Math.max(0, last) * lead + (under[i] ? lead : 0);
       c.font(size - 1, true, p.red ? RED : SOFT);
       if(right(i) || under[i]) c.put(p.label, edge(i) + (right(i) ? 0 : p.indent), y, opts(i));
       else c.put(p.label, edge(i) + p.indent + lastW[i] + gapLabel, y);
     });
-    c.y += h; c.rule(f.x, f.w);
-  }
+    c.y += h;
+    for(const line of below){
+      if(c.need(lead)) heading();
+      c.font(size - 0.2, false, SOFT); c.put(line, f.x + widths[0] + padX, c.y + lead - 3.4);
+      c.y += lead;
+    }
+    c.rule(f.x, f.w);
+  });
   c.y += 6;
 }
 
@@ -286,7 +308,7 @@ function list(c, f, block){
 // The frame is Web Mercator, the projection the street tiles are drawn in, so a
 // tile picture and the pins line up. It is one pure function used twice: by the
 // drawer below, and by addMapImages() to decide which tiles the box covers.
-const MAP_H = 236, MAP_PAD = 18, MAP_MAX_ZOOM = 17;
+const MAP_H = 210, MAP_PAD = 18, MAP_MAX_ZOOM = 17;
 const mercX = lng => (lng + 180) / 360;
 const mercY = lat => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 /** points: [[lat, lng], …]. Returns { w, h, scale, midX, midY, at([lat, lng]) → [x, y] in the box }. */
@@ -397,14 +419,15 @@ async function addMapImages(model){
 
 function drawBlock(c, f, b){
   switch(b.t){
-    case 'tiles': return tiles(c, f, b.items);
+    case 'tiles': return tiles(c, f, b.items, b.per);
+    case 'quote': return paragraph(c, f, `${b.label}: ${b.text}`, { size: 9, after: 6 });
     case 'bar': return stack(c, f, b.bar.segments, { ...b.bar, label: 'end' }, { numbers: true });
     case 'timeline': { const blocks = timelineBlocks(b.day);
       stack(c, f, blocks, { ...b.day, label: endLabel(b.day) });
       // the page hatches a long gap; on paper it is outlined
       if(blocks.some(x => x.flag)) paragraph(c, f, 'A long gap is outlined in black.', { size: 7.8, color: SOFT, after: 2 });
       return undefined; }
-    case 'legend': return legend(c, f);
+    case 'legend': return legend(c, f, b);
     case 'hist': return histogram(c, f, b.bins, b.allowance);
     case 'pairs': return pairs(c, f, b.rows);
     case 'table': return table(c, f, b);

@@ -10,15 +10,24 @@
 // cannot tell a break from an unlogged delay.
 import { esc, attr } from './dom.js';
 
+// `label` is the period's wording; `short` is the day's, which a supervisor reads.
 export const SEGMENTS = [   // order is the drawing order
-  { key: 'delayBefore',    label: 'Logged delays before the first meter',                               color: '#F59E0B', ink: '#1a1300' },
-  { key: 'driveToFirst',   label: 'Drive to the first order (dispatch logged before the first meter)',  color: '#2563EB', ink: '#fff' },
-  { key: 'beforeUnlogged', label: 'Before the first meter, not logged',                                 color: '#94A3B8', ink: '#13171C' },
-  { key: 'work',           label: 'Working',                                                            color: '#1E8E5A', ink: '#fff' },
-  { key: 'pauseUnlogged',  label: 'Unlogged pauses (unlogged breaks included)',                         color: '#D64500', ink: '#fff' },
-  { key: 'pauseBreak',     label: 'Break or lunch, logged',                                             color: '#0E7490', ink: '#fff' },
-  { key: 'pauseLogged',    label: 'Pause time logged as a delay',                                       color: '#FCD34D', ink: '#1a1300' },
-  { key: 'closeout',       label: 'Close-out and drive home',                                           color: '#64748B', ink: '#fff' },
+  { key: 'delayBefore',    label: 'Logged delays before the first meter',
+    short: 'Delays before the first meter', color: '#F59E0B', ink: '#1a1300' },
+  { key: 'driveToFirst',   label: 'Drive to the first order (dispatch logged before the first meter)',
+    short: 'Drive to the first order', color: '#2563EB', ink: '#fff' },
+  { key: 'beforeUnlogged', label: 'Before the first meter, not logged',
+    short: 'Before the first meter, not logged', color: '#94A3B8', ink: '#13171C' },
+  { key: 'work',           label: 'Working',
+    short: 'Working', color: '#1E8E5A', ink: '#fff' },
+  { key: 'pauseUnlogged',  label: 'Unlogged pauses (unlogged breaks included)',
+    short: 'Nothing logged (may include breaks)', color: '#D64500', ink: '#fff' },
+  { key: 'pauseBreak',     label: 'Break or lunch, logged',
+    short: 'Break or lunch', color: '#0E7490', ink: '#fff' },
+  { key: 'pauseLogged',    label: 'Pause time logged as a delay',
+    short: 'Delay', color: '#FCD34D', ink: '#1a1300' },
+  { key: 'closeout',       label: 'Close-out and drive home',
+    short: 'Close-out and drive home', color: '#64748B', ink: '#fff' },
 ];
 const SEG = Object.fromEntries(SEGMENTS.map(s => [s.key, s]));
 
@@ -151,9 +160,9 @@ export function timelineHtml(day){
 export const endLabel = day => (day.endSource === 'lastMeter' ? 'last meter' : 'end');
 
 /** The colour key. `keys` = the SEGMENTS keys to show (all of them when omitted),
- *  always listed in drawing order. */
-export function legendHtml(keys){
+ *  always listed in drawing order. `short` uses the short names. */
+export function legendHtml(keys, short = false){
   const want = keys ? new Set(keys) : null;
   return '<div class="au-key">' + SEGMENTS.filter(s => !want || want.has(s.key))
-    .map(s => `<span style="--c:${s.color}">${esc(s.label)}</span>`).join('') + '</div>';
+    .map(s => `<span style="--c:${s.color}">${esc(short ? s.short : s.label)}</span>`).join('') + '</div>';
 }

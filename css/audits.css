@@ -90,6 +90,12 @@ body{
 .au-tile{border:1px solid var(--line);border-radius:10px;padding:10px 11px}
 .au-tile b{display:block;font-size:24px;line-height:1.1;font-weight:800}
 .au-tile span{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:4px;line-height:1.3}
+.au-tiles.three{grid-template-columns:repeat(3,1fr)}
+.au-quote{margin:10px 0 0;padding:8px 11px;border-left:3px solid var(--amber);background:#FFFBF2;border-radius:0 8px 8px 0;
+          font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+/* what the installer wrote, under the row it explains */
+.au-table tr:has(+ .au-noterow) td{border-bottom:0}
+.au-table .au-noterow td{color:var(--ink-soft);padding-top:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .au-two{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;align-items:start}
 
 .au-daybtn{border:0;background:none;padding:0;font:inherit;font-weight:700;color:#1D4ED8;
@@ -153,7 +159,7 @@ body{
 /* ── a phone ────────────────────────────────────────────────────────────── */
 @media (max-width:640px){
   body{padding-left:10px;padding-right:10px}
-  .au-tiles{grid-template-columns:repeat(2,1fr)}
+  .au-tiles,.au-tiles.three{grid-template-columns:repeat(2,1fr)}
   .au-two{grid-template-columns:1fr}
   .au-tile b{font-size:21px}
   .au-hist{height:140px}

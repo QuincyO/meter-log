@@ -98,15 +98,15 @@ test('a view with no days still makes a PDF that says so', () => {
   assert.doesNotMatch(none, /NaN|undefined/);
 });
 
-test('the day PDF has the day\'s sections, the route and the method, and nothing kept for the screen', () => {
+test('the day PDF has the day\'s sections and the route, and none of the page\'s closed sections', () => {
   const doc = buildAuditPdf(jsPDF, day([...HISTORY(8), ...LONG_DAY], DAY));
   const text = all(doc);
-  inOrder(text, ['Audit: Pat Example', 'Mon Nov 2, 2026', 'TIMELINE OF THE DAY', 'PACE ON THIS ROUTE', 'THIS DAY, AND HOW IT COMPARES', 'DELAYS LOGGED THIS DAY',
-    'ROUTE WORKED', 'EVERY LOG, IN ORDER', 'METHOD AND LIMITS']);
-  for(const piece of ['30 worked days before (8 days)', 'All to date (9 days)', 'Dispatch (drive to the first order)',
-    'before the first meter', 'It is the order worked, not the roads driven.', 'first meter', 'long gap', '900008'])
+  inOrder(text, ['Audit: Pat Example', 'Mon Nov 2, 2026', 'THE DAY AT A GLANCE', 'TIMELINE OF THE DAY', 'WHERE THE TIME WENT',
+    'ROUTE WORKED', 'EVERY ORDER']);
+  for(const piece of ['Usually means the 8 worked days before.', 'Dispatch (drive to the first order) 30', 'Before first meter',
+    'not the roads driven', 'first meter', 'long gap', '900008', 'not a target'])
     assert.ok(text.includes(piece), piece);
-  assert.doesNotMatch(text, /Pick a block|NaN|undefined|Show drive log|No drive log|Top \d+ km/i);
+  assert.doesNotMatch(text, /METHOD AND LIMITS|EXPECTED NUMBER WAS|HOW IT COMPARES|AS ENTERED|Tap a block|NaN|undefined|Show drive log|No drive log|Top \d+ km/i);
 });
 
 test('the route is drawn as one numbered pin per pinned order', () => {
@@ -133,11 +133,12 @@ test('the route is drawn as one numbered pin per pinned order', () => {
   const legs = [{ distanceM: 31400, driveMin: 52, maxSpeed: 23.4, gaps: [], startTime: t0, encoded: encodeTrack(track) }];
   const off = draw([...HISTORY(8), ...LONG_DAY], { legs, show: false });
   const on = draw([...HISTORY(8), ...LONG_DAY], { legs, show: true });
-  assert.match(off.text, /Top 84 km\/h · average 36 km\/h · 31\.4 km · 52 min driving · 1 leg/);
+  assert.match(off.text, /31\.4 km driven · 52 min driving/);
+  assert.doesNotMatch(off.text, /km\/h/, 'no speeds: the file is handed to other people');
   assert.ok(on.seen.line > off.seen.line, 'the track is drawn only when the overlay is on');
   assert.match(on.text, /where the truck drove/);
   assert.doesNotMatch(off.text, /where the truck drove/);
-  assert.match(draw([...HISTORY(8), ...LONG_DAY], { legs: [], show: false }).text, /No drive log was recorded this day\./);
+  assert.doesNotMatch(draw([...HISTORY(8), ...LONG_DAY], { legs: [], show: false }).text, /drive log/i);
   assert.doesNotMatch(pinned.text, /No drive log|Top \d+ km|truck drove/i,'the phone has no drive log, and the PDF says nothing of one');
 });
 
@@ -185,15 +186,15 @@ test('the file handed over is the PDF the download makes, named and typed, and n
 // ── the route map: along the roads, and over the street map ──────────────────
 
 test('the map frame keeps every point inside the box, north up, and centres a lone pin', () => {
-  const f = mapFrame([[44.0, -79.0], [44.1, -78.9], [44.05, -79.2]], 528, 236);
+  const f = mapFrame([[44.0, -79.0], [44.1, -78.9], [44.05, -79.2]], 528, 210);
   for(const p of [[44.0, -79.0], [44.1, -78.9], [44.05, -79.2]]){
     const [x, y] = f.at(p);
-    assert.ok(x >= 17.9 && x <= 510.1 && y >= 17.9 && y <= 218.1, `${p} is at ${x}, ${y}`);
+    assert.ok(x >= 17.9 && x <= 510.1 && y >= 17.9 && y <= 192.1, `${p} is at ${x}, ${y}`);
   }
   assert.ok(f.at([44.1, -79.0])[1] < f.at([44.0, -79.0])[1], 'north is up');
   assert.ok(f.at([44.0, -78.9])[0] > f.at([44.0, -79.0])[0], 'east is right');
-  const one = mapFrame([[44.0, -79.0]], 528, 236);
-  assert.deepEqual(one.at([44.0, -79.0]).map(Math.round), [264, 118]);
+  const one = mapFrame([[44.0, -79.0]], 528, 210);
+  assert.deepEqual(one.at([44.0, -79.0]).map(Math.round), [264, 105]);
   assert.ok(isFinite(one.scale) && one.scale > 0);
 });
 
@@ -215,21 +216,21 @@ test('the route is drawn along the roads it was handed, and over the street map 
   const roads = draw(map => { map.lines = pins.slice(1).map((p, i) => [pins[i], [pins[i][0] + 0.0002, pins[i][1] + 0.0002], p]); });
   assert.equal(roads.seen.line - straight.seen.line, 8);
   // the street map, at the size of the box, with its credit
-  const mapped = draw(map => { map.image = { data: PNG, w: 528, h: 236 }; });
+  const mapped = draw(map => { map.image = { data: PNG, w: 528, h: 210 }; });
   assert.equal(mapped.seen.image.length, 1);
-  assert.deepEqual(mapped.seen.image[0].slice(1, 3).concat(mapped.seen.image[0].slice(4)), ['PNG', 42, 528, 236]);
+  assert.deepEqual(mapped.seen.image[0].slice(1, 3).concat(mapped.seen.image[0].slice(4)), ['PNG', 42, 528, 210]);
   assert.match(mapped.text, /© OpenStreetMap contributors/);
   // a picture made for another width is not stretched over the map
-  assert.deepEqual(draw(map => { map.image = { data: PNG, w: 300, h: 236 }; }).seen.image, []);
+  assert.deepEqual(draw(map => { map.image = { data: PNG, w: 300, h: 210 }; }).seen.image, []);
 });
 
 test('a street map that cannot be embedded costs the background, not the PDF', () => {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   doc.addImage = () => { throw new Error('bad image'); };
   const model = day([...HISTORY(8), ...LONG_DAY], DAY);
-  model.sections.find(s => s.title === 'Route worked').blocks.find(b => b.t === 'map').image = { data: 'data:image/jpeg;base64,AAAA', w: 528, h: 236 };
+  model.sections.find(s => s.title === 'Route worked').blocks.find(b => b.t === 'map').image = { data: 'data:image/jpeg;base64,AAAA', w: 528, h: 210 };
   drawAuditPdf(doc, model);
-  assert.match(all(doc), /EVERY LOG, IN ORDER/);
+  assert.match(all(doc), /EVERY ORDER/);
   assert.doesNotMatch(all(doc), /OpenStreetMap/);
 });
 
@@ -257,7 +258,7 @@ test('the route map is fitted to the orders, however far the drive log or the ro
   const want = pinsAt(plain);
   assert.equal(want.length, 9);
   const tall = Math.max(...want.map(p => p[1])) - Math.min(...want.map(p => p[1]));
-  assert.ok(Math.abs(tall - 200) < 0.5, `the orders fill the box inside its margin, not ${tall} points of it`);
+  assert.ok(Math.abs(tall - 174) < 0.5, `the orders fill the box inside its margin, not ${tall} points of it`);
   for(const [what, change] of rest) assert.deepEqual(pinsAt(change), want, what);
 });
 
@@ -276,7 +277,7 @@ test('a line that leaves the route map stops at its edge, and the pins are drawn
   const from = names.indexOf('saveGraphicsState'), to = names.indexOf('restoreGraphicsState');
   assert.deepEqual(names.slice(from, from + 4), ['saveGraphicsState', 'rect', 'clip', 'discardPath']);
   const [x, y, w, h, style] = steps[from + 1][1];
-  assert.deepEqual([x, w, h, style], [42, 528, 236, null], 'the clip is the box, and is not itself painted');
+  assert.deepEqual([x, w, h, style], [42, 528, 210, null], 'the clip is the box, and is not itself painted');
   const inside = steps.slice(from + 4, to);
   assert.ok(inside.length > 8 && inside.every(s => s[0] === 'line'), 'the route and the drive log, and nothing else');
   assert.ok(inside.some(s => s[1][1] < y || s[1][3] < y), 'the drive does run past the box, so the clip is what stops it');
@@ -300,4 +301,32 @@ test('the street map is fetched for the same area the pins are drawn in', async 
     assert.ok(want.length > 0);
     for(const [what, change] of rest) assert.deepEqual(await tilesFor(change), want, what);
   } finally { Object.assign(globalThis, real); }
+});
+
+// ── the installer's own words ────────────────────────────────────────────────
+
+test('the PDF carries the notes beside the gaps they explain, and the day\'s comment, wrapped inside the page', () => {
+  const long = 'Waited for the owner. '.repeat(40).trim();
+  const stops = LONG_DAY.map((s, i) => ({ ...s, ...(i === 8 ? { notes: long } : i === 2 ? { utiReason: 'No Access', notes: 'gate locked' } : {}) }));
+  const prep = prepareAudit({ stops: [...HISTORY(8), ...stops], downtime: DOWN, days: [], comments: [{ date: DAY, text: 'Road closed until noon.' }] },
+    { installer: WHO, mode: 'land' });
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' }), drawn = [];
+  const real = doc.text.bind(doc);
+  doc.text = (t, x, y, o) => { drawn.push([t, x, y, o && o.align === 'right' ? x : x + doc.getTextWidth(t)]); return real(t, x, y, o); };
+  drawAuditPdf(doc, dayPdfModel({ name: WHO, prep, detail: dayDetail(prep, DAY), drive: null, today: TODAY }));
+  const text = all(doc);
+  inOrder(text, ['Comment for the day: Road closed until noon.', 'WHERE THE TIME WENT', '09:42', '900008', 'Note: Waited for the owner.', 'EVERY ORDER', 'UTI: No Access', 'Note: gate locked']);
+  assert.equal(texts(doc).join(' ').split('Waited for the owner.').length - 1, 40, 'all of it, and once');
+  for(const [t, x, y, right] of drawn){
+    assert.ok(x >= 41 && right <= 571, `"${t}" runs from ${x} to ${right}`);
+    assert.ok(y > 0 && y < 780, t);
+  }
+});
+
+test('a note longer than a page runs on to the next one', () => {
+  const stops = LONG_DAY.map((s, i) => (i === 8 ? { ...s, notes: 'word '.repeat(4000) } : s));
+  const prep = prepareAudit({ stops: [...HISTORY(8), ...stops], downtime: DOWN, days: [] }, { installer: WHO, mode: 'land' });
+  const doc = buildAuditPdf(jsPDF, dayPdfModel({ name: WHO, prep, detail: dayDetail(prep, DAY), drive: null, today: TODAY }));
+  assert.ok(pages(doc) >= 4);
+  assert.match(all(doc), /EVERY ORDER/);
 });

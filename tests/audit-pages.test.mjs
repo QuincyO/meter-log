@@ -157,18 +157,32 @@ const DAY_DOWN = [
 const detailOf = (stops, date, downtime = [], days = []) =>
   dayDetail(prepareAudit({ stops: [...FULL, ...stops], downtime, days }, { installer: WHO, mode: 'land' }), date);
 
+// The page's closed sections: how the figures were worked out, under the order list.
+const closedOf = d => { const html = dayLogsHtml(d.day, d); return html.slice(html.indexOf('</section>')); };
+const tile = (html, n, label) => assert.ok(html.includes(`<div class="au-tile"><b>${n}</b><span>${label}</span></div>`), `${n} / ${label}`);
+
+test('the day opens on the figures, the timeline and where the time went; the working out is closed at the bottom', () => {
+  const d = detailOf(DAY_STOPS, DAY, DAY_DOWN);
+  const heads = [...dayTopHtml(d).matchAll(/<h2[^>]*>([^<]+)</g)].map(m => m[1].trim());
+  assert.deepEqual(heads, ['The day at a glance', 'Timeline of the day', 'Where the time went']);
+  const bottom = dayLogsHtml(d.day, d);
+  assert.deepEqual([...bottom.matchAll(/<h2[^>]*>([^<]+)</g)].map(m => m[1].trim()), ['Every order']);
+  assert.deepEqual([...bottom.matchAll(/<section class="card au-card au-noprint"><details class="au-method"><summary>([^<]+)</g)].map(m => m[1]),
+    ['How the expected number was worked out', 'This day, and how it compares', 'Delays and breaks, as entered', 'Method and limits']);
+  assert.doesNotMatch(bottom, /<details[^>]* open/);
+  assert.equal(dayLogsHtml(d.day).includes('<details'), false, 'the order list alone, as an older view asks for it');
+  assert.match(dayTopHtml(d), /id="auGapDetail"/);
+});
+
 test('the day view compares the day with both baselines and says how many days each used', () => {
-  const html = dayTopHtml(detailOf(DAY_STOPS, DAY, DAY_DOWN));
-  const heads = [...html.matchAll(/<h2[^>]*>([^<]+)</g)].map(m => m[1].trim());
-  assert.deepEqual(heads, ['Timeline of the day', 'Pace on this route', 'This day, and how it compares', 'Delays logged this day']);
+  const html = closedOf(detailOf(DAY_STOPS, DAY, DAY_DOWN));
   assert.match(html, /<th class="n">This day<\/th><th class="n">30 worked days before \(6 days\)<\/th><th class="n">All to date \(6 days\)<\/th>/);
   for(const label of ['Orders (average)', 'First meter (average)', 'Last meter (average)',
     'Delay logged before the first meter (average)', 'Delay logged between meters (average)',
     'Unlogged pause (median)', 'Longest pause (median)'])
     assert.ok(html.includes(`<td>${label}</td>`), label);
   assert.match(html, /<td>Unlogged pause \(median\)<\/td><td class="n">34<\/td><td class="n">0<\/td>/);
-  assert.match(html, /34 at 10:06/);
-  assert.match(html, /id="auGapDetail"/);
+  assert.match(html, /34 at 10:06 \(900002\)/);
   assert.doesNotMatch(html, /NaN|undefined|>null</);
 });
 
@@ -177,13 +191,16 @@ test('the day view says how on pace the day was, and shows its arithmetic', () =
   // all of the time between first and last meter is at the usual pace. This day: gaps
   // of 6, 60 and 6, so 72 minutes, 20 of them logged against the long gap. The 52 left,
   // at 6 minutes an order, is 8.7 orders after the first: 10 expected, 4 logged.
-  const html = dayTopHtml(detailOf(DAY_STOPS, DAY, DAY_DOWN));
-  const card = html.slice(html.indexOf('Pace on this route'), html.indexOf('This day, and how it compares'));
-  const tile = (n, label) => assert.ok(card.includes(`<div class="au-tile"><b>${n}</b><span>${label}</span></div>`), `${n} ${label}`);
-  tile('4', 'orders logged');
-  tile('10', 'expected for the time between first and last meter, on this route');
-  tile('6 under', 'against the expected number');
-  tile('6.0 min', 'usual time per order on this route (full days: 6.0)');
+  const d = detailOf(DAY_STOPS, DAY, DAY_DOWN), html = closedOf(d), top = dayTopHtml(d);
+  const card = html.slice(html.indexOf('How the expected number'), html.indexOf('This day, and how it compares'));
+  tile(top, '4', 'orders (4 installed), usually 9');
+  tile(top, '6 under', 'against 10 expected on this route');
+  tile(top, '10:00–11:12', 'first to last meter, usually 09:00–09:48');
+  tile(top, '1 h 45 min', 'delays logged, 30 min of it the drive to the first order, usually 0 min');
+  tile(top, '30 min', 'break and lunch logged, of 60 allowed');
+  tile(top, '34 min', 'pauses with nothing logged (may include breaks), usually 0 min');
+  // the owner's conditions for showing an expected number at all stay with it
+  assert.match(top, /Expected is this installer's own usual pace on this route, not a target\. Half of full days land exactly on it\. Usually means the 6 worked days before\./);
   assert.match(card, /<th class="n">This day<\/th><th class="n">Full days to date \(6 days\)<\/th>/);
   assert.match(card, /<td>Usual minutes per order on the route \(median\)<\/td><td class="n">6\.0<\/td><td class="n">6\.0<\/td>/);
   assert.match(card, /<td>First to last meter, less delay logged against those gaps \(median\)<\/td><td class="n">52<\/td><td class="n">48<\/td>/);
@@ -196,64 +213,66 @@ test('the day view says how on pace the day was, and shows its arithmetic', () =
   assert.match(card, /On the full days to date, half land exactly on their expected number\./);
   assert.match(card, /Expected is not a target\./);
   assert.match(card, /cannot see orders that were never given out/);
-  assert.doesNotMatch(card, /NaN|undefined|>null<|\byour\b/);
+  assert.doesNotMatch(card + top, /NaN|undefined|>null<|\byour\b/);
 
   // worked at the usual pace with nothing logged: exactly the expected number
   const steady = dayTopHtml(detailOf(stopsOn(DAY, every('10:00', 5)), DAY));
-  assert.ok(steady.includes('<b>5</b><span>expected for the time between first and last meter, on this route</span>'));
-  assert.ok(steady.includes('<b>Level</b><span>against the expected number</span>'));
-  assert.match(steady, /Expected: 24 min from first to last meter\. On a typical full day/);
+  tile(steady, 'Level', 'against 5 expected on this route');
+  assert.match(closedOf(detailOf(stopsOn(DAY, every('10:00', 5)), DAY)), /Expected: 24 min from first to last meter\. On a typical full day/);
 
   // nine orders five minutes apart: quicker than the usual six, so one over
   const quick = dayTopHtml(detailOf(stopsOn(DAY, every('10:00', 9, 5)), DAY));
-  assert.ok(quick.includes('<b>1 over</b><span>against the expected number</span>'));
+  tile(quick, '1 over', 'against 8 expected on this route');
 });
 
 test('a day with one order, or with no full day to compare with, says so and invents nothing', () => {
-  const one = dayTopHtml(detailOf(stopsOn(DAY, ['11:15']), DAY));
-  assert.match(one, /Pace on this route<\/h2><p class="au-empty">Only one order was logged, so there is no route to pace\.<\/p>/);
-  const alone = dayTopHtml(dayDetail(prepareAudit({ stops: stopsOn(DAY, every('10:00', 5)), downtime: [], days: [] },
-    { installer: WHO, mode: 'land' }), DAY));
-  assert.ok(alone.includes('<b>—</b><span>expected for the time between first and last meter, on this route</span>'));
-  assert.ok(alone.includes('<b>6.0 min</b><span>usual time per order on this route</span>'));
+  const d1 = detailOf(stopsOn(DAY, ['11:15']), DAY), one = dayTopHtml(d1);
+  tile(one, '—', 'expected: one order is no route to pace');
+  tile(one, '11:15', 'the only meter, usually 09:00–09:48');
+  assert.doesNotMatch(one, /not a target/);
+  assert.match(closedOf(d1), /<p class="au-empty">Only one order was logged, so there is no route to pace\.<\/p>/);
+  const d0 = dayDetail(prepareAudit({ stops: stopsOn(DAY, every('10:00', 5)), downtime: [], days: [] }, { installer: WHO, mode: 'land' }), DAY);
+  const alone = dayTopHtml(d0) + closedOf(d0);
+  tile(alone, '—', 'expected: no full day yet to compare with');
+  tile(alone, '5', 'orders (5 installed)');
+  assert.doesNotMatch(dayTopHtml(d0), /usually/i, 'with nothing to compare with, nothing is compared');
   assert.match(alone, /No day with 8 or more orders yet, so there is no typical day to expect a number from\./);
   assert.match(alone, /<th class="n">Full days to date \(0 days\)<\/th>/);
   assert.doesNotMatch(alone, /NaN|undefined|>null</);
 });
 
 test('dispatch before the first meter is labelled as the drive to the first order', () => {
-  const html = dayTopHtml(detailOf(DAY_STOPS, DAY, DAY_DOWN));
+  const html = closedOf(detailOf(DAY_STOPS, DAY, DAY_DOWN));
   assert.match(html, /<td>Dispatch \(drive to the first order\)<\/td><td class="n">30<\/td><td class="n">07:30–08:00, before the first meter<\/td>/);
   assert.match(html, /<td>Warehouse<\/td><td class="n">40<\/td><td class="n">08:00–10:00, before the first meter<\/td>/);
-  assert.match(html, /<td>Tools\/Material<\/td><td class="n">20<\/td><td class="n">10:06–11:06<\/td>/);
+  assert.match(html, /<td>Tools\/Material<\/td><td class="n">20<\/td><td class="n">10:06–11:06 \(900002\)<\/td>/);
   assert.match(html, /<td>Other<\/td><td class="n">10<\/td><td class="n">11:12–11:30, after the last meter<\/td>/);
   assert.match(html, /<td>Cell Signal<\/td><td class="n">5<\/td><td class="n">no time of day<\/td>/);
   // lunch is not a delay: it is not in the delays table, and is listed apart under its own heading
-  const delaysTable = html.slice(html.indexOf('Delays logged this day'), html.indexOf('Breaks and lunch logged'));
+  const delaysTable = html.slice(html.indexOf('Delays and breaks, as entered'), html.indexOf('Breaks and lunch logged'));
   assert.doesNotMatch(delaysTable, /<td>Lunch<\/td>/);
   assert.match(html, /<h3>Breaks and lunch logged<\/h3>/);
   assert.match(html, /<td>Lunch<\/td><td class="n">30<\/td>/);
   assert.match(html, /30 min of breaks or lunch, against an allowance of 60 min\. 0 min of it sits on a gap that ran long; the rest is on no gap\. These are not delays/);
   // dispatch between meters is an ordinary delay
-  const mid = dayTopHtml(detailOf(DAY_STOPS, DAY,
+  const mid = closedOf(detailOf(DAY_STOPS, DAY,
     [{ timestamp: `${DAY} 12:00:00`, category: 'DISPATCH', minutes: 15, note: 'gap 10:06–11:06' }]));
   assert.match(mid, /<td>Dispatch<\/td><td class="n">15<\/td>/);
-  assert.match(dayTopHtml(detailOf(DAY_STOPS, DAY)), /No delay was logged this day/);
+  assert.match(closedOf(detailOf(DAY_STOPS, DAY)), /No delay was logged this day/);
 });
 
-test('every log is listed with how its gap was read', () => {
+test('every order is listed, with the minutes since the last and how far over usual a long one ran', () => {
   const d = detailOf(DAY_STOPS, DAY, DAY_DOWN);
   const html = dayLogsHtml(d.day);
-  assert.match(html, /<h2[^>]*>Every log, in order</);
+  assert.match(html, /<h2[^>]*>Every order</);
   const rows = [...html.matchAll(/<tr class="au-logrow"[^>]*>([\s\S]*?)<\/tr>/g)].map(m => m[1].replace(/<[^>]+>/g, '|'));
   assert.equal(rows.length, 4);
-  assert.match(rows[0], /10:00.*900000.*Installed.*first meter/);
-  assert.match(rows[1], /10:06.*work/);
-  assert.match(rows[2], /11:06.*pause 54: 20 logged as a delay, 34 not logged/);
-  assert.match(rows[3], /11:12.*work/);
+  const cells = rows.map(r => r.split(/\|+/).filter(Boolean));
+  assert.deepEqual(cells, [['1', '10:00', '900000', 'Installed', '—'], ['2', '10:06', '900001', 'Installed', '6'],
+    ['3', '11:06', '900002', 'Installed', '60', '+54'], ['4', '11:12', '900003', 'Installed', '6']]);
   assert.match(html, /<tr class="au-logrow" data-gap="1">/);
   const long = dayLogsHtml(detailOf(stopsOn(DAY, ['10:00', '11:00']), DAY).day);
-  assert.match(long, /pause 54, nothing logged <span class="au-flag">long gap<\/span>/);
+  assert.match(long, /\+54 <span class="au-flag">long gap<\/span>/);
 });
 
 test('a gap opens with its two orders, the distance, the usual time, the overrun and what was logged', () => {
@@ -391,9 +410,10 @@ test('a long gap is described as what the code flags: 45 minutes of unlogged pau
 
 test('sheet values are escaped wherever a day prints them', () => {
   const bad = '<img src=x onerror=alert(1)>';
-  const stops = stopsOn(DAY, ['10:00', '11:00']).map(s => ({ ...s, workOrderId: bad, address: bad }));
+  const stops = stopsOn(DAY, ['10:00', '11:00']).map(s => ({ ...s, workOrderId: bad, address: bad, notes: bad, status: 'UTI', utiReason: bad + '2' }));
   const d = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: bad, minutes: 5, note: 'gap 10:00–11:00' }]);
-  const html = dayTopHtml(d) + dayLogsHtml(d.day) + gapDetailHtml(d.day, 0) + offMapHtml({ logs: d.day.logs.map(l => ({ ...l, pin: false })) });
+  d.day.comment = bad;
+  const html = dayTopHtml(d) + dayLogsHtml(d.day, d) + gapDetailHtml(d.day, 0) + offMapHtml({ logs: d.day.logs.map(l => ({ ...l, pin: false })) });
   assert.doesNotMatch(html, /<img/);
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
 });
@@ -423,6 +443,51 @@ test('both pages carry Send PDF beside Download PDF, hidden until the script fin
   }
 });
 
+// "Where the time went", a row a line: time|order|over usual|logged, its notes after » marks.
+const timeRowsOf = d => { const html = dayTopHtml(d), part = html.slice(html.indexOf('Where the time went'));
+  const out = [];
+  for(const [, cls, body] of part.matchAll(/<tr(?: class="([^"]*)")?[^>]*>([\s\S]*?)<\/tr>/g)){
+    const cells = [...body.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    if(!cells.length) continue;                        // the heading
+    if(cls === 'au-noterow') out[out.length - 1] += ' » ' + cells[1]; else out.push(cells.join('|'));
+  }
+  return out; };
+
+test('a note is shown once, beside the gap it explains, with its order number', () => {
+  // next door, usual 6: 10:06–11:06 ran 54 over, 11:12–11:42 ran 24 over
+  const stops = stopsOn(DAY, ['10:00', '10:06', '11:06', '11:12', '11:42', '11:48']).map((s, i) => ({ ...s,
+    ...({ 1: { notes: 'Drill bit broke' }, 2: { status: 'UTI', utiReason: 'No Access', notes: 'gate locked' },
+      3: { notes: 'Truck would not start after this one' }, 5: { notes: 'Read not received' } })[i] }));
+  const d = detailOf(stops, DAY, [
+    { timestamp: `${DAY} 12:00:00`, category: 'TOOLS_MATERIAL', minutes: 20, note: 'gap 10:00–10:06' },
+    { timestamp: `${DAY} 12:00:00`, category: 'OTHER', minutes: 5, note: 'School bus', workOrderId: '900005' }]);
+  assert.deepEqual(timeRowsOf(d), [
+    '10:00–10:06|900001||Tools/Material 20 » Note: Drill bit broke',
+    '10:06–11:06|900002|+54|20 from the delay on 900001, 34 not logged » UTI: No Access - gate locked',
+    // the order before this gap has no row of its own, so its note explains the gap
+    '11:12–11:42|900004|+24|Nothing logged » 900003, Note: Truck would not start after this one',
+    'No time given|900005||Other 5 » Other: School bus']);
+  const list = dayLogsHtml(d.day);
+  assert.match(list, /<td>UTI: No Access<\/td>/);
+  assert.deepEqual([...list.matchAll(/au-noterow"><td><\/td><td colspan="5">([^<]*)</g)].map(m => m[1]), ['Note: Read not received'], 'only what is not told above');
+  assert.match(gapDetailHtml(d.day, 1), /<b>900001:<\/b> Drill bit broke/);
+  assert.match(gapDetailHtml(d.day, 1), /<b>900002:<\/b> No Access - gate locked/);
+});
+
+test('the comment typed at End of day is on its own day, and a day without one says nothing', () => {
+  const raw = { stops: [...FULL, ...DAY_STOPS], downtime: [], days: [], comments: [{ date: DAY, text: ' Road closed until noon ' }] };
+  const prep = prepareAudit(raw, { installer: WHO, mode: 'land' });
+  assert.match(dayTopHtml(dayDetail(prep, DAY)), /<p class="au-quote"><b>Comment for the day:<\/b> Road closed until noon<\/p>/);
+  assert.doesNotMatch(dayTopHtml(dayDetail(prep, DATES[0])), /au-quote/);
+  // a spine from before the notes sends none of it
+  assert.doesNotMatch(dayTopHtml(detailOf(DAY_STOPS, DAY)) + dayLogsHtml(detailOf(DAY_STOPS, DAY).day), /au-quote|au-noterow|undefined/);
+});
+
+test('an entry against a gap that no longer exists is still listed', () => {
+  const d = detailOf(DAY_STOPS, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'ASSIST', minutes: 7, note: 'gap 10:20–10:40' }]);
+  assert.ok(timeRowsOf(d).includes('10:20–10:40|||Assist 7'));
+});
+
 // ── a delay whose time fell after its order's log ────────────────────────────
 
 test('a delay counted in the gap after its order says so, in the delays, the log list, the gap detail and the method', () => {
@@ -433,10 +498,11 @@ test('a delay counted in the gap after its order says so, in the delays, the log
     { timestamp: `${DAY} 12:00:00`, category: 'TOOLS_MATERIAL', minutes: 15, note: 'gap 10:20–10:30' },
     { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 5, note: 'gap 10:00–10:20' },
   ]);
-  const top = dayTopHtml(d);
-  assert.ok(top.includes('10:20–10:30, counted in the gap after it (10:30–11:30)'));
-  assert.equal(top.split('counted in the gap after it').length - 1, 2, 'the two entries on that order, and not the third');
-  assert.match(dayLogsHtml(d.day), /pause 54: 41 logged as a delay, 13 not logged/);
+  const closed = closedOf(d);
+  assert.ok(closed.includes('10:20–10:30 (900002), counted in the gap after it (10:30–11:30)'));
+  assert.equal(closed.split('counted in the gap after it').length - 1, 2, 'the two entries on that order, and not the third');
+  assert.deepEqual(timeRowsOf(d).slice(1), ['10:20–10:30|900002||Truck Issues 30, Tools/Material 15',
+    '10:30–11:30|900003|+54|41 from the delay on 900002, 13 not logged']);
   assert.match(gapDetailHtml(d.day, 1), /Logged against this gap<\/td><td class="n">45 min/);
   assert.match(gapDetailHtml(d.day, 1), /Of that, counted in the gap after<\/td><td class="n">41 min/);
   assert.match(gapDetailHtml(d.day, 2), /Logged against this gap<\/td><td class="n">0 min/);
@@ -462,12 +528,15 @@ test('with a road map the page says distances are by road, names the map and cou
   assert.match(period, /A device without that road map measures every gap in a straight line, so its figures differ\./);
   assert.doesNotMatch(period, /with the straight line distance between the two pins/);
   const d = dayDetail(prep, DAY);
-  assert.match(dayNotesHtml(d.day, prep.mode, prep.distance), /Distances between orders are by road/);
-  assert.ok(dayTopHtml(d).includes('<td>Distance between orders, by road, km (median)</td>'));
+  // the day says it under the map and in the closed sections, not above the figures
+  assert.equal(/road/.test(dayNotesHtml(d.day, prep.mode, prep.distance)), false);
+  assert.match(closedOf(d), /Distances between orders are by road, from the offline road map on this device \(Test District\)\. 7 of 52 gaps/);
+  assert.match(closedOf(d), /the shortest drive on the offline road map on this device \(Test District\)/);
+  assert.ok(closedOf(d).includes('<td>Distance between orders, by road, km (median)</td>'));
   assert.match(gapDetailHtml(d.day, 0), /Straight-line distance \(off the road map\)<\/td>/);
   assert.match(gapDetailHtml(d.day, 1), /Distance by road<\/td><td class="n">1\.2 km/);
-  assert.equal(routeCaption(true), 'Pins are numbered in the order the orders were logged. The line between them follows the roads on the '
-    + 'offline road map: the shortest drive, which is not always the one taken. A straight piece is a gap the road map could not reach.');
+  assert.equal(routeCaption(true), 'Pins are numbered in the order worked. The line is the shortest drive by road, not always the one taken. '
+    + 'A straight piece is off the road map.');
   assert.equal(routeCaption(false), ROUTE_CAPTION);
 });
 
@@ -491,23 +560,21 @@ test('a logged lunch reads as a break on its gap, in the log list, the timeline,
     { timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 30, note: 'gap 10:30–11:30' },
     { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 15, note: 'gap 10:30–11:30' },
   ]);
-  assert.match(dayLogsHtml(d.day), /pause 54: 15 logged as a delay, 30 logged as a break or lunch, 9 not logged/);
-  const top = dayTopHtml(d);
+  assert.equal(timeRowsOf(d).pop(), '10:30–11:30|900003|+54|Warehouse 15, Lunch 30, 9 not logged');
+  const top = dayTopHtml(d) + closedOf(d);
   assert.match(top, /data-seg="pauseBreak"[^>]*title="10:30–11:30: 30 min logged as a break or lunch"/);
-  assert.match(top, /Break or lunch, logged/);
+  assert.match(top, /">Break or lunch<\/span>/);
   assert.match(top, /<td>Break and lunch logged \(average\)<\/td><td class="n">30<\/td><td class="n">0<\/td>/);
-  assert.match(top, /<td>Lunch<\/td><td class="n">30<\/td><td class="n">10:30–11:30<\/td>/);
+  assert.match(top, /<td>Lunch<\/td><td class="n">30<\/td><td class="n">10:30–11:30 \(900003\)<\/td>/);
   assert.match(top, /30 min of breaks or lunch, against an allowance of 60 min\. These are not delays/);
   assert.match(gapDetailHtml(d.day, 2), /Logged as a break or lunch, counted here<\/td><td class="n">30 min/);
   assert.match(gapDetailHtml(d.day, 2), /Not logged<\/td><td class="n">9 min/);
   // all of a pause logged, one way or both
   const lunchOnly = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 60, note: 'gap 10:30–11:30' }]);
-  assert.match(dayLogsHtml(lunchOnly.day), /pause 54, all logged as a break or lunch/);
+  assert.equal(timeRowsOf(lunchOnly).pop(), '10:30–11:30|900003|+54|Lunch 60');
   const both = detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'LUNCH', minutes: 60, note: 'gap 10:30–11:30' },
     { timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 20, note: 'gap 10:30–11:30' }]);
-  assert.match(dayLogsHtml(both.day), /pause 54: 20 logged as a delay, 34 logged as a break or lunch/);
-  assert.match(dayLogsHtml(detailOf(stops, DAY, [{ timestamp: `${DAY} 12:00:00`, category: 'WAREHOUSE', minutes: 60, note: 'gap 10:30–11:30' }]).day),
-    /pause 54, all logged as a delay/);
+  assert.equal(timeRowsOf(both).pop(), '10:30–11:30|900003|+54|Warehouse 20, Lunch 60');
 });
 
 test('the period sets logged breaks beside the allowance and says what unlogged now means', () => {
@@ -533,7 +600,9 @@ test('the delays table words the two no-order cards and the first order without 
     { timestamp: `${LATE} 12:00:00`, category: 'TRUCK_ISSUES', minutes: 20, note: 'gap 09:05–09:05' },
     { timestamp: `${LATE} 12:00:00`, category: 'WAREHOUSE', minutes: 15, note: 'gap 23:59–23:59' },
   ]);
-  const top = dayTopHtml(d);
+  assert.deepEqual(timeRowsOf(d), ['Before first meter|||Dispatch (drive to the first order) 35', '09:05|900000||Truck Issues 20',
+    '09:05–09:45|900001|+34|20 from the delay on 900000, 14 not logged', 'After last meter|||Warehouse 15']);
+  const top = dayTopHtml(d) + closedOf(d);
   assert.ok(top.includes('>before the first meter<'), 'no 00:00–00:00 in front of it');
   assert.ok(top.includes('>after the last meter<'), 'no 23:59–23:59 in front of it');
   assert.ok(top.includes('the first order, counted in the gap after it (09:05–09:45)'));

@@ -30,7 +30,7 @@ test('auditRead returns one installer\'s printable logs, delays and bookends', (
     Stops: [
       { id:'a', timestamp:'2026-09-01 9:05:00', installer:'Pat Example', status:'INSTALLED', workOrderId:'900001', address:'1 Main St', lat:44.1, lng:-79.1, workType:'land' },
       { id:'b', timestamp:'2026-09-01 09:20:00', installer:'Pat Example ', status:'DONE', lat:44.1, lng:-79.1 },
-      { id:'c', timestamp:'2026-09-01 09:30:00', installer:'Pat Example', status:'UTI', workOrderId:'900002', lat:'', lng:'' },
+      { id:'c', timestamp:'2026-09-01 09:30:00', installer:'Pat Example', status:'UTI', workOrderId:'900002', lat:'', lng:'', notes:'gate locked', utiReason:'No Access' },
       { id:'d', timestamp:'2026-09-01 09:40:00', installer:'Sam Other', status:'INSTALLED', lat:44.2, lng:-79.2 },
     ],
     Downtime: [
@@ -41,16 +41,23 @@ test('auditRead returns one installer\'s printable logs, delays and bookends', (
       { date:'2026-09-01', installer:'Pat Example', departure:'07:30', returned:'16:00' },
       { date:'2026-09-01', installer:'Sam Other', departure:'07:30', returned:'17:00' },
     ],
+    Tracker: [
+      { date:'2026-09-01', installer:'Pat Example', installed:9, weather:'Rain', notes:'Road closed' },
+      { date:'2026-09-02', installer:'Pat Example', notes:'  ' },
+      { date:'2026-09-01', installer:'Sam Other', notes:'Not yours' },
+    ],
   });
   const r = auditRead('Pat Example');
   assert.equal(r.ok, true);
   assert.equal(r.installer, 'Pat Example');
   assert.deepEqual(r.stops.map(s => s.id), ['a', 'c']);            // DONE and other installers dropped
   assert.deepEqual([r.stops[1].lat, r.stops[1].lng], [null, null]);
-  assert.deepEqual(Object.keys(r.stops[0]).sort(), ['address','id','lat','lng','status','timestamp','workOrderId']);
+  assert.deepEqual(Object.keys(r.stops[0]).sort(), ['address','id','lat','lng','notes','status','timestamp','utiReason','workOrderId']);
+  assert.deepEqual([r.stops[0].notes, r.stops[1].notes, r.stops[1].utiReason], ['', 'gate locked', 'No Access']);
   assert.deepEqual(r.downtime.map(d => d.id), ['x']);              // blank workType kept
   assert.deepEqual(Object.keys(r.downtime[0]).sort(), ['category','id','minutes','note','timestamp','workOrderId']);
   assert.deepEqual(r.days, [{ date:'2026-09-01', departure:'07:30', returned:'16:00' }]);
+  assert.deepEqual(r.comments, [{ date:'2026-09-01', text:'Road closed' }], 'the comment alone leaves the Tracker, for the one installer');
 });
 
 test('auditRead keeps the four printable statuses whatever their case', () => {

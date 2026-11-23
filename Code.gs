@@ -2799,7 +2799,8 @@ function auditRead(installer) {
     .filter(r => sameName(r.installer, who) && printable[String(r.status || '').toUpperCase()])
     .map(r => ({ id: r.id, timestamp: r.timestamp, status: r.status,
       workOrderId: r.workOrderId, address: r.address,
-      lat: numCoord(r.lat), lng: numCoord(r.lng) }));
+      lat: numCoord(r.lat), lng: numCoord(r.lng),
+      notes: r.notes == null ? '' : r.notes, utiReason: r.utiReason == null ? '' : r.utiReason }));
   const downtime = !has('Downtime') ? [] : rows('Downtime')
     .filter(r => sameName(r.installer, who))
     .map(r => ({ id: r.id, timestamp: r.timestamp, category: r.category,
@@ -2808,7 +2809,13 @@ function auditRead(installer) {
     .filter(r => sameName(r.installer, who))
     .map(r => ({ date: dateOf(r.date), departure: clockHHMM(r.departure),
       returned: clockHHMM(r.returned) }));
-  return { ok: true, installer: who, stops: stops, downtime: downtime, days: days };
+  // The comment typed at End of day. It is on the Tracker row, so a day that was
+  // never closed has none. Only the comment leaves that tab here: the `tracker` read
+  // itself stays in ADMIN_GET.
+  const comments = !has('Tracker') ? [] : rows('Tracker')
+    .filter(r => sameName(r.installer, who) && String(r.notes == null ? '' : r.notes).trim())
+    .map(r => ({ date: dateOf(r.date), text: String(r.notes) }));
+  return { ok: true, installer: who, stops: stops, downtime: downtime, days: days, comments: comments };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

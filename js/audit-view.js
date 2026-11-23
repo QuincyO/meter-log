@@ -231,7 +231,7 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     current = { kind: 'day', prep, detail, lines };
     html(el.note, dayNotesHtml(day, prep.mode, prep.distance));
     html(el.dayTop, dayTopHtml(detail));
-    html(el.dayBottom, dayLogsHtml(day));
+    html(el.dayBottom, dayLogsHtml(day, detail));
     html(el.mapNote, offMapHtml(day)
       + `<p class="au-cap">${esc(routeCaption(!!lines))}</p>`);
     if(el.map){

@@ -163,8 +163,9 @@ test('Download PDF hands over what is on screen: the period, then the day', asyn
   await p.openDay('2026-11-02');
   await p.els.auPrintDay.onclick(); await p.settle();
   assert.equal(saved[1].fileName, 'Audit - Pat Example - 2026-11-02.pdf');
-  assert.deepEqual(saved[1].sections.map(s => s.title), ['Timeline of the day', 'Pace on this route', 'This day, and how it compares',
-    'Delays logged this day', 'Route worked', 'Every log, in order', 'Method and limits']);
+  assert.deepEqual(saved[1].sections.map(s => s.title), ['The day at a glance', 'Timeline of the day', 'Where the time went', 'Route worked', 'Every order']);
+  for(const closed of ['How the expected number was worked out', 'This day, and how it compares', 'Delays and breaks, as entered', 'Method and limits'])
+    assert.ok(p.els.auDayBottom.innerHTML.includes(`<summary>${closed}</summary>`), closed + ' is on the page, closed');
   assert.deepEqual(p.prints, [], 'the print dialog is never opened');
   assert.equal(p.els.auPrintDay.disabled, false);
 });
@@ -176,7 +177,8 @@ test('the day PDF carries the drive log only on the office page, and its line on
   const office = await boot({ search: '?who=Pat+Example&day=2026-11-02', loadDriveLegs: async () => legs, savePdf });
   await office.els.auPrintDay.onclick(); await office.settle();
   let route = routeOf(saved[0]);
-  assert.match(route.blocks[0].text, /^Top 84 km\/h/);
+  assert.equal(route.blocks[0].text, '31.4 km driven · 52 min driving');
+  assert.match(office.els.auDrive.innerHTML, /Top 84 km\/h/, 'the page keeps the speeds');
   assert.equal(route.blocks.find(b => b.t === 'map').legs, null, 'switched off: the numbers, not the line');
   const box = document.getElementById('auDriveOn');
   box.checked = true; box.onchange();
@@ -186,7 +188,8 @@ test('the day PDF carries the drive log only on the office page, and its line on
 
   const none = await boot({ search: '?who=Pat+Example&day=2026-11-02', loadDriveLegs: async () => [], savePdf });
   await none.els.auPrintDay.onclick(); await none.settle();
-  assert.equal(routeOf(saved[2]).blocks[0].text, 'No drive log was recorded this day.');
+  assert.equal(routeOf(saved[2]).blocks[0].t, 'map', 'nothing is said of a drive log that is not there');
+  assert.match(none.els.auDrive.innerHTML, /No drive log was recorded this day/);
 
   const phone = await boot({ search: '?day=2026-11-02', fixedInstaller: 'Pat Example', savePdf });
   await phone.els.auPrintDay.onclick(); await phone.settle();
@@ -334,14 +337,14 @@ test('with a road map on the device the audit is measured by road and the day\'s
   const asked = [], saved = [];
   const p = await boot({ search: DAY_URL, loadRoads: fakeRoads(asked), savePdf: async m => { saved.push(m); return m.fileName; } });
   assert.deepEqual(asked, [18], 'asked once, with that installer\'s stops');
-  assert.match(p.text('auNote'), /Distances between orders are by road, from the offline road map on this device \(Test District\)\./);
-  assert.match(p.text('auMapNote'), /follows the roads on the offline road map/);
-  assert.match(p.els.auDayTop.innerHTML, /Distance between orders, by road, km/);
+  assert.match(p.text('auDayBottom'), /Distances between orders are by road, from the offline road map on this device \(Test District\)\./);
+  assert.match(p.text('auMapNote'), /the shortest drive by road, not always the one taken/);
+  assert.match(p.els.auDayBottom.innerHTML, /Distance between orders, by road, km/);
   await p.els.auPrintDay.onclick(); await p.settle();
   const route = routeOf(saved[0]), map = route.blocks.find(b => b.t === 'map');
   assert.equal(map.lines.length, 8, 'one line per gap between the nine pinned orders');
   assert.ok(map.lines.every(l => l.length === 5), 'each from its pin, along the road, to the next pin');
-  assert.match(route.blocks.at(-1).text, /follows the roads on the offline road map/);
+  assert.match(route.blocks.at(-1).text, /the shortest drive by road, not always the one taken/);
   // another mode, and back to the period: the road map is not read again
   p.els.auBack.onclick(); await p.settle();
   p.els.auMode.buttons[2].onclick && p.els.auMode.buttons[2].onclick(); await p.settle();
@@ -354,7 +357,7 @@ test('without a road map, or when reading it fails, the audit is straight lines 
   const saved = [];
   const plain = await boot({ search: DAY_URL, savePdf: async m => { saved.push(m); return m.fileName; } });
   assert.doesNotMatch(plain.text('auNote'), /road/);
-  assert.match(plain.text('auMapNote'), /joined in that order with straight lines/);
+  assert.match(plain.text('auMapNote'), /joined with straight lines, not the roads driven/);
   await plain.els.auPrintDay.onclick(); await plain.settle();
   assert.equal(routeOf(saved[0]).blocks.find(b => b.t === 'map').lines, null);
   const broken = await boot({ search: DAY_URL, loadRoads: async () => { throw new Error('corrupt pack'); } });
