@@ -232,3 +232,72 @@ test('a street map that cannot be embedded costs the background, not the PDF', (
   assert.match(all(doc), /EVERY LOG, IN ORDER/);
   assert.doesNotMatch(all(doc), /OpenStreetMap/);
 });
+
+// The box is fitted to the orders alone (owner, 2026-11-23). It used to hold the drive
+// log and the road line too, so one drive further out bunched the orders together.
+const FAR_LEGS = (() => {
+  const t0 = 1790000000000;
+  const track = Array.from({ length: 30 }, (_, i) => ({ lat: 44.003 + i * 0.016, lng: -79, t: t0 + i * 10000, spd: 12 }));
+  return [{ distanceM: 51000, driveMin: 52, maxSpeed: 23.4, gaps: [], startTime: t0, encoded: encodeTrack(track) }];
+})();
+const FAR_ROAD = (() => { const pins = LONG_DAY.map(s => [s.lat, s.lng]);
+  return pins.slice(1).map((p, i) => [pins[i], [pins[i][0] - 0.3, pins[i][1] - 0.4], p]); })();
+const mapOf = model => model.sections.find(s => s.title === 'Route worked').blocks.find(b => b.t === 'map');
+const FAR_CASES = [['no drive log', () => {}], ['a drive far past the orders', m => { m.legs = FAR_LEGS; }],
+  ['a road line that bulges past the orders', m => { m.lines = FAR_ROAD; }], ['both', m => { m.legs = FAR_LEGS; m.lines = FAR_ROAD; }]];
+
+test('the route map is fitted to the orders, however far the drive log or the road line runs', () => {
+  const pinsAt = change => { const doc = new jsPDF({ unit: 'pt', format: 'letter' }), at = [];
+    const real = doc.circle.bind(doc); doc.circle = (x, y, ...r) => { at.push([x, y]); return real(x, y, ...r); };
+    const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+    change(mapOf(model));
+    drawAuditPdf(doc, model);
+    return at; };
+  const [[, plain], ...rest] = FAR_CASES;
+  const want = pinsAt(plain);
+  assert.equal(want.length, 9);
+  const tall = Math.max(...want.map(p => p[1])) - Math.min(...want.map(p => p[1]));
+  assert.ok(Math.abs(tall - 200) < 0.5, `the orders fill the box inside its margin, not ${tall} points of it`);
+  for(const [what, change] of rest) assert.deepEqual(pinsAt(change), want, what);
+});
+
+test('a line that leaves the route map stops at its edge, and the pins are drawn after the clip ends', () => {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const steps = [];
+  for(const k of ['saveGraphicsState', 'rect', 'clip', 'discardPath', 'line', 'circle', 'restoreGraphicsState']){
+    const real = doc[k].bind(doc); doc[k] = (...a) => { steps.push([k, a]); return real(...a); };
+  }
+  const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+  mapOf(model).legs = FAR_LEGS;
+  drawAuditPdf(doc, model);
+  const names = steps.map(s => s[0]);
+  assert.equal(names.filter(k => k === 'saveGraphicsState').length, 1, 'only the map is clipped');
+  assert.equal(names.filter(k => k === 'restoreGraphicsState').length, 1);
+  const from = names.indexOf('saveGraphicsState'), to = names.indexOf('restoreGraphicsState');
+  assert.deepEqual(names.slice(from, from + 4), ['saveGraphicsState', 'rect', 'clip', 'discardPath']);
+  const [x, y, w, h, style] = steps[from + 1][1];
+  assert.deepEqual([x, w, h, style], [42, 528, 236, null], 'the clip is the box, and is not itself painted');
+  const inside = steps.slice(from + 4, to);
+  assert.ok(inside.length > 8 && inside.every(s => s[0] === 'line'), 'the route and the drive log, and nothing else');
+  assert.ok(inside.some(s => s[1][1] < y || s[1][3] < y), 'the drive does run past the box, so the clip is what stops it');
+  assert.ok(steps.every(([k], i) => k !== 'circle' || i > to), 'no pin is cut');
+});
+
+test('the street map is fetched for the same area the pins are drawn in', async () => {
+  const real = { document: globalThis.document, Image: globalThis.Image };
+  let asked = [];
+  globalThis.window = { jspdf: { jsPDF } };
+  globalThis.document = { createElement: () => ({ getContext: () => ({ fillRect(){}, drawImage(){} }), toDataURL: () => '' }) };
+  globalThis.Image = class { set src(url){ asked.push(url); queueMicrotask(() => this.onload()); } };
+  try {
+    const tilesFor = async change => { asked = [];
+      const model = day([...HISTORY(8), ...LONG_DAY], DAY);
+      change(mapOf(model));
+      await auditPdfShare.file(model);
+      return asked; };
+    const [[, plain], ...rest] = FAR_CASES;
+    const want = await tilesFor(plain);
+    assert.ok(want.length > 0);
+    for(const [what, change] of rest) assert.deepEqual(await tilesFor(change), want, what);
+  } finally { Object.assign(globalThis, real); }
+});

@@ -298,12 +298,14 @@ export function mapFrame(points, w, h, pad = MAP_PAD){
   const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
   return { w, h, scale, midX, midY, at: ([lat, lng]) => [w / 2 + (mercX(lng) - midX) * scale, h / 2 + (mercY(lat) - midY) * scale] };
 }
-// Everything the map shows, as points: what the frame has to hold.
+// What the map shows. `points` is what the frame has to hold: the orders ALONE (owner,
+// 2026-11-23). The drive log and the road line are drawn but never fitted, or one drive
+// further out shrinks the orders to a bunch; what leaves the box is cut at its edge.
 function mapParts(b){
   const pinned = b.day.logs.map((l, i) => ({ ...l, n: i + 1 })).filter(l => l.pin);
   const runs = (b.legs || []).flatMap(leg => driveRuns(leg));
   const lines = Array.isArray(b.lines) && b.lines.length ? b.lines : [pinned.map(l => [l.lat, l.lng])];
-  return { pinned, runs, lines, points: [...pinned.map(l => [l.lat, l.lng]), ...runs.flat(), ...(b.lines || []).flat()] };
+  return { pinned, runs, lines, points: pinned.map(l => [l.lat, l.lng]) };
 }
 function routeMap(c, f, b){
   const { pinned, runs, lines, points } = mapParts(b);
@@ -323,8 +325,12 @@ function routeMap(c, f, b){
   if(mapped) c.doc.rect(f.x, c.y, f.w, h, 'S'); else c.doc.roundedRect(f.x, c.y, f.w, h, 5, 5, 'FD');
   const path = (pts, color, weight) => { c.doc.setDrawColor(...color); c.doc.setLineWidth(weight);
     for(let i = 1; i < pts.length; i++){ const [x1, y1] = at(pts[i - 1]), [x2, y2] = at(pts[i]); c.doc.line(x1, y1, x2, y2); } };
+  // Clipped to the box: a line that runs past it would be drawn over the page's text.
+  c.doc.saveGraphicsState();
+  c.doc.rect(f.x, c.y, f.w, h, null); c.doc.clip(); c.doc.discardPath();
   for(const run of runs) path(run, PURPLE, mapped ? 2 : 1.5);
   for(const line of lines) path(line, GREEN, mapped ? 2.2 : 1.7);
+  c.doc.restoreGraphicsState();
   for(const l of pinned){
     const [x, y] = at([l.lat, l.lng]);
     c.doc.setFillColor(...(l.status === 'INSTALLED' ? GREEN : l.status === 'UTI' ? RED : SOFT));

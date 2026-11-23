@@ -2136,7 +2136,8 @@ The route line follows `path()` gap by gap, on the page (Leaflet) and in the PDF
 map box also carries the street map: before drawing, `addMapImages()` fetches the
 OpenStreetMap tiles the box covers into one canvas and attaches the picture to the map
 block. The box is framed in Web Mercator (`mapFrame`) by both the fetch and the drawer so
-they agree. Without signal the box is plain, as it was.
+they agree. It is fitted to the orders' pins alone. The road line and the drive log are
+clipped to it where they run past. Without signal the box is plain, as it was.
 
 ### Breaks and lunch that were logged
 

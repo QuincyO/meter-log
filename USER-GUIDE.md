@@ -630,7 +630,7 @@ Tap a date in **Day by day** to open that day: a timeline with one block per gap
 - It cannot see orders you were never given, and a job that took longer at a stop counts against the pace like any other long gap. A delay only counts in your favour if you logged it against its gap.
 - The small print under the table shows the arithmetic with that day's numbers, so anyone you send it to can follow it.
 
-**Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn over the street map when the phone has signal as the PDF is made, and on a plain background when it does not.
+**Download PDF** saves what is on screen as a PDF file on your phone, the period or the open day. It needs no signal once the audit is showing. The file is named for you and the dates. In the PDF the route is drawn over the street map when the phone has signal as the PDF is made, and on a plain background when it does not. The map in the PDF is zoomed to your orders, so a line that goes further out, such as the drive from your start, is cut off at the edge of the map.
 
 **Your drive log.** When Drive tracking recorded the day, the route card gives a line with the top speed, average speed, distance and time driving, and a **Show drive log** box that lays the track over the map in purple. A PDF made from this page carries that line whenever the day has a drive log, and the track only if the box is ticked. Keep in mind that the top speed is on it when you send the PDF to someone. It shows only your own, for the name and H number in Settings.
 
