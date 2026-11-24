@@ -68,3 +68,21 @@ test('one address twice on one pin is left alone', () => {
   ]);
   assert.equal(ids.size, 0);
 });
+
+test('the orders on a shared pin are handed back pin by pin', async () => {
+  const { sharedPinGroups } = await import('../js/route.js');
+  const a = { lat: 42.911684, lng: -81.409719 }, b = { lat: 42.906428, lng: -81.417321 };
+  const groups = sharedPinGroups([
+    { id:'w8', address:'8 Wellington St, Delaware', ...a },
+    { id:'p39', address:'39 Pleasant St, Delaware', ...b },
+    { id:'w95', address:'95 Wellington St, Delaware', ...a },
+    { id:'p41', address:'41 Pleasant St, Delaware', ...b },
+    // Two meters at one address are one pin, rightly.
+    { id:'j1', address:'1 John St, Delaware', unit:'A', lat: 42.9, lng: -81.4 },
+    { id:'j2', address:'1 John St, Delaware', unit:'B', lat: 42.9, lng: -81.4 },
+    { id:'none', address:'5 John St, Delaware' },
+  ]);
+  assert.deepEqual(groups.map(g => g.map(x => x.id)), [['w8', 'w95'], ['p39', 'p41']]);
+  // sharedPinIds is the same answer, flattened: Optimize and the route map cannot disagree.
+  assert.deepEqual([...sharedPinIds(groups.flat())].sort(), ['p39', 'p41', 'w8', 'w95']);
+});

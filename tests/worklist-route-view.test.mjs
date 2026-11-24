@@ -704,3 +704,49 @@ test('the end time and the flat-out line need the scheduler that understands bre
   assert.match(body('flatOutText'),
     /typeof sched\.flatOutPerDay !== 'function' \|\| typeof sched\.breakMinutesLeft !== 'function'\) return '';/);
 });
+
+test('the review behind the warning: shared pins first, then parked and blank orders', async () => {
+  const { routeReview } = await import('../js/worklist-route-view.js');
+  const a = { lat: 42.911684, lng: -81.409719 }, b = { lat: 42.906428, lng: -81.417321 };
+  const list = [
+    { id:'p39', wlStatus:'pending', day:2, address:'39 Pleasant St, Delaware', ...b },
+    { id:'p41', wlStatus:'pending', day:2, address:'41 Pleasant St, Delaware', ...b },
+    { id:'w8', wlStatus:'pending', day:3, address:'8 Wellington St, Delaware', ...a },
+    { id:'w95', wlStatus:'pending', day:3, address:'95 Wellington St, Delaware', ...a },
+    { id:'ok', wlStatus:'pending', day:2, address:'5 John St, Delaware', lat: 42.9, lng: -81.4 },
+    { id:'nopin', wlStatus:'pending', day:2, address:'6 John St, Delaware' },
+    { id:'fail', wlStatus:'pending', day:2, address:'1 Nowhere Rd', geoFail:true },
+    { id:'blank', wlStatus:'pending', day:2, address:'' },
+    { id:'done', wlStatus:'done', day:3, address:'9 Wellington St, Delaware', ...a },
+  ];
+  const all = routeReview(list, list.filter(x => x.wlStatus !== 'done'));
+  assert.deepEqual(all.pins.map(g => g.map(x => x.id)), [['p39', 'p41'], ['w8', 'w95']]);
+  // An order that only lacks a pin is Optimize's job, not a review's. A logged order is nobody's.
+  assert.deepEqual(all.ids, ['p39', 'p41', 'w8', 'w95', 'fail', 'blank']);
+  assert.match(all.notes.w95, /same spot as 8 Wellington St/);
+  assert.equal(all.notes.fail, undefined);
+  // On a day's own tab only that day's pins are named.
+  const day3 = routeReview(list, list.filter(x => x.day === 3 && x.wlStatus !== 'done'));
+  assert.deepEqual(day3.ids, ['w8', 'w95']);
+  // A pin that straddles two days is named whole from either tab.
+  const split = list.map(x => x.id === 'p41' ? { ...x, day:3 } : x);
+  assert.deepEqual(routeReview(split, split.filter(x => x.day === 2)).pins.map(g => g.map(x => x.id)), [['p39', 'p41']]);
+  assert.deepEqual(routeReview([], []), { pins:[], ids:[], notes:{} });
+});
+
+test('the warning lists its orders and the button hands them to the address screen', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../js/worklist-route-view.js', import.meta.url), 'utf8');
+  // Newer names are reached by namespace: an older cached module gives no list, not a dead map.
+  assert.match(src, /typeof routeLib\.sharedPinGroups === 'function'/);
+  assert.match(src, /typeof addressText\.sharedPinReason === 'function'/);
+  assert.match(src, /typeof addressText\.needsAddressFix === 'function'/);
+  assert.match(src, /if\(review\.pins\.length\) noticeEl\.appendChild\(sharedPinList\(groups\)\);/);
+  assert.match(src, /row\.onclick = \(\) => startReview\(String\(item\.id\)\);/);
+  assert.match(src, /\$\('wlRouteFix'\)\.onclick = \(\) => startReview\(null\);/);
+  // With nothing to review the button is still the way back to Optimize.
+  assert.match(src, /: 'Fix pins or optimize';/);
+  assert.match(src, /\? \{ ids:review\.ids, notes:review\.notes, startId, back:'Route' \} : null;/);
+  // Coming back from the address screen lands on the tab that was open.
+  assert.match(src, /if\(!keepSelection\) selected = null;/);
+});

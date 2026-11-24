@@ -1559,6 +1559,17 @@ async function openAddressFill(){
   if(location.hash !== '#worklist-address') history.pushState({ wlAddr:1 }, '', '#worklist-address');
 }
 
+// The same screen, opened from the route map on the orders its warning is about.
+// It is pushed on top of the route map's history entry, so Back (the button or the
+// phone's) returns to the map, which reads the list again as it opens.
+async function openAddressReview(pick){
+  routeView.close();
+  $('captureMain').classList.add('hide');
+  $('worklistScreen').classList.add('hide');
+  if(!(await addrFill.open(pick))){ await routeView.open(); return; }
+  if(location.hash !== '#worklist-address') history.pushState({ wlAddr:1 }, '', '#worklist-address');
+}
+
 async function showHashScreen(){
   // The route-tuning screen is a leaf opened from the capture nav — handle it
   // first, and close it on any other hash (including Back out of it) so the
@@ -3480,7 +3491,10 @@ export function initWorklist(opts){
       await planAdvance();
     },
     onClose: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
-    onFix: () => location.hash === '#worklist-route' ? history.back() : openWorklist(),
+    // With orders to review (the route map's warning names them) the button opens
+    // the address screen on those. With none it is the way back to Optimize.
+    onFix: pick => (pick && pick.ids && pick.ids.length) ? openAddressReview(pick)
+      : (location.hash === '#worklist-route' ? history.back() : openWorklist()),
   });
   addrFill = initWorklistAddressFill({
     getItems: allSorted,

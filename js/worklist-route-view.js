@@ -266,6 +266,34 @@ function dayColor(day){
 // one point, and it only showed on Day 5's tab. Read-only on purpose — no route
 // line, no reorder. The order is edited on a day's own tab.
 
+/** What the warning under the map is about, as something to act on.
+ *    pins  — one array per pin that holds more than one address, with every order
+ *            on it, whichever day each is on, as long as one is on screen;
+ *    ids   — the queue for the address screen: those orders, pin by pin so the
+ *            ones to compare are next to each other, then the orders on screen
+ *            that are parked or have no address;
+ *    notes — id → why the order is in the queue, for the ones on a shared pin.
+ *  An order that only lacks a pin is not here: it has not been looked up yet, and
+ *  that is Optimize's job, not a review's.
+ *  Everything newer than the callers is reached by namespace and tested for, so an
+ *  older cached route.js or address module gives an empty review, not an error. */
+export function routeReview(items, shown){
+  const pending = (items || []).filter(isPending);
+  const onScreen = new Set((shown || []).map(x => String(x.id)));
+  const pins = typeof routeLib.sharedPinGroups === 'function'
+    ? routeLib.sharedPinGroups(pending).filter(g => g.some(x => onScreen.has(String(x.id)))) : [];
+  const ids = [], notes = {};
+  for(const pin of pins) for(const x of pin){
+    ids.push(String(x.id));
+    if(typeof addressText.sharedPinReason === 'function')
+      notes[String(x.id)] = addressText.sharedPinReason(x, pin);
+  }
+  if(typeof addressText.needsAddressFix === 'function')
+    for(const x of shown || [])
+      if(addressText.needsAddressFix(x) && !ids.includes(String(x.id))) ids.push(String(x.id));
+  return { pins, ids, notes };
+}
+
 /** The All tab's key. Never a day key, which are `day:N` and `other`. */
 export const ALL_ROUTES = 'all';
 /** A pin holding orders from more than one day, and an order with no day yet. */
@@ -394,6 +422,10 @@ export function initWorklistRouteView(opts){
   let selected = null;
   let openState = false;
   let snapshot = [];
+  let review = { pins:[], ids:[], notes:{} };   // routeReview() of what is on screen
+  // Set when this screen hands over to the address screen, so coming back lands on
+  // the tab the installer left (the All tab, usually) and not on Day 1 again.
+  let keepSelection = false;
   // The map fits only when something asks it to. Fitting is opt-in rather than
   // something a reorder opts out of, because a reorder reaches refresh() twice: once
   // here, and again through persistOrder → planAdvance → renderWorklist.
@@ -777,6 +809,50 @@ export function initWorklistRouteView(opts){
     return shown.filter(x => ids.has(x.id)).length;
   }
 
+  // The orders behind "N sharing a pin with a different address", named under that
+  // sentence pin by pin. The owner's report (2026-11-23): the warning gave a count,
+  // and the button beside it led to a list that marks none of them. Each row opens
+  // the address screen at that order. Inline styles only, for the same reason as the
+  // day rows: a phone can run this file against an older capture.css.
+  function sharedPinList(groups){
+    const where = new Map();
+    for(const g of groups) g.items.forEach((x, i) =>
+      where.set(String(x.id), g.day == null ? 'No day yet' : `Day ${g.day} · stop ${i + 1}`));
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-top:4px';
+    for(const pin of review.pins){
+      const head = document.createElement('div');
+      head.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid rgba(117,73,0,.25)';
+      head.textContent = `${pin.length} orders on one pin — tap one to check its address`;
+      box.appendChild(head);
+      for(const item of pin){
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;'
+          + 'width:100%;min-height:44px;margin:0;padding:6px 0;border:0;background:none;'
+          + 'color:inherit;font:inherit;text-align:left;cursor:pointer';
+        const meta = [item.workOrderId ? `WO ${item.workOrderId}` : '', where.get(String(item.id)) || '']
+          .filter(Boolean).join(' · ');
+        row.innerHTML = `<span><span style="display:block;font-weight:800">${esc(addressLabel(item) || 'No address')}</span>`
+          + `<span style="display:block;font-weight:400">${esc(meta)}</span></span>`
+          + '<span aria-hidden="true" style="flex:none;font-size:20px;line-height:1">›</span>';
+        row.onclick = () => startReview(String(item.id));
+        box.appendChild(row);
+      }
+    }
+    return box;
+  }
+
+  // Hand the orders in the warning to the address screen. With nothing to review —
+  // the warning is only about orders with no pin yet — there is nothing to hand over
+  // and the button does what it always did: back to the worklist, where Optimize is.
+  function startReview(startId){
+    const pick = review.ids.length
+      ? { ids:review.ids, notes:review.notes, startId, back:'Route' } : null;
+    keepSelection = !!pick;
+    opts.onFix(pick);
+  }
+
   // This phone's "started from here" point, for the group on screen. Day 1 only:
   // the crew starts every later day from the morning meet again.
   function routeStartFix(group){
@@ -1023,6 +1099,11 @@ export function initWorklistRouteView(opts){
     fixEl.classList.toggle('hide', !parts.length);
     noticeEl.textContent = parts.length
       ? `${parts.join(' · ')} — fix addresses or Optimize from the worklist.` : '';
+    review = parts.length ? routeReview(snapshot, shown) : { pins:[], ids:[], notes:{} };
+    if(review.pins.length) noticeEl.appendChild(sharedPinList(groups));
+    fixEl.textContent = review.ids.length
+      ? `Check ${review.ids.length === 1 ? 'this address' : `these ${review.ids.length} addresses`}`
+      : 'Fix pins or optimize';
     if(all) renderOverviewMap(); else await renderMap(group);
   }
 
@@ -1033,7 +1114,8 @@ export function initWorklistRouteView(opts){
 
   async function open(){
     openState = true;
-    selected = null;
+    if(!keepSelection) selected = null;
+    keepSelection = false;
     needsFit = true;
     if(map) map.closePopup(pinPopup);
     screen.classList.remove('hide');
@@ -1048,7 +1130,7 @@ export function initWorklistRouteView(opts){
   }
 
   $('wlRouteBack').onclick = () => opts.onClose();
-  $('wlRouteFix').onclick = () => opts.onFix();
+  $('wlRouteFix').onclick = () => startReview(null);
   window.addEventListener('online', updateOfflineNote);
   window.addEventListener('offline', updateOfflineNote);
 

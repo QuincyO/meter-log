@@ -218,6 +218,25 @@ export function fixReason(item){
   return '';
 }
 
+/** The note above the fields for an order whose pin another address also sits
+ *  on. `mates` are the orders on that pin (the order itself may be among them).
+ *  Retyping the same address gets the same pin back, because it is the same
+ *  lookup. So the note says what does move the pin: a corrected number or
+ *  street, or the spot's own coordinates. */
+export function sharedPinReason(item, mates){
+  const names = [...new Set((mates || [])
+    .filter(x => x && String(x.id) !== String(item && item.id))
+    .map(x => String(x.address || '').split(',')[0].trim()).filter(Boolean))];
+  if(!names.length) return '';
+  const shown = names.slice(0, 3);
+  const more = names.length - shown.length;
+  const list = more ? `${shown.join(', ')} and ${more} more`
+    : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0];
+  return `The map put this on the same spot as ${list}, and only one address can be there. `
+    + 'If the number or street is wrong, correct it. If it is right, empty the No. box and '
+    + 'put the coordinates of the spot (copied from a maps app) in the Street box.';
+}
+
 /** The id order to persist when the walkthrough closes: pending orders WITH an
  *  address (relative order untouched), then the ones still without, then done,
  *  then set-aside. Callers hand this to the worklist's own order writer, so
@@ -244,6 +263,14 @@ export function initWorklistAddressFill(opts){
   let queue = [];        // ids, snapshotted on open
   let idx = 0;
   let open_ = false;
+  let notes = {};        // id → why it is here, for a queue the caller picked
+  // A queue the caller picked is a REVIEW: looking and leaving must change nothing.
+  // onDone re-writes the list order (and, with a locked stop, the schedule), which is
+  // right after addresses were filled in and wrong after nothing was touched.
+  let review = false, touched = false;
+  let pinsAtOpen = {};   // id → "lat,lng" when the screen opened; a note is about that pin
+  const pinKey = x => (x && x.lat != null && x.lat !== '' && x.lng != null && x.lng !== '')
+    ? `${x.lat},${x.lng}` : '';
   const numInput = $('wlAddrNum');
   if(numInput) numInput.inputMode = 'text';  // also works against older HTML
   // A second Save under Back/Skip, beside the header one. Older HTML lacks it,
@@ -253,11 +280,33 @@ export function initWorklistAddressFill(opts){
 
   function isOpen(){ return open_; }
 
-  async function open(){
+  // `pick` (optional) is a queue the caller chose: the route map hands over the
+  // orders its warning is about, which the default queue would leave out — an
+  // order sharing a pin has an address and no flag. { ids, notes, startId, back }.
+  // Without it the screen is the fill-in walkthrough it has always been.
+  async function open(pick){
     const items = await opts.getItems();
-    queue = addressQueue(items).map(x => String(x.id));
-    if(!queue.length){ toast('Every order has an address ✓'); return false; }
-    idx = 0;
+    const picked = !!(pick && Array.isArray(pick.ids));
+    review = picked; touched = false;
+    if(picked){
+      const live = new Set(items.filter(x => x.wlStatus !== 'done').map(x => String(x.id)));
+      queue = pick.ids.map(String).filter(id => live.has(id));
+      notes = pick.notes || {};
+    } else {
+      queue = addressQueue(items).map(x => String(x.id));
+      notes = {};
+    }
+    pinsAtOpen = {};
+    for(const x of items) pinsAtOpen[String(x.id)] = pinKey(x);
+    if(!queue.length){ toast(picked ? 'Nothing left to check ✓' : 'Every order has an address ✓'); return false; }
+    idx = picked ? Math.max(0, queue.indexOf(String(pick.startId))) : 0;
+    // The heading has no id, so it is found by shape and left alone when an older
+    // index.html has something else there.
+    const title = $('wlAddrScreen').querySelector('h2');
+    if(title) title.textContent = picked ? 'Check addresses' : 'Fill in addresses';
+    const to = (picked && pick.back) || 'Worklist';
+    $('wlAddrBack').textContent = `‹ ${to}`;
+    $('wlAddrBack').setAttribute('aria-label', `Back to ${to.toLowerCase()}`);
     open_ = true;
     $('wlAddrScreen').classList.remove('hide');
     await paint();
@@ -272,6 +321,7 @@ export function initWorklistAddressFill(opts){
     if(!open_) return;
     open_ = false;
     $('wlAddrScreen').classList.add('hide');
+    if(review && !touched) return;
     await opts.onDone();
   }
 
@@ -279,6 +329,20 @@ export function initWorklistAddressFill(opts){
     const items = await opts.getItems();
     const byId = new Map(items.map(x => [String(x.id), x]));
     return byId.get(String(queue[idx])) || null;
+  }
+
+  // A picked order's note is about the PIN it had when the screen opened. Once a
+  // Save has changed the address that pin is gone (or, for typed coordinates,
+  // replaced), the note is no longer true, and it gives way to what happens next.
+  function reasonFor(item){
+    const flagged = fixReason(item);
+    if(flagged) return flagged;
+    const note = notes[String(item.id)];
+    if(!note) return '';
+    const now = pinKey(item);
+    if(now && now === pinsAtOpen[String(item.id)]) return note;
+    return now ? 'Saved. The pin is now at the coordinates you typed.'
+      : 'Saved. This order has no pin now. Tap Optimize on the worklist to look it up again.';
   }
 
   async function paint(){
@@ -297,7 +361,7 @@ export function initWorklistAddressFill(opts){
     $('wlAddrWo').textContent = item.workOrderId ? `WO ${item.workOrderId}` : '(no WO#)';
     $('wlAddrWo').disabled = !item.workOrderId;
     $('wlAddrOldJ').textContent = item.oldJNumber ? `old J# ${item.oldJNumber}` : '';
-    $('wlAddrReason').textContent = fixReason(item);
+    $('wlAddrReason').textContent = reasonFor(item);
     const a = opts.supportsUnits ? addressFields(item) : splitAddr(item.address);
     $('wlAddrNum').value = a.num;
     $('wlAddrStreet').value = a.street;
@@ -348,6 +412,7 @@ export function initWorklistAddressFill(opts){
           label:a.num && num.startsWith(a.num + '-')
             ? joinAddr(num, a.street) : `${candidate.label} (${num})` };
       }
+      touched = true;
       await opts.pickTown(item, candidate, unit);
       await step(1);
     });
@@ -375,6 +440,9 @@ export function initWorklistAddressFill(opts){
       ? parseAddressInput($('wlAddrNum').value, $('wlAddrStreet').value, item.unit)
       : { address: joinAddr($('wlAddrNum').value, $('wlAddrStreet').value) };
     if(!address){ toast('Enter an address, or tap Skip'); return; }
+    // Save & next is also how a review is stepped through, so only a real edit counts.
+    if(address !== String(item.address || '')
+      || (unit !== undefined && unit !== String(item.unit || ''))) touched = true;
     await opts.saveAddress(item.id, address, unit);
     await step(1);
   }

@@ -471,3 +471,38 @@ test('a typed copy with no town on it never replaces an address that has one', (
   assert.equal(addressText.clearedPin({ address: '6 York St, London', typedAddress: '6 York St Delaware',
     lat: 42.98, lng: -81.25 }).address, '6 York St Delaware');
 });
+
+test('the note for a shared pin names the other addresses and what moves the pin', () => {
+  const pin = [
+    { id:'w8', address:'8 Wellington St, Delaware' },
+    { id:'w95', address:'95 Wellington St, Delaware' },
+  ];
+  const note = addressText.sharedPinReason(pin[1], pin);
+  assert.match(note, /same spot as 8 Wellington St, and only one address can be there/);
+  // Retyping the same address gets the same pin back, so the note must not say "retype".
+  assert.match(note, /empty the No\. box and put the coordinates/);
+  assert.doesNotMatch(note, /95 Wellington/);
+  const many = ['1 A St', '2 A St', '3 A St', '4 A St', '5 A St'].map((address, i) => ({ id:'x' + i, address }));
+  assert.match(addressText.sharedPinReason(many[0], many), /2 A St, 3 A St, 4 A St and 1 more/);
+  assert.match(addressText.sharedPinReason(many[0], many.slice(0, 3)), /2 A St and 3 A St,/);
+  // Nothing else on the pin: no note.
+  assert.equal(addressText.sharedPinReason(pin[0], [pin[0]]), '');
+});
+
+test('the address screen takes a picked queue, and a review that changes nothing writes nothing', () => {
+  const src = readFileSync(new URL('../js/worklist-address-fill.js', import.meta.url), 'utf8');
+  const screen = src.slice(src.indexOf('export function initWorklistAddressFill('));
+  assert.match(screen, /async function open\(pick\)/);
+  assert.match(screen, /queue = pick\.ids\.map\(String\)\.filter\(id => live\.has\(id\)\);/);
+  // The default queue is untouched: no pick, the fill-in walkthrough as before.
+  assert.match(screen, /queue = addressQueue\(items\)\.map\(x => String\(x\.id\)\);/);
+  // Looking and leaving must not re-write the list order or the schedule.
+  assert.match(screen, /if\(review && !touched\) return;\s+await opts\.onDone\(\);/);
+  // A note is about the pin the order had when the screen opened.
+  assert.match(screen, /if\(now && now === pinsAtOpen\[String\(item\.id\)\]\) return note;/);
+  const wl = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
+  assert.match(wl, /onFix: pick => \(pick && pick\.ids && pick\.ids\.length\) \? openAddressReview\(pick\)/);
+  const review = wl.slice(wl.indexOf('async function openAddressReview('), wl.indexOf('async function showHashScreen('));
+  assert.match(review, /if\(!\(await addrFill\.open\(pick\)\)\)\{ await routeView\.open\(\); return; \}/);
+  assert.match(review, /history\.pushState\(\{ wlAddr:1 \}, '', '#worklist-address'\)/);
+});

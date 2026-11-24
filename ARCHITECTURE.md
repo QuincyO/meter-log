@@ -918,7 +918,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   - **The phone's route map has an All tab** (`worklist-route-view.js` `ALL_ROUTES`):
     every pending order's pin on one map, day number on the pin, day colour, no
     line. It is where a wrong pin shows without opening the day it is on, and the
-    note under any tab counts orders sharing a pin with a different address.
+    note under any tab counts orders sharing a pin with a different address, names
+    them pin by pin, and opens them in the address screen (`routeReview` →
+    `addrFill.open(pick)`). That screen is the fill-in walkthrough with a picked
+    queue; leaving it without an edit writes nothing.
   - **Two different addresses on one exact pin are looked up again** each Optimize
     (`sharedPinIds` → `repinShared`), against the district index only. A clean single
     answer moves the pin; anything else leaves the order untouched.

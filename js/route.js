@@ -348,6 +348,15 @@ export function pickBest(hits, center, opts = {}){
 // "12 Elm St, Glencoe" are one address, and two meters at one address belong on
 // one pin.
 export function sharedPinIds(items){
+  const ids = new Set();
+  for(const group of sharedPinGroups(items)) for(const x of group) ids.add(x.id);
+  return ids;
+}
+
+// The same orders, kept together: one array per pin, in list order. This is what
+// the route map names under its warning, so the installer can see WHICH orders
+// are on one spot and not only how many (owner's request, 2026-11-23).
+export function sharedPinGroups(items){
   const spot = a => String(a || '').split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
   const byPin = new Map();
   for(const item of items || []){
@@ -357,12 +366,7 @@ export function sharedPinIds(items){
     if(!byPin.has(key)) byPin.set(key, []);
     byPin.get(key).push(item);
   }
-  const ids = new Set();
-  for(const group of byPin.values()){
-    if(new Set(group.map(x => spot(x.address))).size < 2) continue;
-    for(const x of group) ids.add(x.id);
-  }
-  return ids;
+  return [...byPin.values()].filter(group => new Set(group.map(x => spot(x.address))).size >= 2);
 }
 
 // Provider −1 — the offline district pack (js/roadgraph.js `geocodeAddress`).

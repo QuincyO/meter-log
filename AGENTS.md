@@ -1217,7 +1217,24 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   would take the whole route map down; (3) the yellow note counts orders **sharing a
   pin with a different address** on every tab, not just All. That count is the
   direct signal for the 2026-11-18 report, where nine addresses sat on one point and
-  the map looked fine. (4) Each day row's end time and the flat-out line under the rows
+  the map looked fine. **The note also names those orders, pin by pin, and its button
+  opens them in the address screen** (`routeReview`, `sharedPinList`, `startReview`;
+  owner's request, 2026-11-23: the note gave a count and the button led to a list
+  that marked none of them). Five rules: (a) the rows are built in JS with inline
+  styles inside `#wlRouteNotice`, for the same older-stylesheet reason as rule (1);
+  (b) `sharedPinGroups`, `sharedPinReason` and `needsAddressFix` are reached by
+  namespace with a `typeof` check, and without them the review is empty and the
+  button is the old "back to the worklist"; (c) the queue is the shared pins plus the
+  parked and blank orders on screen. **An order that only lacks a pin is not in it**:
+  after a Clear map pins that would be the whole list, and looking it up is
+  Optimize's job; (d) `addrFill.open(pick)` is the same screen as "Fill in missing
+  addresses" with a picked queue, and **a review that changed nothing does not run
+  `onDone`**. `afterAddressFill` re-writes the list order and, with a locked stop,
+  the schedule; looking and leaving must not; (e) the note for a shared pin does not
+  say "retype it". The same text gets the same pin back from the same lookup, and the
+  offline answer comes first even on a hold, so Google is never asked about an
+  address the district index answers badly. What moves such a pin today is a
+  corrected address or typed coordinates. (4) Each day row's end time and the flat-out line under the rows
   (`dayEndText`, `flatOutText`, fed by `opts.dayPlan` from `worklist.js`) are **display
   only; never a sizing input**: nothing from them reaches the target, `counts[]`/`capFor`
   or the Optimize solve. The view reaches `dayEndEstimate`/`flatOutPerDay` through
