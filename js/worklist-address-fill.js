@@ -233,8 +233,26 @@ export function sharedPinReason(item, mates){
   const list = more ? `${shown.join(', ')} and ${more} more`
     : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0];
   return `The map put this on the same spot as ${list}, and only one address can be there. `
-    + 'If the number or street is wrong, correct it. If it is right, empty the No. box and '
-    + 'put the coordinates of the spot (copied from a maps app) in the Street box.';
+    + 'If the number or street is wrong, correct it. If it is right, look it up online with '
+    + 'the button below, or empty the No. box and put the coordinates of the spot in the Street box.';
+}
+
+/** One line under an online answer: what kind of match it is and how far it is
+ *  from the pin the order has now. Google's own wording of the kinds is not for
+ *  an installer, and the one that matters is the last: an answer that is only
+ *  the street or the town is NOT this house, and must say so before it is used. */
+export function onlineHitNote(hit){
+  const kind = String(hit && hit.kind || '');
+  const what = kind === 'ROOFTOP' ? 'The building itself'
+    : kind === 'RANGE_INTERPOLATED' ? 'Placed by house number along the street'
+    : kind === 'GEOMETRIC_CENTER' || kind === 'APPROXIMATE' ? '⚠ Only the street or area, not this number'
+    : '';
+  const m = hit && hit.metres;
+  const far = (m == null || !isFinite(m)) ? ''
+    : m < 15 ? 'where the pin is now'
+    : m < 1000 ? `${Math.round(m / 10) * 10} m from the pin it has now`
+    : `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km from the pin it has now`;
+  return [what, far].filter(Boolean).join(' · ');
 }
 
 /** The id order to persist when the walkthrough closes: pending orders WITH an
@@ -277,6 +295,94 @@ export function initWorklistAddressFill(opts){
   // and it ships hidden so older JS never shows a button nothing is bound to.
   const saveBottom = $('wlAddrSaveBottom');
   if(saveBottom){ saveBottom.classList.remove('hide'); saveBottom.onclick = save; }
+
+  // ── Look up online ────────────────────────────────────────────────────────
+  // One order, one request to Google, because this button was pressed. The
+  // offline map answers first everywhere else (a tap is offline; even a hold
+  // takes the offline answer when there is one), so an address it answers badly
+  // had no way to a better pin except typed coordinates. Built here, with
+  // classes the stylesheet already has, so it needs nothing from index.html and
+  // an older index.html gets it too. Offered only when the caller can do both
+  // halves: look up, and pin what was picked.
+  const lookupBtn = (opts.lookupOnline && opts.pinOnline) ? document.createElement('button') : null;
+  const lookupOut = lookupBtn ? document.createElement('div') : null;
+  const LOOKUP_LABEL = '🌐 Look up online';
+  if(lookupBtn){
+    lookupBtn.type = 'button';
+    lookupBtn.className = 'ghost';
+    lookupBtn.style.cssText = 'width:100%;margin-top:12px';
+    lookupBtn.textContent = LOOKUP_LABEL;
+    lookupBtn.onclick = lookup;
+    lookupOut.setAttribute('aria-live', 'polite');
+    const nav = $('wlAddrScreen').querySelector('.wl-addr-nav');
+    if(nav){ nav.before(lookupBtn, lookupOut); }
+    else $('wlAddrScreen').append(lookupBtn, lookupOut);
+  }
+  function clearLookup(){
+    if(!lookupBtn) return;
+    lookupOut.innerHTML = '';
+    lookupBtn.disabled = false;
+    lookupBtn.textContent = LOOKUP_LABEL;
+  }
+  function lookupSay(text){
+    lookupOut.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = text;
+    lookupOut.appendChild(p);
+  }
+  // What is in the boxes is what is asked, so a corrected number can be checked
+  // before it is saved. Nothing is written until an answer is tapped.
+  async function lookup(){
+    const item = await current();
+    if(!item) return;
+    const id = String(item.id);
+    const { address, unit } = opts.supportsUnits
+      ? parseAddressInput($('wlAddrNum').value, $('wlAddrStreet').value, item.unit)
+      : { address: joinAddr($('wlAddrNum').value, $('wlAddrStreet').value) };
+    if(!address){ toast('Type the address first'); return; }
+    if(typeof navigator !== 'undefined' && navigator.onLine === false){
+      lookupSay('No signal. The online lookup needs it.'); return;
+    }
+    lookupBtn.disabled = true;
+    lookupBtn.textContent = 'Looking…';
+    let res = null;
+    try { res = await opts.lookupOnline(address, item); } catch { res = null; }
+    // The installer may have moved on while Google was thinking.
+    if(!open_ || String(queue[idx]) !== id) return;
+    lookupBtn.disabled = false;
+    lookupBtn.textContent = LOOKUP_LABEL;
+    const hits = (res && res.hits) || [];
+    if(!hits.length){
+      lookupSay(!res ? 'The online lookup is not available on this phone yet. Press ⟳ Force update in Settings.'
+        : res.reason === 'network' ? 'No answer. Check your signal and try again.'
+        : res.reason === 'refused' ? 'Google refused the lookup (the key, or today’s limit).'
+        : 'Google did not find this address. Check the number, the street and the town.');
+      return;
+    }
+    lookupOut.innerHTML = '';
+    const head = document.createElement('p');
+    head.className = 'muted';
+    head.textContent = hits.length === 1 ? 'Google found this. Tap it to move the pin there:'
+      : 'Google found these. Tap the right one to move the pin there:';
+    lookupOut.appendChild(head);
+    for(const hit of hits){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ghost';
+      b.style.cssText = 'display:block;width:100%;height:auto;min-height:56px;margin-top:8px;'
+        + 'padding:10px 12px;text-align:left;line-height:1.3';
+      const note = onlineHitNote(hit);
+      b.innerHTML = `<span style="display:block">${esc(hit.label)}</span>`
+        + (note ? `<span class="muted" style="display:block;font-weight:400">${esc(note)}</span>` : '');
+      b.onclick = async () => {
+        touched = true;
+        await opts.pinOnline(item, hit, address, unit);
+        await step(1);
+      };
+      lookupOut.appendChild(b);
+    }
+  }
 
   function isOpen(){ return open_; }
 
@@ -341,7 +447,7 @@ export function initWorklistAddressFill(opts){
     if(!note) return '';
     const now = pinKey(item);
     if(now && now === pinsAtOpen[String(item.id)]) return note;
-    return now ? 'Saved. The pin is now at the coordinates you typed.'
+    return now ? 'Saved. The pin has moved.'
       : 'Saved. This order has no pin now. Tap Optimize on the worklist to look it up again.';
   }
 
@@ -371,6 +477,7 @@ export function initWorklistAddressFill(opts){
     if(saveBottom) saveBottom.textContent = $('wlAddrSave').textContent;
     paintChips(await opts.getItems());
     paintTowns(item);
+    clearLookup();
     $('wlAddrNum').focus();
   }
 

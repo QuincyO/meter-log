@@ -1232,9 +1232,23 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   `onDone`**. `afterAddressFill` re-writes the list order and, with a locked stop,
   the schedule; looking and leaving must not; (e) the note for a shared pin does not
   say "retype it". The same text gets the same pin back from the same lookup, and the
-  offline answer comes first even on a hold, so Google is never asked about an
-  address the district index answers badly. What moves such a pin today is a
-  corrected address or typed coordinates. (4) Each day row's end time and the flat-out line under the rows
+  offline answer comes first even on a hold, so the automatic path never asks Google
+  about an address the district index answers badly. What moves such a pin is a
+  corrected address, typed coordinates, or **🌐 Look up online** on that screen.
+  **Look up online is the one place a press asks Google about a single address**
+  (`route.js` `lookupOnline`, `worklist.js` `pinOnline`; owner's request,
+  2026-11-23). Rules: it asks Google only, never the offline index (that is the
+  answer being doubted) and never a road matrix, so it costs one Geocoding request and
+  none of the phone's road-distance allowance; **it chooses nothing**: up to three
+  answers are shown, nearest the order's present pin first, each with its distance
+  from that pin and Google's kind of match, and a street-only answer
+  (`GEOMETRIC_CENTER`, `APPROXIMATE`) is marked ⚠ "not this number"; nothing is
+  written until an answer is tapped; the address text stays the installer's, with
+  Google's wording kept as `geoLabel`; the pin is **not** an `exactPin`, so Clear
+  map pins drops it and the offline map answers it again as before; the button is
+  built in JS with existing classes (no new markup), and `lookupOnline` is reached
+  by namespace. It does not change `geocodeOne`: a tap is still offline, and a hold
+  still takes the offline answer first. (4) Each day row's end time and the flat-out line under the rows
   (`dayEndText`, `flatOutText`, fed by `opts.dayPlan` from `worklist.js`) are **display
   only; never a sizing input**: nothing from them reaches the target, `counts[]`/`capFor`
   or the Optimize solve. The view reaches `dayEndEstimate`/`flatOutPerDay` through

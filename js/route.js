@@ -391,6 +391,16 @@ async function offlineGeocode(text, center){
 // Provider 1 — Google Geocoding. Records geoKeyError on a key-level status so
 // the toast can name a broken key vs a plain no-match. Null on any failure.
 async function googleGeocode(text, center){
+  const res = await googleHits(text, center);
+  return res.error ? null : pickBest(res.hits, center);
+}
+
+// Google's answers for one address, before anything chooses between them:
+// { hits, error }. `error` is '' on an answer (ZERO_RESULTS included, with no
+// hits), 'network' when the request never came back, else the HTTP or API status.
+// Each hit keeps what kind of match it is (`kind`, Google's location_type, and
+// `partial`), which the automatic path has no use for and lookupOnline shows.
+async function googleHits(text, center){
   let url = `${GEOCODE_URL}?address=${encodeURIComponent(text + ', ON, Canada')}`
     + `&components=country:CA&region=ca`
     + `&key=${encodeURIComponent(GMAPS_API_KEY)}`;
@@ -402,7 +412,7 @@ async function googleGeocode(text, center){
   }
   try {
     const res = await fetch(url);
-    if(!res.ok){ console.warn('Geocode failed: HTTP', res.status); return null; }
+    if(!res.ok){ console.warn('Geocode failed: HTTP', res.status); return { hits: [], error: 'HTTP ' + res.status }; }
     const data = await res.json();
     // status covers ZERO_RESULTS, OVER_QUERY_LIMIT (the daily quota cap that
     // guarantees $0 — see DEPLOY.md), REQUEST_DENIED (bad/missing key) — all
@@ -413,15 +423,56 @@ async function googleGeocode(text, center){
         if(/^(REQUEST_DENIED|OVER_QUERY_LIMIT|OVER_DAILY_LIMIT)$/.test(data.status))
           geoKeyError = data.status;
       }
-      return null;
+      return { hits: [], error: (data && data.status === 'ZERO_RESULTS') ? '' : String((data && data.status) || 'no answer') };
     }
     const hits = (data.results || []).map(r => {
       const loc = r && r.geometry && r.geometry.location;
       if(!loc || !isFinite(loc.lat) || !isFinite(loc.lng)) return null;
-      return { lat: loc.lat, lng: loc.lng, label: r.formatted_address || text, place: placeOf(r) };
+      return { lat: loc.lat, lng: loc.lng, label: r.formatted_address || text, place: placeOf(r),
+        kind: String((r.geometry && r.geometry.location_type) || ''), partial: !!r.partial_match };
     }).filter(Boolean);
-    return pickBest(hits, center);
-  } catch { return null; }
+    return { hits, error: '' };
+  } catch { return { hits: [], error: 'network' }; }
+}
+
+// ONE address, asked of Google and of nothing else, because the installer pressed
+// a button for it (the address screen's "Look up online"; owner's request,
+// 2026-11-23). It exists because the automatic path cannot reach Google for an
+// address the district index answers badly: geocodeOne takes the offline answer
+// first, even on a hold, and a pin inside the radius is never asked about again.
+// "8 Wellington St" and "95 Wellington St" sat on one offline point with no way
+// off it but typed coordinates.
+//
+// Nothing is chosen here. Up to three answers come back, the nearest to `near`
+// (the order's present pin) first, each with how far it is from that pin and what
+// kind of match Google says it is. The installer picks, so a same-named street in
+// another town is something they can see and refuse, not something a rule decided.
+// Answers further than GEO_RADIUS_KM from `near` are dropped as they always are.
+// An order with no pin has no `near`; then `others` (the rest of the list) gives the
+// area to look in, through the same median the Optimize gate uses, and no distance
+// is reported because there is no pin to measure from.
+//
+// Cost: one Geocoding request. No road matrix, so none of the phone's monthly
+// road-distance allowance. `geoKeyError` is the run's own flag and is left as found.
+//   → { hits:[{ lat, lng, label, kind, partial, metres }], reason }
+//     reason: '' | 'none' | 'network' | 'refused'
+export async function lookupOnline(address, near, others){
+  const text = String(address || '').trim();
+  if(!text || coordsFromText(text)) return { hits: [], reason: 'none' };
+  const c = coordsOf(near);
+  const area = c || medianCenter(others);
+  const keep = geoKeyError;
+  const res = await googleHits(text, area);
+  geoKeyError = keep;
+  if(res.error) return { hits: [], reason: res.error === 'network' ? 'network' : 'refused' };
+  const seen = new Set();
+  const hits = res.hits
+    .filter(h => !(area && haversine(h, area) > GEO_RADIUS_KM * 1000))
+    .map(h => ({ lat: h.lat, lng: h.lng, label: h.label, kind: h.kind, partial: h.partial,
+      metres: c ? Math.round(haversine(h, c)) : null }))
+    .filter(h => { const k = h.lat.toFixed(5) + ',' + h.lng.toFixed(5); if(seen.has(k)) return false; seen.add(k); return true; });
+  if(c) hits.sort((a, b) => a.metres - b.metres);
+  return { hits: hits.slice(0, 3), reason: hits.length ? '' : 'none' };
 }
 
 // Provider 2 — OpenRouteService geocoding (Pelias). GeoJSON, coordinates in

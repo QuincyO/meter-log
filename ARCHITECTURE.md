@@ -921,7 +921,10 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     note under any tab counts orders sharing a pin with a different address, names
     them pin by pin, and opens them in the address screen (`routeReview` →
     `addrFill.open(pick)`). That screen is the fill-in walkthrough with a picked
-    queue; leaving it without an edit writes nothing.
+    queue; leaving it without an edit writes nothing. Its **🌐 Look up online**
+    button (`lookupOnline` → `pinOnline`) asks Google about the one address in
+    the boxes and shows the answers for the installer to pick. It is the only
+    press that reaches Google for an address the offline index already answers.
   - **Two different addresses on one exact pin are looked up again** each Optimize
     (`sharedPinIds` → `repinShared`), against the district index only. A clean single
     answer moves the pin; anything else leaves the order untouched.

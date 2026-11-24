@@ -2480,6 +2480,24 @@ async function pickTown(item, c, unit, typedNumber = ''){
   await planAdvance();
 }
 
+// The answer the installer tapped under "Look up online" on the address screen.
+// The address stays as it stands in the boxes (Google's wording of it is kept only
+// as geoLabel): the installer's text is what they recognise, and the town on it is
+// theirs. Not an exactPin. That flag means "the text is not where the order is",
+// and here the text is the address. So Clear map pins does drop this pin, and the
+// offline map will answer it again as it did before; it has to be looked up again.
+async function pinOnline(item, hit, address, unit){
+  const stored = (await idb.get('worklist', item.id)) || item;
+  const patch = { address, lat: hit.lat, lng: hit.lng, geoSource: 'google', geoLabel: hit.label || '',
+    geoFail: false, geoAmbig: undefined, exactPin: false, updatedAt: stamp() };
+  if(unit !== undefined) patch.unit = unit;
+  if(stored.address !== address) patch.typedAddress = undefined;
+  await idb.put('worklist', Object.assign({}, stored, patch));
+  toast('Pinned ✓ — ' + (hit.label || address));
+  await renderWorklist();
+  await planAdvance();
+}
+
 // The which-town chips inside the Edit form (the card shows the same chips
 // inline — this copy stays for whoever reaches the order through Edit).
 function renderAmbig(item){
@@ -3501,6 +3519,11 @@ export function initWorklist(opts){
     saveAddress: saveWorklistAddress,
     supportsUnits: true,
     pickTown: (item, c, unit) => pickTown(item, c, unit, $('wlAddrNum').value),
+    // By namespace: an older cached route.js has no lookupOnline, and then the
+    // screen says so instead of the module failing to link.
+    lookupOnline: async (address, item) => typeof routeMod.lookupOnline === 'function'
+      ? routeMod.lookupOnline(address, item, pendingOf(await allSorted())) : null,
+    pinOnline,
     onDone: afterAddressFill,
     onClose: () => location.hash === '#worklist-address' ? history.back() : openWorklist(),
   });

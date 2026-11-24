@@ -480,7 +480,7 @@ test('the note for a shared pin names the other addresses and what moves the pin
   const note = addressText.sharedPinReason(pin[1], pin);
   assert.match(note, /same spot as 8 Wellington St, and only one address can be there/);
   // Retyping the same address gets the same pin back, so the note must not say "retype".
-  assert.match(note, /empty the No\. box and put the coordinates/);
+  assert.match(note, /look it up online with the button below, or empty the No\. box and put the coordinates/);
   assert.doesNotMatch(note, /95 Wellington/);
   const many = ['1 A St', '2 A St', '3 A St', '4 A St', '5 A St'].map((address, i) => ({ id:'x' + i, address }));
   assert.match(addressText.sharedPinReason(many[0], many), /2 A St, 3 A St, 4 A St and 1 more/);
@@ -505,4 +505,43 @@ test('the address screen takes a picked queue, and a review that changes nothing
   const review = wl.slice(wl.indexOf('async function openAddressReview('), wl.indexOf('async function showHashScreen('));
   assert.match(review, /if\(!\(await addrFill\.open\(pick\)\)\)\{ await routeView\.open\(\); return; \}/);
   assert.match(review, /history\.pushState\(\{ wlAddr:1 \}, '', '#worklist-address'\)/);
+});
+
+test('the line under an online answer says what kind of match it is and how far it moved', () => {
+  assert.equal(addressText.onlineHitNote({ kind:'ROOFTOP', metres: 243 }),
+    'The building itself · 240 m from the pin it has now');
+  assert.equal(addressText.onlineHitNote({ kind:'RANGE_INTERPOLATED', metres: 4 }),
+    'Placed by house number along the street · where the pin is now');
+  // The answer that is NOT this house has to say so before it is tapped.
+  assert.match(addressText.onlineHitNote({ kind:'GEOMETRIC_CENTER', metres: 17300 }),
+    /^⚠ Only the street or area, not this number · 17 km from the pin it has now$/);
+  assert.match(addressText.onlineHitNote({ kind:'APPROXIMATE', metres: 2400 }), /⚠ Only the street or area.* 2\.4 km/);
+  // An order with no pin has nothing to measure from.
+  assert.equal(addressText.onlineHitNote({ kind:'ROOFTOP', metres: null }), 'The building itself');
+  assert.equal(addressText.onlineHitNote({}), '');
+});
+
+test('Look up online is built by the screen, asks only when pressed, and writes only on a tap', () => {
+  const src = readFileSync(new URL('../js/worklist-address-fill.js', import.meta.url), 'utf8');
+  const screen = src.slice(src.indexOf('export function initWorklistAddressFill('));
+  // No new markup: the button is made here, so an older index.html has it too, and it
+  // is offered only when the caller can both look up and pin.
+  assert.match(screen, /const lookupBtn = \(opts\.lookupOnline && opts\.pinOnline\) \? document\.createElement\('button'\) : null;/);
+  assert.doesNotMatch(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /Look up online/);
+  const lookup = screen.slice(screen.indexOf('async function lookup('), screen.indexOf('$(\'wlAddrBack\')') > 0
+    ? screen.indexOf('async function open(') : undefined);
+  // What is in the boxes is what is asked, and nothing is saved by asking.
+  assert.match(lookup, /parseAddressInput\(\$\('wlAddrNum'\)\.value, \$\('wlAddrStreet'\)\.value, item\.unit\)/);
+  assert.match(lookup, /res = await opts\.lookupOnline\(address, item\);/);
+  assert.equal(lookup.split('opts.pinOnline(').length, 2);
+  assert.match(lookup, /b\.onclick = async \(\) => \{\s+touched = true;\s+await opts\.pinOnline\(item, hit, address, unit\);/);
+  // An answer that arrives after the installer moved on is dropped.
+  assert.match(lookup, /if\(!open_ \|\| String\(queue\[idx\]\) !== id\) return;/);
+  const wl = readFileSync(new URL('../js/worklist.js', import.meta.url), 'utf8');
+  assert.match(wl, /typeof routeMod\.lookupOnline === 'function'/);
+  const pin = wl.slice(wl.indexOf('async function pinOnline('), wl.indexOf('// The which-town chips inside the Edit form'));
+  // The installer's text stays; the pin is Google's; it is not a typed-coordinates pin.
+  assert.match(pin, /const patch = \{ address, lat: hit\.lat, lng: hit\.lng, geoSource: 'google'/);
+  assert.match(pin, /exactPin: false/);
+  assert.doesNotMatch(pin, /apiPost|wlUpload|syncWorklist/);
 });
