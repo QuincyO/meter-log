@@ -1235,6 +1235,10 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   offline answer comes first even on a hold, so the automatic path never asks Google
   about an address the district index answers badly. What moves such a pin is a
   corrected address, typed coordinates, or **🌐 Look up online** on that screen.
+  (**Do not add a "finish the street you are passing" rule to `pickDay` without new
+  evidence.** It was asked for and measured on 2026-11-23 over 28 real lists: every
+  version left more orders passed-by than the shipped picker, at up to 6% more driving
+  between stops. The table is in that day's changelog.)
   **Look up online is the one place a press asks Google about a single address**
   (`route.js` `lookupOnline`, `worklist.js` `pinOnline`; owner's request,
   2026-11-23). Rules: it asks Google only, never the offline index (that is the
