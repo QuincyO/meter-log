@@ -606,7 +606,8 @@ log). The captured data is identical; what changes is the chrome and the PDF.
   always — it just doesn't print). `C` marks an install, `UTI` a UTI (whose
   reason prints in Meter Read / Notes). Delay minutes land on a row by matching
   the downtime's `workOrderId`; un-attributed minutes still count in the column
-  totals and are listed on a "Not tied to a WO#" footer line.
+  totals and are listed under the totals row: "Before first work order", "After last
+  work order", then "Not tied to a WO#" for the rest (`untiedLines`).
 - **Crews.** A land crew is a `Teams` row with `type='land'` — crew number in
   `boatNumber`, sub foreman in `subName`, no captain/boat name. `teams.html`
   shows boat teams in boat view and crews in land view. A land `endOfDay` skips
@@ -2921,7 +2922,9 @@ keyed on a **fixed clock**: `gap 00:00–00:00` and `gap 23:59–23:59`. Not the
 last log's time, because one more log, an edited arrival or a removed stop would
 re-key the slot and the next `saveTravel` (a whole-day replace) would drop its rows.
 They arrive at no stop (`toId` and `toWO` blank), so the `Downtime` row has no WO# and
-the land PDF counts it in the column totals and lists it under "Not tied to a WO#".
+the land PDF counts it in the column totals and lists it under them on its own
+"Before first work order" or "After last work order" line. "Not tied to a WO#" is left
+for downtime added with no work order.
 The `idle` handler adds both, and `capture.js withEdgeGaps` adds whichever the list it
 was handed lacks, so a spine that has not deployed still gets the cards. They are told
 apart by key (`edgeOf`), not by a flag. Today's orders draws no card for them but

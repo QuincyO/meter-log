@@ -897,7 +897,9 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   history. A crew member on older code keeps entering the morning there, and after the
   date the audit reads it as the first order's.
   Nothing on the spine matches the two keys to a gap, so no travel, dwell or pause
-  figure moves. Pinned by `tests/edge-downtime.test.mjs` and `tests/audit-compute.test.mjs`.
+  figure moves. The land PDF reads the same two keys (`dailylog.js untiedLines`) to print
+  "Before first work order" and "After last work order" apart from "Not tied to a WO#";
+  change the keys and that changes too. Pinned by `tests/edge-downtime.test.mjs` and `tests/audit-compute.test.mjs`.
 - **A second device logs nothing, so nothing on it invalidates the day cache.**
   The whole pace projection reads
   `dayCache[`name|today`]`, which only `cacheRecentDays` fills, and that ran at

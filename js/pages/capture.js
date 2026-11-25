@@ -1323,7 +1323,8 @@ function liveDowntime(rows){
 // enter the morning's delay, which printed it on that order's row of the daily log.
 // These two slots are gaps like any other (same list, same stash, same saveTravel)
 // but they arrive at no stop: `toId` and `toWO` are blank, so the row is saved with
-// no WO# and the land PDF lists it under "Not tied to a WO#".
+// no WO# and the land PDF gives each card its own line under the totals
+// (dailylog.js untiedLines, which reads the same two keys).
 //
 // The key is a FIXED clock, zero-length like the lead gap: `gap 00:00–00:00` and
 // `gap 23:59–23:59`. Not the first or last log's time: one more log, an edited

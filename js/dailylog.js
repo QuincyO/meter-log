@@ -16,6 +16,7 @@
 // the no-signal end-of-day PDF keeps working.
 import { parseLocalMs } from './time.js';
 import { CATEGORIES, BREAK_CATS, TRAVEL_ADJ_CATS, CAT_LABEL, downtimeSummary } from './compute/categories.js';
+import { gapNoteTimes } from './compute/gaps.js';
 
 function getJsPDF(){
   const ns = (typeof window !== 'undefined' && window.jspdf) || (typeof self !== 'undefined' && self.jspdf);
@@ -270,6 +271,30 @@ const LAND_THEAD_H = 24;   // column-label row (two-line delay labels)
 const LAND_ROW_H   = 16;
 const LAND_TOTAL_H = 18;
 
+const isDelay = c => CATEGORIES.indexOf(c) >= 0;
+const catOf = d => String(d.category||'OTHER').toUpperCase();
+const normWO = v => String(v==null?'':v).trim().toUpperCase();
+
+// The lines under the totals row: delay minutes on no WO#, split by where they were
+// entered. End of day's two no-order cards save under a fixed gap key (EDGE_BEFORE /
+// EDGE_AFTER in pages/capture.js); anything else with no WO# was added on its own.
+// A line with nothing on it is left out. Exported for unit testing.
+export function untiedLines(downtime){
+  const groups = [['Before first work order', {}], ['After last work order', {}], ['Not tied to a WO#', {}]];
+  (downtime || []).forEach(d => {
+    const c = catOf(d), m = Number(d.minutes)||0;
+    if(!isDelay(c) || !m || normWO(d.workOrderId)) return;
+    const t = gapNoteTimes(d.note);
+    const key = t && t[1] === t[2] ? t[1] : '';
+    const sum = groups[key === '00:00' ? 0 : key === '23:59' ? 1 : 2][1];
+    sum[c] = (sum[c]||0) + m;
+  });
+  return groups.map(([label, sum]) => {
+    const parts = LAND_DELAY_COLS.filter(c => sum[c]).map(c => (CAT_LABEL[c]||c) + ' ' + sum[c]);
+    return parts.length ? label + ': ' + parts.join(' · ') + ' min' : '';
+  }).filter(Boolean);
+}
+
 export function renderLandDailyLog(summary){
   const s = summary || {};
   const JsPDF = getJsPDF();
@@ -357,18 +382,15 @@ export function renderLandDailyLog(summary){
 
   // ── per-WO delay attribution ───────────────────────────────────────────────
   // Delay-category downtime keyed by WO#; breaks / misc travel / legacy
-  // TRAVEL_TIME never print on this sheet. Rows without a WO# go to the
-  // unassigned pool (still counted in the column totals below).
-  const isDelay = c => CATEGORIES.indexOf(c) >= 0;
-  const normWO = v => String(v==null?'':v).trim().toUpperCase();
-  const byWO = {}; const colTotal = {}; const unassigned = {};
+  // TRAVEL_TIME never print on this sheet. Rows without a WO# count in the column
+  // totals and are listed under them (untiedLines).
+  const byWO = {}; const colTotal = {};
   (s.downtime || []).forEach(d => {
-    const c = String(d.category||'OTHER').toUpperCase(), m = Number(d.minutes)||0;
+    const c = catOf(d), m = Number(d.minutes)||0;
     if(!isDelay(c) || !m) return;
     colTotal[c] = (colTotal[c]||0) + m;
     const wo = normWO(d.workOrderId);
     if(wo){ byWO[wo] = byWO[wo] || {}; byWO[wo][c] = (byWO[wo][c]||0) + m; }
-    else  { unassigned[c] = (unassigned[c]||0) + m; }
   });
 
   // ── body rows ──────────────────────────────────────────────────────────────
@@ -428,13 +450,12 @@ export function renderLandDailyLog(summary){
 
   // Delay minutes that aren't attached to a WO# still count in the column
   // totals — say where they came from so the sheet reconciles at a glance.
-  const unParts = LAND_DELAY_COLS.filter(c => unassigned[c])
-    .map(c => (CAT_LABEL[c]||c) + ' ' + unassigned[c]);
-  if(unParts.length){
+  untiedLines(s.downtime).forEach(line => {
+    if(y + 14 > pageH - MARGIN){ doc.addPage(); y = MARGIN; }
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-    doc.text(fit('Not tied to a WO#: ' + unParts.join(' · ') + ' min', contentW), MARGIN + 2, y + 10);
-    y += 14;
-  }
+    doc.text(fit(line, contentW), MARGIN + 2, y + 10);
+    y += 12;
+  });
 
   // ── notes (fills the blank space below the table) ──────────────────────────
   drawNotesBlock(doc, MARGIN, y, contentW, pageH, collectNotes(s));
