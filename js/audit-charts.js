@@ -63,7 +63,7 @@ const w = share => (Math.round(share * 100000) / 1000) + '%';   // three decimal
 
 // A bar with its four clock marks: start and end above it at the edges, first and
 // last meter below it at their place along it.
-function framed(blocks, cls, { startMin, firstMin, lastMin, endMin }, endLabel){
+function framed(blocks, cls, { startMin, firstMin, lastMin, endMin }, endLabel, above = ''){
   const span = endMin - startMin;
   const at = min => span > 0 ? Math.max(0, Math.min(100, (min - startMin) / span * 100)) : 0;
   // A label is centred on its mark, except near an end, where half of it would hang
@@ -71,7 +71,7 @@ function framed(blocks, cls, { startMin, firstMin, lastMin, endMin }, endLabel){
   const tick = (min, text) => { const p = at(min);
     return `<span class="au-tick${p < 12 ? ' l' : p > 88 ? ' r' : ''}" style="left:${w(p / 100)}">${esc(text)}</span>`; };
   return `<div class="au-stackwrap"><div class="au-ends"><span>${fmtClock(startMin)} start</span><span>${esc(endLabel)} ${fmtClock(endMin)}</span></div>`
-    + `<div class="${cls}">${blocks}</div>`
+    + above + `<div class="${cls}">${blocks}</div>`
     + `<div class="au-ticks">${tick(firstMin, 'first meter ' + fmtClock(firstMin))}`
     + (lastMin > firstMin ? tick(lastMin, 'last meter ' + fmtClock(lastMin)) : '') + '</div></div>';
 }
@@ -154,7 +154,30 @@ export function timelineHtml(day){
     return `<${tag}${b.gap == null ? '' : ' type="button"'} class="au-blk${b.flag ? ' flag' : ''}" data-seg="${b.key}"`
       + `${b.gap == null ? '' : ` data-gap="${b.gap}"`} style="width:${w(b.minutes / span)};background:${SEG[b.key].color}"`
       + ` title="${attr(b.title)}"></${tag}>`; }).join('');
-  return framed(html, 'au-stack au-timeline', day, endLabel(day));
+  return framed(html, 'au-stack au-timeline', day, endLabel(day), gapMarkers(day, blocks, span));
+}
+
+// Over the bar, one hidden bracket per gap: shown (class "sel", set by the page when the
+// gap is picked) it spans exactly that gap's blocks, so its left end is the earlier
+// order's log and its right end the next one's, and its label says which is which:
+// "#14 11:30 → #15 12:31". Positions come from the same blocks the bar is drawn from.
+// They are custom properties, not a width, so nothing measuring the bar counts them.
+function gapMarkers(day, blocks, span){
+  const at = new Map();   // gap index → [start, end] in minutes from the bar's left
+  let x = 0;
+  for(const b of blocks){
+    if(b.gap != null){ const r = at.get(b.gap); if(r) r[1] = x + b.minutes; else at.set(b.gap, [x, x + b.minutes]); }
+    x += b.minutes;
+  }
+  if(!at.size) return '';
+  const name = i => { const l = day.logs && day.logs[i]; return l ? `#${i + 1} ${l.clock || ''}`.trim() : `#${i + 1}`; };
+  const marks = [...at].map(([i, [a, z]]) => {
+    const mid = (a + z) / 2 / span * 100;
+    return `<div class="au-tlsel${mid < 12 ? ' l' : mid > 88 ? ' r' : ''}" data-gap="${i}"`
+      + ` style="--l:${w(a / span)};--w:${w((z - a) / span)}">`
+      + `<span class="au-tllab">${esc(name(i))} → ${esc(name(i + 1))}</span><i class="au-tlbr"></i></div>`;
+  }).join('');
+  return `<div class="au-tlsels">${marks}</div>`;
 }
 /** What the right-hand end of a day's bar is called. */
 export const endLabel = day => (day.endSource === 'lastMeter' ? 'last meter' : 'end');

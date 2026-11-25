@@ -113,7 +113,18 @@ body{
 .au-timeline .au-blk{box-shadow:inset -1px 0 0 rgba(255,255,255,.75)}
 .au-timeline button.au-blk{cursor:pointer}
 .au-timeline .au-blk.flag{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 4px,transparent 4px 8px) !important}
-.au-timeline .au-blk.sel{box-shadow:inset 0 0 0 3px var(--ink)}
+/* A picked gap: the rest of the bar fades, and a bracket over the gap runs from the
+   earlier order's log (its left end) to the next one's (its right end), labelled
+   "#14 11:30 → #15 12:31". The brackets are drawn by js/audit-charts.js, hidden until
+   the page marks one "sel". */
+.au-timeline:has(.sel) .au-blk:not(.sel){opacity:.3}
+.au-tlsel{display:none;cursor:pointer}
+.au-tlsel.sel{display:block;margin-left:var(--l);width:var(--w);margin-bottom:2px}
+.au-tllab{display:flex;justify-content:center;white-space:nowrap;font-size:12.5px;font-weight:800;
+          color:var(--ink);margin-bottom:2px}
+.au-tlsel.l .au-tllab{justify-content:flex-start}
+.au-tlsel.r .au-tllab{justify-content:flex-end}
+.au-tlbr{display:block;height:7px;border:2px solid var(--ink);border-bottom:0;border-radius:3px 3px 0 0}
 .au-ticks{position:relative;height:20px;margin-top:3px;font-size:12px;color:var(--ink-soft)}
 .au-tick{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;padding-top:6px}
 .au-tick::before{content:'';position:absolute;left:50%;top:0;height:6px;border-left:1.5px solid var(--ink-soft)}
@@ -140,6 +151,13 @@ body{
 .au-gap{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
         font-size:14px;background:#FAFBFC}
 .au-gap .au-pairs{margin-top:6px}
+/* the gap's two orders: earlier → next (js/audit-render.js gapDetailHtml) */
+.au-gapends{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.au-gapend{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+.au-gapend b{display:block;font-size:15px}
+.au-gapend span{display:block;color:var(--ink-soft);font-size:13px;margin-top:1px}
+.au-gaparrow{display:flex;color:var(--ink-soft)}
+.au-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .au-check{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:14px;margin:0 12px 8px 0}
 .au-check input{width:18px;height:18px}
 #auDrive .au-cap{display:inline-block;margin:0 0 8px}
@@ -167,6 +185,8 @@ body{
   .au-push{margin-left:0}
   .au-tick{font-size:11px}
   .au-map{height:320px}
+  .au-gapends{grid-template-columns:1fr;gap:4px}
+  .au-gaparrow{justify-content:center;transform:rotate(90deg)}
 }
 
 /* ── print ──────────────────────────────────────────────────────────────── */
@@ -191,6 +211,8 @@ body{
   .au-map{height:4.4in}
   .au-map .leaflet-control-zoom{display:none}
   .au-table tr.on td{background:none}
+  .au-tlsels{display:none}
+  .au-timeline .au-blk{opacity:1 !important}
   .au-method > :not(summary){display:block}
   details.au-method:not([open]) > :not(summary){display:block}
   .au-method summary{list-style:none}

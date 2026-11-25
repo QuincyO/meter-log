@@ -284,6 +284,9 @@ test('a gap opens with its two orders, the distance, the usual time, the overrun
   const nopin = DAY_STOPS.map((s, i) => i === 2 ? { ...s, lat: null, lng: null } : s);
   assert.match(gapDetailHtml(detailOf(nopin, DAY).day, 1), /no pin/);
   assert.equal(gapDetailHtml(d.day, 99), '');
+  // earlier order, an arrow, the next order: no bare "to" between them on screen
+  assert.match(html, /<div class="au-gapends"><div class="au-gapend"><b>#2 900001<\/b>.*<span class="au-gaparrow"><svg[^>]*aria-hidden="true".*<span class="au-sr">to<\/span><\/span><div class="au-gapend"><b>#3 900002<\/b>/);
+  assert.doesNotMatch(html, /\) to <b>/);
 });
 
 test('the day notes say when a day ran late, was never closed out, or is left out', () => {

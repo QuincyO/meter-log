@@ -178,8 +178,8 @@ export function initAuditView({ installers = null, fixedInstaller = null, loadDr
     const box = $('auGapDetail');
     if(!box || !shownDay) return;
     box.innerHTML = gapDetailHtml(shownDay, i);
-    for(const b of document.querySelectorAll('.au-timeline .au-blk.sel, .au-logrow.on')) b.classList.remove('sel', 'on');
-    for(const b of document.querySelectorAll(`.au-timeline .au-blk[data-gap="${i}"]`)) b.classList.add('sel');
+    for(const b of document.querySelectorAll('.au-timeline .au-blk.sel, .au-tlsel.sel, .au-logrow.on')) b.classList.remove('sel', 'on');
+    for(const b of document.querySelectorAll(`.au-timeline .au-blk[data-gap="${i}"], .au-tlsel[data-gap="${i}"]`)) b.classList.add('sel');
     for(const r of document.querySelectorAll(`.au-logrow[data-gap="${i}"]`)) r.classList.add('on');
   }
 
