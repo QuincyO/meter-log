@@ -82,6 +82,28 @@ test('the timeline splits a long gap into work, logged delay and unlogged pause,
   assert.ok(Math.abs(total(html) - 100) < 0.05, `widths total ${total(html)}`);
 });
 
+test('each gap has a hidden bracket spanning exactly its blocks, labelled earlier order → next order', () => {
+  const m = model(stopsOn(D, ['10:00', '10:06', '11:06', '11:12']),
+    [{ timestamp: `${D} 12:00:00`, category: 'WAREHOUSE', minutes: 20, note: 'gap 10:06–11:06' }]);
+  const html = timelineHtml(dayOf(m));
+  const marks = [...html.matchAll(/<div class="au-tlsel[^"]*" data-gap="(\d+)" style="--l:([\d.]+)%;--w:([\d.]+)%"><span class="au-tllab">([^<]*)<\/span>/g)]
+    .map(x => ({ gap: Number(x[1]), l: Number(x[2]), w: Number(x[3]), label: x[4] }));
+  assert.deepEqual(marks.map(x => x.gap), [0, 1, 2]);
+  assert.equal(marks[1].label, '#2 10:06 → #3 11:06');
+  // the bracket's ends are the edges of that gap's blocks as drawn
+  const ws = widths(html), gaps = [...html.matchAll(/class="au-blk[^"]*" data-seg="\w+"( data-gap="(\d+)")?/g)].map(x => x[2] == null ? null : Number(x[2]));
+  for(const mk of marks){
+    const first = gaps.indexOf(mk.gap), last = gaps.lastIndexOf(mk.gap);
+    const before = ws.slice(0, first).reduce((s, x) => s + x[1], 0);
+    const own = ws.slice(first, last + 1).reduce((s, x) => s + x[1], 0);
+    assert.ok(Math.abs(mk.l - before) < 0.01, `gap ${mk.gap} left ${mk.l} vs ${before}`);
+    assert.ok(Math.abs(mk.w - own) < 0.01, `gap ${mk.gap} width ${mk.w} vs ${own}`);
+  }
+  // the brackets do not count as bar width
+  assert.ok(Math.abs(total(html) - 100) < 0.05);
+  assert.doesNotMatch(html, /au-blk[^>]*\bsel\b/);
+});
+
 test('a flagged gap is marked and an unflagged one is not', () => {
   const html = timelineHtml(dayOf(model(stopsOn(D, ['10:00', '10:51', '11:41']))));
   assert.match(html, /class="au-blk flag" data-seg="pauseUnlogged" data-gap="0"/);

@@ -583,8 +583,14 @@ export function gapDetailHtml(day, i){
   if(!g) return '';
   const a = day.logs[i], b = day.logs[i + 1];
   const kind = g.kind < 0 ? 'every gap (a pin is missing)' : AUDIT.KIND_LABELS[g.kind];
-  const place = l => `${esc(l.clock)}${l.address ? ', ' + esc(l.address) : ''}`;
-  return `<div class="au-gap"><b>${esc(logName(day, i))}</b> (${place(a)}) to <b>${esc(logName(day, i + 1))}</b> (${place(b)})`
+  const place = l => `${esc(l.clock)}${l.address ? ' · ' + esc(l.address) : ''}`;
+  const end = (l, k) => `<div class="au-gapend"><b>${esc(logName(day, k))}</b><span>${place(l)}</span></div>`;
+  // The earlier order, an arrow, the next one (stacked, arrow pointing down, on a phone).
+  // The hidden "to" is what a screen reader says for the arrow.
+  return `<div class="au-gap"><div class="au-gapends">${end(a, i)}`
+    + `<span class="au-gaparrow"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">`
+    + `<path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    + `<span class="au-sr">to</span></span>${end(b, i + 1)}</div>`
     + blockHtml({ t: 'pairs', rows: [
       ['Time between the two logs', mins(g.min)],
       [g.byRoad ? 'Distance by road' : day.gaps.some(x => x.byRoad) ? 'Straight-line distance (off the road map)' : 'Straight-line distance', metres(g.km)],
