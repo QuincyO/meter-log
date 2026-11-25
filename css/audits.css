@@ -185,6 +185,8 @@ body{
   .au-push{margin-left:0}
   .au-tick{font-size:11px}
   .au-map{height:320px}
+  .au-tlsel.pl .au-tllab{justify-content:flex-start}
+  .au-tlsel.pr .au-tllab{justify-content:flex-end}
   .au-gapends{grid-template-columns:1fr;gap:4px}
   .au-gaparrow{justify-content:center;transform:rotate(90deg)}
 }

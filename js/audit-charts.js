@@ -162,6 +162,10 @@ export function timelineHtml(day){
 // order's log and its right end the next one's, and its label says which is which:
 // "#14 11:30 → #15 12:31". Positions come from the same blocks the bar is drawn from.
 // They are custom properties, not a width, so nothing measuring the bar counts them.
+// The `hidden` attribute keeps them hidden beside a stylesheet from before they existed
+// (.au-tlsel.sel overrides it). A label is centred on its bracket except near an end of
+// the bar, where it hangs inward: "l"/"r" on any screen, "pl"/"pr" on a phone, where a
+// label is over half as wide as the bar (css/audits.css, the 640 px block).
 function gapMarkers(day, blocks, span){
   const at = new Map();   // gap index → [start, end] in minutes from the bar's left
   let x = 0;
@@ -173,8 +177,9 @@ function gapMarkers(day, blocks, span){
   const name = i => { const l = day.logs && day.logs[i]; return l ? `#${i + 1} ${l.clock || ''}`.trim() : `#${i + 1}`; };
   const marks = [...at].map(([i, [a, z]]) => {
     const mid = (a + z) / 2 / span * 100;
-    return `<div class="au-tlsel${mid < 12 ? ' l' : mid > 88 ? ' r' : ''}" data-gap="${i}"`
-      + ` style="--l:${w(a / span)};--w:${w((z - a) / span)}">`
+    const side = (mid < 12 ? ' l' : mid > 88 ? ' r' : '') + (mid < 30 ? ' pl' : mid > 70 ? ' pr' : '');
+    return `<div class="au-tlsel${side}" data-gap="${i}"`
+      + ` style="--l:${w(a / span)};--w:${w((z - a) / span)}" hidden>`
       + `<span class="au-tllab">${esc(name(i))} → ${esc(name(i + 1))}</span><i class="au-tlbr"></i></div>`;
   }).join('');
   return `<div class="au-tlsels">${marks}</div>`;

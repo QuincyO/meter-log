@@ -2,6 +2,7 @@
 // drawn and can be checked here without a browser. Made-up days only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { SEGMENTS, fmtClock, fmtMin, fmtDate, fmtDur, dayBarHtml, pauseHistogramHtml,
   timelineHtml, legendHtml } from '../js/audit-charts.js';
 import { AUDIT, prepareAudit, periodStats } from '../js/compute/audit.js';
@@ -86,7 +87,7 @@ test('each gap has a hidden bracket spanning exactly its blocks, labelled earlie
   const m = model(stopsOn(D, ['10:00', '10:06', '11:06', '11:12']),
     [{ timestamp: `${D} 12:00:00`, category: 'WAREHOUSE', minutes: 20, note: 'gap 10:06–11:06' }]);
   const html = timelineHtml(dayOf(m));
-  const marks = [...html.matchAll(/<div class="au-tlsel[^"]*" data-gap="(\d+)" style="--l:([\d.]+)%;--w:([\d.]+)%"><span class="au-tllab">([^<]*)<\/span>/g)]
+  const marks = [...html.matchAll(/<div class="au-tlsel[^"]*" data-gap="(\d+)" style="--l:([\d.]+)%;--w:([\d.]+)%" hidden><span class="au-tllab">([^<]*)<\/span>/g)]
     .map(x => ({ gap: Number(x[1]), l: Number(x[2]), w: Number(x[3]), label: x[4] }));
   assert.deepEqual(marks.map(x => x.gap), [0, 1, 2]);
   assert.equal(marks[1].label, '#2 10:06 → #3 11:06');
@@ -102,6 +103,33 @@ test('each gap has a hidden bracket spanning exactly its blocks, labelled earlie
   // the brackets do not count as bar width
   assert.ok(Math.abs(total(html) - 100) < 0.05);
   assert.doesNotMatch(html, /au-blk[^>]*\bsel\b/);
+});
+
+test('a bracket is hidden by its own markup, not only by the stylesheet', () => {
+  // The service worker refreshes each file on its own, so this script can run beside a
+  // stylesheet from before the brackets. Without the attribute every label then shows.
+  const html = timelineHtml(dayOf(model(stopsOn(D, every('10:00', 9)))));
+  const marks = html.match(/<div class="au-tlsel[ "][^>]*>/g);
+  assert.equal(marks.length, 8);
+  for(const mk of marks) assert.match(mk, / hidden(>| )/, mk);
+});
+
+test('every bracket label stays on the bar of a 320 px phone', () => {
+  const BAR = 270, LABEL = 150;      // px: the bar on a 320 px screen, and a label with room to spare
+  const css = readFileSync(new URL('../css/audits.css', import.meta.url), 'utf8');
+  const phone = css.slice(css.indexOf('@media (max-width:640px){'), css.indexOf('@media print{'));
+  // which classes pull the label in on a phone: the always-on rules plus the phone block's
+  const sides = { start: ['l'], end: ['r'] };
+  for(const [, cls, side] of phone.matchAll(/\.au-tlsel\.(\w+) \.au-tllab\{justify-content:flex-(start|end)\}/g)) sides[side].push(cls);
+  const html = timelineHtml(dayOf(model(stopsOn(D, every('09:00', 60, 7)))));
+  const marks = [...html.matchAll(/<div class="au-tlsel( [^"]*)?" data-gap="(\d+)" style="--l:([\d.]+)%;--w:([\d.]+)%"/g)];
+  assert.equal(marks.length, 59);
+  for(const [, cls = '', gap, l, w] of marks){
+    const has = side => cls.split(' ').some(c => sides[side].includes(c));
+    const a = l / 100 * BAR, z = a + w / 100 * BAR;
+    const left = has('start') ? a : has('end') ? z - LABEL : (a + z) / 2 - LABEL / 2;
+    assert.ok(left >= -0.5 && left + LABEL <= BAR + 0.5, `gap ${gap}: label ${left.toFixed(1)} to ${(left + LABEL).toFixed(1)} on a ${BAR} px bar`);
+  }
 });
 
 test('a flagged gap is marked and an unflagged one is not', () => {
