@@ -151,6 +151,8 @@ writing a Tracker row or requiring departure/return — the phone renders the PD
 from it; the real `endOfDay` later fills the blanks),
 `saveTravel` (replace a day's per-gap travel deductions — see "Travel vs delay"),
 `saveDay`,
+`saveDayNotes` (the notes on End of day's two no-order cards — only the keys sent are
+written),
 `saveWorklist` (whole-list replace of one installer's saved `Worklist` rows —
 the planning page's explicit **Upload** button; a batched body rewrite keyed on
 the employee **H number** (names can collide, H numbers can't), so a re-upload
@@ -2359,12 +2361,22 @@ transiently and discard them after the PDF.
 | `returned`        | string | `"HH:mm"` — back to land (Return leg)                 |
 | `dispatchMin`     | number | this installer's own dispatch downtime for the day    |
 | `boatDispatchMin` | number | whole-boat dispatch downtime, shared by the crew      |
+| `beforeNote`      | string | note on the **Before first order** card (land)         |
+| `afterNote`       | string | note on the **After last order** card (land)          |
 
 Upserted by `saveDay` (keyed on `date`+`installer`, which writes only the first
 four columns and leaves the dispatch columns intact); also written by `endOfDay`
 when those times are supplied. `buildDaySummary` falls back to this row when a
 request omits the bookends, and `?action=day` returns it (plus a `closed` flag) so
 `edit.html` can pre-fill the inputs.
+
+`beforeNote`/`afterNote` are written by `saveDayNotes` and by nothing else. It sets only
+the keys it is sent (`setDayFields`) and never the bookends: a note is saved as it is
+typed, hours before the day's times are, and a row with both times counts as hours
+worked. A row can therefore exist with notes and blank times, which every reader already
+skips. `saveDayNotes` adds the two columns itself on a sheet that lacks them (text
+format). The `day` read and `buildDaySummary` carry both, and `dailylog.js collectNotes`
+prints them in the Notes block of the PDF.
 
 `dispatchMin`/`boatDispatchMin` were **appended** after `returned`, so add the two
 header cells to an existing `Days` tab (re-run `setupSheets()` won't add columns to

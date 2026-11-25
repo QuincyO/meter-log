@@ -180,7 +180,10 @@ const TIMING_HEADERS = ['date','installer','fromTime','toTime','minutes','distan
 // (left dock) and Returned (back to land). These anchor the daily log's Launch /
 // Return legs; persisting them (the field form used to discard them) is what lets
 // the back-office edit.html regenerate a correct daily log any time.
-const DAYS_HEADERS = ['date','installer','departure','returned','dispatchMin','boatDispatchMin'];
+// beforeNote / afterNote are the notes on End of day's two no-order cards (saveDayNotes).
+const DAYS_HEADERS = ['date','installer','departure','returned','dispatchMin','boatDispatchMin',
+  'beforeNote','afterNote'];
+const DAY_NOTE_KEYS = ['beforeNote', 'afterNote'];
 // One row per BOAT per day — a snapshot of who crewed which boat that date, taken at
 // end-of-day (Teams is otherwise current-state only, with no membership history). It's
 // the historical record of daily boat teams AND the membership the viewer's boat-wide
@@ -423,6 +426,7 @@ function setupSheets() {
   // date instead of a clock time on the daily log).
   const days = ss.getSheetByName('Days');
   days.getRange('C2:D').setNumberFormat('@');   // departure, returned (cols 3-4)
+  days.getRange('G2:H').setNumberFormat('@');   // beforeNote, afterNote (free text)
   // Same coercion bites the stop/downtime timestamps: a naive "2026-06-27 08:52:57"
   // string gets turned into a Date, which JSON serializes as UTC ("…Z"). Pin the
   // timestamp column to text so it stays the naive Toronto string it was written as.
@@ -501,6 +505,7 @@ function doPost(e) {
       case 'endOfDay':       return json(endOfDay(body));
       case 'saveTravel':     return json(saveTravel(body));
       case 'saveDay':        return json(saveDay(body));
+      case 'saveDayNotes':   return json(saveDayNotes(body));
       case 'saveWorklist':   return json(saveWorklist(body));
       case 'savePlan':       return json(savePlan(body));
       case 'saveDriveTrack': return json(saveDriveTrack(body));
@@ -1242,6 +1247,7 @@ function buildDaySummary(b) {
     perStopTravel: perStopTravel, timingRows: timingRows, idleGaps: timing.gaps,
     notes: notes || '', weather: b.weather || '', stops, downtime: dt,
     departure: departure, returned: returned,
+    beforeNote: persisted.beforeNote, afterNote: persisted.afterNote,
     partner: hdr.partner, captain: hdr.captain, sub: hdr.sub,
     boatTeam: hdr.boatTeam, boatName: hdr.boatName,
     team: team ? team.id : null };
@@ -1461,6 +1467,35 @@ function saveDay(b) {
     return { ok: false, error: 'Days tab missing — run setupSheets()' };
   upsertDayRow('Days', date, installer,
     [date, installer, b.departure || '', b.returned || '']);
+  return { ok: true };
+}
+
+/** The notes on End of day's "Before first order" / "After last order" cards. Only the
+ *  keys sent are written, so one note never blanks the other, and the bookend times
+ *  are never touched: a note is saved as it is typed, hours before the day's times
+ *  are, and a Days row with both times counts as hours worked. Adds its own columns to
+ *  a sheet that predates them, so no setupSheets() run is needed. */
+function saveDayNotes(b) {
+  const installerId = String(b.installerId == null ? '' : b.installerId).trim();
+  const emp = installerId ? employeeByH(installerId) : null;
+  const installer = emp ? fullName(emp) : (b.installer || '');
+  if (!installer) return { ok: false, error: 'installer required' };
+  const fields = {};
+  DAY_NOTE_KEYS.forEach(k => { if (b[k] != null) fields[k] = String(b[k]).trim(); });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const head = sh => sh ? sh.getDataRange().getValues()[0] : [];
+  const missing = h => DAY_NOTE_KEYS.some(k => h.indexOf(k) < 0);
+  if (missing(head(ss.getSheetByName('Days')))) {
+    const sh = ensureTab(ss, 'Days', DAYS_HEADERS);
+    // setDayFields drops a field whose column it cannot find: fail out loud instead,
+    // so the phone keeps the note queued rather than losing it.
+    if (missing(head(sh))) return { ok: false, error: 'Days note columns missing' };
+    // Text, or a note like "8:30" is stored as a time.
+    sh.getRange(2, DAYS_HEADERS.indexOf('beforeNote') + 1, sh.getMaxRows() - 1, DAY_NOTE_KEYS.length)
+      .setNumberFormat('@');
+  }
+  setDayFields(b.date || today(), installer, fields);
   return { ok: true };
 }
 
@@ -2056,12 +2091,14 @@ function createClearDoneWorklistTrigger() {
   Logger.log('Nightly clearDoneWorklistJob trigger installed (2am Toronto).');
 }
 
-/** The persisted bookend times for an installer's day, or blanks (also when the
- *  Days tab doesn't exist yet). */
+/** The persisted bookend times and no-order notes for an installer's day, or blanks
+ *  (also when the Days tab doesn't exist yet). */
 function dayMeta(installer, date) {
-  if (!SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days')) return { departure: '', returned: '' };
-  const r = rows('Days').filter(x => sameName(x.installer, installer) && dateOf(x.date) === date)[0];
-  return { departure: r ? clockHHMM(r.departure) : '', returned: r ? clockHHMM(r.returned) : '' };
+  const r = !SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Days') ? null
+    : rows('Days').filter(x => sameName(x.installer, installer) && dateOf(x.date) === date)[0];
+  const text = v => String(v == null ? '' : v);
+  return { departure: r ? clockHHMM(r.departure) : '', returned: r ? clockHHMM(r.returned) : '',
+           beforeNote: r ? text(r.beforeNote) : '', afterNote: r ? text(r.afterNote) : '' };
 }
 
 /** One installer's own dispatch downtime for a day = the sum of their

@@ -126,6 +126,7 @@ function stuckLabel(it){
     case 'endOfDay':     return 'End-of-day close';
     case 'saveTravel':   return 'Travel review';
     case 'saveDay':      return 'Day start / end times';
+    case 'saveDayNotes': return 'Day note';
     default:             return it.action || 'Upload';
   }
 }
@@ -961,6 +962,26 @@ function makeStopCard(s, onSaved, opts){
   return card;
 }
 
+// The folded note on an End-of-day card: a one-line button that shows the note, or
+// "Add a note", and opens the box. Returns the repaint, for typing to call.
+function foldNote(box, ta){
+  const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
+  toggle.style.cssText = 'display:block;max-width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
+  const paint = () => {
+    const v = ta.value.trim();
+    toggle.textContent = (body.classList.contains('hide') ? '▸ ' : '▾ ') + (v ? 'Note: ' + v : 'Add a note');
+  };
+  toggle.onclick = () => {
+    touchEod(); body.classList.toggle('hide'); paint();
+    if(!body.classList.contains('hide')) ta.focus();
+  };
+  body.appendChild(ta);
+  box.appendChild(toggle); box.appendChild(body);
+  paint();
+  return paint;
+}
+
 // ── Note + Downtime, straight on the work-order card ───────────────────────
 // One note per work order (the stop's own `notes` — anything about the order,
 // including why there was downtime) and one downtime list (the same gap deductions
@@ -986,20 +1007,7 @@ function renderQuick(box, s, pos, mode){
     const lbl = document.createElement('label'); lbl.textContent = 'Note';
     box.appendChild(lbl); box.appendChild(ta);
   } else {
-    const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
-    toggle.style.cssText = 'display:block;max-width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-    const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
-    paintFold = () => {
-      const v = ta.value.trim();
-      toggle.textContent = (body.classList.contains('hide') ? '▸ ' : '▾ ') + (v ? 'Note: ' + v : 'Add a note');
-    };
-    toggle.onclick = () => {
-      touchEod(); body.classList.toggle('hide'); paintFold();
-      if(!body.classList.contains('hide')) ta.focus();
-    };
-    body.appendChild(ta);
-    box.appendChild(toggle); box.appendChild(body);
-    paintFold();
+    paintFold = foldNote(box, ta);
   }
 
   let timer;
@@ -1064,6 +1072,7 @@ $('endDay').onclick = async () => {
   await flushTravelSave();
   $('eodIdle').innerHTML=''; eodGaps=[]; eodTouched=false;
   eodNoteEdits = {};
+  eodDayNoteEdits = {};
   // Fresh review → drop any prior day's prefetched high-fidelity summary.
   eodServerSummary = null; eodSummaryJob = null;
   // Open first, THEN drain: flush() is a real barrier now, so a long queue would
@@ -1095,6 +1104,23 @@ function touchEod(){ eodTouched = true; }
 // not a read of eodData.stops: a late `day` response swaps those objects for the
 // server's copies, which do not have the note yet.
 let eodNoteEdits = {};
+
+// ── the two no-order notes ──────────────────────────────────────────────────
+// One note on "Before first order" and one on "After last order", kept on the day's
+// Days row. Each saves itself through the queue, and the queue is also the record of
+// what the Sheet has not confirmed: there is no second stash to drift from it.
+const DAY_NOTE_KEYS = ['beforeNote', 'afterNote'];
+let eodDayNotes = {};       // as the day was loaded, what the cards open with
+let eodDayNoteEdits = {};   // saved from a card during THIS open
+async function pendingDayNotes(){
+  const out = {}, name = cfg().name, date = localDate();
+  ((await idb.all('queue')) || []).forEach(q => {
+    if(q.action !== 'saveDayNotes' || q.installer !== name || q.date !== date) return;
+    DAY_NOTE_KEYS.forEach(k => { if(q[k] != null) out[k] = q[k]; });
+  });
+  return out;
+}
+// ── end: the two no-order notes ─────────────────────────────────────────────
 
 // gapByToId maps a gap to its arriving stop (g.toId === stop.id), so each gap shows
 // as an inline "Travel in" dropdown on its work-order card.
@@ -1364,6 +1390,28 @@ function makeEdgeCard(g, title){
   card.className = 'stopcard';
   card.innerHTML = `<div class="sc-head"><div class="sc-sum"><strong>${title}</strong>`
     + ' <span class="sc-meta">· downtime on no work order</span></div></div>';
+  const key = edgeOf(g) === 'before' ? 'beforeNote' : 'afterNote';
+  const ta = document.createElement('textarea');
+  ta.value = eodDayNotes[key] || '';
+  ta.placeholder = 'Anything about this time — including the reason for any downtime';
+  const noteBox = document.createElement('div'); noteBox.style.marginTop = '6px';
+  const paintNote = foldNote(noteBox, ta);
+  let timer, saved = ta.value.trim();
+  const save = () => {
+    clearTimeout(timer);
+    const c = cfg(), v = ta.value.trim();
+    if(!c.url || !c.token || v === saved) return;
+    saved = v;
+    // The one note that changed, for the day it was typed on (a queued write can
+    // drain after midnight).
+    enqueue({ token:c.token, action:'saveDayNotes', installer:c.name, installerId:c.hNumber,
+              date:localDate(), [key]:v });
+    eodDayNoteEdits[key] = v; schedulePersistEod();
+  };
+  ta.addEventListener('input', () => { touchEod(); paintNote(); clearTimeout(timer); timer = setTimeout(save, 800); });
+  ta.addEventListener('change', save);
+  card.appendChild(noteBox);
+
   const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
   toggle.style.marginTop = '6px';
   const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
@@ -1431,7 +1479,7 @@ async function persistEodReview(){
     || { stops:[], downtime:[], day:{}, closed:false, cachedAt:stamp() };
   cached.eodTravel = collectGapAllocations(eodGaps);
   cached.day = Object.assign({}, cached.day,
-    { departure:$('eodDeparture').value, returned:$('eodReturned').value });
+    { departure:$('eodDeparture').value, returned:$('eodReturned').value }, eodDayNoteEdits);
   await idb.put('dayCache', cached, key);
 }
 let _eodPersistTimer, _eodPrefetchTimer;
@@ -1531,7 +1579,7 @@ async function buildSummaryFromCache(includeDelays, weather){
   const c = cfg();
   const key = `${c.name}|${localDate()}`;
   const cached = (await idb.get('dayCache', key)) || { stops:[], downtime:[], day:{}, boatMeta:null };
-  const cd = cached.day || {};
+  const cd = Object.assign({}, cached.day, await pendingDayNotes());
   // The deductions the Sheet has not confirmed are the cache's own `eodTravel`
   // stash, NOT `eodGaps`: Finish stashes the review a line before calling this, so
   // there they are the same thing — but Generate PDF runs from the main page, where
@@ -1544,7 +1592,8 @@ async function buildSummaryFromCache(includeDelays, weather){
     installer:c.name, installerId:c.hNumber, date:localDate(),
     stops:cached.stops||[], downtime: (stash && !stash.length) ? rows.filter(d => !isGapRow(d)) : rows,
     day:{ departure: $('eodDeparture').value || cd.departure || '',
-          returned:  $('eodReturned').value  || cd.returned  || '' },
+          returned:  $('eodReturned').value  || cd.returned  || '',
+          beforeNote: cd.beforeNote, afterNote: cd.afterNote },
     boatMeta:cached.boatMeta,
     includeDelays, weather:weather||'', notes:$('eodNotes').value.trim(),
     workType:workMode(),
@@ -1589,7 +1638,8 @@ async function loadDay(mode){
   if(cached && seq === dayLoadSeq){
     // Both sheets carry the downtime editor now, so both need the gaps.
     const localGaps = localGapsFor(cached.stops, cached.downtime, cached.eodTravel);
-    renderDayData(mode, cached.stops||[], cached.downtime||[], cached.day||{}, localGaps);
+    const day = Object.assign({}, cached.day, await pendingDayNotes());
+    if(seq === dayLoadSeq) renderDayData(mode, cached.stops||[], cached.downtime||[], day, localGaps);
     renderedFromCache = true;
   }
 
@@ -1634,6 +1684,7 @@ async function loadDay(mode){
     // Local gaps render instantly; the authoritative `idle` overrides them when it lands.
     let gaps = localGapsFor(stops, downtime, pendingTravel);
     const idata = await idleP;
+    const day = Object.assign({}, d.day, await pendingDayNotes());
     // Never the spine's allocations over an un-synced stash — see overlayStash.
     // …and never without the two no-order slots, whatever the spine sent back.
     if(idata && idata.gaps)
@@ -1663,7 +1714,7 @@ async function loadDay(mode){
       }
       paintTodayTable();
     }
-    else renderDayData(mode, stops, downtime, d.day||{}, gaps);
+    else renderDayData(mode, stops, downtime, day, gaps);
     // Gaps/bookends are now authoritative — start building the high-fidelity
     // close summary in the background so the Finish PDF is instant, and re-read the
     // clipboard tally off the day we just merged (a stop logged on another device
@@ -1690,6 +1741,7 @@ function renderDayData(mode, stops, downtime, day, gaps){
   } else {
     gapHost = 'eod';
     setGapData(gaps);
+    eodDayNotes = day;
     renderEod(stops, downtime);
     if(day.departure) $('eodDeparture').value = day.departure;
     if(day.returned)  $('eodReturned').value  = day.returned;
@@ -1843,6 +1895,8 @@ $('finishDay').onclick = async () => {
       // previewDailyLog never carries notes) — overlay the freshest typed value so
       // the PDF's Notes block prints it. See dailylog.js collectNotes.
       summary.notes = $('eodNotes').value.trim();
+      // …and the same for a no-order note saved after the prefetch, or not sent yet.
+      Object.assign(summary, await pendingDayNotes(), eodDayNoteEdits);
       await downloadDailyLog(summary);
       return server;
     });
@@ -1940,6 +1994,7 @@ $('genLog').onclick = async () => {
       if(summary && (summary.stops||[]).some(s => s.status==='INSTALLED' || s.status==='UTI')){
         // previewDailyLog doesn't carry the typed note — overlay it before render.
         summary.notes = $('eodNotes').value.trim();
+        Object.assign(summary, await pendingDayNotes());
         await downloadDailyLog(summary);
         toast('Daily log downloaded — draft (day not closed)' + (tallyCopied ? ' · tally copied 📋' : ''));
       } else {

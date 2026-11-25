@@ -14,7 +14,7 @@ import { requireAdmin } from '../admin-auth.js';
 // spine enforces it regardless — see js/admin-auth.js).
 await requireAdmin();
 
-let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[] };
+let state = { employees:[], installer:'', installerId:'', date:'', stops:[], downtime:[], boatMeta:null, removed:[], dayNotes:{} };
 
 const CAT_LABEL = {
   NEXT_GEN:'Next Gen', CELL_SIGNAL:'Cell Signal', BAD_WEATHER:'Bad Weather',
@@ -102,6 +102,7 @@ async function loadDay(){
   if(!emp){ toast('Pick an installer'); return; }
   if(!date){ toast('Pick a date'); return; }
   state.installer = fullName(emp); state.installerId = h; state.date = date;
+  state.dayNotes = {}; noteEdits = {};   // a load that fails must not carry the last day's over
   setStatus('wait','Loading…');
   try{
     // All three reads depend only on installer+date, so they run in parallel —
@@ -125,6 +126,7 @@ async function loadDay(){
     state.removed = adata.stops || [];
     $('departure').value = (d.day && d.day.departure) || '';
     $('returned').value  = (d.day && d.day.returned)  || '';
+    state.dayNotes = d.day || {};              // the notes on the two no-order cards
     renderClosed(d.closed);
     // Gap data is set BEFORE rendering stops so each work-order card can show
     // its incoming travel.
@@ -179,6 +181,16 @@ function edgeCard(g, title){
   card.className = 'stopcard';
   card.innerHTML = `<div class="sc-head"><div class="sc-sum"><strong>${title}</strong>`
     + ' <span class="sc-meta">· downtime on no work order</span></div></div>';
+  const key = edgeOf(g) === 'before' ? 'beforeNote' : 'afterNote';
+  const ta = document.createElement('textarea');
+  ta.value = state.dayNotes[key] || '';
+  ta.placeholder = 'Note — including the reason for any downtime';
+  ta.style.marginTop = '6px';
+  ta.addEventListener('change', async () => {
+    state.dayNotes[key] = noteEdits[key] = ta.value.trim();
+    try{ await saveDayNotes(); toast('Note saved ✓'); } catch(err){ toast(err.message || 'Could not save'); }
+  });
+  card.appendChild(ta);
   const toggle = document.createElement('button'); toggle.className = 'mini'; toggle.type = 'button';
   toggle.style.marginTop = '6px';
   const body = document.createElement('div'); body.className = 'hide'; body.style.marginTop = '6px';
@@ -191,6 +203,17 @@ function edgeCard(g, title){
   card.appendChild(toggle); card.appendChild(body);
   onNet();
   return card;
+}
+
+// Saves the notes the Sheet has not confirmed. A failed save stays in noteEdits, and
+// Generate / Close try it again (persistEdits).
+let noteEdits = {};
+async function saveDayNotes(){
+  const sent = Object.assign({}, noteEdits), edits = noteEdits;
+  if(!Object.keys(sent).length) return;
+  await post(Object.assign({ action:'saveDayNotes', installer:state.installer,
+                             installerId:state.installerId, date:state.date }, sent));
+  Object.keys(sent).forEach(k => { if(edits[k] === sent[k]) delete edits[k]; });
 }
 
 // ── travel review: every WO→WO gap, subtract downtime/breaks ─────────────────
@@ -476,7 +499,8 @@ function localSummary(){
   return buildLocalSummary({
     installer:state.installer, installerId:state.installerId, date:state.date,
     stops:state.stops, downtime:state.downtime,
-    day:{ departure:$('departure').value, returned:$('returned').value },
+    day:{ departure:$('departure').value, returned:$('returned').value,
+          beforeNote:state.dayNotes.beforeNote, afterNote:state.dayNotes.afterNote },
     boatMeta:state.boatMeta, includeDelays:$('includeDelays').checked,
     pendingTravel: collectGapAllocations(gapData)
   });
@@ -486,6 +510,7 @@ function localSummary(){
 // without writing the Tracker row. Shared by Generate and Close.
 async function persistEdits(){
   await saveTimes();   // persist the bookends first so the log always has them
+  await saveDayNotes();
   await post({ action:'saveTravel', installer:state.installer, installerId:state.installerId,
                date:state.date, allocations: collectGapAllocations(gapData) });
 }

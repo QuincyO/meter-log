@@ -102,6 +102,7 @@ export function buildLocalSummary(opts){
     weather: o.weather || '', notes: o.notes || '',
     downtimeTotalMin, travelMinutes,
     departure: day.departure || '', returned: day.returned || '',
+    beforeNote: day.beforeNote || '', afterNote: day.afterNote || '',
     perStopTravel, stops, downtime
   };
 }

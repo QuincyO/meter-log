@@ -485,13 +485,18 @@ export async function downloadDailyLog(summary){
 // deduction to a WO→WO gap. Those are not human notes, so they're skipped here.
 const GAP_NOTE = /^\s*gap\s+\d/i;
 
-// Ordered [{ label, text }] of the day's notes: end-of-day first, then downtime
-// remarks, then per-stop notes (in arrival order). Exported for unit testing.
+// Ordered [{ label, text }] of the day's notes: end-of-day first, then the notes on the
+// two no-order cards, downtime remarks, and per-stop notes (in arrival order). Exported
+// for unit testing.
 export function collectNotes(summary){
   const s = summary || {};
   const out = [];
   const eod = String(s.notes==null?'':s.notes).trim();
   if(eod) out.push({ label:'End of day', text: eod });
+  [['Before first work order', s.beforeNote], ['After last work order', s.afterNote]].forEach(([label, v]) => {
+    const text = String(v==null?'':v).trim();
+    if(text) out.push({ label, text });
+  });
   (s.downtime || []).forEach(d => {
     const note = String(d.note==null?'':d.note).trim();
     if(!note || GAP_NOTE.test(note)) return;      // skip gap machine-tags

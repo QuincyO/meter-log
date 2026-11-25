@@ -47,6 +47,7 @@ test('the two shapes of updateStop and archiveStop read differently', () => {
 test('every other write the phone sends has a readable name', () => {
   assert.equal(describeWrite({ action:'saveTravel', allocations:[{}, {}] }), 'Travel review · 2 deductions');
   assert.equal(describeWrite({ action:'saveDay', departure:'07:30', returned:'16:10' }), 'Day start / end times · 07:30–16:10');
+  assert.equal(describeWrite({ action:'saveDayNotes', beforeNote:'x' }), 'Day note · before first order');
   assert.equal(describeWrite({ action:'endOfDay' }), 'End-of-day close');
   assert.equal(describeWrite({ action:'saveEmployee', hNumber:'H123' }), 'Settings — your details · H123');
   assert.equal(describeWrite({ action:'saveDriveTrack', date:'2026-09-23', distanceM:12345, pointCount:88 }),

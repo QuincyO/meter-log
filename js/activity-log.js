@@ -75,6 +75,8 @@ export function describeWrite(p){
       return join('Remove stop', p.reason ? `“${p.reason}”` : '');
     case 'saveTravel':      return join('Travel review', plural(count(p.allocations), 'deduction'));
     case 'saveDay':         return join('Day start / end times', [p.departure, p.returned].filter(Boolean).join('–'));
+    case 'saveDayNotes':    return join('Day note', p.beforeNote != null ? 'before first order' : '',
+                              p.afterNote != null ? 'after last order' : '');
     case 'endOfDay':        return 'End-of-day close';
     case 'saveEmployee':    return join('Settings — your details', p.hNumber);
     case 'saveDriveTrack':  return join('Drive leg', p.date,
