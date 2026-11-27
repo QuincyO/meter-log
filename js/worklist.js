@@ -1331,7 +1331,7 @@ async function optimizeRouteHandler(useNetwork){
       + (usedFallback ? ` — straight-line (${short(fallbackReason)})` : '')
       + (failed > 0 ? (useNetwork ? ` · ${failed} parked (fix address)`
         : ` · ${failed} not on the offline map (fix address, or hold Optimize to look up online)`) : '')
-      + (ambig > 0 ? ` · ${ambig} need a town picked (Edit)` : '')
+      + (ambig > 0 ? ` · ${ambig} need a town picked (🗺 Map on the card)` : '')
       + (geoReason && parkedIds.length ? ` · lookups failed: ${short(geoReason)}` : '')
       + (note ? ` · ${short(note)}` : '');
     const modeText = mode === 'here-home' ? 'Route optimized — starts here and ends near home ✓'
@@ -1639,6 +1639,8 @@ export async function renderWorklist(){
   if(routeView && routeView.isOpen()) await routeView.refresh();
   const list = $('wlList'); list.innerHTML = '';
   if(!items.length){ list.innerHTML = '<p class="muted">No orders yet — tap ＋ Add order to plan your day.</p>'; return; }
+  const towns = townsBanner(items);
+  if(towns) list.appendChild(towns);
   // Day dividers (only when the office/optimize assigned days) — a header before
   // the first pending card of each day. Done cards trail, ungrouped, and the
   // set-aside ones sit under their own header at the very bottom.
@@ -2238,8 +2240,7 @@ function makeWlCard(item){
       <strong>${title}</strong>${doneTag}${asideTag}${ignored ? '' : pill}
       ${addr ? `<div class="wl-body">${addr}</div>` : ''}
       <div class="wl-badges">${appointmentBadge(item)}${scheduleBadge(item)}${item.lockedDate ? `<span class="wl-badge">🔒 ${esc(item.lockedDate)} · slot ${Number(item.lockedSlot)}</span>` : ''}</div>
-      ${cands ? `<div class="wl-chips wl-towns">${cands.map(c =>
-        `<button class="chip" type="button">${esc(c.label)}</button>`).join('')}</div>` : ''}
+      ${cands ? `<div class="wl-chips wl-towns">${townChipsHtml(cands)}</div>` : ''}
     </div>
     <div class="wl-actions">
       ${routable ? '<button class="wl-use" data-act="use">Use →</button>' : ''}
@@ -2249,9 +2250,9 @@ function makeWlCard(item){
       <button class="wl-edit" data-act="edit">Edit</button>
       <button class="wl-del" data-act="del">✕</button>
     </div>`;
-  // Town chips right on the card (same one-tap pick as the Edit form).
-  if(cands) [...card.querySelectorAll('.wl-towns .chip')].forEach((b, i) =>
-    b.onclick = () => pickTown(item, cands[i]));
+  // Town chips right on the card (same one-tap pick as the Edit form), with the
+  // 🗺 Map chip that shows them on a map first.
+  if(cands) wireTownChips(card.querySelector('.wl-towns'), item, cands, c => pickTown(item, c));
   // Directions hands the order's destination (its pin, else the address — see
   // destOf) to the OS maps app in a new context, and copies the address line —
   // never navigate the PWA itself away mid-shift. Shown on done cards too
@@ -2469,12 +2470,8 @@ async function pickTown(item, c, unit, typedNumber = ''){
     if(/^\d\w*-\S/.test(num)) address = a.num && num.startsWith(a.num + '-')
       ? joinAddr(num, a.street) : `${address} (${num})`;
   }
-  await idb.put('worklist', Object.assign({}, stored, {
-    address, lat: c.lat, lng: c.lng,
-    ...(unit !== undefined ? { unit } : {}),
-    // The town picked is the installer's own text now, not the app's.
-    typedAddress: undefined,
-    geoAmbig: undefined, geoFail: false, updatedAt: stamp() }));
+  await idb.put('worklist', Object.assign({}, stored, townPatch(c, address),
+    unit !== undefined ? { unit } : {}));
   toast('Pinned ✓ — ' + c.label);
   await renderWorklist();
   await planAdvance();
@@ -2505,15 +2502,114 @@ function renderAmbig(item){
   const cands = (item && item.geoAmbig) || [];
   if(!cands.length){ hint.classList.add('hide'); box.classList.add('hide'); box.innerHTML=''; return; }
   hint.classList.remove('hide'); box.classList.remove('hide');
-  box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
-  [...box.children].forEach((b, i) => b.onclick = async () => {
+  box.classList.add('wl-towns');
+  box.innerHTML = townChipsHtml(cands);
+  wireTownChips(box, item, cands, async c => {
     const unit = addressText.parseAddressInput
       ? addressText.parseAddressInput($('wlNum').value, $('wlStreet').value, item.unit).unit
       : undefined;
     _wlEditId = null;
     $('wlForm').classList.add('hide'); $('wlAddBtn').textContent = '＋ Add order';
-    await pickTown(item, cands[i], unit, $('wlNum').value);
+    await pickTown(item, c, unit, $('wlNum').value);
   });
+}
+
+// ── Which town? ─────────────────────────────────────────────────────────────
+// The chip row every ⚠ pick-a-town order shows (card, Edit form, address screen):
+// 🗺 Map first, then one chip per town, the one nearest the crew marked. `near` is
+// set by route.js pickBest from the Optimize gate centre — the phone's GPS — so the
+// chip, the map's highlighted pin and "Use nearest town for all" always agree.
+// Nothing is ever picked for the installer (owner's rule, 2026-11-27).
+function townChipsHtml(cands){
+  return '<button class="chip tp-mapchip" type="button" data-map="1">🗺 Map</button>'
+    + cands.map((c, i) => `<button class="chip${c.near ? ' tp-near' : ''}" type="button" data-ci="${i}">`
+      + `${esc(c.label)}${c.near ? ' <span class="tp-tag">★ nearest</span>' : ''}</button>`).join('');
+}
+function wireTownChips(box, item, cands, pick){
+  if(!box) return;
+  [...box.querySelectorAll('.chip')].forEach(b => b.onclick = async () => {
+    if(b.dataset.map){
+      const c = await showTownMap(item, cands);
+      if(c) await pick(c);
+      return;
+    }
+    await pick(cands[Number(b.dataset.ci)]);
+  });
+}
+
+// js/town-picker.js is fetched on first use with a dynamic import() and is NOT in
+// sw.js SHELL (editing sw.js re-downloads the shell on every phone — AGENTS.md
+// §"The status pill's activity log"). A phone that can't load it keeps the chips.
+let _townPicker = null;
+function townPicker(){
+  if(!_townPicker) _townPicker = import('./town-picker.js').catch(e => {
+    console.error('Town picker unavailable', e);
+    _townPicker = null;
+    return null;
+  });
+  return _townPicker;
+}
+async function showTownMap(item, cands){
+  const m = await townPicker();
+  if(!m || typeof m.openTownPicker !== 'function'){
+    toast('The map needs signal the first time — tap a town instead');
+    return null;
+  }
+  const title = [item.workOrderId ? `WO ${item.workOrderId}` : '', splitAddr(item.address || '').street]
+    .filter(Boolean).join(' · ');
+  return m.openTownPicker({ title, cands, here: livePin() });
+}
+
+// The fields a town pick writes, shared by the one-at-a-time pick and "nearest
+// for all" so the two can't drift.
+function townPatch(c, address){
+  return { address, lat: c.lat, lng: c.lng,
+    // The town picked is the installer's own text now, not the app's.
+    typedAddress: undefined,
+    geoAmbig: undefined, geoFail: false, updatedAt: stamp() };
+}
+
+// Orders still waiting on a town (logged ones never are).
+const needsTown = x => x && x.wlStatus !== 'done' && !!(x.geoAmbig && x.geoAmbig.length);
+
+// "Use nearest town for all": every waiting order takes the town its chips mark
+// ★ nearest. One that has no marked town (looked up before the mark existed, or
+// with no idea where the crew was) is left for the installer and counted in the
+// toast. It does not upload, like every other edit on this screen.
+async function pickNearestAll(){
+  const items = (await allSorted()).filter(needsTown);
+  let pinned = 0, left = 0;
+  for(const item of items){
+    const c = item.geoAmbig.find(x => x && x.near);
+    if(!c){ left++; continue; }
+    const stored = (await idb.get('worklist', item.id)) || item;
+    await idb.put('worklist', Object.assign({}, stored, townPatch(c, c.label)));
+    pinned++;
+  }
+  toast(pinned
+    ? `Pinned ${pinned} to the nearest town ✓${left ? ` · ${left} still need a pick` : ''} — Optimize to route them`
+    : 'No nearest town to use — tap a town on each card');
+  await renderWorklist();
+  await planAdvance();
+}
+
+function townsBanner(items){
+  const waiting = items.filter(needsTown);
+  if(!waiting.length) return null;
+  const withNear = waiting.filter(x => x.geoAmbig.some(c => c && c.near)).length;
+  const div = document.createElement('div');
+  div.className = 'wl-towns-all';
+  const n = waiting.length;
+  div.innerHTML = `<span>⚠ ${n === 1 ? '1 order matches' : `${n} orders match`} more than one town</span>`
+    + (withNear ? `<button type="button">Use nearest town for all${withNear < n ? ` (${withNear})` : ''}</button>` : '');
+  const btn = div.querySelector('button');
+  if(btn) btn.onclick = () => {
+    btn.disabled = true;
+    withActivity('Pinning towns…', pickNearestAll).catch(e => {
+      console.error(e); btn.disabled = false; toast('Couldn’t pin the towns — try again');
+    });
+  };
+  return div;
 }
 
 // Recent-street chips: the distinct streets already on the list, most recent
@@ -3519,6 +3615,7 @@ export function initWorklist(opts){
     saveAddress: saveWorklistAddress,
     supportsUnits: true,
     pickTown: (item, c, unit) => pickTown(item, c, unit, $('wlAddrNum').value),
+    showTownMap,
     // By namespace: an older cached route.js has no lookupOnline, and then the
     // screen says so instead of the module failing to link.
     lookupOnline: async (address, item) => typeof routeMod.lookupOnline === 'function'

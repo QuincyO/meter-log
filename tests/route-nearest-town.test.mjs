@@ -1,9 +1,11 @@
 // Field report, 2026-11-18: an Optimize tap asked "pick a town" for a road that
 // crosses a municipal line, and the town picked put nine different addresses on
 // one pin. The geocoder half is in tests/roadgraph.test.mjs. This file covers
-// the two rules that live in js/route.js:
-//   1. the district index settles a real tie by distance — the town nearest the
-//      crew wins when it is clearly the nearest (the owner's rule), and
+// the rules that live in js/route.js:
+//   1. a real tie is NEVER settled for the installer. From 2026-11-18 the district
+//      index took the town nearest the crew when it was clearly the nearest; the
+//      owner reversed that on 2026-11-27. Every tie asks, the nearest is marked
+//      (`near`, with each town's `km`) for the map picker and "nearest for all";
 //   2. two different addresses on one exact pin are looked up again, so a list
 //      pinned by the old clamp repairs itself on the next Optimize.
 import test from 'node:test';
@@ -17,12 +19,15 @@ const FAR  = { lat: 43.400, lng: -81.000, label: '10 Main St, Fartown',  place: 
 // A third, only a little farther out than NEAR: no clear winner between them.
 const ALSO = { lat: 42.900, lng: -81.000, label: '10 Main St, Alsotown', place: 'Alsotown' };
 
-test('the town clearly nearest the crew is taken without asking', () => {
-  // Listed far-first, so "nearest" is doing the work rather than list order.
+test('a town far nearer the crew is still never taken without asking', () => {
+  // Listed far-first, so the nearest-first order is pickBest's doing.
   const hit = pickBest([FAR, NEAR], CREW, { nearest:true });
-  assert.equal(hit.label, NEAR.label);
-  assert.equal(hit.ambig, undefined, 'no pick-a-town prompt');
-  assert.equal(hit.lat, NEAR.lat);
+  assert.ok(hit.ambig, 'the installer picks (owner\'s rule, 2026-11-27)');
+  assert.deepEqual(hit.ambig.map(c => c.label), [NEAR.label, FAR.label]);
+  assert.equal(hit.ambig[0].near, true, 'the nearest is marked for the picker');
+  assert.equal(hit.ambig[1].near, undefined);
+  assert.ok(Math.abs(hit.ambig[0].km - 8.9) < 0.2, 'km from the crew: ' + hit.ambig[0].km);
+  assert.ok(Math.abs(hit.ambig[1].km - 44.5) < 0.3, 'km from the crew: ' + hit.ambig[1].km);
 });
 
 test('two towns about as far away as each other still ask, nearest first', () => {
@@ -36,15 +41,31 @@ test('with no idea where the crew is, a tie is never broken silently', () => {
   const hit = pickBest([FAR, NEAR], null, { nearest:true });
   assert.ok(hit.ambig);
   assert.equal(hit.ambig.length, 2);
+  // Nothing to measure from, so nothing is marked nearest.
+  assert.ok(hit.ambig.every(c => c.near === undefined && c.km === undefined));
 });
 
 test('the online geocoders keep their own ranking and still ask', () => {
   // Google and ORS return matches in relevance order, and a nearer partial
-  // match must not silently beat the exact one. Only the district index, whose
-  // candidates are already equals, is settled by distance.
+  // match must not be listed above the exact one. Only the district index,
+  // whose candidates are already equals, is ordered by distance.
   const hit = pickBest([FAR, NEAR], CREW);
   assert.ok(hit.ambig);
   assert.equal(hit.label, FAR.label);
+  // The nearest is still marked for the map, wherever it sits in the list.
+  assert.deepEqual(hit.ambig.map(c => !!c.near), [false, true]);
+});
+
+test('the route never auto-picks a town on any provider', async () => {
+  // The 2026-11-18 margin rule must not creep back in under another name.
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../js/route.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /NEAREST_MARGIN/);
+  const body = src.slice(src.indexOf('export function pickBest'), src.indexOf('export function sharedPinIds'));
+  // Inside the rivals branch, the only return carries `ambig`.
+  const rivals = body.slice(body.indexOf('if(rivals.length)'), body.lastIndexOf('return { lat: best.lat'));
+  assert.equal((rivals.match(/return /g) || []).length, 1);
+  assert.match(rivals, /return \{[^}]*ambig \}/);
 });
 
 test('different addresses on one exact pin are flagged for another lookup', () => {

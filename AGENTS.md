@@ -1039,13 +1039,30 @@ The frontends and the spine communicate over a single JSON-over-HTTP protocol, a
   make it a plain distance cap: one sparse rural road and two different roads with
   one town tag look the same by distance, and the first is the case interpolation
   exists for.
-  **On the district index a real tie goes to the nearest town**, when it is at least
-  twice as close to the crew as the next one (`pickBest`'s `opts.nearest`, owner's
-  rule 2026-11-18). This replaces "never auto-picked" for the tap only. Don't pass it
-  for Google or ORS: their list is in relevance order, and a nearer partial match
-  would beat the exact one. It does pin the wrong town sometimes, about 1 lookup in
-  1,200 with the crew 5 km out and 1 in 190 at 15 km, measured on the published
-  district, against asking on 45% of lookups before.
+  **A real tie between towns is never settled for the installer** (owner's rule
+  2026-11-27, reversing the 2026-11-18 rule that took the nearest town when it was
+  twice as close). Every tie parks the order with `geoAmbig`. With a gate centre,
+  `pickBest` gives each candidate `km` and marks the nearest `near: true`. The
+  centre is the phone's GPS unless the phone is more than `GEO_RADIUS_KM` from the
+  list. On the district index (`opts.nearest`) it also lists them nearest-first;
+  Google/ORS keep relevance order. Four things to keep:
+  (1) **nothing auto-picks.** The owner was told the cost: the rule had cut asking
+  from 45% of offline lookups to 1.2% (crew 5 km out, published district). That is
+  why (2) exists. `tests/route-nearest-town.test.mjs` fails if a margin comes back;
+  (2) **"Use nearest town for all"** (the banner at the top of `#wlList`,
+  `pickNearestAll`) pins every waiting order to its `near` town. It goes through the
+  same `townPatch` as a single pick and does not upload. An order with no `near`
+  (looked up before the mark existed, or with no centre) is left and counted;
+  (3) **🗺 Map** on every chip row (card, Edit form, address screen) opens
+  `js/town-picker.js`: a Leaflet sheet with a lettered pin per town, the `near` one
+  highlighted, and a "You" dot from `livePin()` or one quick coarse fix. The
+  highlight comes from `near`, not the live fix, so the chips, the map and the
+  banner always agree. Only a list saved without `near` falls back to the live fix;
+  (4) **`town-picker.js` is a dynamic `import()` and is NOT in `sw.js` SHELL**, for
+  the same reason as the activity log. It builds its own DOM, so there is no markup
+  contract. A phone that can't load it keeps the chips. The address screen shows the
+  Map chip only when `opts.showTownMap` is a function (the skew rule).
+  `tests/town-picker.test.mjs`.
   **Two different addresses on one exact pin are looked up again every Optimize**
   (`sharedPinIds` → `repinShared`). That is what repaired the lists pinned before the
   fix. It asks the district index only, and anything but a clean single answer leaves

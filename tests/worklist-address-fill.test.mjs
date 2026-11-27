@@ -190,8 +190,10 @@ test('saving only a unit preserves the pin, changing the base address invalidate
 
 test('picking a town saves the edited unit and old callers retain the saved detail', async () => {
   const source = js.match(/async function pickTown\([^]*?\n\}/)?.[0];
+  // The fields a pick writes are shared with "Use nearest town for all".
+  const patchSource = js.match(/function townPatch\([^]*?\n\}/)?.[0];
   let row = { id:'a', address:'13 Whatever Lane', unit:'rear door', geoAmbig:[{}] };
-  const pick = runInNewContext(`(${source})`, {
+  const pick = runInNewContext(`${patchSource}; (${source})`, {
     idb:{ get:async () => row, put:async (_store, value) => { row = value; } },
     stamp:() => '2026-09-29 12:00:00', toast:() => {},
     splitAddr, joinAddr,

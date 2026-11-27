@@ -302,20 +302,22 @@ export function coordsFromText(text){
 // hard-gate to GEO_RADIUS_KM around center, then detect ambiguity (the same
 // address in distinct places — different `place` AND > AMBIG_KM apart, so
 // same-town rivals like an address point vs its street centroid don't count).
-// Surfaced, never auto-picked — with one exception, opts.nearest, which only the
-// district index passes (offlineGeocode). Shared by all providers so the gate
-// can't drift between them.
+// Surfaced, NEVER auto-picked. Shared by all providers so the gate can't drift
+// between them.
 //
-// opts.nearest — the owner's rule, 2026-11-18: "the town closest to me is likely
-// the right address". With a center, the candidates are ranked by distance from
-// it, and the nearest is taken WITHOUT asking when it is clearly the nearest —
-// NEAREST_MARGIN times closer than the runner-up. A close call still asks, with
-// the nearest listed first. The online providers do not get this: their list is
-// in relevance order, and a nearer partial match must not silently beat the
-// exact one. The district index's candidates are already equals (geocodeAddress
-// has dropped every road the number doesn't fit), so distance is all that is
-// left to tell them apart.
-const NEAREST_MARGIN = 2;
+// With a center, every candidate carries `km` (its distance from the center, to
+// 0.1 km) and the nearest of the ones returned carries `near: true` — the pin the
+// town picker highlights and "Use nearest town for all" takes. Both are phone-only
+// (geoAmbig never leaves the device; wireShape is an allow-list).
+//
+// opts.nearest (the district index only) lists the candidates nearest-first. Its
+// candidates are already equals (geocodeAddress has dropped every road the number
+// doesn't fit), so distance is the useful order. The online providers keep their
+// own relevance order: a nearer partial match must not be listed above the exact
+// one. From 2026-11-18 to 2026-11-27 opts.nearest also TOOK the nearest town
+// without asking when it was twice as close as the runner-up; the owner reversed
+// that on 2026-11-27 — a tie is the installer's to pick, on a map, with the
+// nearest highlighted and a one-tap "nearest for all" on the worklist.
 export function pickBest(hits, center, opts = {}){
   const inCircle = (hits || []).filter(h =>
     h && isFinite(h.lat) && isFinite(h.lng) &&
@@ -331,13 +333,17 @@ export function pickBest(hits, center, opts = {}){
       seen[hh.place] = 1;
       cands.push({ label: hh.label, lat: hh.lat, lng: hh.lng });
     }
-    if(opts.nearest && center){
+    if(center){
       const far = c => haversine(c, center);
-      cands.sort((a, b) => far(a) - far(b));
-      if(far(cands[0]) * NEAREST_MARGIN <= far(cands[1]))
-        return { lat: cands[0].lat, lng: cands[0].lng, label: cands[0].label };
+      if(opts.nearest) cands.sort((a, b) => far(a) - far(b));
+      for(const c of cands) c.km = Math.round(far(c) / 100) / 10;
     }
-    return { lat: cands[0].lat, lng: cands[0].lng, label: cands[0].label, ambig: cands.slice(0, 3) };
+    const ambig = cands.slice(0, 3);
+    if(center){
+      const near = ambig.reduce((m, c) => (c.km < m.km ? c : m), ambig[0]);
+      near.near = true;
+    }
+    return { lat: ambig[0].lat, lng: ambig[0].lng, label: ambig[0].label, ambig };
   }
   return { lat: best.lat, lng: best.lng, label: best.label };
 }

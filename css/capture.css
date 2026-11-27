@@ -133,6 +133,28 @@
 /* card town-chips reuse .wl-chips/.chip, but must show their full label */
 .wl-towns .chip{height:auto;min-height:36px;padding:6px 14px;white-space:normal;overflow:visible;
                 text-overflow:clip;text-align:left}
+/* the town nearest the crew (pickBest's `near`) and the 🗺 Map chip */
+.wl-towns .chip.tp-near{border-color:var(--amber);background:#FEF3E2}
+.wl-towns .chip .tp-tag{font-size:12px;font-weight:800;color:var(--amber-press);margin-left:4px}
+.wl-towns .chip.tp-mapchip{font-weight:800}
+/* "Use nearest town for all" banner at the top of the list */
+.wl-towns-all{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px;padding:10px 12px;
+              border:1.5px solid var(--amber);border-radius:var(--r);background:#FEF3E2;font-size:14px;font-weight:700}
+.wl-towns-all span{flex:1 1 180px}
+.wl-towns-all button{height:38px;padding:0 14px;border:0;border-radius:10px;background:var(--amber);
+                     color:var(--ink);font-size:14px;font-weight:800;cursor:pointer}
+/* "Which town?" sheet (js/town-picker.js — built in JS, no markup in index.html) */
+.town-pick .tp-map{margin:4px 0 6px;background:var(--line)}
+.town-pick .tp-opt.tp-near{border-color:var(--amber);background:#FEF3E2}
+.town-pick .tp-key{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+                   margin-right:8px;border-radius:50%;background:var(--panel);border:2px solid var(--ink);
+                   font-size:13px;font-weight:800;vertical-align:middle}
+.town-pick .tp-near .tp-key{background:var(--amber);border-color:var(--amber-press)}
+.tp-pin{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;
+        background:#fff;border:3px solid #13171C;color:#13171C;font:800 14px/1 system-ui,sans-serif;
+        box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.tp-pin.tp-pin-near{background:#F59E0B;border-color:#C97E00;font-size:17px;
+                    box-shadow:0 0 0 6px rgba(245,158,11,.35),0 2px 6px rgba(0,0,0,.35)}
 .wl-actions{grid-column:1/-1;grid-row:2;display:flex;gap:8px;flex-wrap:nowrap;width:100%}
 .wl-actions>button{min-width:0}
 /* recent-street chips */

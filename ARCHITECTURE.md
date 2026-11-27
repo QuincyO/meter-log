@@ -913,11 +913,15 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     road. It is refused — and the pin stays on the last known point — when the pack
     has no road names, the reach is over 5 km, or no road of that name is there,
     which is how "the road has ended" reads.
-  - **A real tie is settled by distance, on the district index only.** With a crew
-    position, `pickBest(..., {nearest:true})` takes the nearest candidate without
-    asking when it is at least twice as close as the runner-up (owner's rule,
-    2026-11-18); a closer call raises "⚠ pick a town" with the nearest first. The
-    online providers never get this — their list is in relevance order.
+  - **A real tie is never settled for the installer** (owner's rule 2026-11-27,
+    reversing the 2026-11-18 rule that took a town twice as close without asking).
+    Every tie raises "⚠ pick a town". With a crew position each candidate carries
+    `km` and the nearest `near: true`; the district index (`{nearest:true}`) lists
+    them nearest-first, the online providers keep relevance order. The chip row
+    marks the nearest ★ and starts with **🗺 Map**, which opens `js/town-picker.js`
+    (lazy-loaded, not in the SW shell): the towns as lettered pins, the nearest
+    highlighted, the phone as a "You" dot. A banner above the list offers **Use
+    nearest town for all** (`pickNearestAll`) for a long list of ties.
   - **The phone's route map has an All tab** (`worklist-route-view.js` `ALL_ROUTES`):
     every pending order's pin on one map, day number on the pin, day colour, no
     line. It is where a wrong pin shows without opening the day it is on, and the
@@ -932,9 +936,11 @@ log). The captured data is identical; what changes is the chrome and the PDF.
     (`sharedPinIds` → `repinShared`), against the district index only. A clean single
     answer moves the pin; anything else leaves the order untouched.
   Measured on the published district against 6,127 addresses that are in the map,
-  crew 5 km away: before, 55% pinned and 45% asked "pick a town"; after, 98.7%
-  pinned right, 1.2% asked, 0.08% pinned to the wrong town (a same-numbered street
-  in the next city that was nearer the crew). At 15 km: 95.4% / 4.1% / 0.5%.
+  crew 5 km away, for the 2026-11-18 auto-pick: without it 55% pinned and 45% asked
+  "pick a town"; with it 98.7% pinned right, 1.2% asked, 0.08% pinned to the wrong
+  town (a same-numbered street in the next city that was nearer the crew). At 15 km:
+  95.4% / 4.1% / 0.5%. Since 2026-11-27 every one of those ties asks again; "Use
+  nearest town for all" is the one-tap equivalent of the old rule, taken by choice.
   - A roads-only pack (no address file at build time) is perfectly valid and simply
     has no offline geocoding.
 - **District building from the planner (`tools/roadpack-server.mjs`).** Drawing a

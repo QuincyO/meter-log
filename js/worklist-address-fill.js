@@ -275,6 +275,7 @@ export function sinkAddressless(items){
 //   saveAddress(id, addr, unit) → persist one address + optional unit
 //   supportsUnits        → caller can persist that third argument (cache skew)
 //   pickTown(item, cand, unit) → town pin + optional edited unit
+//   showTownMap(item, cands) → the chosen cand or null (optional: the 🗺 Map chip)
 //   onDone()              → sink + re-render, run once per visit
 //   onClose()             → leave the screen (history-aware)
 export function initWorklistAddressFill(opts){
@@ -504,12 +505,22 @@ export function initWorklistAddressFill(opts){
     const cands = (item.geoAmbig && item.geoAmbig.length) ? item.geoAmbig : null;
     if(!cands){ box.classList.add('hide'); box.innerHTML = ''; hint.classList.add('hide'); return; }
     box.classList.remove('hide'); hint.classList.remove('hide');
-    box.innerHTML = cands.map(c => `<button class="chip" type="button">${esc(c.label)}</button>`).join('');
-    [...box.children].forEach((b, i) => b.onclick = async () => {
+    box.classList.add('wl-towns');
+    // 🗺 Map only when the caller can show one (an older worklist.js can't), and
+    // the town nearest the crew marked like the card's chips.
+    const canMap = typeof opts.showTownMap === 'function';
+    box.innerHTML = (canMap ? '<button class="chip tp-mapchip" type="button" data-map="1">🗺 Map</button>' : '')
+      + cands.map((c, i) => `<button class="chip${c.near ? ' tp-near' : ''}" type="button" data-ci="${i}">`
+        + `${esc(c.label)}${c.near ? ' <span class="tp-tag">★ nearest</span>' : ''}</button>`).join('');
+    [...box.children].forEach(b => b.onclick = async () => {
+      let candidate;
+      if(b.dataset.map){
+        candidate = await opts.showTownMap(item, cands);
+        if(!candidate) return;
+      } else candidate = cands[Number(b.dataset.ci)];
       const unit = opts.supportsUnits
         ? parseAddressInput($('wlAddrNum').value, $('wlAddrStreet').value, item.unit).unit
         : undefined;
-      let candidate = cands[i];
       if(!opts.supportsUnits){
         // Old callers cannot store unit separately. Like the Save fallback,
         // keep typed shorthand in their address while retaining the chosen town.
