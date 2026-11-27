@@ -82,6 +82,8 @@ export function describeWrite(p){
     case 'saveDriveTrack':  return join('Drive leg', p.date,
                               p.distanceM ? `${(p.distanceM / 1000).toFixed(1)} km` : '',
                               p.pointCount ? `${p.pointCount} pts` : '');
+    case 'saveSiteVisit':   return join('House timer', p.startWO || p.startAddress,
+                              p.minutes !== '' && p.minutes != null ? `${p.minutes} min` : 'not ended');
     case 'saveWorklist':    return join('Worklist upload', plural(count(p.orders), 'order'));
     case 'savePlan':        return 'Route settings';
     case 'previewDailyLog': return 'Daily log preview (nothing saved)';

@@ -52,11 +52,12 @@ test('AGENTS.md describes the app as it is now, not as it was', () => {
     'StopsArchive', 'InstallerMetrics', 'archiveStop', 'route-variants.js',
     'DriveTracks', 'saveDriveTrack', 'drive-track.js',
     'WorklistInbox', 'queueWorklistOrders', 'tools/wo-bot', 'tools/wo-bot/tray.ps1',
-    'WorklistRemoved', 'removeWorklistOrders'])
+    'WorklistRemoved', 'removeWorklistOrders',
+    'SiteVisits', 'saveSiteVisit', 'site-visit.js'])
     assert.ok(agents.includes(term), `AGENTS.md never mentions ${term}`);
-  assert.ok(!/twelve tabs|four pages|four static pages|sixteen tabs|seventeen tabs|eighteen tabs/.test(agents),
+  assert.ok(!/twelve tabs|four pages|four static pages|sixteen tabs|seventeen tabs|eighteen tabs|nineteen tabs/.test(agents),
     'AGENTS.md still carries a stale count from the old fork');
-  assert.match(agents, /nineteen tabs/);
+  assert.match(agents, /twenty tabs/);
 });
 
 test('the docs do not tell an agent to serve the pages with python', () => {

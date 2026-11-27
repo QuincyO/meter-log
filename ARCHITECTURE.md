@@ -10,7 +10,7 @@ Claude for the formatted daily deliverable + the messy/natural-language bits.
 ## The three layers
 
 **1. Data layer (system of record) — Google Sheets in your Drive.**
-One spreadsheet, nineteen tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`, `WorklistInbox`, `WorklistRemoved`. This is the truth.
+One spreadsheet, twenty tabs: `Stops`, `StopsArchive`, `Downtime`, `Tracker`, `Employees`, `Teams`, `Captains`, `Subs`, `Timing`, `Days`, `BoatDays`, `Dispatch`, `Metrics`, `InstallerMetrics`, `Worklist`, `WorklistPlans`, `DriveTracks`, `WorklistInbox`, `WorklistRemoved`, `SiteVisits`. This is the truth.
 It is not Claude and not the form. Everything reads from or writes to it.
 
 **2. Capture + view layer (how data gets in, and how it's seen).**
@@ -168,7 +168,10 @@ installer-owned tuning/target reaches the office without the whole-list replace
 `saveEmployee`, `deleteEmployee`, `saveTeam`, `deleteTeam`,
 `saveCaptain`, `deleteCaptain`, `saveSub`, `deleteSub`,
 `saveDriveTrack` (append one Drive-mode driving leg — client-generated `id`,
-idempotent on retry like `addStop`; see "Drive mode").
+idempotent on retry like `addStop`; see "Drive mode"),
+`saveSiteVisit` (append one house timer from the Drive screen's Parked / Leaving
+buttons — queued, idempotent on a client-generated `id`, and never answered with
+`{ok:false}`; see "The house timer").
 **Read actions (GET):** `day` (one installer's stops + downtime for a date),
 `range` (one installer's stops + downtime over a from/to window, grouped by day —
 backs the phone's offline "recent days" cache in a single call),
@@ -2029,6 +2032,76 @@ prunes legs older than ~8 days. `saveDriveTrack` is idempotent on the leg id and
 shipped leg is marked `queued:true`, so a leg can't double-upload. Legs with < 2
 points are dropped, never uploaded.
 
+### The house timer (Parked / Leaving)
+
+Two buttons on the Drive screen, either side of "2 of 14": **Parked** starts a timer
+when the truck stops at a house and **Leaving** ends it when the truck pulls out. Each
+pair is one row on the `SiteVisits` tab. The owner asked for it on 2026-11-27 to start
+measuring how long the crew is at a house. **It is collection only.** Nothing reads
+the tab, and what the numbers mean is to be worked out once there is data.
+
+**Where the code is.** `js/site-visit.js` holds the rules and is pure (no DOM, no
+storage), so `tests/site-visit.test.mjs` covers every case below. `js/drive.js` builds
+the row, keeps the running timer and queues the finished one. `js/worklist.js
+legMinutes` prices a drive between two orders. `Code.gs saveSiteVisit` appends the row.
+
+**Which order a press belongs to** (`pickOrder`). Navigate moves the big card on to the
+next order before it hands off to Maps, so the house the truck is parked at is the
+"Driving to" card. A Parked press takes that card when there is one, and the big card
+otherwise. One exception: when the "Driving to" order is the one the last timer was
+on, the press is for the big card. That is the house two doors down, where nobody
+presses Navigate. The order on a row is a hint. The stops logged between `startTime`
+and `endTime` are on `Stops`, and they are the stronger record of what the visit was.
+
+**Ending a timer.**
+
+| what happened | `endedBy` | end order |
+|---|---|---|
+| Leaving pressed | `leave` | the order Navigate was last pressed on while the timer ran, else the start order |
+| Parked pressed on another order with the timer still running | `nextStart` | the order that press is for; a new timer starts on it |
+| the timer is still running the next day | `notEnded` | as for Leaving; `endTime` and `minutes` are blank |
+
+A Leaving press does not read the big card. Once an order is logged and the list
+refreshes, the card moves on by itself while the truck is still in the driveway.
+
+**The drive is taken off only when the order changed.** A timer that ends on a
+different order than it started on ran through a drive, because the installer forgot
+Leaving. `legMinutes` estimates that one leg from the same travel ladder as every ETA
+on the phone (the district road graph, else straight-line × the detour factor), and
+the row gets `driveMin`, `driveSource` (`road` or `straight`) and `onSiteMin =
+minutes − driveMin`, never below 0. `minutes` stays the raw end − start. Two limits: it
+is one leg, so a timer forgotten through several houses loses only the drive from
+where it started to where it ended; and with a pin missing on either order nothing is
+taken off. GPS is not used for this. The app gets no fixes while Google Maps is in
+front, which is when the truck is driving.
+
+**`navTime`** is the time Navigate was first pressed on a different order while the
+timer ran. For a forgotten timer it is the best record of when the truck really left.
+
+**Small rules** (the owner's to change): a timer ended under 30 seconds
+(`MIN_VISIT_SEC`) is thrown away as a mis-tap; a second Parked press inside those 30
+seconds is a double tap and does nothing; a Parked press on the order already being
+timed does nothing.
+
+**Storage and upload.** The running timer is one `localStorage` key, `siteVisitOpen`,
+so it survives a reload and iOS killing the app during a Maps hand-off.
+`siteVisitLast` keeps the last saved line and its order for the day. A finished timer
+goes through the offline queue (`enqueue`, action `saveSiteVisit`) at the press, with
+a client-generated id. `siteVisitClosing` holds an ended timer until its row is in the
+queue, because the drive lookup is awaited in between; a reload in that window
+finishes the job on the next open. The upload does not ride the 3-minute refresh:
+that runs only while tracking is armed, driving stats are on and the screen is in
+front.
+
+**Why the row is built in JS.** The row, the two buttons and the line under them are
+made by `buildVisitRow` with inline styles, around the existing `#drivePos`, and the
+"km/h now" tile is moved into it. `index.html` and `css/drive.css` did not change. A
+phone runs a new `drive.js` beside an older page and stylesheet until its installer
+presses Force update, so markup or a CSS rule would have to arrive at the same time
+to work. `site-visit.js` is fetched with a dynamic `import()` and is not in the
+`sw.js` SHELL, for the reason given under the activity log. If it cannot load, no row
+is built and the screen is as it was.
+
 ## Audits
 
 Two read-only pages that show, for one installer, where the day goes, the delays they
@@ -2792,6 +2865,31 @@ append guarded by `tests/drivetracks-sheet-schema.test.mjs`.
 | `maxSpeed` | number | m/s, best single fix |
 | `gaps` | string | JSON `[{pauseLat,pauseLng,pauseT,resumeLat,resumeLng,resumeT}]` |
 | `encoded` | string | interleaved-varint polyline of `{lat,lng,t,spd}` |
+
+### SiteVisit row  (one per house timer → tab "SiteVisits")
+One Parked / Leaving pair from the Drive screen (see "The house timer"). Collection
+only: no read endpoint, and nothing in the app uses these figures. The tab makes
+itself on the first `saveSiteVisit`. A positional append guarded by
+`tests/sitevisits-sheet-schema.test.mjs`.
+| field | type | notes |
+|-------|------|-------|
+| `id` | string | client-generated; `saveSiteVisit` is idempotent on it |
+| `date` | string | Toronto-local `yyyy-MM-dd` the timer started on |
+| `installer` | string | display name from the phone's Settings |
+| `hNumber` | string | the installer's H number |
+| `workType` | string | `'boat'` \| `'land'` |
+| `startTime` | string | Toronto stamp of the Parked press, like `Stops.timestamp` |
+| `endTime` | string | Toronto stamp of the end; blank when `endedBy` is `notEnded` |
+| `minutes` | number | raw end − start, to a tenth; blank when `notEnded` |
+| `startWO` | string | work order the timer started on (blank if the order has none) |
+| `startAddress` | string | that order's address |
+| `endWO` | string | work order it ended on; same as `startWO` unless the truck moved on |
+| `endAddress` | string | that order's address |
+| `endedBy` | string | `leave` \| `nextStart` \| `notEnded` |
+| `driveMin` | number | estimated drive from the start order to the end order; blank when they are the same order or a pin is missing |
+| `driveSource` | string | `road` (district road graph) \| `straight` (straight-line estimate); blank with no `driveMin` |
+| `onSiteMin` | number | `minutes − driveMin`, never below 0; equals `minutes` with no `driveMin` |
+| `navTime` | string | Toronto stamp of the first Navigate press on another order while the timer ran; else blank |
 
 ### WorklistInbox row  (one per queued work order → tab "WorklistInbox")
 The photo bot's drop box (`tools/wo-bot`). An installer photographs the handheld's

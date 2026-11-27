@@ -14,9 +14,11 @@
 // live here (AUTO_SYNC_MS); knowing HOW to refresh stays with the module that owns
 // the data.
 import { $, esc } from './dom.js';
-import { store } from './store.js';
+import { store, cfg } from './store.js';
 import * as addressText from './worklist-address-fill.js';
 import { localDate, hhmmMin, clockOf, stamp } from './time.js';
+import { enqueue } from './queue.js';
+import { workMode } from './work-mode.js';
 import {
   startRecording, stopRecording, isRecording, wakePref, setWakePref, subscribe,
   liveMetrics, showMetricsPref,
@@ -129,6 +131,9 @@ export function initDrive(opts){
     if(!el) return;
     const show = showMetricsPref() && isRecording();
     el.classList.toggle('hide', !show);
+    // The house-timer row lifts "km/h now" out of this card to sit between its two
+    // buttons (buildVisitRow), so that one tile no longer hides with its old parent.
+    if(visitUi && visitUi.nowEl) visitUi.nowEl.style.display = show ? '' : 'none';
     if(!show) return;
     const m = liveMetrics();
     $('dmNow').textContent = Math.round(m.currentSpeed * KMH_PER_MS);
@@ -338,9 +343,228 @@ export function initDrive(opts){
     el.classList.remove('hide');
   }
 
+  // ── house timer: Parked (left) starts it, Leaving (right) ends it ───────────
+  // How long the truck is at an order, one `SiteVisits` row per pair. Collection
+  // only — nothing reads the rows yet (owner, 2026-11-27). The rules live in
+  // js/site-visit.js, which is pure; this half is the two buttons, the storage and
+  // the upload. Five things here look optional and are not:
+  //   • the module arrives by dynamic import() and is NOT in sw.js SHELL (the
+  //     activity-log rule). Until it loads — or if it never does — no row is built
+  //     and this screen is exactly what it was;
+  //   • the row is BUILT HERE, with inline styles, and index.html / drive.css gained
+  //     nothing. A phone runs this file against an older page and stylesheet for as
+  //     long as its installer leaves Force update alone, so markup or a CSS rule
+  //     would be a second and third file that all have to arrive together;
+  //   • a finished visit rides the offline QUEUE at the press, not the 3-minute
+  //     refresh below. That refresh runs only while tracking is armed, driving stats
+  //     are on and this screen is in front, so on a day without tracking it never
+  //     runs at all;
+  //   • the running timer is one store key, so it survives a reload and iOS killing
+  //     the app while Maps is in front. `siteVisitClosing` covers the seconds
+  //     between a press and the row reaching the queue, while the drive is priced;
+  //   • state changes at the PRESS, before any await: a second tap during the drive
+  //     lookup must find the new state, or one house is saved twice.
+  const VISIT_KEY = 'siteVisitOpen';         // the running timer
+  const VISIT_LAST_KEY = 'siteVisitLast';    // { order, text, date } of the last one
+  const VISIT_CLOSING_KEY = 'siteVisitClosing';
+  const VISIT_TICK_MS = 15 * 1000;           // display only — the row counts minutes
+  const LEG_WAIT_MS = 4000;
+  let visitMod = null, visitUi = null, visitTimer = null;
+
+  const readJson = key => {
+    try { const raw = store.get(key); return raw ? JSON.parse(raw) : null; }
+    catch { return null; }
+  };
+  const writeJson = (key, v) => store.set(key, v ? JSON.stringify(v) : '');
+  const openVisit = () => readJson(VISIT_KEY);
+  const lastVisit = () => {
+    const last = readJson(VISIT_LAST_KEY);
+    return last && last.date === localDate() ? last : null;
+  };
+  const setLastVisit = (order, text) =>
+    writeJson(VISIT_LAST_KEY, { order: order || null, text, date: localDate() });
+  const visitNow = () => ({ ms: Date.now(), stamp: stamp(), date: localDate() });
+  const snapOrder = item => item ? visitMod.orderOf(item, addrOf(item)) : null;
+
+  // Which order a Parked press means — site-visit.js pickOrder has the reasoning.
+  // The Driving-to card is read off the LIVE order where it still exists, so the
+  // snapshot carries the pin the last refresh gave it.
+  function visitOrder(){
+    const d = loadDest();
+    const dest = d ? (pending.find(p => destKey(p) === destKey(d)) || d) : null;
+    const open = openVisit(), last = lastVisit();
+    return visitMod.pickOrder(snapOrder(dest), snapOrder(pending[idx]),
+      open ? open.order : (last && last.order));
+  }
+
+  async function sendVisit(row){
+    const c = cfg();
+    try {
+      await enqueue({ token: c.token, action: 'saveSiteVisit', installer: c.name,
+        hNumber: c.hNumber, workType: workMode(), ...row });
+    } catch(e){ console.error('House timer: could not queue the visit', e); }
+  }
+
+  // The drive between two orders, from the same travel ladder every ETA on this
+  // phone is built from (worklist.js legMinutes). Capped, because a row must not
+  // wait on a road graph that is slow to load; no answer means nothing is taken off.
+  async function visitLeg(from, to){
+    if(!opts.legMinutes) return null;
+    try {
+      return await Promise.race([
+        opts.legMinutes(from, to),
+        new Promise(resolve => setTimeout(() => resolve(null), LEG_WAIT_MS)),
+      ]);
+    } catch { return null; }
+  }
+
+  // Turn an ended timer into its row and queue it. `job` is everything the row needs
+  // and is parked under VISIT_CLOSING_KEY until the queue has it. One at a time, in
+  // press order: two presses a second apart must not race each other's drive lookup,
+  // and a sweep must not re-send a job that is merely still running.
+  let visitChain = Promise.resolve(), visitInFlight = 0;
+  const closingJobs = () => {
+    const jobs = readJson(VISIT_CLOSING_KEY);
+    return Array.isArray(jobs) ? jobs.filter(j => j && j.open) : [];
+  };
+  const withoutJob = id => closingJobs().filter(j => j.open.id !== id);
+  function settleVisit(job){
+    writeJson(VISIT_CLOSING_KEY, [...withoutJob(job.open.id), job]);
+    visitInFlight++;
+    visitChain = visitChain.then(() => finishVisit(job))
+      .catch(e => console.error('House timer: could not save the visit', e))
+      .finally(() => { visitInFlight--; });
+    return visitChain;
+  }
+  async function finishVisit(job){
+    const { open, endedBy, endOrder, now } = job;
+    const end = visitMod.endOrderOf(open, endOrder);
+    const moved = !!open.order && !!end && !visitMod.sameOrder(open.order, end);
+    const leg = moved ? await visitLeg(open.order, end) : null;
+    const { row, discarded } = visitMod.endVisit(open, { endOrder, endedBy, now, leg });
+    if(discarded){
+      const last = lastVisit();
+      setLastVisit(last && last.order, `Cancelled (under ${visitMod.MIN_VISIT_SEC} seconds)`);
+    } else {
+      await sendVisit(row);
+      setLastVisit(end, visitMod.savedText(row));
+    }
+    writeJson(VISIT_CLOSING_KEY, withoutJob(open.id));
+    paintVisit();
+  }
+
+  // What a reload or a new day left behind: a row that never reached the queue, and
+  // a timer still running from a previous day (saved with no end time).
+  function sweepVisits(){
+    if(!visitMod) return;
+    if(!visitInFlight) for(const job of closingJobs()) settleVisit(job);
+    const stale = visitMod.closeStale(openVisit(), localDate());
+    if(stale){
+      writeJson(VISIT_KEY, null);
+      sendVisit(stale);
+      setLastVisit(null, visitMod.savedText(stale));
+    }
+  }
+
+  function onParked(){
+    sweepVisits();
+    const open = openVisit();
+    const order = visitOrder();
+    // Nothing else on screen to be parked at: the timer is already on this house.
+    if(open && (visitMod.sameOrder(open.order, order) || (!open.order && !order))) return;
+    // A double tap. (typeof: this file can run beside an older cached site-visit.js.)
+    if(open && typeof visitMod.isFresh === 'function' && visitMod.isFresh(open, Date.now())) return;
+    const now = visitNow();
+    const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    writeJson(VISIT_KEY, visitMod.startVisit({ id, order, now }));
+    paintVisit();
+    // The old timer was never ended. It ends here, on the order this press is for.
+    if(open) settleVisit({ open, endedBy: 'nextStart', endOrder: order, now });
+  }
+  function onLeaving(){
+    sweepVisits();
+    const open = openVisit();
+    if(!open) return;
+    writeJson(VISIT_KEY, null);
+    paintVisit();
+    settleVisit({ open, endedBy: 'leave', endOrder: null, now: visitNow() });
+  }
+  // Navigate on another order while the timer runs: the truck is leaving.
+  function noteVisitNavigate(item){
+    if(!visitMod) return;
+    const open = openVisit();
+    if(!open) return;
+    writeJson(VISIT_KEY, visitMod.noteNavigate(open, snapOrder(item), stamp()));
+    paintVisit();
+  }
+
+  function paintVisit(){
+    if(!visitUi || !visitMod) return;
+    const { park, leave, line } = visitUi;
+    const open = openVisit();
+    const running = !!open && open.date === localDate();
+    park.textContent = running ? `⏱ ${visitMod.elapsedMin(open, Date.now())} min` : 'Parked';
+    park.style.borderColor = running ? 'var(--accent)' : '';
+    park.style.color = running ? 'var(--accent)' : '';
+    leave.disabled = !running;
+    leave.style.opacity = running ? '1' : '.45';
+    leave.style.background = running ? 'var(--accent)' : '';
+    leave.style.borderColor = running ? 'var(--accent)' : '';
+    leave.style.color = running ? 'var(--accent-ink)' : '';
+    const last = lastVisit();
+    line.textContent = running ? visitMod.runningText(open, Date.now()) : (last ? last.text : '');
+  }
+
+  // [ Parked ]  2 of 14 / km/h now  [ Leaving ] — the row the owner drew. Built
+  // around the existing #drivePos, which keeps its id and its text.
+  function buildVisitRow(){
+    const pos = $('drivePos');
+    if(visitUi || !pos || !pos.parentNode) return;
+    const make = (tag, css) => { const n = document.createElement(tag); n.style.cssText = css; return n; };
+    const button = (id, label) => {
+      const b = make('button',
+        'height:auto;min-height:64px;width:100%;margin:0;padding:6px 8px;font-size:17px;font-weight:700;');
+      b.type = 'button'; b.className = 'ghost'; b.id = id; b.textContent = label;
+      return b;
+    };
+    const row = make('div',
+      'display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:10px;margin:12px 0 4px;');
+    const mid = make('div',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:84px;');
+    const line = make('div', 'text-align:center;font-size:14px;min-height:20px;margin:4px 0 8px;');
+    line.className = 'muted';
+    line.setAttribute('aria-live', 'polite');
+    const park = button('driveVisitPark', 'Parked');
+    const leave = button('driveVisitLeave', 'Leaving');
+    row.id = 'driveVisit';
+    const parent = pos.parentNode;
+    parent.insertBefore(row, pos);
+    parent.insertBefore(line, pos);
+    row.append(park, mid, leave);
+    pos.style.margin = '0';
+    mid.appendChild(pos);
+    const nowEl = document.querySelector('#driveMetrics .dm-now');
+    if(nowEl){ nowEl.style.margin = '4px 0 0'; mid.appendChild(nowEl); }
+    park.onclick = onParked;
+    leave.onclick = onLeaving;
+    visitUi = { park, leave, line, nowEl };
+  }
+
+  function startVisitTick(){ if(!visitTimer) visitTimer = setInterval(paintVisit, VISIT_TICK_MS); }
+  function stopVisitTick(){ if(visitTimer){ clearInterval(visitTimer); visitTimer = null; } }
+
+  import('./site-visit.js').then(m => {
+    if(!m || typeof m.startVisit !== 'function' || typeof m.pickOrder !== 'function') return;
+    visitMod = m;
+    buildVisitRow();
+    sweepVisits();
+    paintMetrics();
+    paintVisit();
+  }).catch(e => console.error('House timer unavailable', e));
+
   // One repaint entry point for the recorder's subscribe() — indicator + HUD +
   // dest + on-pace line (the pace is throttled inside paintPace).
-  function paintAll(){ paintIndicator(); paintMetrics(); renderDest(); paintPace(); }
+  function paintAll(){ paintIndicator(); paintMetrics(); renderDest(); paintPace(); paintVisit(); }
 
   function renderCard(){
     const card = $('driveCard');
@@ -412,17 +636,23 @@ export function initDrive(opts){
     // syncAt survives the close, so re-entering the screen after three idle minutes
     // refreshes on the first tick rather than waiting out a fresh period.
     startAutoSync();
+    // The live minutes on the Parked button. Like the refresh, it must not outlive
+    // the screen — both close() and teardown() clear it.
+    sweepVisits();
+    startVisitTick();
     window.scrollTo(0, 0);
     $('driveBack').focus();
   }
   async function close(){
     openState = false;
     stopAutoSync();
+    stopVisitTick();
     screen.classList.add('hide');
   }
   async function teardown(){
     if(openState){ openState = false; screen.classList.add('hide'); }
     stopAutoSync();
+    stopVisitTick();
     if(location.hash === '#drive') history.back();
   }
 
@@ -437,6 +667,7 @@ export function initDrive(opts){
     // card holds the destination now, so it's safe for the stepper to move on.
     saveDest(item);
     renderDest();
+    noteVisitNavigate(item);
     // Advance the display to the next order BEFORE handing off to Maps, so the
     // next card is already showing when the driver switches back. Navigation
     // still goes to the order that was pressed, not the newly shown one. Like

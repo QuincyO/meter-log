@@ -1008,6 +1008,24 @@ async function estimateTravel(items, all){
   return estimateTravelFromCoords(items, start, home);
 }
 
+// The drive between two orders, in minutes, for the Drive screen's house timer
+// (js/site-visit.js): a timer that ran on past the house holds a drive, and this is
+// what gets taken off it. The same ladder as estimateTravel — the district's road
+// graph, else crow-flies × detour — and deliberately not a third model. `source`
+// goes on the SiteVisits row so the figure can be weighed later: 'road' only when
+// the graph measured this pair, 'straight' for the estimate. Null with a pin missing.
+async function legMinutes(from, to){
+  const a = coordsOf(from), b = coordsOf(to);
+  if(!a || !b) return null;
+  const pair = [{ id: 'from', ...a }, { id: 'to', ...b }];
+  let look = null;
+  try { look = await roadTravelFromCoords(pair, null, null); } catch { look = null; }
+  const road = !!look && look.measured !== false;
+  if(!look) look = estimateTravelFromCoords(pair, null, null);
+  const min = look ? look.between('from', 'to') : null;
+  return (min != null && isFinite(min)) ? { min, source: road ? 'road' : 'straight' } : null;
+}
+
 async function crewStartPin(useNetwork = true){
   const addr = (store.get('crewStartAddress') || '').trim();
   if(!addr){ store.set('crewStartFor', ''); return null; }
@@ -3637,6 +3655,7 @@ export function initWorklist(opts){
       stale: planStale(),
     }),
     autoSync,
+    legMinutes,
     openDirections,
     onClose: () => location.hash === '#drive' ? history.back() : openWorklist(),
   });

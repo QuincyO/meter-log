@@ -190,6 +190,18 @@ card action row is tight at 320 px.
   inject fixes via `Emulation.setGeolocationOverride` or seed the `driveTracks` IndexedDB
   store directly (a row dated yesterday should ship on reload; one dated today should not
   until Finish).
+- **The house timer (Drive screen, Parked / Leaving) is driven through `localStorage`.**
+  The buttons are `#driveVisitPark` and `#driveVisitLeave`, built by `js/drive.js`, not
+  in `index.html`. Intercept the spine (§4) first: Leaving queues a `saveSiteVisit`.
+  Three things save time. (1) A timer ended inside 30 seconds is cancelled, so to get a
+  row without waiting, press Parked, then move `startMs` back in the `siteVisitOpen`
+  key (`v.startMs -= 23 * 60000`) and press Leaving. (2) A second Parked press inside
+  those 30 seconds does nothing, so move `startMs` back before testing "Parked at the
+  next house". (3) To check the screen without the timer module, failing
+  `*site-visit.js*` with CDP `Fetch` is not enough once the service worker is
+  registered, because the worker fetches the file itself: also send
+  `Network.setBypassServiceWorker { bypass: true }`. The row must then be absent and
+  `#drivePos` still in place.
 - Find dates that actually have data via `action=pins&from=&to=` before driving date
   pickers.
 - `status:"DONE"` stops never render anywhere — a day holding only DONE markers

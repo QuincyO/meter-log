@@ -338,6 +338,22 @@ const WORKLIST_PLANS_HEADERS = ['hNumber','routeStartDate','firstStopTime','pace
 const DRIVETRACKS_HEADERS = ['id','date','installer','workType','startTime','endTime',
   'pointCount','distanceM','driveMin','avgSpeed','maxSpeed','gaps','encoded'];
 
+// One row per house timer — the Drive screen's Parked / Leaving buttons
+// (js/site-visit.js, written by saveSiteVisit). COLLECTION ONLY: nothing reads this
+// tab yet, and what the numbers mean is to be tuned once there is data (owner,
+// 2026-11-27). So `minutes` is always the raw end − start, and the interpretation
+// sits beside it: `driveMin` is one estimated drive leg, taken off only when the
+// timer ended on a different order than it started on (the installer forgot to end
+// it and drove on), and `onSiteMin` = minutes − driveMin, never below 0.
+// `endedBy`: leave (the right button) | nextStart (Parked pressed at another house
+// with the timer still running) | notEnded (still running the next day; endTime and
+// minutes blank). `navTime` is when Navigate was first pressed on another order
+// while the timer ran. The three time columns are Toronto stamps like Stops'.
+// The order on a row is a hint; the stops logged inside the window are on `Stops`.
+const SITEVISITS_HEADERS = ['id','date','installer','hNumber','workType','startTime','endTime',
+  'minutes','startWO','startAddress','endWO','endAddress','endedBy','driveMin','driveSource',
+  'onSiteMin','navTime'];
+
 // Work orders waiting to join an installer's worklist — written by the photo bot
 // (tools/wo-bot, via queueWorklistOrders), folded into `Worklist` by the
 // `?action=worklist` read (claimWorklistInbox), which stamps `claimedAt`.
@@ -395,6 +411,7 @@ function setupSheets() {
   ensureTab(ss, 'Worklist', WORKLIST_HEADERS);
   ensureTab(ss, 'WorklistPlans', WORKLIST_PLANS_HEADERS);
   ensureTab(ss, 'DriveTracks', DRIVETRACKS_HEADERS);
+  ensureTab(ss, 'SiteVisits', SITEVISITS_HEADERS);
   ensureWorklistInboxTab(ss);
   ensureWorklistRemovedTab(ss);
   // These values are minute counts and rates, not Sheets date serials — but a column
@@ -509,6 +526,7 @@ function doPost(e) {
       case 'saveWorklist':   return json(saveWorklist(body));
       case 'savePlan':       return json(savePlan(body));
       case 'saveDriveTrack': return json(saveDriveTrack(body));
+      case 'saveSiteVisit':  return json(saveSiteVisit(body));
       case 'queueWorklistOrders': return json(queueWorklistOrders(body));
       case 'removeWorklistOrders': return json(removeWorklistOrders(body));
       case 'saveEmployee':   return json(saveEmployee(body));
@@ -878,6 +896,28 @@ function saveDriveTrack(b) {
   sh.appendRow(row);
   bustRows('DriveTracks');
   return { ok: true, id: id };
+}
+
+/** Append one house timer (see SITEVISITS_HEADERS). It rides the offline queue
+ *  like a drive leg, so every outcome is terminal: a re-sent id acks as a
+ *  duplicate, and a row with nothing on it is acked and skipped rather than
+ *  rejected, because a rejection would sit in the phone's queue for good. The tab
+ *  makes itself on the first write. Token-only — a phone sends it. */
+function saveSiteVisit(b) {
+  if (!b.id || !b.startTime) return { ok: true, skipped: true };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('SiteVisits') || ensureTab(ss, 'SiteVisits', SITEVISITS_HEADERS);
+  if (idExists(sh, b.id)) return { ok: true, id: b.id, duplicate: true };
+  const row = [
+    b.id, b.date || '', b.installer || '', b.hNumber || '', normWorkType(b.workType),
+    b.startTime, b.endTime || '', numOrBlank(b.minutes),
+    String(b.startWO || ''), b.startAddress || '', String(b.endWO || ''), b.endAddress || '',
+    b.endedBy || '', numOrBlank(b.driveMin), b.driveSource || '',
+    numOrBlank(b.onSiteMin), b.navTime || ''
+  ];
+  sh.appendRow(row);
+  bustRows('SiteVisits');
+  return { ok: true, id: b.id };
 }
 
 /** End-of-day dispatch deduction suggested for a gap's arriving install — the
